@@ -1,6 +1,14 @@
-const { useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = (await import("@whiskeysockets/baileys"))
-import pkg from "@whiskeysockets/baileys"
-const { proto, generateWAMessageFromContent } = pkg
+import baileys from "@whiskeysockets/baileys"
+
+const {
+  useMultiFileAuthState,
+  DisconnectReason,
+  makeCacheableSignalKeyStore,
+  fetchLatestBaileysVersion,
+  proto,
+  generateWAMessageFromContent
+} = baileys
+
 import qrcode from "qrcode"
 import NodeCache from "node-cache"
 import fs from "fs"
