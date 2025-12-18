@@ -25,7 +25,7 @@ global.yukiJadibts = true
 
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
-global.botname = "Ꮻꮐꮜꭱꮖ-ᏴᏫᎢ"
+global.botname = "Ꮻꮐꮜꭱꮖ-Ꮯꭺꮲ"
 global.textbot = "Ꮻꮐꮜꭱꮖ, ꮇꭺꭰꭼ ꮃꮖꭲꮋ ᏼꭹ ᎷᎬᏞᏫᎠᏆᎪ"
 global.dev = "© ⍴᥆ᥕᥱʳᥱძ ᑲᥡ ᴹᴱᴸᴼᴰᴵᴬ"
 global.author = "© ꮇᥲძᥱ ᥕі𝗍һ ᑲᥡ ᎷᎬᏞᏫᎠᏆᎪ"
