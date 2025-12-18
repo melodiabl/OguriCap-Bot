@@ -40,7 +40,7 @@ termux-setup-storage
 apt update && apt upgrade && pkg install -y git nodejs ffmpeg imagemagick yarn
 ```
 ```bash
-git clone https://github.com/The-King-Destroy/YukiBot-MD && cd YukiBot-MD
+git clone https://github.com/melodiabl/OguriCap-Bot.git && cd OguriCap-bot
 ```
 ```bash
 yarn install
@@ -82,19 +82,19 @@ pm2 start index
 ### En caso de detenerse
 > _Si despues que ya instalastes el bot y termux te salta en blanco, se fue tu internet o reiniciaste tu celular, solo realizaras estos pasos:_
 ```bash
-cd && cd YukiBot-MD && npm start
+cd && cd OguriCap-bot && npm start
 ```
 ----
 ### Obtener nuevo código QR 
 > *Detén el bot, haz click en el símbolo (ctrl) [default=z] usar la letra "z" + "ENTER" hasta que salga algo verdes similar a: `YukiBot-MD $`*
 > **Escribe los siguientes comandos uno x uno :**
 ```bash 
-cd && cd YukiBot-MD && rm -rf sessions/Principal && npm run qr
+cd && cd OguriCap-bot && rm -rf sessions/Principal && npm run qr
 ```
 ----
 ### Obtener nuevo código de teléfono 
 ```bash 
-cd && cd YukiBot-MD && rm -rf sessions/Principal && npm run code
+cd && cd OguriCap-bot&& rm -rf sessions/Principal && npm run code
 ```
 </details>
 
@@ -113,7 +113,7 @@ grep -q 'bash\|wget' <(dpkg -l) || apt install -y bash wget && wget -O - https:/
 *Si después de instalar el bot e iniciar la sesión (deseas poner tu número es la lista de owner pon este comando:*
 
 ```bash
-cd && cd YukiBot-MD && nano settings.js
+cd && cd OguriCap-bot && nano settings.js
 ```
 #### Para que no pierda su progreso en YukiBot, estos comandos realizarán un respaldo de su `database.json` y se agregará a la versión más reciente.
 > *Estos comandos solo funcionan para TERMUX, REPLIT, LINUX*
@@ -125,16 +125,16 @@ cd && cd YukiBot-MD && nano settings.js
 <details>
 <summary><b> 🜸 Enlaces Oficiales </b></summary>
 
- * Canal Oficial  [`¡Click aquí!`](https://whatsapp.com/channel/0029Vb64nWqLo4hb8cuxe23n)
-* Grupo Oficial [`¡Click aquí!`](https://chat.whatsapp.com/HaKf6ezcwdbGzmH782eBal)
-* Comunidad Oficial [`¡Click aquí!`](https://chat.whatsapp.com/BgIcqDiiTEmL5ChFpq76y0?mode=ems_copy_t)
+ * Canal Oficial  [`¡Click aquí!`](https://whatsapp.com/channel/0029VbBZ4YX4inoqvA74nA20)
+* Grupo Oficial [`¡Click aquí!`](https://chat.whatsapp.com/HY3r3RwkOOKCs6OxCzsEFW)
+* Comunidad Oficial [`¡Click aquí!`](https://chat.whatsapp.com/EYi0JuSqDj3LYJ83ohRdMm)
 </details>
 
 <details>
 <summary><b> ✰ Contáctos</b></summary>
 
-* WhatsApp: [`Aquí`](https://wa.me/522202410659)
-* Correo: [`Aquí`](thekingdestroy507@gmail.com)
+* WhatsApp: [`Aquí`](https://wa.me/595974154768)
+* Correo: [`Aquí`](melodiayaoivv@gmail.com)
 </details>
 
 ---
@@ -183,5 +183,5 @@ href="https://home.akirax.net"><img src="https://raw.githubusercontent.com/The-K
 
 ### **`ᥫ᭡ Propietario`**
 <a
-href="https://github.com/The-King-Destroy"><img src="https://github.com/The-King-Destroy.png" width="130" height="130" alt="
-ⁱᵃᵐ|𝔇ĕ𝐬†𝓻⊙γ𒆜"/></a>
+href="https://github.com/melodiabl"><img src="https://github.com/melodiabl.png" width="130" height="130" alt="
+M͟ᴇ͟ʟ͟ᴏ͟ᴅ͟ɪ͟ᴀ"/></a>
