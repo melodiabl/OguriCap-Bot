@@ -1,10 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
 import { lookup } from 'mime-types'
-
-const execFileAsync = promisify(execFile)
+import AdmZip from 'adm-zip'
 
 const formatBytes = (value) => {
   const num = Number(value || 0)
@@ -46,11 +43,6 @@ const splitTitleAndBody = (input) => {
 
 const ensureDir = (dir) => {
   fs.mkdirSync(dir, { recursive: true })
-}
-
-const quotePowerShell = (value) => {
-  const safe = String(value || '').replace(/'/g, "''")
-  return `'${safe}'`
 }
 
 const downloadToFile = async (q, label) => {
@@ -165,27 +157,20 @@ const createSimplePdf = (text) => {
   return Buffer.from(pdf, 'binary')
 }
 
-const runZip = async (inputPath, outputZip) => {
-  if (process.platform === 'win32') {
-    const command = `Compress-Archive -Path ${quotePowerShell(inputPath)} -DestinationPath ${quotePowerShell(outputZip)} -Force`
-    await execFileAsync('powershell', ['-NoProfile', '-Command', command])
-    return
-  }
+const runZip = (inputPath, outputZip) => {
+  const zip = new AdmZip()
   const stat = fs.statSync(inputPath)
   if (stat.isDirectory()) {
-    await execFileAsync('zip', ['-r', outputZip, '.'], { cwd: inputPath })
+    zip.addLocalFolder(inputPath)
   } else {
-    await execFileAsync('zip', ['-j', outputZip, inputPath])
+    zip.addLocalFile(inputPath)
   }
+  zip.writeZip(outputZip)
 }
 
-const runUnzip = async (zipPath, destDir) => {
-  if (process.platform === 'win32') {
-    const command = `Expand-Archive -Path ${quotePowerShell(zipPath)} -DestinationPath ${quotePowerShell(destDir)} -Force`
-    await execFileAsync('powershell', ['-NoProfile', '-Command', command])
-    return
-  }
-  await execFileAsync('unzip', ['-o', zipPath, '-d', destDir])
+const runUnzip = (zipPath, destDir) => {
+  const zip = new AdmZip(zipPath)
+  zip.extractAllTo(destDir, true)
 }
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
