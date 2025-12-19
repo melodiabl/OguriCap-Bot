@@ -13,14 +13,14 @@
 },
 "repository": {
 "type": "git",
-"url": "git+https://github.com/The-King-Destroy/YukiBot-MD.git"
+"url": "git+https://github.com/melodiabl/OguriCap-Bot.git"
 },  
-"author": "The-King-Destroy",
+"author": "melodiabl",
 "license": "MIT-License",
 "bugs": {
-"url": "https://github.com/The-King-Destroy/YukiBot-MD/issues"
+"url": "https://github.com/melodiabl/OguriCap-Bot/issues"
 },
-"homepage": "https://github.com/The-King-Destroy/YukiBot-MD#readme",
+"homepage": "https://github.com/melodiabl/OguriCap-Bot#readme",
 "dependencies": {
 "@hapi/boom": "^10.0.1",
 "@vitalets/google-translate-api": "^8.0.0",
