@@ -20,3 +20,10 @@ temp/
 # Logs
 *.log
 logs/
+
+# IDE y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
