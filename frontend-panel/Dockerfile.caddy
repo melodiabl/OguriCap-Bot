@@ -1,0 +1,6 @@
+FROM caddy:2-alpine
+
+# Copiar configuración de Caddy
+COPY Caddyfile /etc/caddy/Caddyfile
+
+# El contenido se montará como volumen desde frontend-build

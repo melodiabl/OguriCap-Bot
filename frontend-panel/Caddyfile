@@ -1,0 +1,20 @@
+:80 {
+    # Servir archivos estáticos del frontend
+    root * /home/admin/bot-whatsapp-panel-2.5-completo-v2/frontend-panel/dist
+    file_server
+
+    # Proxy para API del backend
+    handle /api/* {
+        reverse_proxy localhost:3001
+    }
+
+    # Proxy para media files
+    handle /media/* {
+        reverse_proxy localhost:3001
+    }
+
+    # Manejar rutas del SPA
+    handle {
+        try_files {path} /index.html
+    }
+}
