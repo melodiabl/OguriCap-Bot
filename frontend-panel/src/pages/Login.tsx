@@ -265,19 +265,6 @@ export const Login: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick login hint */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="p-4 rounded-xl bg-primary-500/10 border border-primary-500/20"
-              >
-                <p className="text-sm text-gray-400 text-center">
-                  <span className="text-primary-400 font-medium">Tip:</span> Usa{' '}
-                  <code className="px-2 py-0.5 rounded bg-white/10 text-white">admin</code>{' '}
-                  para acceso rápido
-                </p>
-              </motion.div>
             </motion.div>
 
             {/* Footer */}
