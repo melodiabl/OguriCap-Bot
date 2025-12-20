@@ -60,13 +60,17 @@ export function useBotStatus(interval = 5000) {
 
 export function useSystemStats(interval = 10000) {
   const [memoryUsage, setMemoryUsage] = useState<{ systemPercentage: number } | null>(null);
+  const [cpuUsage, setCpuUsage] = useState<number>(0);
   const [uptime, setUptime] = useState(0);
+  const [systemInfo, setSystemInfo] = useState<any>(null);
 
   const fetchStats = useCallback(async () => {
     try {
       const data = await api.getSystemStats();
       setMemoryUsage(data.memory);
+      setCpuUsage(data.cpu?.percentage || 0);
       setUptime(data.uptime || 0);
+      setSystemInfo(data);
     } catch (err) {
       // Silent fail
     }
@@ -78,7 +82,7 @@ export function useSystemStats(interval = 10000) {
     return () => clearInterval(timer);
   }, [fetchStats, interval]);
 
-  return { memoryUsage, uptime };
+  return { memoryUsage, cpuUsage, uptime, systemInfo };
 }
 
 export function useSubbotsStatus(interval = 10000) {

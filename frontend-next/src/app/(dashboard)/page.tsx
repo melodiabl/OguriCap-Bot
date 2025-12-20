@@ -25,7 +25,7 @@ interface RecentActivity {
 export default function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats(15000);
   const { status: botStatus, isConnected, isConnecting, refetch: refetchBot } = useBotStatus(5000);
-  const { memoryUsage, uptime } = useSystemStats(10000);
+  const { memoryUsage, cpuUsage, uptime, systemInfo } = useSystemStats(10000);
   const { onlineCount, totalCount } = useSubbotsStatus(10000);
   const { isConnected: isSocketConnected, socket } = useSocket();
   const [recentActivity, setRecentActivity] = React.useState<RecentActivity[]>([]);
@@ -190,11 +190,11 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center mb-6">
             <DonutChart
               data={[
-                { label: 'Usado', value: memoryUsage?.systemPercentage || 45, color: '#6366f1' },
-                { label: 'Libre', value: 100 - (memoryUsage?.systemPercentage || 45), color: 'rgba(255,255,255,0.1)' },
+                { label: 'Usado', value: memoryUsage?.systemPercentage || 0, color: '#6366f1' },
+                { label: 'Libre', value: 100 - (memoryUsage?.systemPercentage || 0), color: 'rgba(255,255,255,0.1)' },
               ]}
               size={140}
-              centerValue={`${memoryUsage?.systemPercentage || 45}%`}
+              centerValue={`${memoryUsage?.systemPercentage || 0}%`}
               centerLabel="Memoria"
             />
           </div>
@@ -203,10 +203,10 @@ export default function DashboardPage() {
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">CPU</span>
-                <span className="text-white">~{Math.min(100, Math.floor((memoryUsage?.systemPercentage || 30) * 0.7))}%</span>
+                <span className="text-white">{cpuUsage}%</span>
               </div>
               <div className="progress-bar">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, Math.floor((memoryUsage?.systemPercentage || 30) * 0.7))}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${cpuUsage}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
               </div>
             </div>
             <div>
@@ -346,6 +346,91 @@ export default function DashboardPage() {
           </div>
         </GlowCard>
       </div>
+
+      {/* System Information */}
+      <Card animated delay={1.0} className="p-6">
+        <h3 className="text-lg font-semibold text-white mb-6">Información del Sistema</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-gray-300">Procesador</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Uso CPU</span>
+                <span className="text-white font-mono">{cpuUsage}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Núcleos</span>
+                <span className="text-white font-mono">{systemInfo?.cpu?.cores || '-'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Modelo</span>
+                <span className="text-white font-mono text-xs truncate" title={systemInfo?.cpu?.model}>
+                  {systemInfo?.cpu?.model ? systemInfo.cpu.model.slice(0, 20) + '...' : '-'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-gray-300">Memoria RAM</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Uso</span>
+                <span className="text-white font-mono">{memoryUsage?.systemPercentage || 0}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Total</span>
+                <span className="text-white font-mono">{systemInfo?.memory?.totalGB || '-'} GB</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Libre</span>
+                <span className="text-white font-mono">{systemInfo?.memory?.freeGB || '-'} GB</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-gray-300">Sistema</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Plataforma</span>
+                <span className="text-white font-mono">{systemInfo?.platform || '-'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Arquitectura</span>
+                <span className="text-white font-mono">{systemInfo?.arch || '-'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Node.js</span>
+                <span className="text-white font-mono">{systemInfo?.node || '-'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-gray-300">Red</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Hostname</span>
+                <span className="text-white font-mono text-xs truncate">
+                  {systemInfo?.network?.hostname || '-'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Interfaces</span>
+                <span className="text-white font-mono">
+                  {systemInfo?.network?.networkInterfaces?.length || 0}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Uptime</span>
+                <span className="text-white font-mono">{formatUptime(uptime)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
