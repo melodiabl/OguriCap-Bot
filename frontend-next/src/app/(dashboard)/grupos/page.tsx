@@ -31,12 +31,12 @@ export default function GruposPage() {
     checkConnectionStatus();
   }, [page, botFilter, proveedorFilter]);
 
-  // Auto-refresh cada 45 segundos para grupos
+  // Auto-refresh cada 3 minutos para grupos (reducido de 45 segundos)
   useEffect(() => {
     const interval = setInterval(() => {
       loadGroups();
       checkConnectionStatus();
-    }, 45000);
+    }, 180000); // 3 minutos en lugar de 45 segundos
     return () => clearInterval(interval);
   }, [page, botFilter, proveedorFilter]);
 

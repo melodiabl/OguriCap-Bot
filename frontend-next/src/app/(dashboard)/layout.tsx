@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { GroupsProvider } from '@/contexts/GroupsContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { motion } from 'framer-motion';
 import { Bot } from 'lucide-react';
@@ -44,5 +45,9 @@ export default function DashboardLayout({
     return null;
   }
 
-  return <MainLayout>{children}</MainLayout>;
+  return (
+    <GroupsProvider>
+      <MainLayout>{children}</MainLayout>
+    </GroupsProvider>
+  );
 }

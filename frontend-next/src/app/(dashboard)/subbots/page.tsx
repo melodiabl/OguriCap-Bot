@@ -150,7 +150,7 @@ export default function SubbotsPage() {
     loadSubbots();
     const interval = setInterval(getSubbotStatus, 30000);
     // Auto-refresh completo cada 2 minutos
-    const fullRefreshInterval = setInterval(loadSubbots, 120000);
+    const fullRefreshInterval = setInterval(loadSubbots, 300000); // Reducir a 5 minutos
     return () => {
       clearInterval(interval);
       clearInterval(fullRefreshInterval);

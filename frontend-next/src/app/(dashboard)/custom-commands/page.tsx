@@ -50,7 +50,7 @@ export default function CustomCommandsPage() {
 
   useEffect(() => {
     loadCommands();
-    const interval = setInterval(loadCommands, 30000); // Auto-refresh every 30s
+    const interval = setInterval(loadCommands, 120000); // Reducir a 2 minutos
     return () => clearInterval(interval);
   }, []);
 

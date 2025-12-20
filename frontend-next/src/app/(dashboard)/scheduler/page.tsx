@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { AutoRefreshIndicator } from '@/components/ui/AutoRefreshIndicator';
 import api from '@/services/api';
+import { useGroups } from '@/contexts/GroupsContext';
 import toast from 'react-hot-toast';
 
 interface ScheduledMessage {
@@ -49,7 +50,7 @@ const WEEKDAYS = [
 
 export default function SchedulerPage() {
   const [messages, setMessages] = useState<ScheduledMessage[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
+  const { groups } = useGroups(); // Usar el context en lugar de cargar grupos localmente
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingMessage, setEditingMessage] = useState<ScheduledMessage | null>(null);
@@ -66,14 +67,10 @@ export default function SchedulerPage() {
   });
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadMessages, 30000); // Auto-refresh every 30s
+    loadMessages(); // Solo cargar mensajes, los grupos vienen del context
+    const interval = setInterval(loadMessages, 60000); // Reducir frecuencia a 1 minuto
     return () => clearInterval(interval);
   }, []);
-
-  const loadData = async () => {
-    await Promise.all([loadMessages(), loadGroups()]);
-  };
 
   const loadMessages = async () => {
     try {
@@ -84,15 +81,6 @@ export default function SchedulerPage() {
       setMessages([]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadGroups = async () => {
-    try {
-      const response = await api.getGroups(1, 100);
-      setGroups(response.data || []);
-    } catch (error) {
-      console.error('Error loading groups');
     }
   };
 

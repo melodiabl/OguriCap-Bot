@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useSocket } from '@/contexts/SocketContext';
 import api from '@/services/api';
+import { useGroups } from '@/contexts/GroupsContext';
 import toast from 'react-hot-toast';
 
 interface Group {
@@ -37,6 +38,7 @@ interface GlobalNotification {
 }
 
 export default function GruposManagementPage() {
+  const { groups: contextGroups, refreshGroups } = useGroups(); // Usar context
   const [groups, setGroups] = useState<Group[]>([]);
   const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
   const [notificationStats, setNotificationStats] = useState<any>(null);
@@ -56,12 +58,12 @@ export default function GruposManagementPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [groupsRes, notifRes, statsRes] = await Promise.all([
-        api.getGroups(1, 100).catch(() => ({ data: [] })),
+      // Solo cargar notificaciones, los grupos vienen del context
+      const [notifRes, statsRes] = await Promise.all([
         api.getNotificaciones(1, 50).catch(() => ({ data: [] })),
         api.getNotificationStats().catch(() => ({ total: 0 }))
       ]);
-      setGroups(groupsRes.data || []);
+      setGroups(contextGroups); // Usar grupos del context
       setNotifications(notifRes.data || []);
       setNotificationStats(statsRes);
     } catch (error) {
@@ -69,7 +71,11 @@ export default function GruposManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [contextGroups]);
+
+  useEffect(() => { 
+    setGroups(contextGroups); // Actualizar cuando cambien los grupos del context
+  }, [contextGroups]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
