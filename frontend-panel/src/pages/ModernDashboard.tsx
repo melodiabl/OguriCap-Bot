@@ -50,8 +50,30 @@ export const ModernDashboard: React.FC = () => {
     return `${minutes}m`;
   };
 
-  // Sample sparkline data
-  const generateSparkline = () => Array.from({ length: 12 }, () => Math.floor(Math.random() * 100));
+  // Obtener datos reales de actividad por horas
+  const getHourlyActivity = () => {
+    if (!stats) return [];
+    
+    // Crear array de 24 horas con datos reales
+    const hours = Array.from({ length: 24 }, (_, i) => {
+      const hour = i.toString().padStart(2, '0');
+      return {
+        label: `${hour}:00`,
+        value: 0, // Se llenará con datos reales del backend
+        color: '#6366f1'
+      };
+    });
+    
+    // Agregar punto actual con datos reales
+    const currentHour = new Date().getHours();
+    hours[currentHour] = {
+      label: 'Ahora',
+      value: stats.mensajesHoy || 0,
+      color: '#10b981'
+    };
+    
+    return hours;
+  };
 
   return (
     <div className="space-y-6">
@@ -205,15 +227,7 @@ export const ModernDashboard: React.FC = () => {
             </div>
 
             <BarChart
-              data={[
-                { label: '00:00', value: Math.floor(Math.random() * 50), color: '#6366f1' },
-                { label: '04:00', value: Math.floor(Math.random() * 50), color: '#6366f1' },
-                { label: '08:00', value: Math.floor(Math.random() * 100), color: '#6366f1' },
-                { label: '12:00', value: Math.floor(Math.random() * 150), color: '#6366f1' },
-                { label: '16:00', value: Math.floor(Math.random() * 120), color: '#6366f1' },
-                { label: '20:00', value: Math.floor(Math.random() * 80), color: '#6366f1' },
-                { label: 'Ahora', value: stats?.mensajesHoy || 0, color: '#10b981' },
-              ]}
+              data={getHourlyActivity()}
               height={180}
             />
 
@@ -319,7 +333,12 @@ export const ModernDashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-white">{stats?.gruposActivos || 0}</p>
-                  <Sparkline data={generateSparkline()} color="#10b981" width={60} height={20} />
+                  <Sparkline 
+                    data={stats?.actividadDiaria || []} 
+                    color="#10b981" 
+                    width={60} 
+                    height={20} 
+                  />
                 </div>
               </div>
 
@@ -335,7 +354,12 @@ export const ModernDashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-white">{stats?.pedidosHoy || 0}</p>
-                  <Sparkline data={generateSparkline()} color="#f59e0b" width={60} height={20} />
+                  <Sparkline 
+                    data={stats?.pedidosTrend || []} 
+                    color="#f59e0b" 
+                    width={60} 
+                    height={20} 
+                  />
                 </div>
               </div>
 
@@ -351,7 +375,12 @@ export const ModernDashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-white">{onlineCount}/{totalCount}</p>
-                  <Sparkline data={generateSparkline()} color="#06b6d4" width={60} height={20} />
+                  <Sparkline 
+                    data={stats?.subbotsTrend || []} 
+                    color="#06b6d4" 
+                    width={60} 
+                    height={20} 
+                  />
                 </div>
               </div>
             </div>
