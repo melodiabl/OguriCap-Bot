@@ -10,7 +10,7 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ProgressRing } from '@/components/ui/Charts';
-import { useBotStatus, useGlobalBotState, useSystemStats } from '@/hooks/useRealTime';
+import { useBotStatus, useBotGlobalState, useSystemStats } from '@/hooks/useRealTime';
 import { useSocket } from '@/contexts/SocketContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
@@ -24,7 +24,7 @@ export default function BotStatusPage() {
   const [qrImage, setQrImage] = useState<string | null>(null);
 
   const { status, isConnected, isConnecting: botConnecting, refetch } = useBotStatus(3000);
-  const { isOn, setGlobalState, refetch: refetchGlobal } = useGlobalBotState(5000);
+  const { isOn, setGlobalState, refetch: refetchGlobal } = useBotGlobalState(5000);
   const { memoryUsage, cpuUsage, diskUsage, uptime } = useSystemStats(10000);
   const { isConnected: isSocketConnected, botStatus: socketBotStatus } = useSocket();
 

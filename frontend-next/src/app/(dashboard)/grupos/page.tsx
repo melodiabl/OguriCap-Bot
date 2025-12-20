@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, Search, RefreshCw, CheckCircle, XCircle, Power, PowerOff,
-  Star, X, Plus,
+  Star, X, Plus, Radio,
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { useGroupsSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { Group } from '@/types';
@@ -26,30 +27,7 @@ export default function GruposPage() {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<any>(null);
 
-  useEffect(() => {
-    loadGroups();
-    checkConnectionStatus();
-  }, [page, botFilter, proveedorFilter]);
-
-  // Auto-refresh cada 3 minutos para grupos (reducido de 45 segundos)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadGroups();
-      checkConnectionStatus();
-    }, 180000); // 3 minutos en lugar de 45 segundos
-    return () => clearInterval(interval);
-  }, [page, botFilter, proveedorFilter]);
-
-  const checkConnectionStatus = async () => {
-    try {
-      const response = await api.getMainBotStatus();
-      setConnectionStatus(response);
-    } catch (err) {
-      console.error('Error checking connection status:', err);
-    }
-  };
-
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.getGroups(page, 20, searchTerm, botFilter !== 'all' ? botFilter : undefined, proveedorFilter !== 'all' ? proveedorFilter : undefined);
@@ -60,7 +38,28 @@ export default function GruposPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm, botFilter, proveedorFilter]);
+
+  const checkConnectionStatus = useCallback(async () => {
+    try {
+      const response = await api.getMainBotStatus();
+      setConnectionStatus(response);
+    } catch (err) {
+      console.error('Error checking connection status:', err);
+    }
+  }, []);
+
+  // Usar smart refresh para grupos
+  const { isRefreshing, manualRefresh, isSocketConnected } = useGroupsSmartRefresh(
+    useCallback(async () => {
+      await Promise.all([loadGroups(), checkConnectionStatus()]);
+    }, [loadGroups, checkConnectionStatus])
+  );
+
+  useEffect(() => {
+    loadGroups();
+    checkConnectionStatus();
+  }, [loadGroups, checkConnectionStatus]);
 
   const toggleBot = async (group: Group) => {
     try {
@@ -122,6 +121,16 @@ export default function GruposPage() {
           <p className="text-gray-400 mt-1">Administra los grupos de WhatsApp conectados</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3">
+          {/* Indicador de conexión Socket.IO */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+            isSocketConnected 
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+          }`}>
+            <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
+            {isSocketConnected ? 'Tiempo Real' : 'Modo Fallback'}
+          </div>
+          
           <Button 
             variant="primary" 
             icon={<Plus className="w-4 h-4" />} 
@@ -130,8 +139,14 @@ export default function GruposPage() {
           >
             Sincronizar WhatsApp
           </Button>
-          <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadGroups} loading={loading}>
-            Actualizar Lista
+          <Button 
+            variant="secondary" 
+            icon={<RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />} 
+            onClick={manualRefresh} 
+            loading={isRefreshing}
+            title={isSocketConnected ? 'Actualización manual (automática por eventos)' : 'Actualización manual'}
+          >
+            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
           </Button>
         </motion.div>
       </div>

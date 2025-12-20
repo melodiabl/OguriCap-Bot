@@ -15,14 +15,14 @@ import { useGroups } from '@/contexts/GroupsContext';
 import toast from 'react-hot-toast';
 
 interface Group {
-  id: string;
-  jid: string;
+  id: number;
+  wa_jid: string;
   nombre: string;
-  descripcion?: string;
-  bot_activo: boolean;
+  descripcion: string;
+  es_proveedor: boolean;
   bot_enabled?: boolean;
-  desactivado_por?: string;
-  fecha_desactivacion?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface GlobalNotification {
@@ -80,12 +80,12 @@ export default function GruposManagementPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleToggleGroup = async (group: Group) => {
-    const isActive = group.bot_activo ?? group.bot_enabled;
-    setTogglingGroup(group.jid);
+    const isActive = group.bot_enabled;
+    setTogglingGroup(group.wa_jid);
     try {
-      await api.toggleGroupBot(group.jid, isActive ? 'off' : 'on');
+      await api.toggleGroupBot(group.wa_jid, isActive ? 'off' : 'on');
       setGroups(prev => prev.map(g => 
-        g.jid === group.jid ? { ...g, bot_activo: !isActive, bot_enabled: !isActive } : g
+        g.wa_jid === group.wa_jid ? { ...g, bot_enabled: !isActive } : g
       ));
       
       // Crear notificación automática
@@ -149,7 +149,7 @@ export default function GruposManagementPage() {
     }
   };
 
-  const activeGroups = groups.filter(g => g.bot_activo ?? g.bot_enabled).length;
+  const activeGroups = groups.filter(g => g.bot_enabled).length;
   const inactiveGroups = groups.length - activeGroups;
 
   const formatDate = (date: string) => {
@@ -248,10 +248,10 @@ export default function GruposManagementPage() {
                     </thead>
                     <tbody>
                       {groups.map((group, index) => {
-                        const isActive = group.bot_activo ?? group.bot_enabled;
+                        const isActive = group.bot_enabled;
                         return (
                           <motion.tr
-                            key={group.jid}
+                            key={group.wa_jid}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.03 }}
@@ -259,7 +259,7 @@ export default function GruposManagementPage() {
                           >
                             <td className="py-4 px-4">
                               <p className="font-semibold text-white">{group.nombre}</p>
-                              <p className="text-xs text-gray-500 truncate max-w-[200px]">{group.jid}</p>
+                              <p className="text-xs text-gray-500 truncate max-w-[200px]">{group.wa_jid}</p>
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-2">
@@ -274,17 +274,17 @@ export default function GruposManagementPage() {
                             </td>
                             <td className="py-4 px-4">
                               <span className="text-sm text-gray-400">
-                                {group.fecha_desactivacion ? formatDate(group.fecha_desactivacion) : 'N/A'}
+                                {group.updated_at ? new Date(group.updated_at).toLocaleDateString() : 'N/A'}
                               </span>
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => handleToggleGroup(group)}
-                                  disabled={togglingGroup === group.jid}
+                                  disabled={togglingGroup === group.wa_jid}
                                   className={`relative w-12 h-6 rounded-full transition-colors ${
                                     isActive ? 'bg-emerald-500' : 'bg-gray-600'
-                                  } ${togglingGroup === group.jid ? 'opacity-50' : ''}`}
+                                  } ${togglingGroup === group.wa_jid ? 'opacity-50' : ''}`}
                                 >
                                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
                                     isActive ? 'left-7' : 'left-1'
@@ -391,7 +391,7 @@ export default function GruposManagementPage() {
               </div>
               <div>
                 <h4 className="text-lg font-semibold text-white">{selectedGroup.nombre}</h4>
-                <p className="text-sm text-gray-500 truncate max-w-[300px]">{selectedGroup.jid}</p>
+                <p className="text-sm text-gray-500 truncate max-w-[300px]">{selectedGroup.wa_jid}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -399,18 +399,18 @@ export default function GruposManagementPage() {
                 <p className="text-sm text-gray-400">Estado del Bot</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
-                    (selectedGroup.bot_activo ?? selectedGroup.bot_enabled)
+                    selectedGroup.bot_enabled
                       ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                       : 'bg-red-500/20 text-red-400 border-red-500/30'
                   }`}>
-                    {(selectedGroup.bot_activo ?? selectedGroup.bot_enabled) ? 'Activo' : 'Inactivo'}
+                    {selectedGroup.bot_enabled ? 'Activo' : 'Inactivo'}
                   </span>
                 </div>
               </div>
               <div className="p-3 bg-white/5 rounded-xl">
                 <p className="text-sm text-gray-400">Última Actividad</p>
                 <p className="text-white mt-1">
-                  {selectedGroup.fecha_desactivacion ? formatDate(selectedGroup.fecha_desactivacion) : 'N/A'}
+                  {selectedGroup.updated_at ? new Date(selectedGroup.updated_at).toLocaleDateString() : 'N/A'}
                 </p>
               </div>
             </div>

@@ -7,13 +7,13 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import { ProgressRing } from '@/components/ui/Charts';
-import { useSystemStats, useGlobalBotState, useBotStatus } from '@/hooks/useRealTime';
+import { useSystemStats, useBotGlobalState, useBotStatus } from '@/hooks/useRealTime';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
   const { memoryUsage, uptime } = useSystemStats(5000);
-  const { isOn, setGlobalState } = useGlobalBotState(5000);
+  const { isOn, setGlobalState } = useBotGlobalState(5000);
   const { isConnected } = useBotStatus(5000);
 
   const [botConfig, setBotConfig] = useState({

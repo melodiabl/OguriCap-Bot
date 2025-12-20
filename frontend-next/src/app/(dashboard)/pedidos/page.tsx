@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, Search, RefreshCw, Clock, CheckCircle, XCircle, Loader2, Eye, Plus, X,
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSocket } from '@/contexts/SocketContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { usePedidosSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { Pedido } from '@/types';
@@ -34,21 +35,7 @@ export default function PedidosPage() {
   const [aiProcessing, setAiProcessing] = useState(false);
   const { isConnected: isSocketConnected } = useSocket();
 
-  useEffect(() => {
-    loadPedidos();
-    loadStats();
-  }, [page, estadoFilter, prioridadFilter]);
-
-  // Auto-refresh cada 30 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadPedidos();
-      loadStats();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [page, estadoFilter, prioridadFilter]);
-
-  const loadPedidos = async () => {
+  const loadPedidos = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.getPedidos(page, 20, searchTerm, estadoFilter !== 'all' ? estadoFilter : undefined, prioridadFilter !== 'all' ? prioridadFilter : undefined);
@@ -59,16 +46,28 @@ export default function PedidosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm, estadoFilter, prioridadFilter]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await api.getPedidoStats();
       setStats(response);
     } catch (err) {
-      console.error('Error loading stats');
+      console.error('Error loading stats:', err);
     }
-  };
+  }, []);
+
+  // Usar smart refresh para pedidos
+  const { isRefreshing, manualRefresh, isSocketConnected: smartRefreshConnected } = usePedidosSmartRefresh(
+    useCallback(async () => {
+      await Promise.all([loadPedidos(), loadStats()]);
+    }, [loadPedidos, loadStats])
+  );
+
+  useEffect(() => {
+    loadPedidos();
+    loadStats();
+  }, [loadPedidos, loadStats]);
 
   const updateEstado = async (id: number, estado: string) => {
     try {
@@ -175,17 +174,25 @@ export default function PedidosPage() {
           <p className="text-gray-400 mt-1">Administra las solicitudes de la comunidad</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3 items-center">
+          {/* Indicador de conexión Socket.IO */}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-            isSocketConnected ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+            smartRefreshConnected ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
           }`}>
-            <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
-            {isSocketConnected ? 'Tiempo Real' : 'Sin conexión'}
+            <Radio className={`w-3 h-3 ${smartRefreshConnected ? 'animate-pulse' : ''}`} />
+            {smartRefreshConnected ? 'Tiempo Real' : 'Modo Fallback'}
           </div>
+          
           <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
             Nuevo Pedido
           </Button>
-          <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadPedidos} loading={loading}>
-            Actualizar
+          <Button 
+            variant="secondary" 
+            icon={<RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />} 
+            onClick={manualRefresh} 
+            loading={isRefreshing}
+            title={smartRefreshConnected ? 'Actualización manual (automática por eventos)' : 'Actualización manual'}
+          >
+            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
           </Button>
         </motion.div>
       </div>

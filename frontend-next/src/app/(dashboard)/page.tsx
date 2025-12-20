@@ -4,23 +4,15 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, MessageSquare, Package, ShoppingCart, Bot, Zap,
-  TrendingUp, Activity, Clock, CheckCircle, AlertCircle, RefreshCw, Radio,
+  TrendingUp, Activity, Clock, CheckCircle, RefreshCw, Radio, Settings,
 } from 'lucide-react';
 import { Card, StatCard, GlowCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { ProgressRing, BarChart, DonutChart, Sparkline } from '@/components/ui/Charts';
+import { ProgressRing, BarChart, DonutChart } from '@/components/ui/Charts';
 import { RealTimeBadge } from '@/components/ui/StatusIndicator';
-import { useDashboardStats, useBotStatus, useSystemStats, useSubbotsStatus } from '@/hooks/useRealTime';
+import { useDashboardStats, useBotStatus, useSystemStats, useSubbotsStatus, useRecentActivity } from '@/hooks/useRealTime';
 import { useSocket, SOCKET_EVENTS } from '@/contexts/SocketContext';
 import { formatUptime } from '@/lib/utils';
-
-interface RecentActivity {
-  icon: any;
-  title: string;
-  desc: string;
-  time: string;
-  color: string;
-}
 
 export default function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats(15000);
@@ -28,42 +20,22 @@ export default function DashboardPage() {
   const { memoryUsage, cpuUsage, diskUsage, uptime, systemInfo } = useSystemStats(10000);
   const { onlineCount, totalCount } = useSubbotsStatus(10000);
   const { isConnected: isSocketConnected, socket } = useSocket();
-  const [recentActivity, setRecentActivity] = React.useState<RecentActivity[]>([]);
+  const { activities: recentActivity, isLoading: activitiesLoading } = useRecentActivity(60000); // Cada minuto
 
-  // Listen for real-time events to build activity feed
+  // Listen for real-time events to build activity feed (mantener para eventos en tiempo real)
   React.useEffect(() => {
     if (!socket) return;
 
-    const addActivity = (activity: RecentActivity) => {
-      setRecentActivity(prev => [activity, ...prev.slice(0, 4)]);
-    };
-
-    const handleAporteCreated = () => {
-      addActivity({ icon: Package, title: 'Nuevo aporte', desc: 'Aporte recibido', time: 'Ahora', color: 'success' });
-    };
-
-    const handlePedidoCreated = () => {
-      addActivity({ icon: ShoppingCart, title: 'Nuevo pedido', desc: 'Pedido creado', time: 'Ahora', color: 'warning' });
-    };
-
+    // Solo mantener eventos críticos en tiempo real
     const handleBotConnected = () => {
-      addActivity({ icon: Bot, title: 'Bot conectado', desc: 'Conexión establecida', time: 'Ahora', color: 'success' });
+      // Refrescar actividad cuando el bot se conecte
+      // La actividad real vendrá del endpoint
     };
 
-    const handleSubbotConnected = (data: any) => {
-      addActivity({ icon: Zap, title: 'SubBot conectado', desc: `Instancia ${data?.subbotCode || ''} online`, time: 'Ahora', color: 'success' });
-    };
-
-    socket.on(SOCKET_EVENTS.APORTE_CREATED, handleAporteCreated);
-    socket.on(SOCKET_EVENTS.PEDIDO_CREATED, handlePedidoCreated);
     socket.on(SOCKET_EVENTS.BOT_CONNECTED, handleBotConnected);
-    socket.on(SOCKET_EVENTS.SUBBOT_CONNECTED, handleSubbotConnected);
 
     return () => {
-      socket.off(SOCKET_EVENTS.APORTE_CREATED, handleAporteCreated);
-      socket.off(SOCKET_EVENTS.PEDIDO_CREATED, handlePedidoCreated);
       socket.off(SOCKET_EVENTS.BOT_CONNECTED, handleBotConnected);
-      socket.off(SOCKET_EVENTS.SUBBOT_CONNECTED, handleSubbotConnected);
     };
   }, [socket]);
 
@@ -110,10 +82,10 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard title="Usuarios Totales" value={stats?.totalUsuarios || 0} subtitle={`${stats?.usuariosActivos || 0} activos`} icon={<Users className="w-6 h-6" />} color="primary" delay={0} loading={statsLoading} />
-        <StatCard title="Grupos" value={stats?.totalGrupos || 0} subtitle={`${stats?.gruposActivos || 0} activos`} icon={<MessageSquare className="w-6 h-6" />} color="success" delay={0.1} loading={statsLoading} />
-        <StatCard title="Aportes" value={stats?.totalAportes || 0} subtitle={`${stats?.aportesHoy || 0} hoy`} icon={<Package className="w-6 h-6" />} color="violet" delay={0.2} loading={statsLoading} />
-        <StatCard title="Pedidos" value={stats?.totalPedidos || 0} subtitle={`${stats?.pedidosHoy || 0} hoy`} icon={<ShoppingCart className="w-6 h-6" />} color="warning" delay={0.3} loading={statsLoading} />
+        <StatCard title="Admins Panel" value={stats?.totalUsuarios || 0} subtitle={`${stats?.usuariosActivos || 0} activos`} icon={<Users className="w-6 h-6" />} color="primary" delay={0} loading={statsLoading} />
+        <StatCard title="Comunidad" value={stats?.comunidad?.usuariosWhatsApp || 0} subtitle={`${stats?.comunidad?.usuariosActivos || 0} activos`} icon={<MessageSquare className="w-6 h-6" />} color="success" delay={0.1} loading={statsLoading} />
+        <StatCard title="Grupos" value={stats?.totalGrupos || 0} subtitle={`${stats?.gruposActivos || 0} activos`} icon={<MessageSquare className="w-6 h-6" />} color="violet" delay={0.2} loading={statsLoading} />
+        <StatCard title="Aportes" value={stats?.totalAportes || 0} subtitle={`${stats?.aportesHoy || 0} hoy`} icon={<Package className="w-6 h-6" />} color="violet" delay={0.3} loading={statsLoading} />
         <StatCard title="SubBots" value={stats?.totalSubbots || totalCount} subtitle={`${onlineCount} online`} icon={<Zap className="w-6 h-6" />} color="cyan" delay={0.4} loading={statsLoading} />
       </div>
 
@@ -281,24 +253,57 @@ export default function DashboardPage() {
           <h3 className="text-lg font-semibold text-white mb-6">Actividad Reciente</h3>
           
           <div className="space-y-3">
-            {recentActivity.length > 0 ? (
-              recentActivity.map((item, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-                  <div className={`p-2 rounded-lg bg-${item.color === 'success' ? 'emerald' : item.color === 'warning' ? 'amber' : item.color === 'info' ? 'cyan' : 'primary'}-500/20`}>
-                    <item.icon className="w-4 h-4 text-gray-400" />
+            {activitiesLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 animate-pulse">
+                  <div className="w-8 h-8 bg-white/10 rounded-lg"></div>
+                  <div className="flex-1">
+                    <div className="h-3 bg-white/10 rounded mb-1 w-2/3"></div>
+                    <div className="h-2 bg-white/5 rounded w-1/2"></div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{item.title}</p>
-                    <p className="text-xs text-gray-500 truncate">{item.desc}</p>
-                  </div>
-                  <span className="text-xs text-gray-500">{item.time}</span>
+                  <div className="w-12 h-2 bg-white/5 rounded"></div>
                 </div>
               ))
+            ) : recentActivity.length > 0 ? (
+              recentActivity.map((item, index) => {
+                const IconComponent = {
+                  Package,
+                  ShoppingCart,
+                  Users,
+                  Zap,
+                  Settings,
+                  MessageSquare,
+                  Bot,
+                  Activity
+                }[item.icon] || Activity;
+
+                const colorClass = {
+                  success: 'emerald',
+                  warning: 'amber',
+                  info: 'cyan',
+                  primary: 'primary',
+                  violet: 'violet',
+                  danger: 'red'
+                }[item.color] || 'primary';
+
+                return (
+                  <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                    <div className={`p-2 rounded-lg bg-${colorClass}-500/20`}>
+                      <IconComponent className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white font-medium truncate">{item.title}</p>
+                      <p className="text-xs text-gray-500 truncate">{item.desc}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">{item.time}</span>
+                  </div>
+                );
+              })
             ) : (
               <div className="text-center py-8">
                 <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-400 text-sm">Sin actividad reciente</p>
-                <p className="text-gray-500 text-xs mt-1">Los eventos aparecerán aquí en tiempo real</p>
+                <p className="text-gray-500 text-xs mt-1">La actividad aparecerá aquí cuando ocurra</p>
               </div>
             )}
           </div>

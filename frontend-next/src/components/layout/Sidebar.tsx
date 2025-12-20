@@ -19,7 +19,8 @@ import { cn } from '@/lib/utils';
 const menuItems = [
   { path: '/', icon: Home, label: 'Dashboard', color: 'primary', page: 'dashboard' },
   { path: '/bot', icon: Bot, label: 'Estado del Bot', color: 'success', page: 'bot-status' },
-  { path: '/usuarios', icon: Users, label: 'Usuarios', color: 'info', page: 'usuarios' },
+  { path: '/usuarios', icon: Users, label: 'Usuarios del Panel', color: 'info', page: 'usuarios' },
+  { path: '/community-users', icon: Users, label: 'Usuarios Comunidad', color: 'violet', page: 'community-users' },
   { path: '/subbots', icon: Zap, label: 'SubBots', color: 'warning', page: 'subbots' },
   { path: '/grupos', icon: MessageSquare, label: 'Grupos', color: 'violet', page: 'grupos' },
   { path: '/grupos-management', icon: Globe, label: 'Gestión Global', color: 'cyan', page: 'grupos-management' },

@@ -169,7 +169,7 @@ export default function CustomCommandsPage() {
           <p className="text-gray-400 mt-1">Crea y gestiona comandos personalizados para tu comunidad</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-          <AutoRefreshIndicator isActive={true} />
+          <AutoRefreshIndicator isActive={true} interval={120000} />
           <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
             Nuevo Comando
           </Button>
@@ -296,7 +296,7 @@ export default function CustomCommandsPage() {
                       Editar
                     </Button>
                     <Button
-                      variant={command.enabled ? "warning" : "success"}
+                      variant={command.enabled ? "secondary" : "success"}
                       size="sm"
                       onClick={() => handleToggleCommand(command.id, !command.enabled)}
                     >

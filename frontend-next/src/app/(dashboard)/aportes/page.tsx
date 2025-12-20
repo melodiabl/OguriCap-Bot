@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Search, RefreshCw, CheckCircle, XCircle, Clock, Eye, ThumbsUp, ThumbsDown,
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { useSocket } from '@/contexts/SocketContext';
+import { useAportesSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { Aporte } from '@/types';
@@ -33,12 +34,7 @@ export default function AportesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isConnected: isSocketConnected } = useSocket();
 
-  useEffect(() => {
-    loadAportes();
-    loadStats();
-  }, [page, estadoFilter, tipoFilter]);
-
-  const loadAportes = async () => {
+  const loadAportes = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.getAportes(page, 20, searchTerm, estadoFilter !== 'all' ? estadoFilter : undefined, undefined, tipoFilter !== 'all' ? tipoFilter : undefined);
@@ -49,16 +45,28 @@ export default function AportesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm, estadoFilter, tipoFilter]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await api.getAporteStats();
       setStats(response);
     } catch (err) {
-      console.error('Error loading stats');
+      console.error('Error loading stats:', err);
     }
-  };
+  }, []);
+
+  // Usar smart refresh para aportes
+  const { isRefreshing, manualRefresh, isSocketConnected: smartRefreshConnected } = useAportesSmartRefresh(
+    useCallback(async () => {
+      await Promise.all([loadAportes(), loadStats()]);
+    }, [loadAportes, loadStats])
+  );
+
+  useEffect(() => {
+    loadAportes();
+    loadStats();
+  }, [loadAportes, loadStats]);
 
   const updateEstado = async (id: number, estado: string, motivo?: string) => {
     try {
@@ -207,17 +215,25 @@ export default function AportesPage() {
           <p className="text-gray-400 mt-1">Revisa y modera los aportes de la comunidad</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3 items-center">
+          {/* Indicador de conexión Socket.IO */}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-            isSocketConnected ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+            smartRefreshConnected ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
           }`}>
-            <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
-            {isSocketConnected ? 'Tiempo Real' : 'Sin conexión'}
+            <Radio className={`w-3 h-3 ${smartRefreshConnected ? 'animate-pulse' : ''}`} />
+            {smartRefreshConnected ? 'Tiempo Real' : 'Modo Fallback'}
           </div>
+          
           <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
             Nuevo Aporte
           </Button>
-          <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadAportes} loading={loading}>
-            Actualizar
+          <Button 
+            variant="secondary" 
+            icon={<RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />} 
+            onClick={manualRefresh} 
+            loading={isRefreshing}
+            title={smartRefreshConnected ? 'Actualización manual (automática por eventos)' : 'Actualización manual'}
+          >
+            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
           </Button>
         </motion.div>
       </div>

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '@/services/api';
+import { useSocket, SOCKET_EVENTS } from '@/contexts/SocketContext';
 
 interface Group {
   id: number;
@@ -29,6 +30,7 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const { socket, isConnected } = useSocket();
 
   const refreshGroups = useCallback(async () => {
     try {
@@ -44,14 +46,62 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Cargar grupos inicialmente
   useEffect(() => {
     refreshGroups();
-    
-    // Auto-refresh cada 5 minutos en lugar de 30 segundos
-    const interval = setInterval(refreshGroups, 5 * 60 * 1000);
+  }, [refreshGroups]);
+
+  // Escuchar eventos de Socket.IO para actualizar grupos automáticamente
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    const handleBotConnected = () => {
+      console.log('Bot conectado - actualizando grupos');
+      refreshGroups();
+    };
+
+    const handleBotDisconnected = () => {
+      console.log('Bot desconectado - actualizando grupos');
+      refreshGroups();
+    };
+
+    const handleGroupUpdated = (data: any) => {
+      console.log('Grupo actualizado:', data);
+      refreshGroups();
+    };
+
+    const handleSubbotConnected = () => {
+      console.log('SubBot conectado - actualizando grupos');
+      refreshGroups();
+    };
+
+    // Registrar eventos
+    socket.on(SOCKET_EVENTS.BOT_CONNECTED, handleBotConnected);
+    socket.on(SOCKET_EVENTS.BOT_DISCONNECTED, handleBotDisconnected);
+    socket.on(SOCKET_EVENTS.GRUPO_UPDATED, handleGroupUpdated);
+    socket.on(SOCKET_EVENTS.SUBBOT_CONNECTED, handleSubbotConnected);
+    socket.on(SOCKET_EVENTS.SUBBOT_DISCONNECTED, handleSubbotConnected);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.BOT_CONNECTED, handleBotConnected);
+      socket.off(SOCKET_EVENTS.BOT_DISCONNECTED, handleBotDisconnected);
+      socket.off(SOCKET_EVENTS.GRUPO_UPDATED, handleGroupUpdated);
+      socket.off(SOCKET_EVENTS.SUBBOT_CONNECTED, handleSubbotConnected);
+      socket.off(SOCKET_EVENTS.SUBBOT_DISCONNECTED, handleSubbotConnected);
+    };
+  }, [socket, isConnected, refreshGroups]);
+
+  // Fallback: Auto-refresh cada 10 minutos solo si no hay conexión Socket.IO
+  useEffect(() => {
+    if (isConnected) return; // No usar timer si hay Socket.IO
+
+    const interval = setInterval(() => {
+      console.log('Fallback refresh - sin Socket.IO');
+      refreshGroups();
+    }, 10 * 60 * 1000); // 10 minutos
     
     return () => clearInterval(interval);
-  }, [refreshGroups]);
+  }, [isConnected, refreshGroups]);
 
   const value = {
     groups,

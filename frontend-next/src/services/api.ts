@@ -620,6 +620,39 @@ class ApiService {
     const response = await this.api.patch(`/api/system/alerts/${id}`, { read: true });
     return response.data;
   }
+
+  // Community Users
+  async getCommunityUsers(page = 1, limit = 20, search?: string, status?: string, role?: string) {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (search) params.append('search', search);
+    if (status && status !== 'all') params.append('status', status);
+    if (role && role !== 'all') params.append('role', role);
+    const response = await this.api.get(`/api/community/users?${params}`);
+    return response.data;
+  }
+
+  async getCommunityStats() {
+    const response = await this.api.get('/api/community/stats');
+    return response.data;
+  }
+
+  async banCommunityUser(jid: string, banned: boolean) {
+    const response = await this.api.post(`/api/community/users/${encodeURIComponent(jid)}/ban`, { banned });
+    return response.data;
+  }
+
+  async promoteCommunityUser(jid: string, role: string) {
+    const response = await this.api.post(`/api/community/users/${encodeURIComponent(jid)}/promote`, { role });
+    return response.data;
+  }
+
+  // Recent Activity
+  async getRecentActivity(limit = 10) {
+    const response = await this.api.get(`/api/dashboard/recent-activity?limit=${limit}`);
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

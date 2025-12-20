@@ -157,7 +157,31 @@ export function useNotifications(interval = 30000) {
 }
 
 
-export function useGlobalBotState(interval = 5000) {
+export function useRecentActivity(interval = 30000) {
+  const [activities, setActivities] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchActivities = useCallback(async () => {
+    try {
+      const response = await api.getRecentActivity(5);
+      setActivities(response.data || []);
+    } catch (err) {
+      // Silent fail
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchActivities();
+    const timer = setInterval(fetchActivities, interval);
+    return () => clearInterval(timer);
+  }, [fetchActivities, interval]);
+
+  return { activities, isLoading, refetch: fetchActivities };
+}
+
+export function useBotGlobalState(interval = 30000) {
   const [isOn, setIsOn] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 

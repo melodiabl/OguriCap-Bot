@@ -133,6 +133,14 @@ export interface DashboardStats {
   comandosHoy: number;
   totalMensajes: number;
   totalComandos: number;
+  comunidad?: {
+    usuariosWhatsApp: number;
+    usuariosActivos: number;
+    mensajesHoy: number;
+    comandosHoy: number;
+    totalMensajes: number;
+    totalComandos: number;
+  };
 }
 
 export const USER_ROLES = {

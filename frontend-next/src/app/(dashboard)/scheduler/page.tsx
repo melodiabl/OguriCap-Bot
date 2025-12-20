@@ -220,7 +220,7 @@ export default function SchedulerPage() {
           <p className="text-gray-400 mt-1">Programa mensajes automáticos para tu comunidad</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-          <AutoRefreshIndicator isActive={true} />
+          <AutoRefreshIndicator isActive={true} interval={60000} />
           <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
             Nuevo Mensaje
           </Button>
@@ -389,7 +389,7 @@ export default function SchedulerPage() {
                       Editar
                     </Button>
                     <Button
-                      variant={message.enabled ? "warning" : "success"}
+                      variant={message.enabled ? "secondary" : "success"}
                       size="sm"
                       icon={message.enabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
                       onClick={() => handleToggleMessage(message.id, !message.enabled)}
