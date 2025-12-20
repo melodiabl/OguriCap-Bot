@@ -4,24 +4,19 @@ import {
   Building2,
   Search,
   Plus,
-  Edit,
-  Trash2,
   Eye,
   CheckCircle,
   XCircle,
   Clock,
   User,
   Calendar,
-  Tag,
   MessageSquare,
   AlertCircle,
   RefreshCw,
   Star,
-  Phone,
-  Mail,
-  Globe,
+  Activity,
   Users,
-  Activity
+  Trash2
 } from 'lucide-react';
 import { AnimatedCard, StatCard } from '../components/ui/AnimatedCard';
 import { AnimatedButton, IconButton } from '../components/ui/AnimatedButton';
@@ -44,6 +39,10 @@ interface Proveedor {
   rating: number;
   grupo_id?: number;
   grupo_nombre?: string;
+  grupos_monitoreados?: string[];
+  generos_captura?: string[];
+  tipos_archivo?: string[];
+  auto_procesar_pedidos?: boolean;
 }
 
 interface ProveedorStats {
@@ -53,8 +52,17 @@ interface ProveedorStats {
   suspendidos: number;
 }
 
+interface Grupo {
+  id: number;
+  wa_jid: string;
+  nombre: string;
+  descripcion: string;
+  es_proveedor: boolean;
+}
+
 const Proveedores: React.FC = () => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [stats, setStats] = useState<ProveedorStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +73,13 @@ const Proveedores: React.FC = () => {
   const [selectedProveedor, setSelectedProveedor] = useState<Proveedor | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [newProveedor, setNewProveedor] = useState<Partial<Proveedor>>({});
 
   useEffect(() => {
     loadProveedores();
     loadStats();
+    loadGrupos();
   }, []);
 
   useEffect(() => {
@@ -97,6 +107,39 @@ const Proveedores: React.FC = () => {
       setError('Error de conexión');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGrupos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Loading grupos from /api/grupos/available...');
+      const response = await fetch('/api/grupos/available', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Grupos data received:', data);
+        setGrupos(data?.grupos || []);
+        
+        // Si no hay grupos, mostrar mensaje informativo
+        if (!data?.grupos || data.grupos.length === 0) {
+          setError('No hay grupos disponibles. Asegúrate de que el bot esté conectado a WhatsApp y sincroniza los grupos desde la página de Grupos.');
+        } else {
+          setError(null); // Limpiar error si hay grupos
+        }
+      } else {
+        console.error('Error response:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error data:', errorData);
+        setError(`Error al cargar grupos: ${response.status} - ${errorData.error || 'Error desconocido'}`);
+      }
+    } catch (err) {
+      console.error('Error loading grupos:', err);
+      setError('Error de conexión al cargar grupos. Verifica que el servidor esté funcionando.');
     }
   };
 
@@ -162,6 +205,33 @@ const Proveedores: React.FC = () => {
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Error al actualizar estado');
+      }
+    } catch {
+      setError('Error de conexión');
+    }
+  };
+
+  const updateProveedorConfig = async (jid: string, config: Partial<Proveedor>) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/proveedores/${jid}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(config)
+      });
+
+      if (response.ok) {
+        setProveedores(prev => prev.map(proveedor =>
+          proveedor.jid === jid ? { ...proveedor, ...config } : proveedor
+        ));
+        setSuccess('Configuración actualizada correctamente');
+        setShowConfigModal(false);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Error al actualizar configuración');
       }
     } catch {
       setError('Error de conexión');
@@ -428,6 +498,12 @@ const Proveedores: React.FC = () => {
                         variant="ghost"
                         tooltip="Ver detalles"
                       />
+                      <IconButton
+                        icon={<Users className="w-4 h-4" />}
+                        onClick={() => { setSelectedProveedor(proveedor); setShowConfigModal(true); }}
+                        variant="ghost"
+                        tooltip="Configurar grupos"
+                      />
                       {proveedor.estado === 'activo' ? (
                         <IconButton
                           icon={<XCircle className="w-4 h-4" />}
@@ -606,6 +682,255 @@ const Proveedores: React.FC = () => {
                     Crear
                   </AnimatedButton>
                   <AnimatedButton onClick={() => { setShowCreateModal(false); setNewProveedor({}); }} variant="secondary" fullWidth>
+                    Cancelar
+                  </AnimatedButton>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal Configurar Grupos */}
+        <AnimatePresence>
+          {showConfigModal && selectedProveedor && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => setShowConfigModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="glass-card p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-white">
+                    Configurar Captura de Media - {selectedProveedor.nombre}
+                  </h3>
+                  <button
+                    onClick={loadGrupos}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                    title="Recargar grupos"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-6">
+                  {/* Grupos Monitoreados */}
+                  <div>
+                    <label className="text-sm text-gray-400 mb-3 block">Grupos a Monitorear</label>
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto bg-white/5 p-4 rounded-xl border border-white/10">
+                      {grupos.length === 0 ? (
+                        <div className="text-center py-8">
+                          <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                          <p className="text-gray-400 mb-2">No hay grupos disponibles</p>
+                          <p className="text-xs text-gray-500 mb-4">
+                            Asegúrate de que el bot esté conectado a WhatsApp y tenga grupos activos
+                          </p>
+                          <div className="space-y-2">
+                            <button
+                              onClick={loadGrupos}
+                              className="block mx-auto px-3 py-1 text-xs bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
+                            >
+                              Recargar Grupos
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const response = await fetch('/api/grupos/sync', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ clearOld: false })
+                                  });
+                                  
+                                  if (response.ok) {
+                                    setSuccess('Grupos sincronizados exitosamente');
+                                    loadGrupos();
+                                  } else {
+                                    const errorData = await response.json();
+                                    setError(errorData.error || 'Error al sincronizar grupos');
+                                  }
+                                } catch (err) {
+                                  setError('Error de conexión al sincronizar grupos');
+                                }
+                              }}
+                              className="block mx-auto px-3 py-1 text-xs bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
+                            >
+                              Sincronizar desde WhatsApp
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const response = await fetch('/api/grupos/debug', {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                  });
+                                  
+                                  if (response.ok) {
+                                    const debugData = await response.json();
+                                    console.log('Debug data:', debugData);
+                                    alert(`Debug Info:
+Connection: ${debugData.connection.hasConnection ? 'OK' : 'NO'}
+Status: ${debugData.connection.connectionStatus}
+Groups from WhatsApp: ${debugData.groups.fromWhatsApp}
+Groups in DB: ${debugData.groups.inDatabase}
+User JID: ${debugData.connection.userJid || 'None'}`);
+                                  }
+                                } catch (err) {
+                                  console.error('Debug error:', err);
+                                }
+                              }}
+                              className="block mx-auto px-3 py-1 text-xs bg-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors"
+                            >
+                              Debug Conexión
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        grupos.map((grupo) => (
+                          <label key={grupo.wa_jid} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedProveedor.grupos_monitoreados?.includes(grupo.wa_jid) || false}
+                              onChange={(e) => {
+                                const grupos_monitoreados = selectedProveedor.grupos_monitoreados || [];
+                                if (e.target.checked) {
+                                  setSelectedProveedor({
+                                    ...selectedProveedor,
+                                    grupos_monitoreados: [...grupos_monitoreados, grupo.wa_jid]
+                                  });
+                                } else {
+                                  setSelectedProveedor({
+                                    ...selectedProveedor,
+                                    grupos_monitoreados: grupos_monitoreados.filter(g => g !== grupo.wa_jid)
+                                  });
+                                }
+                              }}
+                              className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-500/50"
+                            />
+                            <div className="flex-1">
+                              <div className="text-white font-medium">{grupo.nombre}</div>
+                              <div className="text-xs text-gray-500">{grupo.wa_jid.split('@')[0]}</div>
+                            </div>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Géneros de Captura */}
+                  <div>
+                    <label className="text-sm text-gray-400 mb-3 block">Géneros a Capturar</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {['BL', 'GL', 'Romance', 'Acción', 'Drama', 'Comedia', 'Horror', 'Fantasía', 'Sci-Fi', 'Slice of Life'].map((genero) => (
+                        <label key={genero} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+                          <input
+                            type="checkbox"
+                            checked={selectedProveedor.generos_captura?.includes(genero) || false}
+                            onChange={(e) => {
+                              const generos_captura = selectedProveedor.generos_captura || [];
+                              if (e.target.checked) {
+                                setSelectedProveedor({
+                                  ...selectedProveedor,
+                                  generos_captura: [...generos_captura, genero]
+                                });
+                              } else {
+                                setSelectedProveedor({
+                                  ...selectedProveedor,
+                                  generos_captura: generos_captura.filter(g => g !== genero)
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-500/50"
+                          />
+                          <span className="text-sm text-white">{genero}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tipos de Archivo */}
+                  <div>
+                    <label className="text-sm text-gray-400 mb-3 block">Tipos de Archivo a Capturar</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {['PDF', 'EPUB', 'CBZ', 'CBR', 'ZIP', 'RAR', 'JPG', 'PNG'].map((tipo) => (
+                        <label key={tipo} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+                          <input
+                            type="checkbox"
+                            checked={selectedProveedor.tipos_archivo?.includes(tipo) || false}
+                            onChange={(e) => {
+                              const tipos_archivo = selectedProveedor.tipos_archivo || [];
+                              if (e.target.checked) {
+                                setSelectedProveedor({
+                                  ...selectedProveedor,
+                                  tipos_archivo: [...tipos_archivo, tipo]
+                                });
+                              } else {
+                                setSelectedProveedor({
+                                  ...selectedProveedor,
+                                  tipos_archivo: tipos_archivo.filter(t => t !== tipo)
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-500/50"
+                          />
+                          <span className="text-sm text-white">{tipo}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Auto-procesar Pedidos */}
+                  <div>
+                    <label className="flex items-center gap-3 p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">
+                      <input
+                        type="checkbox"
+                        checked={selectedProveedor.auto_procesar_pedidos || false}
+                        onChange={(e) => {
+                          setSelectedProveedor({
+                            ...selectedProveedor,
+                            auto_procesar_pedidos: e.target.checked
+                          });
+                        }}
+                        className="w-5 h-5 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-500/50"
+                      />
+                      <div>
+                        <div className="text-white font-medium">Auto-procesar Pedidos</div>
+                        <div className="text-sm text-gray-400">
+                          Marcar automáticamente como "procesado" los pedidos cuando se encuentre contenido coincidente
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <AnimatedButton 
+                    onClick={() => updateProveedorConfig(selectedProveedor.jid, {
+                      grupos_monitoreados: selectedProveedor.grupos_monitoreados,
+                      generos_captura: selectedProveedor.generos_captura,
+                      tipos_archivo: selectedProveedor.tipos_archivo,
+                      auto_procesar_pedidos: selectedProveedor.auto_procesar_pedidos
+                    })} 
+                    variant="primary" 
+                    fullWidth
+                  >
+                    Guardar Configuración
+                  </AnimatedButton>
+                  <AnimatedButton 
+                    onClick={() => setShowConfigModal(false)} 
+                    variant="secondary" 
+                    fullWidth
+                  >
                     Cancelar
                   </AnimatedButton>
                 </div>

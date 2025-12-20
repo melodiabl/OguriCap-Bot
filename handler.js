@@ -272,7 +272,8 @@ comando: `${usedPrefix}${command}`,
 detalles: typeof m.text === 'string' ? m.text : '',
 grupo: m.isGroup ? m.chat : '',
 fecha: new Date().toISOString(),
-tipo: 'comando'
+tipo: 'comando',
+nivel: 'info'
 })
 const maxLogs = parseInt(process.env.PANEL_LOGS_MAX || '2000', 10)
 if (Number.isFinite(maxLogs) && maxLogs > 0 && panel.logs.length > maxLogs) {

@@ -17,10 +17,13 @@ import {
   Plus,
   Trash2,
   X,
+  Key,
 } from 'lucide-react';
 import { AnimatedCard, StatCard } from '../components/ui/AnimatedCard';
 import { AnimatedButton } from '../components/ui/AnimatedButton';
 import { AnimatedTableRow } from '../components/ui/AnimatedList';
+import { UserPasswordModal } from '../components/UserPasswordModal';
+import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import api from '../config/api';
 
@@ -35,6 +38,7 @@ interface User {
 }
 
 const Usuarios: React.FC = () => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +46,7 @@ const Usuarios: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newRole, setNewRole] = useState<string>('');
   const [newUser, setNewUser] = useState({ username: '', password: '', rol: 'usuario', whatsapp_number: '' });
 
@@ -106,6 +111,28 @@ const Usuarios: React.FC = () => {
     setSelectedUser(user);
     setNewRole(user.rol);
     setShowEditModal(true);
+  };
+
+  const handlePasswordUser = (user: User) => {
+    setSelectedUser(user);
+    setShowPasswordModal(true);
+  };
+
+  const canCreateOwner = () => {
+    return currentUser?.rol === 'owner';
+  };
+
+  const canEditUser = (user: User) => {
+    if (currentUser?.rol === 'owner') return true;
+    if (currentUser?.rol === 'admin' && user.rol !== 'owner') return true;
+    return false;
+  };
+
+  const canDeleteUser = (user: User) => {
+    if (currentUser?.id === user.id) return false; // No puede eliminarse a sí mismo
+    if (currentUser?.rol === 'owner') return true;
+    if (currentUser?.rol === 'admin' && user.rol !== 'owner') return true;
+    return false;
   };
 
   const getRoleBadge = (role: string) => {
@@ -268,22 +295,42 @@ const Usuarios: React.FC = () => {
                       </td>
                       <td>
                         <div className="flex items-center gap-2">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => handleEditUser(user)}
-                            className="p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => deleteUser(user.id)}
-                            className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </motion.button>
+                          {canEditUser(user) && (
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => handlePasswordUser(user)}
+                              className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              title="Gestionar contraseña"
+                            >
+                              <Key className="w-4 h-4" />
+                            </motion.button>
+                          )}
+                          {canEditUser(user) && (
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => handleEditUser(user)}
+                              className="p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+                              title="Editar usuario"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </motion.button>
+                          )}
+                          {canDeleteUser(user) && (
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => deleteUser(user.id)}
+                              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                              title="Eliminar usuario"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </motion.button>
+                          )}
+                          {!canEditUser(user) && !canDeleteUser(user) && (
+                            <span className="text-xs text-gray-500 px-2 py-1">Sin permisos</span>
+                          )}
                         </div>
                       </td>
                     </AnimatedTableRow>
@@ -329,7 +376,7 @@ const Usuarios: React.FC = () => {
                     <option value="usuario">Usuario</option>
                     <option value="moderador">Moderador</option>
                     <option value="admin">Administrador</option>
-                    <option value="owner">Owner</option>
+                    {canCreateOwner() && <option value="owner">Owner</option>}
                   </select>
                 </div>
               </div>
@@ -410,6 +457,7 @@ const Usuarios: React.FC = () => {
                     <option value="usuario">Usuario</option>
                     <option value="moderador">Moderador</option>
                     <option value="admin">Administrador</option>
+                    {canCreateOwner() && <option value="owner">Owner</option>}
                   </select>
                 </div>
               </div>
@@ -425,6 +473,13 @@ const Usuarios: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Password Management Modal */}
+      <UserPasswordModal 
+        isOpen={showPasswordModal} 
+        onClose={() => setShowPasswordModal(false)}
+        user={selectedUser}
+      />
     </div>
   );
 };

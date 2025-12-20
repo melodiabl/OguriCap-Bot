@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import { useBotStatus, useConnectionHealth, useNotifications as useServerNotifications } from '../hooks/useRealTime';
 import { useSocket } from '../contexts/SocketContext';
 import { useSocketBotStatus, useSocketNotifications } from '../hooks/useSocketEvents';
@@ -36,20 +37,20 @@ interface ModernLayoutProps {
 }
 
 const menuItems = [
-  { path: '/', icon: Home, label: 'Dashboard', color: 'primary' },
-  { path: '/bot', icon: Bot, label: 'Estado del Bot', color: 'success' },
-  { path: '/usuarios', icon: Users, label: 'Usuarios', color: 'info' },
-  { path: '/subbots', icon: Zap, label: 'SubBots', color: 'warning' },
-  { path: '/grupos', icon: MessageSquare, label: 'Grupos', color: 'violet' },
-  { path: '/grupos-management', icon: Globe, label: 'Gestión Global', color: 'cyan' },
-  { path: '/aportes', icon: Package, label: 'Aportes', color: 'success' },
-  { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos', color: 'warning' },
-  { path: '/proveedores', icon: Users, label: 'Proveedores', color: 'info' },
-  { path: '/logs', icon: FileText, label: 'Logs', color: 'danger' },
-  { path: '/notificaciones', icon: Bell, label: 'Notificaciones', color: 'primary' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet' },
-  { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan' },
-  { path: '/settings', icon: Settings, label: 'Configuración', color: 'info' },
+  { path: '/', icon: Home, label: 'Dashboard', color: 'primary', page: 'dashboard' },
+  { path: '/bot', icon: Bot, label: 'Estado del Bot', color: 'success', page: 'bot-status' },
+  { path: '/usuarios', icon: Users, label: 'Usuarios', color: 'info', page: 'usuarios' },
+  { path: '/subbots', icon: Zap, label: 'SubBots', color: 'warning', page: 'subbots' },
+  { path: '/grupos', icon: MessageSquare, label: 'Grupos', color: 'violet', page: 'grupos' },
+  { path: '/grupos-management', icon: Globe, label: 'Gestión Global', color: 'cyan', page: 'grupos-management' },
+  { path: '/aportes', icon: Package, label: 'Aportes', color: 'success', page: 'aportes' },
+  { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos', color: 'warning', page: 'pedidos' },
+  { path: '/proveedores', icon: Users, label: 'Proveedores', color: 'info', page: 'proveedores' },
+  { path: '/logs', icon: FileText, label: 'Logs', color: 'danger', page: 'logs' },
+  { path: '/notificaciones', icon: Bell, label: 'Notificaciones', color: 'primary', page: 'notificaciones' },
+  { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
+  { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
+  { path: '/settings', icon: Settings, label: 'Configuración', color: 'info', page: 'settings' },
 ];
 
 const colorClasses: Record<string, string> = {
@@ -66,8 +67,12 @@ export const ModernLayout: React.FC<ModernLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // Filtrar elementos del menú basado en permisos
+  const allowedMenuItems = menuItems.filter(item => hasPermission(item.page));
   
   // Theme management
   const [isDark, setIsDark] = useState(() => {
@@ -180,7 +185,7 @@ export const ModernLayout: React.FC<ModernLayoutProps> = ({ children }) => {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-1">
-            {menuItems.map((item, index) => {
+            {allowedMenuItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
 

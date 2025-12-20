@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package,
@@ -17,6 +17,11 @@ import {
   Music,
   Radio,
   Zap,
+  Plus,
+  Upload,
+  File,
+  Trash2,
+  Download
 } from 'lucide-react';
 import { AnimatedCard, StatCard } from '../components/ui/AnimatedCard';
 import { AnimatedButton } from '../components/ui/AnimatedButton';
@@ -50,6 +55,19 @@ const Aportes: React.FC = () => {
   const [pagination, setPagination] = useState<any>(null);
   const [selectedAporte, setSelectedAporte] = useState<Aporte | null>(null);
   const [stats, setStats] = useState<any>(null);
+  
+  // Estados para crear nuevo aporte
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newAporte, setNewAporte] = useState({
+    titulo: '',
+    descripcion: '',
+    tipo: 'documento',
+    contenido: ''
+  });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Socket.IO para actualizaciones en tiempo real
   const { isConnected: isSocketConnected } = useSocket();
@@ -136,6 +154,116 @@ const Aportes: React.FC = () => {
     });
   };
 
+  // Funciones para manejo de archivos
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      handleFiles(files);
+    }
+  };
+
+  const handleFiles = (files: File[]) => {
+    const validFiles = files.filter(file => {
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        toast.error(`${file.name} es demasiado grande (máximo 50MB)`);
+        return false;
+      }
+      return true;
+    });
+
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    
+    // Auto-detectar tipo basado en el primer archivo
+    if (validFiles.length > 0 && !newAporte.tipo) {
+      const file = validFiles[0];
+      let tipo = 'documento';
+      
+      if (file.type.startsWith('image/')) tipo = 'imagen';
+      else if (file.type.startsWith('video/')) tipo = 'video';
+      else if (file.type.startsWith('audio/')) tipo = 'audio';
+      
+      setNewAporte(prev => ({ ...prev, tipo }));
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileIcon = (file: File) => {
+    if (file.type.startsWith('image/')) return <Image className="w-4 h-4" />;
+    if (file.type.startsWith('video/')) return <Video className="w-4 h-4" />;
+    if (file.type.startsWith('audio/')) return <Music className="w-4 h-4" />;
+    return <FileText className="w-4 h-4" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const createAporte = async () => {
+    if (!newAporte.titulo.trim()) {
+      toast.error('El título es requerido');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('titulo', newAporte.titulo);
+      formData.append('descripcion', newAporte.descripcion);
+      formData.append('tipo', newAporte.tipo);
+      formData.append('contenido', newAporte.contenido);
+      
+      // Agregar archivos
+      selectedFiles.forEach((file, index) => {
+        formData.append(`files`, file);
+      });
+
+      const response = await api.post('/api/aportes', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Aporte creado exitosamente');
+      setShowCreateModal(false);
+      setNewAporte({ titulo: '', descripcion: '', tipo: 'documento', contenido: '' });
+      setSelectedFiles([]);
+      loadAportes();
+      loadStats();
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'Error al crear aporte';
+      toast.error(errorMessage);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -154,6 +282,13 @@ const Aportes: React.FC = () => {
             <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
             {isSocketConnected ? 'Tiempo Real' : 'Sin conexión'}
           </div>
+          <AnimatedButton 
+            variant="primary" 
+            icon={<Plus className="w-4 h-4" />} 
+            onClick={() => setShowCreateModal(true)}
+          >
+            Nuevo Aporte
+          </AnimatedButton>
           <AnimatedButton variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadAportes} loading={loading}>
             Actualizar
           </AnimatedButton>
@@ -420,6 +555,172 @@ const Aportes: React.FC = () => {
                     </AnimatedButton>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Aporte Modal */}
+      <AnimatePresence>
+        {showCreateModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowCreateModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-white">Crear Nuevo Aporte</h3>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Información básica */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Título *</label>
+                    <input
+                      type="text"
+                      value={newAporte.titulo}
+                      onChange={(e) => setNewAporte(prev => ({ ...prev, titulo: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-purple-500/50 transition-all"
+                      placeholder="Título del aporte"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Tipo</label>
+                    <select
+                      value={newAporte.tipo}
+                      onChange={(e) => setNewAporte(prev => ({ ...prev, tipo: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:border-purple-500/50 transition-all"
+                    >
+                      <option value="documento">Documento</option>
+                      <option value="imagen">Imagen</option>
+                      <option value="video">Video</option>
+                      <option value="audio">Audio</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400 mb-2 block">Descripción</label>
+                  <textarea
+                    value={newAporte.descripcion}
+                    onChange={(e) => setNewAporte(prev => ({ ...prev, descripcion: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-purple-500/50 transition-all"
+                    rows={3}
+                    placeholder="Descripción del aporte"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400 mb-2 block">Contenido adicional</label>
+                  <textarea
+                    value={newAporte.contenido}
+                    onChange={(e) => setNewAporte(prev => ({ ...prev, contenido: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-purple-500/50 transition-all"
+                    rows={4}
+                    placeholder="Información adicional, enlaces, notas..."
+                  />
+                </div>
+
+                {/* Área de carga de archivos */}
+                <div>
+                  <label className="text-sm text-gray-400 mb-2 block">Archivos</label>
+                  <div
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                      dragActive 
+                        ? 'border-purple-500 bg-purple-500/10' 
+                        : 'border-white/20 hover:border-white/40'
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                  >
+                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-white mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
+                    <p className="text-sm text-gray-500 mb-4">Máximo 50MB por archivo</p>
+                    <AnimatedButton
+                      variant="secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      icon={<File className="w-4 h-4" />}
+                    >
+                      Seleccionar Archivos
+                    </AnimatedButton>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                    />
+                  </div>
+                </div>
+
+                {/* Lista de archivos seleccionados */}
+                {selectedFiles.length > 0 && (
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Archivos seleccionados ({selectedFiles.length})</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                          <div className="text-gray-400">
+                            {getFileIcon(file)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm truncate">{file.name}</p>
+                            <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="text-red-400 hover:text-red-300 p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Botones de acción */}
+                <div className="flex gap-3 pt-4">
+                  <AnimatedButton
+                    onClick={createAporte}
+                    variant="primary"
+                    fullWidth
+                    loading={uploading}
+                    disabled={!newAporte.titulo.trim()}
+                    icon={<Upload className="w-4 h-4" />}
+                  >
+                    {uploading ? 'Subiendo...' : 'Crear Aporte'}
+                  </AnimatedButton>
+                  <AnimatedButton
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setNewAporte({ titulo: '', descripcion: '', tipo: 'documento', contenido: '' });
+                      setSelectedFiles([]);
+                    }}
+                    variant="secondary"
+                    fullWidth
+                  >
+                    Cancelar
+                  </AnimatedButton>
+                </div>
               </div>
             </motion.div>
           </motion.div>

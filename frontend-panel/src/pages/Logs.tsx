@@ -24,7 +24,7 @@ interface LogEntry {
   mensaje: string;
   usuario?: string;
   fecha: string;
-  nivel: 'info' | 'warning' | 'error' | 'debug';
+  nivel?: 'info' | 'warning' | 'error' | 'debug' | string;
   metadata?: any;
 }
 
@@ -102,7 +102,12 @@ const Logs: React.FC = () => {
     }
   };
 
-  const getLevelIcon = (nivel: string) => {
+  const getLevelIcon = (nivel?: string) => {
+    // Validar que nivel no sea undefined o null
+    if (!nivel || typeof nivel !== 'string') {
+      nivel = 'info'; // Valor por defecto
+    }
+    
     const icons: Record<string, { icon: React.ReactNode; color: string }> = {
       info: { icon: <Info className="w-4 h-4" />, color: 'text-cyan-400' },
       warning: { icon: <AlertTriangle className="w-4 h-4" />, color: 'text-amber-400' },
@@ -112,7 +117,12 @@ const Logs: React.FC = () => {
     return icons[nivel] || icons.info;
   };
 
-  const getLevelBadge = (nivel: string) => {
+  const getLevelBadge = (nivel?: string) => {
+    // Validar que nivel no sea undefined o null
+    if (!nivel || typeof nivel !== 'string') {
+      nivel = 'info'; // Valor por defecto
+    }
+    
     const config: Record<string, string> = {
       info: 'badge-info',
       warning: 'badge-warning',

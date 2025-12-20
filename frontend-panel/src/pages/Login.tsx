@@ -24,6 +24,11 @@ export const Login: React.FC = () => {
       return;
     }
 
+    if (!password.trim()) {
+      toast.error('Ingresa tu contraseña');
+      return;
+    }
+
     setIsLoading(true);
     try {
       await login(username, password);

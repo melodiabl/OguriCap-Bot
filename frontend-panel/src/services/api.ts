@@ -644,6 +644,18 @@ class ApiService {
     return response.data;
   }
 
+  async viewUsuarioPassword(id: number) {
+    this.ensureApi();
+    const response = await this.api.get(`/api/usuarios/${id}/view-password`);
+    return response.data;
+  }
+
+  async changeUsuarioPassword(id: number, newPassword: string) {
+    this.ensureApi();
+    const response = await this.api.post(`/api/usuarios/${id}/password`, { newPassword });
+    return response.data;
+  }
+
   // Logs
   async getLogs(page = 1, limit = 50, level?: string) {
     this.ensureApi();

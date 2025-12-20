@@ -16,12 +16,18 @@ import {
   Minus,
   Radio,
   Zap,
+  Bot,
+  Sparkles,
+  FileText,
+  Heart,
 } from 'lucide-react';
 import { AnimatedCard, StatCard } from '../components/ui/AnimatedCard';
 import { AnimatedButton } from '../components/ui/AnimatedButton';
 import { AnimatedTableRow } from '../components/ui/AnimatedList';
 import { useSocketPedidos } from '../hooks/useSocketEvents';
 import { useSocket } from '../contexts/SocketContext';
+import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 import api from '../config/api';
 
@@ -39,6 +45,8 @@ interface Pedido {
 }
 
 const Pedidos: React.FC = () => {
+  const { user } = useAuth();
+  const { isAdmin, isModerator } = usePermissions();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,8 +56,10 @@ const Pedidos: React.FC = () => {
   const [pagination, setPagination] = useState<any>(null);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newPedido, setNewPedido] = useState({ titulo: '', descripcion: '', tipo: 'otro', prioridad: 'media' });
+  const [newPedido, setNewPedido] = useState({ titulo: '', descripcion: '', tipo: 'manhwa', prioridad: 'media' });
   const [stats, setStats] = useState<any>(null);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [showMyPedidos, setShowMyPedidos] = useState(false);
 
   // Socket.IO para actualizaciones en tiempo real
   const { isConnected: isSocketConnected } = useSocket();
@@ -69,6 +79,7 @@ const Pedidos: React.FC = () => {
       if (searchTerm) params.append('search', searchTerm);
       if (estadoFilter !== 'all') params.append('estado', estadoFilter);
       if (prioridadFilter !== 'all') params.append('prioridad', prioridadFilter);
+      if (showMyPedidos && user) params.append('usuario', user.username);
 
       const response = await api.get(`/api/pedidos?${params}`);
       setPedidos(response.data?.pedidos || []);
@@ -102,18 +113,70 @@ const Pedidos: React.FC = () => {
 
   const createPedido = async () => {
     try {
-      if (!newPedido.titulo) {
+      if (!newPedido.titulo.trim()) {
         toast.error('El título es requerido');
         return;
       }
-      await api.post('/api/pedidos', newPedido);
+      
+      setAiProcessing(true);
+      
+      // Agregar usuario actual al pedido
+      const pedidoData = {
+        ...newPedido,
+        usuario: user?.username || 'Anónimo'
+      };
+      
+      await api.post('/api/pedidos', pedidoData);
       toast.success('Pedido creado correctamente');
       setShowCreateModal(false);
-      setNewPedido({ titulo: '', descripcion: '', tipo: 'otro', prioridad: 'media' });
+      setNewPedido({ titulo: '', descripcion: '', tipo: 'manhwa', prioridad: 'media' });
       loadPedidos();
       loadStats();
     } catch (err) {
       toast.error('Error al crear pedido');
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
+  const votePedido = async (id: number) => {
+    try {
+      await api.post(`/api/pedidos/${id}/vote`);
+      setPedidos(prev => prev.map(p => 
+        p.id === id ? { ...p, votos: (p.votos || 0) + 1 } : p
+      ));
+      toast.success('Voto registrado');
+    } catch (err) {
+      toast.error('Error al votar');
+    }
+  };
+
+  const enhanceWithAI = async () => {
+    if (!newPedido.titulo.trim()) {
+      toast.error('Ingresa un título primero');
+      return;
+    }
+
+    setAiProcessing(true);
+    try {
+      const response = await api.post('/api/ai/enhance-pedido', {
+        titulo: newPedido.titulo,
+        descripcion: newPedido.descripcion,
+        tipo: newPedido.tipo
+      });
+
+      if (response.data.success) {
+        setNewPedido(prev => ({
+          ...prev,
+          descripcion: response.data.descripcion,
+          tipo: response.data.tipo || prev.tipo
+        }));
+        toast.success('Descripción mejorada con IA');
+      }
+    } catch (err) {
+      toast.error('Error al procesar con IA');
+    } finally {
+      setAiProcessing(false);
     }
   };
 
@@ -174,6 +237,16 @@ const Pedidos: React.FC = () => {
             <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
             {isSocketConnected ? 'Tiempo Real' : 'Sin conexión'}
           </div>
+          
+          {/* Toggle Mis Pedidos */}
+          <AnimatedButton 
+            variant={showMyPedidos ? "primary" : "secondary"} 
+            size="sm"
+            onClick={() => setShowMyPedidos(!showMyPedidos)}
+          >
+            {showMyPedidos ? 'Todos' : 'Mis Pedidos'}
+          </AnimatedButton>
+          
           <AnimatedButton variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
             Nuevo Pedido
           </AnimatedButton>
@@ -305,10 +378,24 @@ const Pedidos: React.FC = () => {
                             whileTap={{ scale: 0.9 }}
                             onClick={() => setSelectedPedido(pedido)}
                             className="p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+                            title="Ver detalles"
                           >
                             <Eye className="w-4 h-4" />
                           </motion.button>
-                          {pedido.estado === 'pendiente' && (
+                          
+                          {/* Botón de votar para todos los usuarios */}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => votePedido(pedido.id)}
+                            className="p-2 rounded-lg text-pink-400 hover:bg-pink-500/10 transition-colors"
+                            title="Votar pedido"
+                          >
+                            <Heart className="w-4 h-4" />
+                          </motion.button>
+                          
+                          {/* Acciones de gestión solo para admins/moderadores */}
+                          {(isAdmin || isModerator) && pedido.estado === 'pendiente' && (
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
@@ -319,7 +406,7 @@ const Pedidos: React.FC = () => {
                               <Loader2 className="w-4 h-4" />
                             </motion.button>
                           )}
-                          {pedido.estado === 'en_proceso' && (
+                          {(isAdmin || isModerator) && pedido.estado === 'en_proceso' && (
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
@@ -381,36 +468,55 @@ const Pedidos: React.FC = () => {
               </div>
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Título</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Título del Pedido</label>
                   <input
                     type="text"
                     value={newPedido.titulo}
                     onChange={(e) => setNewPedido({ ...newPedido, titulo: e.target.value })}
                     className="input-glass w-full"
-                    placeholder="Título del pedido"
+                    placeholder="Ej: Manhwa Solo Leveling completo"
                   />
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Descripción</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-400">Descripción</label>
+                    <AnimatedButton
+                      variant="secondary"
+                      size="sm"
+                      icon={aiProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      onClick={enhanceWithAI}
+                      disabled={aiProcessing || !newPedido.titulo.trim()}
+                    >
+                      {aiProcessing ? 'Procesando...' : 'Mejorar con IA'}
+                    </AnimatedButton>
+                  </div>
                   <textarea
                     value={newPedido.descripcion}
                     onChange={(e) => setNewPedido({ ...newPedido, descripcion: e.target.value })}
                     className="input-glass w-full h-24 resize-none"
-                    placeholder="Descripción del pedido"
+                    placeholder="Describe tu pedido... (o usa IA para generar automáticamente)"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Tip: La IA puede generar una descripción detallada basada en el título
+                  </p>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Tipo</label>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Tipo de Contenido</label>
                     <select
                       value={newPedido.tipo}
                       onChange={(e) => setNewPedido({ ...newPedido, tipo: e.target.value })}
                       className="input-glass w-full"
                     >
-                      <option value="manhwa">Manhwa</option>
-                      <option value="manga">Manga</option>
-                      <option value="novela">Novela</option>
-                      <option value="otro">Otro</option>
+                      <option value="manhwa">📚 Manhwa</option>
+                      <option value="manga">🎌 Manga</option>
+                      <option value="novela">📖 Novela</option>
+                      <option value="anime">🎬 Anime</option>
+                      <option value="juego">🎮 Juego</option>
+                      <option value="software">💻 Software</option>
+                      <option value="otro">🔧 Otro</option>
                     </select>
                   </div>
                   <div>
@@ -420,11 +526,38 @@ const Pedidos: React.FC = () => {
                       onChange={(e) => setNewPedido({ ...newPedido, prioridad: e.target.value })}
                       className="input-glass w-full"
                     >
-                      <option value="baja">Baja</option>
-                      <option value="media">Media</option>
-                      <option value="alta">Alta</option>
+                      <option value="baja">🟢 Baja - Cuando sea posible</option>
+                      <option value="media">🟡 Media - Prioridad normal</option>
+                      <option value="alta">🔴 Alta - Urgente</option>
                     </select>
                   </div>
+                </div>
+
+                {/* AI Enhancement Info */}
+                {aiProcessing && (
+                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Bot className="w-5 h-5 text-blue-400 animate-pulse" />
+                      <span className="text-sm font-medium text-blue-400">IA Procesando</span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      La IA está analizando tu pedido para generar una descripción detallada...
+                    </p>
+                  </div>
+                )}
+
+                {/* Tips for users */}
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-5 h-5 text-amber-400" />
+                    <span className="text-sm font-medium text-amber-400">Consejos para un buen pedido</span>
+                  </div>
+                  <ul className="text-xs text-gray-400 space-y-1">
+                    <li>• Sé específico con el título (nombre completo, autor, etc.)</li>
+                    <li>• Indica el idioma preferido si es relevante</li>
+                    <li>• Menciona si buscas una versión específica o formato</li>
+                    <li>• La IA puede ayudarte a mejorar la descripción automáticamente</li>
+                  </ul>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -491,7 +624,21 @@ const Pedidos: React.FC = () => {
                 </div>
 
                 <div className="flex gap-2 pt-4">
-                  {selectedPedido.estado === 'pendiente' && (
+                  {/* Botón de votar para todos */}
+                  <AnimatedButton
+                    variant="secondary"
+                    fullWidth
+                    icon={<Heart className="w-4 h-4" />}
+                    onClick={() => {
+                      votePedido(selectedPedido.id);
+                      setSelectedPedido(null);
+                    }}
+                  >
+                    Votar ({selectedPedido.votos || 0})
+                  </AnimatedButton>
+
+                  {/* Acciones de gestión solo para admins/moderadores */}
+                  {(isAdmin || isModerator) && selectedPedido.estado === 'pendiente' && (
                     <AnimatedButton
                       variant="primary"
                       fullWidth
@@ -503,7 +650,7 @@ const Pedidos: React.FC = () => {
                       Iniciar Proceso
                     </AnimatedButton>
                   )}
-                  {selectedPedido.estado === 'en_proceso' && (
+                  {(isAdmin || isModerator) && selectedPedido.estado === 'en_proceso' && (
                     <AnimatedButton
                       variant="success"
                       fullWidth
@@ -515,7 +662,7 @@ const Pedidos: React.FC = () => {
                       Marcar Completado
                     </AnimatedButton>
                   )}
-                  {(selectedPedido.estado === 'pendiente' || selectedPedido.estado === 'en_proceso') && (
+                  {(isAdmin || isModerator) && (selectedPedido.estado === 'pendiente' || selectedPedido.estado === 'en_proceso') && (
                     <AnimatedButton
                       variant="danger"
                       fullWidth

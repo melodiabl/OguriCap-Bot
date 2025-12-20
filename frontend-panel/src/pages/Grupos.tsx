@@ -34,15 +34,28 @@ interface Group {
 const Grupos: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [botFilter, setBotFilter] = useState<string>('all');
   const [proveedorFilter, setProveedorFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<any>(null);
 
   useEffect(() => {
     loadGroups();
+    checkConnectionStatus();
   }, [page, botFilter, proveedorFilter]);
+
+  const checkConnectionStatus = async () => {
+    try {
+      const response = await api.get('/api/bot/main/status');
+      setConnectionStatus(response.data);
+    } catch (err) {
+      console.error('Error checking connection status:', err);
+    }
+  };
 
   const loadGroups = async () => {
     try {
@@ -96,6 +109,33 @@ const Grupos: React.FC = () => {
     loadGroups();
   };
 
+  const syncGroups = async (clearOld: boolean = false) => {
+    try {
+      setSyncing(true);
+      console.log(`Starting group sync with clearOld: ${clearOld}`);
+      
+      const response = await api.post('/api/grupos/sync', { clearOld });
+      
+      if (response.data?.success) {
+        toast.success(response.data.message || 'Grupos sincronizados exitosamente');
+        setShowSyncModal(false);
+        
+        // Esperar un poco antes de recargar para que la sincronización se complete
+        setTimeout(() => {
+          loadGroups();
+        }, 1000);
+      } else {
+        toast.error('Error en la respuesta del servidor');
+      }
+    } catch (err: any) {
+      console.error('Sync error:', err);
+      const errorMessage = err?.response?.data?.error || err?.message || 'Error al sincronizar grupos';
+      toast.error(errorMessage);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const stats = {
     total: pagination?.total || groups.length,
     botActivo: groups.filter(g => g.bot_enabled).length,
@@ -108,12 +148,34 @@ const Grupos: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-3xl font-bold text-white">Gestión de Grupos</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-white">Gestión de Grupos</h1>
+            {connectionStatus && (
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+                connectionStatus.connected 
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus.connected ? 'bg-emerald-400' : 'bg-red-400'
+                }`} />
+                {connectionStatus.connected ? 'Bot Conectado' : 'Bot Desconectado'}
+              </div>
+            )}
+          </div>
           <p className="text-gray-400 mt-1">Administra los grupos de WhatsApp conectados</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3">
+          <AnimatedButton 
+            variant="primary" 
+            icon={<Plus className="w-4 h-4" />} 
+            onClick={() => setShowSyncModal(true)}
+            loading={syncing}
+          >
+            Sincronizar WhatsApp
+          </AnimatedButton>
           <AnimatedButton variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadGroups} loading={loading}>
-            Sincronizar
+            Actualizar Lista
           </AnimatedButton>
         </motion.div>
       </div>
@@ -276,6 +338,122 @@ const Grupos: React.FC = () => {
           </div>
         )}
       </AnimatedCard>
+
+      {/* Sync Modal */}
+      <AnimatePresence>
+        {showSyncModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowSyncModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-card p-6 w-full max-w-md"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-white">Sincronizar Grupos de WhatsApp</h3>
+                <button onClick={() => setShowSyncModal(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {connectionStatus && (
+                  <div className={`p-4 rounded-xl border ${
+                    connectionStatus.connected 
+                      ? 'bg-emerald-500/10 border-emerald-500/20' 
+                      : 'bg-red-500/10 border-red-500/20'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        connectionStatus.connected ? 'bg-emerald-400' : 'bg-red-400'
+                      }`} />
+                      <span className={`text-sm font-medium ${
+                        connectionStatus.connected ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        Estado de Conexión: {connectionStatus.connected ? 'Conectado' : 'Desconectado'}
+                      </span>
+                    </div>
+                    {!connectionStatus.connected && (
+                      <p className="text-xs text-red-400">
+                        El bot debe estar conectado a WhatsApp para sincronizar grupos. 
+                        Verifica la conexión en la página de Estado del Bot.
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm font-medium text-blue-400">¿Qué hace la sincronización?</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Obtiene la lista actual de grupos de WhatsApp conectados y actualiza la base de datos del panel.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RefreshCw className="w-5 h-5 text-amber-400" />
+                    <span className="text-sm font-medium text-amber-400">Opciones de sincronización</span>
+                  </div>
+                  <div className="space-y-2 text-xs text-gray-400">
+                    <p><strong>Sincronización simple:</strong> Agrega nuevos grupos sin eliminar los existentes</p>
+                    <p><strong>Sincronización completa:</strong> Elimina grupos antiguos y sincroniza solo los actuales</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <AnimatedButton
+                  onClick={() => syncGroups(false)}
+                  variant="primary"
+                  fullWidth
+                  loading={syncing}
+                  icon={<RefreshCw className="w-4 h-4" />}
+                >
+                  Sincronización Simple
+                </AnimatedButton>
+                
+                <AnimatedButton
+                  onClick={() => syncGroups(true)}
+                  variant="danger"
+                  fullWidth
+                  loading={syncing}
+                  icon={<Plus className="w-4 h-4" />}
+                >
+                  Sincronización Completa (Limpiar y Sincronizar)
+                </AnimatedButton>
+                
+                <AnimatedButton
+                  onClick={() => setShowSyncModal(false)}
+                  variant="secondary"
+                  fullWidth
+                  disabled={syncing}
+                >
+                  Cancelar
+                </AnimatedButton>
+              </div>
+
+              {syncing && (
+                <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Sincronizando grupos desde WhatsApp...
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
