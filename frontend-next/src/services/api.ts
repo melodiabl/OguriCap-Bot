@@ -557,6 +557,69 @@ class ApiService {
     const response = await this.api.get('/api/logs/export');
     return response.data;
   }
+
+  // Custom Commands
+  async getCustomCommands() {
+    const response = await this.api.get('/api/custom-commands');
+    return response.data;
+  }
+
+  async createCustomCommand(command: any) {
+    const response = await this.api.post('/api/custom-commands', command);
+    return response.data;
+  }
+
+  async updateCustomCommand(id: number, command: any) {
+    const response = await this.api.patch(`/api/custom-commands/${id}`, command);
+    return response.data;
+  }
+
+  async deleteCustomCommand(id: number) {
+    const response = await this.api.delete(`/api/custom-commands/${id}`);
+    return response.data;
+  }
+
+  async testCustomCommand(trigger: string) {
+    const response = await this.api.post('/api/custom-commands/test', { trigger });
+    return response.data;
+  }
+
+  // Scheduled Messages
+  async getScheduledMessages() {
+    const response = await this.api.get('/api/scheduled-messages');
+    return response.data;
+  }
+
+  async createScheduledMessage(message: any) {
+    const response = await this.api.post('/api/scheduled-messages', message);
+    return response.data;
+  }
+
+  async updateScheduledMessage(id: number, message: any) {
+    const response = await this.api.patch(`/api/scheduled-messages/${id}`, message);
+    return response.data;
+  }
+
+  async deleteScheduledMessage(id: number) {
+    const response = await this.api.delete(`/api/scheduled-messages/${id}`);
+    return response.data;
+  }
+
+  async sendScheduledMessageNow(id: number) {
+    const response = await this.api.post(`/api/scheduled-messages/${id}/send-now`);
+    return response.data;
+  }
+
+  // System Alerts
+  async getSystemAlerts() {
+    const response = await this.api.get('/api/system/alerts');
+    return response.data;
+  }
+
+  async markAlertAsRead(id: number) {
+    const response = await this.api.patch(`/api/system/alerts/${id}`, { read: true });
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

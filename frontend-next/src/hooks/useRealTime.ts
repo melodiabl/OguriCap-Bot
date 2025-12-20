@@ -61,6 +61,7 @@ export function useBotStatus(interval = 5000) {
 export function useSystemStats(interval = 10000) {
   const [memoryUsage, setMemoryUsage] = useState<{ systemPercentage: number } | null>(null);
   const [cpuUsage, setCpuUsage] = useState<number>(0);
+  const [diskUsage, setDiskUsage] = useState<{ percentage: number; totalGB: number; freeGB: number } | null>(null);
   const [uptime, setUptime] = useState(0);
   const [systemInfo, setSystemInfo] = useState<any>(null);
 
@@ -69,6 +70,7 @@ export function useSystemStats(interval = 10000) {
       const data = await api.getSystemStats();
       setMemoryUsage(data.memory);
       setCpuUsage(data.cpu?.percentage || 0);
+      setDiskUsage(data.disk);
       setUptime(data.uptime || 0);
       setSystemInfo(data);
     } catch (err) {
@@ -82,7 +84,7 @@ export function useSystemStats(interval = 10000) {
     return () => clearInterval(timer);
   }, [fetchStats, interval]);
 
-  return { memoryUsage, cpuUsage, uptime, systemInfo };
+  return { memoryUsage, cpuUsage, diskUsage, uptime, systemInfo };
 }
 
 export function useSubbotsStatus(interval = 10000) {

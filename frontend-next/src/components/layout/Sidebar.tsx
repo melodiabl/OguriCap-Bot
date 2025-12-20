@@ -12,6 +12,7 @@ import { StatusIndicator, RealTimeBadge } from '@/components/ui/StatusIndicator'
 import {
   Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
   LogOut, Bell, FileText, BarChart3, Image, Zap, Globe, Menu, X,
+  Code, Calendar, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,8 @@ const menuItems = [
   { path: '/aportes', icon: Package, label: 'Aportes', color: 'success', page: 'aportes' },
   { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos', color: 'warning', page: 'pedidos' },
   { path: '/proveedores', icon: Users, label: 'Proveedores', color: 'info', page: 'proveedores' },
+  { path: '/custom-commands', icon: Code, label: 'Comandos Personalizados', color: 'violet', page: 'custom-commands' },
+  { path: '/scheduler', icon: Calendar, label: 'Programador', color: 'primary', page: 'scheduler' },
   { path: '/ai-chat', icon: Bot, label: 'AI Chat', color: 'violet', page: 'ai-chat' },
   { path: '/bot-commands', icon: Settings, label: 'Bot Commands', color: 'primary', page: 'bot-commands' },
   { path: '/logs', icon: FileText, label: 'Logs', color: 'danger', page: 'logs' },

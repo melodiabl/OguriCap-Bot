@@ -25,7 +25,7 @@ export default function BotStatusPage() {
 
   const { status, isConnected, isConnecting: botConnecting, refetch } = useBotStatus(3000);
   const { isOn, setGlobalState, refetch: refetchGlobal } = useGlobalBotState(5000);
-  const { memoryUsage, cpuUsage, uptime } = useSystemStats(10000);
+  const { memoryUsage, cpuUsage, diskUsage, uptime } = useSystemStats(10000);
   const { isConnected: isSocketConnected, botStatus: socketBotStatus } = useSocket();
 
   const connected = socketBotStatus?.connected ?? isConnected;
@@ -231,6 +231,10 @@ export default function BotStatusPage() {
             <div className="flex justify-between items-center p-3 rounded-xl bg-white/5">
               <span className="text-gray-400 text-sm">CPU</span>
               <span className="text-white font-medium">{cpuUsage}%</span>
+            </div>
+            <div className="flex justify-between items-center p-3 rounded-xl bg-white/5">
+              <span className="text-gray-400 text-sm">Disco</span>
+              <span className="text-white font-medium">{diskUsage?.percentage || 0}%</span>
             </div>
           </div>
         </Card>

@@ -25,7 +25,7 @@ interface RecentActivity {
 export default function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats(15000);
   const { status: botStatus, isConnected, isConnecting, refetch: refetchBot } = useBotStatus(5000);
-  const { memoryUsage, cpuUsage, uptime, systemInfo } = useSystemStats(10000);
+  const { memoryUsage, cpuUsage, diskUsage, uptime, systemInfo } = useSystemStats(10000);
   const { onlineCount, totalCount } = useSubbotsStatus(10000);
   const { isConnected: isSocketConnected, socket } = useSocket();
   const [recentActivity, setRecentActivity] = React.useState<RecentActivity[]>([]);
@@ -191,7 +191,7 @@ export default function DashboardPage() {
             <DonutChart
               data={[
                 { label: 'Usado', value: memoryUsage?.systemPercentage || 0, color: '#6366f1' },
-                { label: 'Libre', value: 100 - (memoryUsage?.systemPercentage || 0), color: 'rgba(255,255,255,0.1)' },
+                { label: 'Libre', value: Math.max(0, 100 - (memoryUsage?.systemPercentage || 0)), color: 'rgba(255,255,255,0.1)' },
               ]}
               size={140}
               centerValue={`${memoryUsage?.systemPercentage || 0}%`}
@@ -216,6 +216,15 @@ export default function DashboardPage() {
               </div>
               <div className="progress-bar">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${memoryUsage?.systemPercentage || 0}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-gray-400">Disco</span>
+                <span className="text-white">{diskUsage?.percentage || 0}%</span>
+              </div>
+              <div className="progress-bar">
+                <motion.div initial={{ width: 0 }} animate={{ width: `${diskUsage?.percentage || 0}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
               </div>
             </div>
           </div>
@@ -409,23 +418,19 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-300">Red</h4>
+            <h4 className="text-sm font-medium text-gray-300">Almacenamiento</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Hostname</span>
-                <span className="text-white font-mono text-xs truncate">
-                  {systemInfo?.network?.hostname || '-'}
-                </span>
+                <span className="text-gray-400">Uso</span>
+                <span className="text-white font-mono">{diskUsage?.percentage || 0}%</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Interfaces</span>
-                <span className="text-white font-mono">
-                  {systemInfo?.network?.networkInterfaces?.length || 0}
-                </span>
+                <span className="text-gray-400">Total</span>
+                <span className="text-white font-mono">{diskUsage?.totalGB || '-'} GB</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Uptime</span>
-                <span className="text-white font-mono">{formatUptime(uptime)}</span>
+                <span className="text-gray-400">Libre</span>
+                <span className="text-white font-mono">{diskUsage?.freeGB || '-'} GB</span>
               </div>
             </div>
           </div>

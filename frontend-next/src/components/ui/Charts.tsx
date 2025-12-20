@@ -25,6 +25,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
+        {/* Background circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -33,6 +34,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           stroke="rgba(255,255,255,0.1)"
           strokeWidth={strokeWidth}
         />
+        {/* Progress circle */}
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -43,13 +45,32 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           strokeLinecap="round"
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          style={{ strokeDasharray: circumference }}
+          transition={{ duration: 1.5, ease: 'easeOut' }}
+          style={{ 
+            strokeDasharray: circumference,
+            filter: 'drop-shadow(0 0 8px rgba(99, 102, 241, 0.5))'
+          }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-white">{progress}%</span>
-        {label && <span className="text-xs text-gray-400">{label}</span>}
+        <motion.span 
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="text-2xl font-bold text-white"
+        >
+          {progress}%
+        </motion.span>
+        {label && (
+          <motion.span 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+            className="text-xs text-gray-400"
+          >
+            {label}
+          </motion.span>
+        )}
       </div>
     </div>
   );
@@ -101,16 +122,28 @@ export const DonutChart: React.FC<DonutChartProps> = ({
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
 
-  let currentOffset = 0;
+  let accumulatedPercentage = 0;
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
+        {/* Background circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth={strokeWidth}
+        />
+        
+        {/* Data segments */}
         {data.map((item, index) => {
-          const percentage = (item.value / total) * 100;
-          const dashLength = (percentage / 100) * circumference;
-          const offset = currentOffset;
-          currentOffset += dashLength;
+          const percentage = total > 0 ? (item.value / total) * 100 : 0;
+          const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
+          const strokeDashoffset = -((accumulatedPercentage / 100) * circumference);
+          
+          accumulatedPercentage += percentage;
 
           return (
             <motion.circle
@@ -122,21 +155,38 @@ export const DonutChart: React.FC<DonutChartProps> = ({
               stroke={item.color}
               strokeWidth={strokeWidth}
               strokeLinecap="round"
-              initial={{ strokeDashoffset: circumference }}
-              animate={{ strokeDashoffset: circumference - dashLength }}
-              transition={{ duration: 1, delay: index * 0.2 }}
+              initial={{ strokeDasharray: `0 ${circumference}` }}
+              animate={{ strokeDasharray }}
+              transition={{ duration: 1.5, delay: index * 0.2, ease: 'easeOut' }}
               style={{
-                strokeDasharray: `${dashLength} ${circumference}`,
-                transform: `rotate(${(offset / circumference) * 360}deg)`,
-                transformOrigin: 'center',
+                strokeDashoffset,
               }}
             />
           );
         })}
       </svg>
+      
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {centerValue && <span className="text-xl font-bold text-white">{centerValue}</span>}
-        {centerLabel && <span className="text-xs text-gray-400">{centerLabel}</span>}
+        {centerValue && (
+          <motion.span 
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="text-xl font-bold text-white"
+          >
+            {centerValue}
+          </motion.span>
+        )}
+        {centerLabel && (
+          <motion.span 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+            className="text-xs text-gray-400"
+          >
+            {centerLabel}
+          </motion.span>
+        )}
       </div>
     </div>
   );
