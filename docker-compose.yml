@@ -8,6 +8,9 @@ services:
       dockerfile: Dockerfile
     container_name: whatsapp-bot
     restart: always
+    # Configuración para interactividad
+    stdin_open: true
+    tty: true
     # Mapear la carpeta de sesiones a un volumen persistente en el host
     volumes:
       - whatsapp_sessions:/usr/src/app/Sessions
