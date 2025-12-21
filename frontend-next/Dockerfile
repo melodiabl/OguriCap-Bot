@@ -1,5 +1,4 @@
 # Dockerfile para el Panel de Administración (Next.js)
-# Usar la imagen oficial de Node.js para la fase de construcción
 FROM node:20-slim AS builder
 
 WORKDIR /usr/src/app
@@ -25,7 +24,9 @@ WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/.next ./.next
 COPY --from=builder /usr/src/app/package.json ./package.json
-COPY --from=builder /usr/src/app/public ./public
+
+# Crear directorio public si no existe (opcional para Next.js)
+RUN mkdir -p public
 
 # El panel de Next.js se ejecuta por defecto en el puerto 3000
 EXPOSE 3000

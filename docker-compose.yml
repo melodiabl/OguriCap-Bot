@@ -31,8 +31,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      # Si el panel necesita saber dónde está el bot, configúralo aquí
-      # NEXT_PUBLIC_BOT_API_URL: http://whatsapp-bot:8080
+      NEXT_PUBLIC_API_URL: http://localhost:8080
 
 volumes:
   whatsapp_sessions:
