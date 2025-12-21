@@ -72,15 +72,15 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: 3000,
-        HOSTNAME: '0.0.0.0',
-        NEXT_PUBLIC_API_URL: 'http://178.156.179.129:3001',
+        HOSTNAME: '127.0.0.1',
+        NEXT_PUBLIC_API_URL: 'http://178.156.179.129',
         SERVER_IP: '178.156.179.129'
       },
       env_production: {
         NODE_ENV: 'production',
         PORT: 3000,
-        HOSTNAME: '0.0.0.0',
-        NEXT_PUBLIC_API_URL: 'http://178.156.179.129:3001',
+        HOSTNAME: '127.0.0.1',
+        NEXT_PUBLIC_API_URL: 'http://178.156.179.129',
         SERVER_IP: '178.156.179.129'
       },
       
