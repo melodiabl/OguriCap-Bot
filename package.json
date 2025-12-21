@@ -12,40 +12,16 @@
     "start": "node index.js",
     "dev": "node --inspect index.js",
     "prod": "NODE_ENV=production node index.js",
-    "prod:full": "npm run setup:panel && npm run start:production",
-    "start:production": "concurrently \"npm run prod\" \"cd frontend-next && npm start\"",
-    
-    "pm2:start": "pm2 start ecosystem.config.cjs",
-    "pm2:start:prod": "pm2 start ecosystem.config.cjs --env production",
-    "pm2:stop": "pm2 stop ecosystem.config.cjs",
-    "pm2:restart": "pm2 restart ecosystem.config.cjs",
-    "pm2:delete": "pm2 delete ecosystem.config.cjs",
-    "pm2:logs": "pm2 logs",
-    "pm2:monit": "pm2 monit",
-    
-    "pm2:start:bot": "pm2 start ecosystem.config.cjs --only oguri-bot",
-    "pm2:start:panel": "pm2 start ecosystem.config.cjs --only oguri-panel-next",
-    
-    "pm2:stop:bot": "pm2 stop oguri-bot",
-    "pm2:stop:panel": "pm2 stop oguri-panel-next",
-    
-    "pm2:restart:bot": "pm2 restart oguri-bot",
-    "pm2:restart:panel": "pm2 restart oguri-panel-next",
-    
-    "pm2:logs:bot": "pm2 logs oguri-bot",
-    "pm2:logs:panel": "pm2 logs oguri-panel-next",
     
     "install:panel": "cd frontend-next && npm install",
     "build:panel": "cd frontend-next && npm run build",
     "setup:panel": "npm run install:panel && npm run build:panel",
     "start:panel": "cd frontend-next && npm start",
-    "production": "npm run setup:panel && npm run start:panel",
     
     "clean": "rm -rf node_modules frontend-next/node_modules",
     "clean:logs": "rm -rf logs/* Sessions/*/logs/*",
     "backup": "tar -czf backup-$(date +%Y%m%d-%H%M%S).tar.gz --exclude=node_modules --exclude=.git .",
-    "health": "node --version && npm --version && pm2 --version",
-    "status": "pm2 status",
+    "health": "node --version && npm --version",
     "test": "echo 'No tests specified' && exit 0"
   },
   "repository": {
