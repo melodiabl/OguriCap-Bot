@@ -12,6 +12,8 @@
     "start": "node index.js",
     "dev": "node --inspect index.js",
     "prod": "NODE_ENV=production node index.js",
+    "prod:full": "npm run setup:panel && npm run start:production",
+    "start:production": "concurrently \"npm run prod\" \"cd frontend-next && npm start\"",
     
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:start:prod": "pm2 start ecosystem.config.cjs --env production",
@@ -36,6 +38,8 @@
     "install:panel": "cd frontend-next && npm install",
     "build:panel": "cd frontend-next && npm run build",
     "setup:panel": "npm run install:panel && npm run build:panel",
+    "start:panel": "cd frontend-next && npm start",
+    "production": "npm run setup:panel && npm run start:panel",
     
     "clean": "rm -rf node_modules frontend-next/node_modules",
     "clean:logs": "rm -rf logs/* Sessions/*/logs/*",
