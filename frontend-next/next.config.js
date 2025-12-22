@@ -2,18 +2,37 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // Configuración de webpack para resolver paths
-  webpack: (config) => {
+  // Configuración de webpack para resolver paths y optimizar animaciones
+  webpack: (config, { dev, isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': require('path').resolve(__dirname, 'src'),
     };
+    
+    // Optimizaciones para Framer Motion en producción
+    if (!dev && !isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'framer-motion': 'framer-motion/dist/framer-motion',
+      };
+    }
+    
     return config;
   },
   
-  // Configuración para acceso público
+  // Configuración experimental para mejorar animaciones
   experimental: {
     serverComponentsExternalPackages: [],
+    optimizeCss: true,
+    scrollRestoration: true,
+  },
+  
+  // Configuración del compilador para optimizar animaciones
+  compiler: {
+    // Remover console.log en producción pero mantener animaciones
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
   },
   
   // Configuración de imágenes
@@ -23,25 +42,25 @@ const nextConfig = {
       {
         protocol: 'http',
         hostname: 'localhost',
-        port: '3001',
+        port: '8080',
         pathname: '/media/**',
       },
       {
         protocol: 'http',
         hostname: '127.0.0.1',
-        port: '3001',
+        port: '8080',
         pathname: '/media/**',
       },
       {
         protocol: 'http',
         hostname: '178.156.179.129',
-        port: '3001',
+        port: '8080',
         pathname: '/media/**',
       }
     ],
   },
   
-  // Configuración de headers para CORS
+  // Configuración de headers para CORS y animaciones
   async headers() {
     return [
       {
@@ -59,6 +78,11 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin',
           },
+          // Headers para mejorar animaciones
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
         ],
       },
     ];
@@ -66,7 +90,7 @@ const nextConfig = {
   
   // Configuración de rewrites para API
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://178.156.179.129:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     
     return [
       {
@@ -80,8 +104,8 @@ const nextConfig = {
     ];
   },
   
-  // Configuración de output para producción (comentado para Docker)
-  // output: 'standalone',
+  // Configuración de output para producción optimizada
+  output: 'standalone',
   
   // Configuración de compresión
   compress: true,
@@ -91,6 +115,20 @@ const nextConfig = {
   
   // Configuración de poweredByHeader
   poweredByHeader: false,
+  
+  // Optimizaciones adicionales para animaciones
+  swcMinify: true,
+  
+  // Configuración de páginas estáticas
+  generateEtags: false,
+  
+  // Configuración de desarrollo para animaciones suaves
+  ...(process.env.NODE_ENV === 'development' && {
+    onDemandEntries: {
+      maxInactiveAge: 25 * 1000,
+      pagesBufferLength: 2,
+    },
+  }),
 };
 
 module.exports = nextConfig;
