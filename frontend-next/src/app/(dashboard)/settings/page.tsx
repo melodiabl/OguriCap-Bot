@@ -280,7 +280,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 rounded-xl bg-white/5">
             <p className="text-xs text-gray-500 mb-1">CPU</p>
-            <p className="text-white font-medium truncate">{systemStats?.cpu || 'N/A'}</p>
+            <p className="text-white font-medium truncate">{systemStats?.cpu?.model || 'N/A'}</p>
           </div>
           <div className="p-4 rounded-xl bg-white/5">
             <p className="text-xs text-gray-500 mb-1">Memoria Total</p>

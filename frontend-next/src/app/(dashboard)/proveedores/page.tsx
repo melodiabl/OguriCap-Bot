@@ -38,7 +38,9 @@ interface ProveedorStats {
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [stats, setStats] = useState<ProveedorStats | null>(null);
+  const [availableGroups, setAvailableGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,6 +54,7 @@ export default function ProveedoresPage() {
   useEffect(() => {
     loadProveedores();
     loadStats();
+    loadAvailableGroups();
   }, []);
 
   // Auto-refresh cada 60 segundos para proveedores
@@ -93,10 +96,23 @@ export default function ProveedoresPage() {
     }
   };
 
+  const loadAvailableGroups = async () => {
+    try {
+      setLoadingGroups(true);
+      const data = await api.getAvailableGrupos();
+      const groups = Array.isArray(data) ? data : (data?.grupos || []);
+      setAvailableGroups(groups);
+    } catch (err) {
+      console.error('Error loading available groups');
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
   const createProveedor = async () => {
     if (!newProveedor.nombre?.trim()) { setError('El nombre es requerido'); return; }
-    if (!newProveedor.jid?.trim()) { setError('El JID de WhatsApp es requerido'); return; }
-    if (!newProveedor.tipo?.trim()) { setError('El tipo es requerido'); return; }
+    if (!newProveedor.jid?.trim() || newProveedor.jid === 'none') { setError('Debe seleccionar un grupo'); return; }
+    if (!newProveedor.tipo?.trim() || newProveedor.tipo === 'none') { setError('El tipo es requerido'); return; }
 
     try {
       const data = await api.createProveedor({
@@ -370,14 +386,44 @@ export default function ProveedoresPage() {
               className="input-glass w-full" placeholder="Nombre del proveedor" />
           </div>
           <div>
-            <label className="text-sm text-gray-400 mb-1 block">JID de WhatsApp *</label>
-            <input type="text" value={newProveedor.jid || ''} onChange={(e) => setNewProveedor(p => ({ ...p, jid: e.target.value }))}
-              className="input-glass w-full" placeholder="123456789@s.whatsapp.net" />
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm text-gray-400">Grupo de WhatsApp *</label>
+              <button 
+                onClick={loadAvailableGroups}
+                disabled={loadingGroups}
+                className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                title="Refrescar lista de grupos"
+              >
+                <RefreshCw className={`w-3 h-3 ${loadingGroups ? 'animate-spin' : ''}`} />
+                Refrescar
+              </button>
+            </div>
+            {loadingGroups ? (
+              <div className="input-glass w-full flex items-center justify-center py-3">
+                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                <span className="text-gray-400">Cargando grupos...</span>
+              </div>
+            ) : (
+              <Select 
+                value={newProveedor.jid || 'none'} 
+                onChange={(v) => setNewProveedor(p => ({ ...p, jid: v === 'none' ? '' : v }))} 
+                options={[
+                  { value: 'none', label: 'Seleccionar grupo' },
+                  ...availableGroups.map(group => ({
+                    value: group.jid || group.id,
+                    label: `${group.nombre || group.name || 'Grupo sin nombre'} (${group.participantes || 0} miembros)`
+                  }))
+                ]} 
+              />
+            )}
+            {availableGroups.length === 0 && !loadingGroups && (
+              <p className="text-xs text-gray-500 mt-1">No hay grupos disponibles. Asegúrate de que el bot esté conectado a grupos.</p>
+            )}
           </div>
           <div>
             <label className="text-sm text-gray-400 mb-1 block">Tipo *</label>
-            <Select value={newProveedor.tipo || ''} onChange={(v) => setNewProveedor(p => ({ ...p, tipo: v }))} options={[
-              { value: '', label: 'Seleccionar tipo' },
+            <Select value={newProveedor.tipo || 'none'} onChange={(v) => setNewProveedor(p => ({ ...p, tipo: v === 'none' ? '' : v }))} options={[
+              { value: 'none', label: 'Seleccionar tipo' },
               { value: 'manhwa', label: 'Manhwa' },
               { value: 'manga', label: 'Manga' },
               { value: 'anime', label: 'Anime' },

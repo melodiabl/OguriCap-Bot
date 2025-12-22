@@ -69,7 +69,7 @@ export default function MultimediaPage() {
           // Construir URL completa para archivos multimedia
           let imageUrl = item.url || item.path || item.src || '';
           if (imageUrl && !imageUrl.startsWith('http')) {
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
             imageUrl = `${baseUrl}${imageUrl}`;
           }
           

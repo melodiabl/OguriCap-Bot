@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { User, BotStatus, Aporte, Pedido, Proveedor, Group, DashboardStats } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 class ApiService {
   private api: AxiosInstance;

@@ -72,7 +72,24 @@ export function useSystemStats(interval = 10000) {
       setCpuUsage(data.cpu?.percentage || 0);
       setDiskUsage(data.disk);
       setUptime(data.uptime || 0);
-      setSystemInfo(data);
+      
+      // Asegurar que systemInfo tenga la estructura correcta
+      const safeSystemInfo = {
+        platform: data.platform || 'N/A',
+        arch: data.arch || 'N/A',
+        node: data.node || 'N/A',
+        cpu: {
+          model: data.cpu?.model || 'N/A',
+          cores: data.cpu?.cores || 0,
+          percentage: data.cpu?.percentage || 0
+        },
+        memory: {
+          totalGB: data.memory?.totalGB || 0,
+          freeGB: data.memory?.freeGB || 0
+        }
+      };
+      
+      setSystemInfo(safeSystemInfo);
     } catch (err) {
       // Silent fail
     }
