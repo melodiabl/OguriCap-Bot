@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import { ProgressRing } from '@/components/ui/Charts';
 import { useSystemStats, useBotGlobalState, useBotStatus } from '@/hooks/useRealTime';
+import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlobalStateContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -15,6 +16,9 @@ export default function SettingsPage() {
   const { memoryUsage, uptime } = useSystemStats(5000);
   const { isOn, setGlobalState } = useBotGlobalState(5000);
   const { isConnected } = useBotStatus(5000);
+  
+  // También usar el contexto para sincronización automática
+  const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
 
   const [botConfig, setBotConfig] = useState({
     autoReconnect: true,
@@ -167,8 +171,8 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-white">Control Global del Bot</h2>
           </div>
           <div className="flex items-center justify-center mb-6">
-            <motion.div animate={isOn ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
-              <ProgressRing progress={isOn ? 100 : 0} size={140} color={isOn ? '#10b981' : '#ef4444'} label={isOn ? 'Activo' : 'Inactivo'} />
+            <motion.div animate={contextGlobalState ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
+              <ProgressRing progress={contextGlobalState ? 100 : 0} size={140} color={contextGlobalState ? '#10b981' : '#ef4444'} label={contextGlobalState ? 'Activo' : 'Inactivo'} />
             </motion.div>
           </div>
           <div className="space-y-4">
@@ -177,9 +181,9 @@ export default function SettingsPage() {
                 <p className="font-medium text-white">Estado Global</p>
                 <p className="text-sm text-gray-400">Activa o desactiva el bot en todos los grupos</p>
               </div>
-              <button onClick={() => setGlobalState(!isOn)}
-                className={`relative w-14 h-7 rounded-full transition-colors ${isOn ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-                <motion.div animate={{ x: isOn ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              <button onClick={() => contextSetGlobalState(!contextGlobalState)}
+                className={`relative w-14 h-7 rounded-full transition-colors ${contextGlobalState ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                <motion.div animate={{ x: contextGlobalState ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
               </button>
             </div>

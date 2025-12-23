@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { useGroupsSmartRefresh } from '@/hooks/useSmartRefresh';
+import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { Group } from '@/types';
@@ -26,7 +27,9 @@ export default function GruposPage() {
   const [pagination, setPagination] = useState<any>(null);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<any>(null);
-  const [globalBotState, setGlobalBotState] = useState<boolean>(true);
+  
+  // Usar el contexto global del bot
+  const { isGloballyOn: globalBotState } = useBotGlobalState();
 
   const loadGroups = useCallback(async () => {
     try {
@@ -43,15 +46,10 @@ export default function GruposPage() {
 
   const checkConnectionStatus = useCallback(async () => {
     try {
-      const [response, globalState] = await Promise.all([
-        api.getMainBotStatus(),
-        api.getBotGlobalState()
-      ]);
+      const response = await api.getMainBotStatus();
       setConnectionStatus(response);
-      setGlobalBotState(globalState?.isOn !== false);
     } catch (err) {
       console.error('Error checking connection status:', err);
-      setGlobalBotState(false);
     }
   }, []);
 

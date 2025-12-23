@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { GroupsProvider } from '@/contexts/GroupsContext';
+import { BotGlobalStateProvider } from '@/contexts/BotGlobalStateContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MaintenanceBanner } from '@/components/ui/MaintenanceBanner';
 import { motion } from 'framer-motion';
@@ -47,11 +48,13 @@ export default function DashboardLayout({
   }
 
   return (
-    <GroupsProvider>
-      <div className="min-h-screen">
-        <MaintenanceBanner />
-        <MainLayout>{children}</MainLayout>
-      </div>
-    </GroupsProvider>
+    <BotGlobalStateProvider>
+      <GroupsProvider>
+        <div className="min-h-screen">
+          <MaintenanceBanner />
+          <MainLayout>{children}</MainLayout>
+        </div>
+      </GroupsProvider>
+    </BotGlobalStateProvider>
   );
 }
