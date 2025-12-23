@@ -19,7 +19,7 @@ temp/
 
 # Logs
 *.log
-logs/
+/logs/
 
 # IDE y editores
 .vscode/
