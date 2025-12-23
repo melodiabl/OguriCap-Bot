@@ -107,6 +107,9 @@ export default function SettingsPage() {
       setSaving(false);
     }
   };
+
+  const saveBotConfig = async () => {
+    setSaving(true);
     try {
       // Guardar configuración real del bot en el backend
       await api.updateBotConfig(botConfig);
