@@ -1,39 +1,56 @@
-# Dockerfile para Next.js - Optimizado para Docker
-# Ubicación: frontend-next/Dockerfile
-
-FROM node:18-alpine AS builder
+# Multi-stage build para Next.js
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
+# Copiar archivos de dependencias
 COPY package*.json ./
-
-# Instalar dependencias
 RUN npm ci
 
-# Copiar código fuente
+# ============================================
+# Builder stage
+# ============================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copiar dependencias desde deps
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build de Next.js
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
-# Etapa de producción
-FROM node:18-alpine
+# ============================================
+# Runner stage
+# ============================================
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copiar package.json
-COPY package*.json ./
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Instalar solo dependencias de producción
-RUN npm ci --only=production
+# Crear usuario no-root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copiar build desde la etapa anterior
-COPY --from=builder /app/.next ./.next
+# Copiar archivos necesarios
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
-# 🔥 CRÍTICO: Exponer puerto y escuchar en 0.0.0.0
+# Cambiar permisos
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
 EXPOSE 3000
 
-# 🔥 IMPORTANTE: Comando para iniciar Next.js en producción
-CMD ["npm", "start"]
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]

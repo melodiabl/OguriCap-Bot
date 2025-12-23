@@ -17,6 +17,9 @@ const nextConfig = {
     serverComponentsExternalPackages: [],
   },
   
+  // Configuración para Docker (standalone output)
+  output: 'standalone',
+  
   // Configuración del compilador
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {

@@ -1,96 +1,103 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
+  # ============================================
+  # NGINX Reverse Proxy con SSL
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: oguricap-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - whatsapp-bot
+      - admin-panel
+    networks:
+      - oguricap-network
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  # ============================================
+  # Certbot para SSL (Let's Encrypt)
+  # ============================================
+  certbot:
+    image: certbot/certbot
+    container_name: oguricap-certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - oguricap-network
+
+  # ============================================
+  # WhatsApp Bot (Backend)
+  # ============================================
   whatsapp-bot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: whatsapp-bot
-    restart: always
-
-    # 🔥 INTERACTIVO ACTIVADO (NO SE QUITA)
-    tty: true
-    stdin_open: true
-
+    restart: unless-stopped
     env_file:
       - .env
-
+    ports:
+      - "3001:3001"
     volumes:
-      - whatsapp_sessions:/usr/src/app/Sessions
-      - ./logs:/usr/src/app/logs
-
-    expose:
-      - "3001"
-
-    # 🔥 IMPORTANTE: Especificar que escuche en 0.0.0.0
-    environment:
-      - NODE_ENV=production
-
-    command: node index.js
-    
-    # Healthcheck para verificar que el servicio está listo
+      - ./Sessions:/app/Sessions
+      - ./database.json:/app/database.json
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    networks:
+      - oguricap-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health || exit 1"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
+  # ============================================
+  # Panel Admin (Next.js Frontend)
+  # ============================================
   admin-panel:
-    build: ./frontend-next
+    build:
+      context: ./frontend-next
+      dockerfile: Dockerfile
     container_name: admin-panel
-    restart: always
-
-    tty: true
-    stdin_open: true
-
-    env_file:
-      - .env
-
-    expose:
-      - "3000"
-
-    # 🔥 CRÍTICO: Variables de entorno para Next.js
+    restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com/api
-
-    # 🔥 IMPORTANTE: Comando correcto para producción
-    command: npm run build && npm start
-
-    # Healthcheck para verificar que Next.js está listo
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  nginx:
-    image: nginx:alpine
-    container_name: konmi-nginx
-    restart: always
-
+      - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
     ports:
-      - "80:80"
-      - "443:443"
-
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
-
+      - "3000:3000"
     depends_on:
-      admin-panel:
-        condition: service_healthy
-      whatsapp-bot:
-        condition: service_healthy
-
-    # Healthcheck para Nginx
+      - whatsapp-bot
+    networks:
+      - oguricap-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health || exit 1"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
+# ============================================
+# Redes
+# ============================================
+networks:
+  oguricap-network:
+    driver: bridge
+
+# ============================================
+# Volúmenes
+# ============================================
 volumes:
-  whatsapp_sessions:
-
+  nginx-logs:

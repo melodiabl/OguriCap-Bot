@@ -1,28 +1,36 @@
-FROM node:20-slim
+# Dockerfile para WhatsApp Bot
+FROM node:20-alpine
 
-RUN apt-get update && apt-get install -y \
-    git \
-    build-essential \
-    libcairo2-dev \
-    libpango1.0-dev \
-    libjpeg-dev \
-    libgif-dev \
-    librsvg2-dev \
+# Instalar dependencias del sistema
+RUN apk add --no-cache \
     ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    python3 \
+    make \
+    g++ \
+    wget \
+    curl
 
-WORKDIR /usr/src/app
+# Crear directorio de la aplicación
+WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+# Copiar archivos de dependencias
+COPY package*.json ./
 
+# Instalar dependencias
+RUN npm ci --only=production
+
+# Copiar el código de la aplicación
 COPY . .
 
-ENV NODE_ENV=production
-EXPOSE 8080
+# Crear directorios necesarios
+RUN mkdir -p Sessions storage/media logs
 
-# ✅ usa el script que exista en tu proyecto
-CMD ["npm", "start"]
+# Exponer puerto
+EXPOSE 3001
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
 
-
+# Comando de inicio
+CMD ["node", "index.js"]

@@ -28,3 +28,14 @@ temp/
 *.swo
 *~
 frontend-next/package-lock.json
+
+# Docker y SSL
+certbot/
+*.backup
+
+# Entornos locales
+.env.local
+frontend-next/.env.local
+
+# Storage y media
+storage/
