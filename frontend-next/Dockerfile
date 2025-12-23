@@ -10,6 +10,9 @@ RUN npm ci --only=production=false
 # Copy source code
 COPY . .
 
+# Ensure public directory exists
+RUN mkdir -p public
+
 # Build the application
 RUN npm run build
 
@@ -23,7 +26,11 @@ RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application
 COPY --from=build /app/.next ./.next
+
+# Copy public directory
 COPY --from=build /app/public ./public
+
+# Copy next config if it exists
 COPY --from=build /app/next.config.* ./ 2>/dev/null || true
 
 EXPOSE 3000
