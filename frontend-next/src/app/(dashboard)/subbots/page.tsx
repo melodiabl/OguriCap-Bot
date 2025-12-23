@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useSocket } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -66,8 +65,19 @@ export default function SubbotsPage() {
     }
   }, []);
 
-  // Auto-refresh de subbots
-  useAutoRefresh(loadSubbots, { interval: 15000 });
+  // Auto-refresh controlado (solo cuando no hay Socket.IO)
+  useEffect(() => {
+    // Solo hacer polling si no hay conexión Socket.IO
+    if (isSocketConnected) return;
+    
+    const interval = setInterval(() => {
+      if (!loading) {
+        loadSubbots();
+      }
+    }, 30000); // Cada 30 segundos solo como respaldo
+
+    return () => clearInterval(interval);
+  }, [isSocketConnected, loading, loadSubbots]);
 
   // Socket events
   useEffect(() => {
@@ -154,13 +164,6 @@ export default function SubbotsPage() {
 
   useEffect(() => {
     loadSubbots();
-    const interval = setInterval(getSubbotStatus, 30000);
-    // Auto-refresh completo cada 2 minutos
-    const fullRefreshInterval = setInterval(loadSubbots, 300000); // Reducir a 5 minutos
-    return () => {
-      clearInterval(interval);
-      clearInterval(fullRefreshInterval);
-    };
   }, [loadSubbots]);
 
   useEffect(() => {

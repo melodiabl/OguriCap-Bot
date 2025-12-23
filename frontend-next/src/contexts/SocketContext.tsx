@@ -83,12 +83,13 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
     
     const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Polling primero, luego websocket
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
       timeout: 30000,
       autoConnect: true,
+      upgrade: true, // Permitir upgrade a websocket después de polling
     });
 
     newSocket.on('connect', () => {

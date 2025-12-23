@@ -131,27 +131,59 @@ export const GlobalUpdateProvider: React.FC<{ children: ReactNode }> = ({ childr
   useEffect(() => {
     if (!socket) return;
 
+    // Variables para almacenar el último estado conocido
+    let lastKnownBotStatus: any = null;
+    let lastKnownStats: any = null;
+    let lastKnownNotificationId: string | null = null;
+    let lastKnownLogId: string | null = null;
+    let lastGroupUpdateTime = 0;
+    let lastSubbotUpdateTime = 0;
+
     const handleBotStatusChange = (data: any) => {
       console.log('🤖 Bot status changed via Socket.IO:', data);
-      setBotStatus(prev => ({ ...prev, ...data }));
-      setLastUpdate(new Date());
+      
+      // Solo actualizar si hay cambios reales en el estado
+      const hasChanges = !lastKnownBotStatus || 
+        lastKnownBotStatus.connected !== data.connected ||
+        lastKnownBotStatus.status !== data.status ||
+        lastKnownBotStatus.phone !== data.phone ||
+        lastKnownBotStatus.qrCode !== data.qrCode;
+      
+      if (hasChanges) {
+        lastKnownBotStatus = { ...data };
+        setBotStatus(prev => ({ ...prev, ...data }));
+        setLastUpdate(new Date());
+      }
     };
 
     const handleStatsUpdate = (data: any) => {
       console.log('📊 Stats updated via Socket.IO:', data);
-      setDashboardStats(prev => ({ ...prev, ...data }));
-      setLastUpdate(new Date());
+      
+      // Solo actualizar si hay cambios significativos en las estadísticas
+      const hasChanges = !lastKnownStats ||
+        JSON.stringify(lastKnownStats) !== JSON.stringify(data);
+      
+      if (hasChanges) {
+        lastKnownStats = { ...data };
+        setDashboardStats(prev => ({ ...prev, ...data }));
+        setLastUpdate(new Date());
+      }
     };
 
     const handleNotificationUpdate = (data: any) => {
       console.log('🔔 New notification via Socket.IO:', data);
-      setNotifications(prev => [data, ...prev.slice(0, 9)]);
-      setLastUpdate(new Date());
+      
+      // Solo agregar si es una notificación nueva
+      if (data && data.id && data.id !== lastKnownNotificationId) {
+        lastKnownNotificationId = data.id;
+        setNotifications(prev => [data, ...prev.slice(0, 9)]);
+        setLastUpdate(new Date());
+      }
     };
 
     const handleGlobalStateChange = (data: any) => {
       console.log('🌐 Global state changed via Socket.IO:', data);
-      // Actualizar todo cuando cambie el estado global
+      // Actualizar todo cuando cambie el estado global (esto es importante)
       setTimeout(() => {
         refreshAll();
       }, 500);
@@ -159,20 +191,37 @@ export const GlobalUpdateProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const handleGroupUpdate = (data: any) => {
       console.log('👥 Group updated via Socket.IO:', data);
-      // Actualizar estadísticas cuando cambien los grupos
-      refreshDashboard();
+      
+      // Throttle más inteligente: Solo actualizar si han pasado al menos 5 segundos
+      const now = Date.now();
+      if (now - lastGroupUpdateTime > 5000) {
+        lastGroupUpdateTime = now;
+        refreshDashboard();
+      }
     };
 
     const handleSubbotUpdate = (data: any) => {
       console.log('⚡ Subbot updated via Socket.IO:', data);
-      // Actualizar estadísticas cuando cambien los subbots
-      refreshDashboard();
+      
+      // Throttle más inteligente: Solo actualizar si han pasado al menos 5 segundos
+      const now = Date.now();
+      if (now - lastSubbotUpdateTime > 5000) {
+        lastSubbotUpdateTime = now;
+        refreshDashboard();
+      }
     };
 
     const handleLogEntry = (data: any) => {
       console.log('📝 New log entry via Socket.IO:', data);
-      // Actualizar estadísticas cuando haya nueva actividad
-      refreshDashboard();
+      
+      // Solo actualizar si es realmente un log nuevo con ID diferente
+      if (data && data.id && data.id !== lastKnownLogId) {
+        lastKnownLogId = data.id;
+        // No actualizar dashboard por cada log, solo emitir evento personalizado
+        window.dispatchEvent(new CustomEvent('newLogEntry', {
+          detail: { log: data, timestamp: new Date() }
+        }));
+      }
     };
 
     // Registrar listeners para eventos en tiempo real

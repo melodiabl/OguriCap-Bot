@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/Button';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { useSocket } from '@/contexts/SocketContext';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -41,22 +40,49 @@ export default function LogsPage() {
   const { isConnected: isSocketConnected } = useSocket();
 
   const loadLogs = async () => {
+    // Evitar múltiples llamadas simultáneas
+    if (loading) return;
+    
     try {
       setLoading(true);
       const data = await api.getLogs(page, 50, levelFilter !== 'all' ? levelFilter : undefined);
       setLogs(data?.logs || []);
       setPagination(data?.pagination);
     } catch (err) {
+      console.error('Error loading logs:', err);
       toast.error('Error al cargar logs');
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-refresh automático de logs
-  useAutoRefresh(loadLogs, { interval: 30000, dependencies: [page, levelFilter] });
+  // Carga inicial única
+  useEffect(() => {
+    loadLogs();
+  }, [page, levelFilter]); // Recargar cuando cambie página o filtro
 
-  useEffect(() => { loadLogs(); }, [page, levelFilter]);
+  // Escuchar nuevos logs via eventos personalizados (no auto-refresh constante)
+  useEffect(() => {
+    const handleNewLogEntry = (event: CustomEvent) => {
+      const { log } = event.detail;
+      if (log && log.id) {
+        // Agregar el nuevo log al inicio de la lista si no existe
+        setLogs(prevLogs => {
+          const exists = prevLogs.some(existingLog => existingLog.id === log.id);
+          if (!exists) {
+            return [log, ...prevLogs.slice(0, 49)]; // Mantener solo 50 logs
+          }
+          return prevLogs;
+        });
+      }
+    };
+
+    window.addEventListener('newLogEntry', handleNewLogEntry as EventListener);
+    
+    return () => {
+      window.removeEventListener('newLogEntry', handleNewLogEntry as EventListener);
+    };
+  }, []);
 
   const clearLogs = async () => {
     if (!confirm('¿Eliminar todos los logs? Esta acción no se puede deshacer.')) return;
