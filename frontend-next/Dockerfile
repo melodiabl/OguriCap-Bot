@@ -46,12 +46,12 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copiar archivos necesarios
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Cambiar permisos
-RUN chown -R nextjs:nodejs /app
+# Copiar archivos del servidor necesarios para Server Actions
+COPY --from=builder --chown=nextjs:nodejs /app/.next/server ./.next/server
 
 USER nextjs
 
