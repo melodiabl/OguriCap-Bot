@@ -69,8 +69,13 @@ export default function MultimediaPage() {
           // Construir URL completa para archivos multimedia
           let imageUrl = item.url || item.path || item.src || '';
           if (imageUrl && !imageUrl.startsWith('http')) {
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-            imageUrl = `${baseUrl}${imageUrl}`;
+            const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (envUrl || 'http://localhost:8080');
+            if (baseUrl) {
+              imageUrl = new URL(imageUrl, baseUrl).toString();
+            } else {
+              imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+            }
           }
           
           return {

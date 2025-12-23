@@ -1,4 +1,4 @@
-services:
+﻿services:
   whatsapp-bot:
     build: .
     container_name: whatsapp-bot
@@ -19,7 +19,6 @@ services:
       - "3001"
 
     command: node index.js
-
   admin-panel:
     build: ./frontend-next
     container_name: admin-panel

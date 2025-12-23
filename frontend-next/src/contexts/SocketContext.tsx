@@ -78,9 +78,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     // En producción, usar el dominio configurado con HTTPS
     // En desarrollo, usar localhost
-    const serverUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://oguricap.ooguy.com'
-      : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+    const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+    const serverUrl = process.env.NODE_ENV === 'production'
+      ? (typeof window !== 'undefined' ? window.location.origin : (envUrl || ''))
+      : (envUrl || 'http://localhost:8080');
     
     const newSocket = io(serverUrl, {
       transports: ['polling', 'websocket'], // Polling primero, luego websocket

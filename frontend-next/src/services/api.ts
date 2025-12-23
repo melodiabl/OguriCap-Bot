@@ -4,7 +4,9 @@ import { User, BotStatus, Aporte, Pedido, Proveedor, Group, DashboardStats } fro
 // ✅ PRODUCCIÓN: same-origin (Nginx enruta /api -> whatsapp-bot:8080)
 // ✅ DEV: podés setear NEXT_PUBLIC_API_URL=http://localhost:8080
 const API_URL =
-  (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) || ''
+  process.env.NODE_ENV === 'production'
+    ? ''
+    : ((process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) || '')
 
 class ApiService {
   private api: AxiosInstance
