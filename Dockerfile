@@ -1,8 +1,9 @@
 # Dockerfile para WhatsApp Bot
 FROM node:20-alpine
 
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema (✅ agregar git)
 RUN apk add --no-cache \
+    git \
     ffmpeg \
     python3 \
     make \
@@ -16,8 +17,8 @@ WORKDIR /app
 # Copiar archivos de dependencias
 COPY package*.json ./
 
-# Instalar dependencias
-RUN npm ci --only=production
+# Instalar dependencias (✅ usar omit=dev recomendado)
+RUN npm ci --omit=dev
 
 # Copiar el código de la aplicación
 COPY . .
