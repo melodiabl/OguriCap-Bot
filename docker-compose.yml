@@ -9,9 +9,10 @@ services:
     volumes:
       - ./Sessions:/usr/src/app/Sessions
     expose:
-      - "8080"
+      - "3001"
     environment:
       NODE_ENV: production
+      PORT: 3001
 
   admin-panel:
     build:
