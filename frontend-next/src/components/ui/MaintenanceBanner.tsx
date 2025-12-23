@@ -37,44 +37,46 @@ export const MaintenanceBanner: React.FC = () => {
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -50 }}
-        className="bg-orange-500/90 backdrop-blur-sm border-b border-orange-400/20 relative z-50 w-full"
+        className="bg-orange-500 border-b border-orange-400/30 relative z-50 w-full"
       >
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-3 min-w-0 flex-1">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="flex-shrink-0"
-              >
-                <Wrench className="w-5 h-5 text-white" />
-              </motion.div>
-              <div className="min-w-0 flex-1">
-                <p className="text-white font-medium text-sm sm:text-base truncate">
-                  Modo Mantenimiento Activo
-                </p>
-                <p className="text-orange-100 text-xs sm:text-sm truncate">
-                  Solo los administradores pueden acceder al panel
-                </p>
+        <div className="lg:pl-72">
+          <div className="px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="flex-shrink-0"
+                >
+                  <Wrench className="w-5 h-5 text-white" />
+                </motion.div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white font-semibold text-sm sm:text-base truncate">
+                    Modo Mantenimiento Activo
+                  </p>
+                  <p className="text-orange-100 text-xs sm:text-sm truncate">
+                    Solo los administradores pueden acceder al panel
+                  </p>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
-              <button
-                onClick={() => window.location.href = '/settings'}
-                className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm transition-colors whitespace-nowrap"
-              >
-                <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Configurar</span>
-              </button>
               
-              <button
-                onClick={() => setIsVisible(false)}
-                className="text-white/80 hover:text-white p-1.5 rounded-md hover:bg-white/20 transition-colors flex-shrink-0"
-                title="Ocultar banner"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                <button
+                  onClick={() => window.location.href = '/settings'}
+                  className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap font-medium"
+                >
+                  <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Configurar</span>
+                </button>
+                
+                <button
+                  onClick={() => setIsVisible(false)}
+                  className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
+                  title="Ocultar banner"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
