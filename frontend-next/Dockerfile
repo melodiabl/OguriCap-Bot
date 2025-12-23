@@ -4,8 +4,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Clean install dependencies
-RUN npm ci --only=production=false
+# Clean install dependencies (with legacy peer deps to avoid conflicts)
+RUN npm ci --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -22,7 +22,7 @@ ENV NODE_ENV=production
 
 # Copy package.json and install production dependencies
 COPY package.json package-lock.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
 
 # Copy built application
 COPY --from=build /app/.next ./.next
