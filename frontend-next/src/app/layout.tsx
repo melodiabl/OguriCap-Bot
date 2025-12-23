@@ -6,10 +6,7 @@ export const metadata: Metadata = {
   title: 'Oguri Bot Panel',
   description: 'Panel de administración para WhatsApp Bot',
   icons: {
-    icon: [
-      { url: '/bot-icon.svg', type: 'image/svg+xml' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-    ],
+    icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
@@ -28,9 +25,8 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/bot-icon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/favicon.ico" sizes="16x16" type="image/x-icon" />
-        <link rel="alternate icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#10b981" />
