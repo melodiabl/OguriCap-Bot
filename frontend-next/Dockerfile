@@ -30,8 +30,8 @@ COPY --from=build /app/.next ./.next
 # Copy public directory
 COPY --from=build /app/public ./public
 
-# Copy next config if it exists
-COPY --from=build /app/next.config.* ./ 2>/dev/null || true
+# Copy next config
+COPY --from=build /app/next.config.js ./
 
 EXPOSE 3000
 CMD ["npm", "run", "start"]
