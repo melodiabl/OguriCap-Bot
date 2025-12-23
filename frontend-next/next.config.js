@@ -26,7 +26,7 @@ const nextConfig = {
   
   // Configuración de imágenes
   images: {
-    domains: ['localhost', '127.0.0.1', '178.156.179.129'],
+    domains: ['localhost', '127.0.0.1', 'OguriCap.ooguy.com'],
     remotePatterns: [
       {
         protocol: 'http',
@@ -41,9 +41,9 @@ const nextConfig = {
         pathname: '/media/**',
       },
       {
-        protocol: 'http',
-        hostname: '178.156.179.129',
-        port: '8080',
+        protocol: 'https',
+        hostname: 'OguriCap.ooguy.com',
+        port: '',
         pathname: '/media/**',
       }
     ],
