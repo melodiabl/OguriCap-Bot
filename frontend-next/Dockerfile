@@ -14,6 +14,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Argumentos de build
+ARG NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Copiar dependencias desde deps
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -30,6 +34,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+# Instalar wget para healthcheck
+RUN apk add --no-cache wget
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
