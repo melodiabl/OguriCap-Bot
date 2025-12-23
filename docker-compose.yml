@@ -1,4 +1,6 @@
-﻿services:
+﻿version: '3.8'
+
+services:
   whatsapp-bot:
     build: .
     container_name: whatsapp-bot
@@ -18,7 +20,20 @@
     expose:
       - "3001"
 
+    # 🔥 IMPORTANTE: Especificar que escuche en 0.0.0.0
+    environment:
+      - NODE_ENV=production
+
     command: node index.js
+    
+    # Healthcheck para verificar que el servicio está listo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   admin-panel:
     build: ./frontend-next
     container_name: admin-panel
@@ -33,7 +48,21 @@
     expose:
       - "3000"
 
-    command: npm start
+    # 🔥 CRÍTICO: Variables de entorno para Next.js
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com/api
+
+    # 🔥 IMPORTANTE: Comando correcto para producción
+    command: npm run build && npm start
+
+    # Healthcheck para verificar que Next.js está listo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   nginx:
     image: nginx:alpine
@@ -50,8 +79,17 @@
       - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
 
     depends_on:
-      - whatsapp-bot
-      - admin-panel
+      admin-panel:
+        condition: service_healthy
+      whatsapp-bot:
+        condition: service_healthy
+
+    # Healthcheck para Nginx
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   whatsapp_sessions:
