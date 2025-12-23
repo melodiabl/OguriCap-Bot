@@ -1,83 +1,39 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
-  
-  // Configuración de webpack para resolver paths
-  webpack: (config, { dev, isServer }) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, 'src'),
-    };
-    
-    return config;
-  },
-  
-  // Configuración experimental básica
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
-  
-  // Configuración del compilador
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn']
-    } : false,
-  },
-  
-  // Configuración de imágenes
-  images: {
-    domains: ['localhost', '127.0.0.1', 'oguricap.ooguy.com'],
-    remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '8080',
-        pathname: '/media/**',
-      },
-      {
-        protocol: 'http',
-        hostname: '127.0.0.1',
-        port: '8080',
-        pathname: '/media/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'oguricap.ooguy.com',
-        port: '',
-        pathname: '/media/**',
-      }
-    ],
-  },
-  
-  // Configuración de rewrites para API
-  async rewrites() {
-    // En producción con Docker, las rutas API van directamente a nginx
-    if (process.env.NODE_ENV === 'production') {
-      return [];
-    }
-    
-    // Solo en desarrollo, redirigir a localhost:8080
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-      {
-        source: '/media/:path*',
-        destination: `${apiUrl}/media/:path*`,
-      },
-    ];
-  },
-  
-  // Configuración básica de producción
-  compress: true,
-  trailingSlash: false,
-  poweredByHeader: false,
-  swcMinify: true,
-  generateEtags: false,
-};
+# Dockerfile para Next.js - Optimizado para Docker
+# Ubicación: frontend-next/Dockerfile
 
-module.exports = nextConfig;
+FROM node:18-alpine AS builder
 
+WORKDIR /app
+
+# Copiar package.json y package-lock.json
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm ci
+
+# Copiar código fuente
+COPY . .
+
+# Build de Next.js
+RUN npm run build
+
+# Etapa de producción
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copiar package.json
+COPY package*.json ./
+
+# Instalar solo dependencias de producción
+RUN npm ci --only=production
+
+# Copiar build desde la etapa anterior
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+
+# 🔥 CRÍTICO: Exponer puerto y escuchar en 0.0.0.0
+EXPOSE 3000
+
+# 🔥 IMPORTANTE: Comando para iniciar Next.js en producción
+CMD ["npm", "start"]
