@@ -4,18 +4,21 @@ services:
     container_name: whatsapp-bot
     restart: always
 
-    # 🔥 INTERACTIVO ACTIVADO
+    # 🔥 INTERACTIVO ACTIVADO (NO SE QUITA)
     tty: true
     stdin_open: true
 
+    env_file:
+      - .env
+
     volumes:
       - whatsapp_sessions:/usr/src/app/Sessions
+      - ./logs:/usr/src/app/logs
 
     expose:
       - "8080"
 
-    env_file:
-      - .env
+    command: node index.js
 
   admin-panel:
     build: ./frontend-next
@@ -25,11 +28,13 @@ services:
     tty: true
     stdin_open: true
 
+    env_file:
+      - .env
+
     expose:
       - "3000"
 
-    env_file:
-      - .env
+    command: npm start
 
   nginx:
     image: nginx:alpine
@@ -43,6 +48,7 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
 
     depends_on:
       - whatsapp-bot
@@ -50,3 +56,4 @@ services:
 
 volumes:
   whatsapp_sessions:
+
