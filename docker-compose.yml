@@ -1,10 +1,7 @@
-version: "3.8"
-
 services:
   whatsapp-bot:
     build:
       context: .
-      dockerfile: Dockerfile.bot
     container_name: whatsapp-bot
     restart: always
     stdin_open: true
@@ -19,28 +16,10 @@ services:
   admin-panel:
     build:
       context: ./frontend-next
-      dockerfile: Dockerfile.panel
     container_name: admin-panel
     restart: always
     expose:
       - "3000"
     environment:
       NODE_ENV: production
-      # ✅ vacío => el frontend usará same-origin (/api/...)
       NEXT_PUBLIC_API_URL: ""
-
-  nginx:
-    image: nginx:alpine
-    container_name: konmi-nginx
-    restart: always
-    depends_on:
-      - admin-panel
-      - whatsapp-bot
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-
-volumes:
-  whatsapp_sessions:
-    driver: local
