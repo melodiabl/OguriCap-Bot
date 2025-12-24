@@ -34,13 +34,7 @@ interface Task {
   enabled: boolean;
   priority: number;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'paused';
-  lastExecution?: {
-    startTime: string;
-    endTime?: string;
-    status: string;
-    duration: number;
-    error?: string;
-  };
+  lastExecution?: TaskExecution;
   successCount: number;
   errorCount: number;
   createdAt: string;
@@ -52,7 +46,7 @@ interface TaskExecution {
   taskName: string;
   startTime: string;
   endTime?: string;
-  status: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'paused';
   duration: number;
   manual: boolean;
   error?: string;

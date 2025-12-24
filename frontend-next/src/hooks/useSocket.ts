@@ -32,3 +32,5 @@ export function useSocket() {
 
   return socket;
 }
+
+export default useSocket;
