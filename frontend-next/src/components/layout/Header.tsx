@@ -25,7 +25,7 @@ const menuItems = [
   { path: '/notificaciones', label: 'Notificaciones' },
   { path: '/analytics', label: 'Analytics' },
   { path: '/multimedia', label: 'Multimedia' },
-  { path: '/settings', label: 'Configuración' },
+  { path: '/configuracion', label: 'Configuración' },
 ];
 
 interface HeaderProps {

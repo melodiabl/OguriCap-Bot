@@ -12,10 +12,11 @@ import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useBotStatus, useNotifications } from '@/hooks/useRealTime';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { StatusIndicator, RealTimeBadge } from '@/components/ui/StatusIndicator';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
-  LogOut, Bell, FileText, BarChart3, Image, Zap, Globe, Menu, X,
-  Code, Calendar, AlertTriangle, Server
+  LogOut, Bell, FileText, BarChart3, Image, Zap, Globe,
+  Calendar, AlertTriangle, Server
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,19 +31,15 @@ const menuItems = [
   { path: '/aportes', icon: Package, label: 'Aportes', color: 'success', page: 'aportes' },
   { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos', color: 'warning', page: 'pedidos' },
   { path: '/proveedores', icon: Users, label: 'Proveedores', color: 'info', page: 'proveedores' },
-  { path: '/scheduler', icon: Calendar, label: 'Programador', color: 'primary', page: 'scheduler' },
+  { path: '/tareas', icon: Calendar, label: 'Tareas & Programador', color: 'primary', page: 'tareas' },
   { path: '/ai-chat', icon: Bot, label: 'AI Chat', color: 'violet', page: 'ai-chat' },
   { path: '/alertas', icon: AlertTriangle, label: 'Alertas', color: 'danger', page: 'alertas' },
-  { path: '/tareas', icon: Calendar, label: 'Tareas', color: 'primary', page: 'tareas' },
   { path: '/recursos', icon: BarChart3, label: 'Recursos', color: 'success', page: 'recursos' },
-  { path: '/sistema', icon: Server, label: 'Sistema Avanzado', color: 'danger', page: 'sistema' },
-  { path: '/logs', icon: FileText, label: 'Logs del Sistema', color: 'danger', page: 'logs' },
-  { path: '/configuracion', icon: Settings, label: 'Configuración Avanzada', color: 'cyan', page: 'configuracion' },
-  { path: '/logs', icon: FileText, label: 'Logs', color: 'danger', page: 'logs' },
+  { path: '/configuracion', icon: Settings, label: 'Configuración', color: 'cyan', page: 'configuracion' },
+  { path: '/logs', icon: FileText, label: 'Logs & Sistema', color: 'danger', page: 'logs' },
   { path: '/notificaciones', icon: Bell, label: 'Notificaciones', color: 'primary', page: 'notificaciones' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
   { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
-  { path: '/settings', icon: Settings, label: 'Configuración', color: 'info', page: 'settings' },
 ];
 
 const colorClasses: Record<string, string> = {
@@ -201,7 +198,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </nav>
 
         {/* User section */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/10 space-y-3">
+          {/* Theme Toggle */}
+          <div className="flex justify-center">
+            <ThemeToggle />
+          </div>
+          
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
             <div className="avatar">
               {user?.username?.charAt(0).toUpperCase() || 'U'}

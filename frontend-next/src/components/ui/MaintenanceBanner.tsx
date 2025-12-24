@@ -62,7 +62,7 @@ export const MaintenanceBanner: React.FC = () => {
               
               <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
                 <button
-                  onClick={() => window.location.href = '/settings'}
+                  onClick={() => window.location.href = '/configuracion'}
                   className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap font-medium"
                 >
                   <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
