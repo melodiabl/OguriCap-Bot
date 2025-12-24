@@ -67,8 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { isGloballyOn } = useBotGlobalState();
   const { dashboardStats, botStatus: globalBotStatus, refreshAll } = useGlobalUpdate();
 
-  // Auto-refresh del sidebar
-  useAutoRefresh(refreshAll, { interval: 30000 });
+  // Auto-refresh del sidebar - DISABLED to prevent resource exhaustion
+  // useAutoRefresh(refreshAll, { interval: 30000 });
 
   const allowedMenuItems = menuItems.filter(item => hasPermission(item.page));
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;

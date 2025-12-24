@@ -51,11 +51,11 @@ export default function GruposPage() {
     loadGroups();
   }, [globalBotState, loadGroups]);
 
-  // Auto-refresh automático
-  useAutoRefresh(loadGroups, { 
-    interval: 30000, 
-    dependencies: [searchTerm, botFilter, proveedorFilter, page] 
-  });
+  // Auto-refresh automático - DISABLED to prevent resource exhaustion
+  // useAutoRefresh(loadGroups, { 
+  //   interval: 30000, 
+  //   dependencies: [searchTerm, botFilter, proveedorFilter, page] 
+  // });
 
   const checkConnectionStatus = useCallback(async () => {
     try {

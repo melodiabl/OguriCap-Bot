@@ -27,10 +27,10 @@ export default function DashboardPage() {
   const { isConnected: isSocketConnected, socket } = useSocket();
   const { activities: recentActivity, isLoading: activitiesLoading } = useRecentActivity(60000); // Cada minuto
 
-  // Auto-refresh del dashboard
-  useAutoRefresh(async () => {
-    await Promise.all([refetchStats(), refetchBot()]);
-  }, { interval: 15000 });
+  // Auto-refresh del dashboard - DISABLED to prevent resource exhaustion
+  // useAutoRefresh(async () => {
+  //   await Promise.all([refetchStats(), refetchBot()]);
+  // }, { interval: 15000 });
 
   // Usar datos del contexto global si están disponibles
   const currentStats = dashboardStats || stats;

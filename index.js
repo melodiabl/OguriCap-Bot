@@ -618,7 +618,7 @@ process.on('uncaughtException', async (error) => {
     
     // Notificar error crítico
     const { default: notificationSystem } = await import('./lib/notification-system.js')
-    await notificationSystem.sendNotification({
+    await notificationSystem.send({
       type: 'critical_error',
       title: '💥 Error Crítico del Sistema',
       message: `Error no capturado: ${error.message}`,

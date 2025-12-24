@@ -78,8 +78,8 @@ export default function ConfiguracionPage() {
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
   const { systemStats, refreshAll } = useGlobalUpdate();
 
-  // Auto-refresh
-  useAutoRefresh(refreshAll, { interval: 30000 });
+  // Auto-refresh - DISABLED to prevent resource exhaustion
+  // useAutoRefresh(refreshAll, { interval: 30000 });
 
   const [configurations, setConfigurations] = useState<ConfigSection[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<string>('main');
@@ -126,7 +126,7 @@ export default function ConfiguracionPage() {
     if (section) {
       setSelectedConfig(section);
     }
-  }, [searchParams]);
+  }, []); // Only run once on mount
 
   useEffect(() => {
     if (selectedConfig) {

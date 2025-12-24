@@ -171,23 +171,35 @@ export default function LogsPage() {
 
   const socket = useSocket();
 
+  // Initial load
   useEffect(() => {
     loadLogs();
     loadStats();
     loadSystemData();
+  }, []); // Only run once on mount
+
+  // Load logs when filters change (with debouncing)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadLogs();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
   }, [searchQuery, selectedLevel, selectedCategory, startDate, endDate, currentPage]);
 
-  // Auto-refresh cada 30 segundos
-  useAutoRefresh(() => {
-    if (activeTab === 'logs') {
-      loadLogs();
-      loadStats();
-    } else {
-      loadSystemData();
-    }
-  }, { interval: 30000 });
+  // Auto-refresh cada 30 segundos - DISABLED to prevent resource exhaustion
+  // useAutoRefresh(() => {
+  //   if (activeTab === 'logs') {
+  //     loadLogs();
+  //     loadStats();
+  //   } else {
+  //     loadSystemData();
+  //   }
+  // }, { interval: 30000 });
 
   const loadSystemData = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous calls
+    
     try {
       setError(null);
       
@@ -261,18 +273,21 @@ export default function LogsPage() {
     };
   }, [socket, autoRefresh, pageSize]);
 
-  useEffect(() => {
-    if (autoRefresh && activeTab === 'logs') {
-      const interval = setInterval(() => {
-        loadLogs();
-        loadStats();
-      }, 10000); // Cada 10 segundos
+  // Disable auto-refresh interval to prevent resource exhaustion
+  // useEffect(() => {
+  //   if (autoRefresh && activeTab === 'logs') {
+  //     const interval = setInterval(() => {
+  //       loadLogs();
+  //       loadStats();
+  //     }, 30000); // Increased to 30 seconds to reduce load
 
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, searchQuery, selectedLevel, selectedCategory, startDate, endDate, activeTab]);
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [autoRefresh, activeTab]); // Removed filter dependencies to prevent excessive calls
 
   const loadLogs = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous calls
+    
     try {
       setIsLoading(true);
       
@@ -468,7 +483,14 @@ export default function LogsPage() {
           </Button>
           
           <Button
-            onClick={() => activeTab === 'logs' ? loadLogs() : loadSystemData()}
+            onClick={() => {
+              if (activeTab === 'logs') {
+                loadLogs();
+                loadStats();
+              } else {
+                loadSystemData();
+              }
+            }}
             variant="secondary"
             className="flex items-center gap-2"
           >
