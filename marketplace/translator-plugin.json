@@ -1,0 +1,66 @@
+{
+  "id": "translator-plugin",
+  "name": "Traductor Universal",
+  "version": "2.1.0",
+  "description": "Traduce mensajes entre más de 100 idiomas usando IA avanzada",
+  "author": "LangTech Solutions",
+  "main": "translator.js",
+  "type": "middleware",
+  "category": "communication",
+  "permissions": [
+    "read_messages",
+    "send_messages",
+    "network_access"
+  ],
+  "enabled": true,
+  "price": 4.99,
+  "rating": 4.9,
+  "downloads": 8750,
+  "hooks": ["message_received", "message_sent"],
+  "commands": [
+    {
+      "trigger": "/traducir",
+      "description": "Traducir texto",
+      "usage": "/traducir [idioma] [texto]"
+    },
+    {
+      "trigger": "/detectar",
+      "description": "Detectar idioma",
+      "usage": "/detectar [texto]"
+    },
+    {
+      "trigger": "/idiomas",
+      "description": "Lista de idiomas soportados",
+      "usage": "/idiomas"
+    }
+  ],
+  "config": {
+    "autoTranslate": false,
+    "targetLanguage": "es",
+    "confidence": 0.8
+  },
+  "dependencies": ["google-translate-api", "langdetect"],
+  "minBotVersion": "2.0.0",
+  "tags": ["traducción", "idiomas", "comunicación", "IA"],
+  "screenshots": [
+    "https://example.com/translator1.png",
+    "https://example.com/translator2.png",
+    "https://example.com/translator3.png"
+  ],
+  "changelog": [
+    {
+      "version": "2.1.0",
+      "date": "2024-01-20",
+      "changes": [
+        "Añadido soporte para 20 idiomas más",
+        "Mejorada la precisión de detección",
+        "Nueva función de traducción automática",
+        "Optimizado el rendimiento"
+      ]
+    }
+  ],
+  "size": 128000,
+  "lastUpdated": "2024-01-20T14:45:00Z",
+  "verified": true,
+  "featured": false
+}

@@ -2,195 +2,529 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, MessageSquare, FileText, Clock, Download, TrendingUp, TrendingDown, RefreshCw, Loader2 } from 'lucide-react';
-import { Card, StatCard } from '@/components/ui/Card';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  AreaChart,
+  Area
+} from 'recharts';
+import { 
+  Activity, 
+  Users, 
+  MessageSquare, 
+  Zap, 
+  TrendingUp, 
+  TrendingDown,
+  Filter,
+  Download,
+  RefreshCw,
+  AlertTriangle
+} from 'lucide-react';
+import { useSocket } from '../../../hooks/useSocket';
 import { Button } from '@/components/ui/Button';
-import { SimpleSelect as Select } from '@/components/ui/Select';
-import { ProgressRing, BarChart } from '@/components/ui/Charts';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
+interface MetricCard {
+  title: string;
+  value: number;
+  change: number;
+  changeType: 'increase' | 'decrease' | 'neutral';
+  icon: React.ComponentType;
+  color: string;
+}
+
+interface ChartData {
+  name: string;
+  value: number;
+  timestamp?: string;
+}
+
 export default function AnalyticsPage() {
-  const [timeRange, setTimeRange] = useState('7d');
-  const [activeTab, setActiveTab] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
-  const [userStats, setUserStats] = useState<any>(null);
-  const [groupStats, setGroupStats] = useState<any>(null);
-  const [aporteStats, setAporteStats] = useState<any>(null);
-  const [pedidoStats, setPedidoStats] = useState<any>(null);
+  const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  
+  // Métricas principales
+  const [metrics, setMetrics] = useState<MetricCard[]>([]);
+  
+  // Datos de gráficos
+  const [commandsOverTime, setCommandsOverTime] = useState<ChartData[]>([]);
+  const [userActivity, setUserActivity] = useState<ChartData[]>([]);
+  const [groupActivity, setGroupActivity] = useState<ChartData[]>([]);
+  const [errorRates, setErrorRates] = useState<ChartData[]>([]);
+  const [topCommands, setTopCommands] = useState<ChartData[]>([]);
+  const [responseTimeData, setResponseTimeData] = useState<ChartData[]>([]);
 
-  useEffect(() => { loadData(); }, [timeRange]);
+  const socket = useSocket();
 
-  // Auto-refresh cada 5 minutos para analytics
+  // Colores para gráficos
+  const colors = {
+    primary: '#3B82F6',
+    success: '#10B981',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#06B6D4',
+    purple: '#8B5CF6'
+  };
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadData();
-    }, 300000);
-    return () => clearInterval(interval);
-  }, [timeRange]);
+    loadAnalytics();
+    
+    if (autoRefresh) {
+      const interval = setInterval(loadAnalytics, 30000); // Actualizar cada 30 segundos
+      return () => clearInterval(interval);
+    }
+  }, [timeRange, autoRefresh]);
 
-  const loadData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (!socket) return;
+
+    // Escuchar eventos en tiempo real
+    const handleCommandExecuted = (data: any) => {
+      if (autoRefresh) {
+        updateRealTimeMetrics(data);
+      }
+    };
+
+    const handleStatsUpdate = (data: any) => {
+      if (autoRefresh) {
+        updateMetricsFromSocket(data);
+      }
+    };
+
+    socket.on('command:executed', handleCommandExecuted);
+    socket.on('stats:update', handleStatsUpdate);
+
+    return () => {
+      socket.off('command:executed', handleCommandExecuted);
+      socket.off('stats:update', handleStatsUpdate);
+    };
+  }, [socket, autoRefresh]);
+
+  const loadAnalytics = async () => {
     try {
-      const [analytics, users, groups, aportes, pedidos] = await Promise.all([
-        api.getAnalytics(timeRange).catch(() => ({})),
-        api.getUsuarioStats().catch(() => ({})),
-        api.getGroupStats().catch(() => ({})),
-        api.getAporteStats().catch(() => ({})),
-        api.getPedidoStats().catch(() => ({}))
+      setIsLoading(true);
+      
+      // Cargar datos de múltiples endpoints
+      const [
+        commandStats,
+        userStats,
+        groupStats
+      ] = await Promise.all([
+        api.getBotCommandStats(),
+        api.getUsuarioStats(),
+        api.getGroupStats()
       ]);
-      setAnalyticsData(analytics);
-      setUserStats(users);
-      setGroupStats(groups);
-      setAporteStats(aportes);
-      setPedidoStats(pedidos);
-    } catch (err) {
-      toast.error('Error al cargar analíticas');
+
+      // Procesar métricas principales
+      const newMetrics: MetricCard[] = [
+        {
+          title: 'Comandos Ejecutados',
+          value: commandStats.totalToday || 0,
+          change: calculateChange(commandStats.totalToday, commandStats.totalYesterday),
+          changeType: commandStats.totalToday > (commandStats.totalYesterday || 0) ? 'increase' : 'decrease',
+          icon: Zap,
+          color: colors.primary
+        },
+        {
+          title: 'Usuarios Activos',
+          value: userStats.activeToday || 0,
+          change: calculateChange(userStats.activeToday, userStats.activeYesterday),
+          changeType: userStats.activeToday > (userStats.activeYesterday || 0) ? 'increase' : 'decrease',
+          icon: Users,
+          color: colors.success
+        },
+        {
+          title: 'Grupos Activos',
+          value: groupStats.activeToday || 0,
+          change: calculateChange(groupStats.activeToday, groupStats.activeYesterday),
+          changeType: groupStats.activeToday > (groupStats.activeYesterday || 0) ? 'increase' : 'decrease',
+          icon: MessageSquare,
+          color: colors.info
+        },
+        {
+          title: 'Tasa de Errores',
+          value: commandStats.errorRate || 0,
+          change: calculateChange(commandStats.errorRate, commandStats.errorRateYesterday),
+          changeType: commandStats.errorRate < (commandStats.errorRateYesterday || 0) ? 'increase' : 'decrease',
+          icon: AlertTriangle,
+          color: colors.error
+        }
+      ];
+
+      setMetrics(newMetrics);
+
+      // Procesar datos de gráficos
+      setCommandsOverTime(processTimeSeriesData(commandStats.hourlyData || []));
+      setUserActivity(processTimeSeriesData(userStats.hourlyActivity || []));
+      setGroupActivity(processTimeSeriesData(groupStats.hourlyActivity || []));
+      setErrorRates(processTimeSeriesData(commandStats.hourlyErrors || []));
+      setTopCommands(processTopCommandsData(commandStats.topCommands || []));
+      setResponseTimeData(processTimeSeriesData(commandStats.responseTimeData || []));
+
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+      toast.error('Error cargando analytics');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
+  const updateRealTimeMetrics = (data: any) => {
+    // Actualizar métricas en tiempo real cuando se ejecuta un comando
+    setMetrics(prev => prev.map(metric => {
+      if (metric.title === 'Comandos Ejecutados') {
+        return { ...metric, value: metric.value + 1 };
+      }
+      return metric;
+    }));
+
+    // Actualizar gráfico de comandos en tiempo real
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    
+    setCommandsOverTime(prev => {
+      const updated = [...prev];
+      const lastEntry = updated[updated.length - 1];
+      
+      if (lastEntry && lastEntry.name === timeLabel) {
+        lastEntry.value += 1;
+      } else {
+        updated.push({ name: timeLabel, value: 1 });
+        // Mantener solo las últimas 20 entradas
+        if (updated.length > 20) {
+          updated.shift();
+        }
+      }
+      
+      return updated;
+    });
   };
 
-  const tabs = [
-    { id: 0, name: 'Resumen', icon: BarChart3 },
-    { id: 1, name: 'Usuarios', icon: Users },
-    { id: 2, name: 'Contenido', icon: FileText },
-  ];
+  const updateMetricsFromSocket = (data: any) => {
+    // Actualizar métricas desde eventos de socket
+    if (data.memory) {
+      // Actualizar métricas de sistema si es necesario
+    }
+  };
 
-  if (loading) {
+  const calculateChange = (current: number, previous: number): number => {
+    if (!previous) return 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
+  const processTimeSeriesData = (data: any[]): ChartData[] => {
+    return data.map(item => ({
+      name: item.hour || item.time || item.label,
+      value: item.count || item.value || 0,
+      timestamp: item.timestamp
+    }));
+  };
+
+  const processTopCommandsData = (data: any[]): ChartData[] => {
+    return data.slice(0, 10).map(item => ({
+      name: item.command || item.name,
+      value: item.count || item.value || 0
+    }));
+  };
+
+  const exportData = async () => {
+    try {
+      const data = {
+        metrics,
+        timeRange,
+        exportDate: new Date().toISOString(),
+        charts: {
+          commandsOverTime,
+          userActivity,
+          groupActivity,
+          errorRates,
+          topCommands,
+          responseTimeData
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Datos exportados correctamente');
+    } catch (error) {
+      toast.error('Error exportando datos');
+    }
+  };
+
+  const MetricCard: React.FC<{ metric: MetricCard }> = ({ metric }) => {
+    const IconComponent = metric.icon;
+    
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary-400" />
-          <h2 className="text-xl font-semibold text-white">Cargando analíticas...</h2>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-400 mb-1">{metric.title}</p>
+            <p className="text-2xl font-bold text-white">{metric.value.toLocaleString()}</p>
+            <div className="flex items-center mt-2">
+              {metric.changeType === 'increase' ? (
+                <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+              ) : metric.changeType === 'decrease' ? (
+                <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+              ) : null}
+              <span className={`text-sm ${
+                metric.changeType === 'increase' ? 'text-green-400' : 
+                metric.changeType === 'decrease' ? 'text-red-400' : 'text-gray-400'
+              }`}>
+                {metric.change > 0 ? '+' : ''}{metric.change}%
+              </span>
+            </div>
+          </div>
+          <div className="p-3 rounded-lg" style={{ backgroundColor: `${metric.color}20` }}>
+            <div className="w-6 h-6" style={{ color: metric.color }}>
+              <IconComponent />
+            </div>
+          </div>
         </div>
-      </div>
+      </motion.div>
     );
-  }
+  };
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="p-2 bg-cyan-500/20 rounded-xl"><BarChart3 className="w-8 h-8 text-cyan-400" /></div>
-            Analíticas del Sistema
-          </h1>
-          <p className="text-gray-400 mt-2">Métricas y estadísticas detalladas</p>
+          <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
+          <p className="text-gray-400">
+            Métricas y estadísticas en tiempo real
+            {lastUpdate && (
+              <span className="ml-2">
+                • Última actualización: {lastUpdate.toLocaleTimeString()}
+              </span>
+            )}
+          </p>
         </div>
+        
         <div className="flex items-center gap-3">
-          <Select value={timeRange} onChange={setTimeRange} options={[
-            { value: '1d', label: 'Último día' }, { value: '7d', label: 'Últimos 7 días' },
-            { value: '30d', label: 'Últimos 30 días' }, { value: '90d', label: 'Últimos 90 días' }
-          ]} />
-          <Button onClick={loadData} variant="secondary" icon={<RefreshCw className="w-4 h-4" />}>Actualizar</Button>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as any)}
+              className="input-glass min-w-[100px]"
+            >
+              <option value="1h">1 Hora</option>
+              <option value="24h">24 Horas</option>
+              <option value="7d">7 Días</option>
+              <option value="30d">30 Días</option>
+            </select>
+          </div>
+          
+          <Button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            variant={autoRefresh ? 'primary' : 'secondary'}
+            className="flex items-center gap-2"
+          >
+            <Activity className={`w-4 h-4 ${autoRefresh ? 'animate-pulse' : ''}`} />
+            Auto
+          </Button>
+          
+          <Button
+            onClick={loadAnalytics}
+            variant="secondary"
+            loading={isLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Actualizar
+          </Button>
+          
+          <Button
+            onClick={exportData}
+            variant="secondary"
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Exportar
+          </Button>
         </div>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Usuarios Totales" value={formatNumber(userStats?.totalUsuarios || 0)} icon={<Users className="w-6 h-6" />} color="info" delay={0} />
-        <StatCard title="Grupos Activos" value={formatNumber(groupStats?.totalGrupos || 0)} icon={<MessageSquare className="w-6 h-6" />} color="success" delay={0.1} />
-        <StatCard title="Aportes" value={formatNumber(aporteStats?.totalAportes || 0)} icon={<FileText className="w-6 h-6" />} color="violet" delay={0.2} />
-        <StatCard title="Pedidos" value={formatNumber(pedidoStats?.totalPedidos || 0)} icon={<Clock className="w-6 h-6" />} color="warning" delay={0.3} />
       </div>
 
-      <Card animated delay={0.2} className="overflow-hidden">
-        <div className="border-b border-white/10">
-          <nav className="flex space-x-1 px-6">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 py-4 px-4 border-b-2 font-medium text-sm transition-all ${
-                    activeTab === tab.id ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-400 hover:text-white'
-                  }`}>
-                  <Icon className="w-5 h-5" />{tab.name}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-        <div className="p-6">
-          {activeTab === 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Tendencias</h3>
-                <div className="space-y-4">
-                  {[
-                    { label: 'Usuarios', value: Math.round(((userStats?.usuariosActivos || 0) / Math.max(1, userStats?.totalUsuarios || 1) * 100 - 50)) },
-                    { label: 'Grupos', value: Math.round(((groupStats?.gruposActivos || 0) / Math.max(1, groupStats?.totalGrupos || 1) * 100 - 50)) },
-                    { label: 'Aportes', value: Math.round(((aporteStats?.aportesAprobados || 0) / Math.max(1, aporteStats?.totalAportes || 1) * 100 - 50)) },
-                    { label: 'Pedidos', value: Math.round(((pedidoStats?.pedidosCompletados || 0) / Math.max(1, pedidoStats?.totalPedidos || 1) * 100 - 50)) }
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex items-center justify-between">
-                      <span className="text-gray-400">{label}</span>
-                      <div className={`flex items-center gap-2 ${value > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {value > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                        <span className="font-semibold">{value > 0 ? '+' : ''}{value}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Actividad</h3>
-                <div className="flex items-center justify-center"><ProgressRing progress={Math.round((userStats?.usuariosActivos || 0) / Math.max(1, userStats?.totalUsuarios || 1) * 100)} size={120} strokeWidth={10} color="#06b6d4" label={`${Math.round((userStats?.usuariosActivos || 0) / Math.max(1, userStats?.totalUsuarios || 1) * 100)}%`} /></div>
-              </div>
-            </div>
-          )}
-          {activeTab === 1 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Distribución por Rol</h3>
-                <div className="space-y-3">
-                  {[{ label: 'Admins', value: userStats?.totalAdmins || 0, color: 'bg-red-500' },
-                    { label: 'Creadores', value: userStats?.totalCreadores || 0, color: 'bg-blue-500' },
-                    { label: 'Moderadores', value: userStats?.totalModeradores || 0, color: 'bg-emerald-500' }
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full ${item.color}`} /><span className="text-gray-400">{item.label}</span></div>
-                      <span className="text-white font-semibold">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Actividad</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl"><span className="text-gray-400">Usuarios Activos</span><span className="text-white font-semibold">{userStats?.usuariosActivos || 0}</span></div>
-                </div>
-              </div>
-            </div>
-          )}
-          {activeTab === 2 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Estados de Aportes</h3>
-                <BarChart data={[
-                  { label: 'Aprobados', value: aporteStats?.aportesAprobados || 0, color: '#10b981' },
-                  { label: 'Pendientes', value: aporteStats?.aportesPendientes || 0, color: '#f59e0b' },
-                  { label: 'Rechazados', value: aporteStats?.aportesRechazados || 0, color: '#ef4444' },
-                ]} height={200} />
-              </div>
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Estados de Pedidos</h3>
-                <BarChart data={[
-                  { label: 'Completados', value: pedidoStats?.pedidosCompletados || 0, color: '#10b981' },
-                  { label: 'Pendientes', value: pedidoStats?.pedidosPendientes || 0, color: '#f59e0b' },
-                  { label: 'En Proceso', value: pedidoStats?.pedidosEnProceso || 0, color: '#3b82f6' },
-                ]} height={200} />
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
+      {/* Métricas principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {metrics.map((metric, index) => (
+          <MetricCard key={index} metric={metric} />
+        ))}
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Comandos en el tiempo */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-6"
+        >
+          <h3 className="text-lg font-semibold text-white mb-4">Comandos Ejecutados</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={commandsOverTime}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="name" stroke="#9CA3AF" />
+              <YAxis stroke="#9CA3AF" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke={colors.primary} 
+                fill={`${colors.primary}30`}
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Actividad de usuarios */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-card p-6"
+        >
+          <h3 className="text-lg font-semibold text-white mb-4">Actividad de Usuarios</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={userActivity}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="name" stroke="#9CA3AF" />
+              <YAxis stroke="#9CA3AF" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke={colors.success} 
+                strokeWidth={2}
+                dot={{ fill: colors.success, strokeWidth: 2, r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Top comandos */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card p-6"
+        >
+          <h3 className="text-lg font-semibold text-white mb-4">Comandos Más Usados</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={topCommands} layout="horizontal">
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis type="number" stroke="#9CA3AF" />
+              <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={80} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Bar dataKey="value" fill={colors.info} radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Tasa de errores */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="glass-card p-6"
+        >
+          <h3 className="text-lg font-semibold text-white mb-4">Tasa de Errores</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={errorRates}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="name" stroke="#9CA3AF" />
+              <YAxis stroke="#9CA3AF" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke={colors.error} 
+                fill={`${colors.error}30`}
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
+
+      {/* Tiempo de respuesta */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="glass-card p-6"
+      >
+        <h3 className="text-lg font-semibold text-white mb-4">Tiempo de Respuesta Promedio</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={responseTimeData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey="name" stroke="#9CA3AF" />
+            <YAxis stroke="#9CA3AF" />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#1F2937', 
+                border: '1px solid #374151',
+                borderRadius: '8px'
+              }} 
+            />
+            <Line 
+              type="monotone" 
+              dataKey="value" 
+              stroke={colors.warning} 
+              strokeWidth={2}
+              dot={{ fill: colors.warning, strokeWidth: 2, r: 3 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </motion.div>
     </div>
   );
 }

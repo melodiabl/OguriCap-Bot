@@ -1,0 +1,64 @@
+{
+  "id": "weather-plugin",
+  "name": "Plugin del Clima",
+  "version": "1.2.0",
+  "description": "Obtén información meteorológica actualizada para cualquier ciudad del mundo",
+  "author": "WeatherBot Team",
+  "main": "weather.js",
+  "type": "command",
+  "category": "utility",
+  "permissions": [
+    "read_messages",
+    "send_messages",
+    "network_access"
+  ],
+  "enabled": true,
+  "price": 0,
+  "rating": 4.8,
+  "downloads": 15420,
+  "hooks": ["message_received"],
+  "commands": [
+    {
+      "trigger": "/clima",
+      "description": "Obtener clima actual",
+      "usage": "/clima [ciudad]"
+    },
+    {
+      "trigger": "/pronostico",
+      "description": "Pronóstico de 5 días",
+      "usage": "/pronostico [ciudad]"
+    }
+  ],
+  "config": {
+    "apiKey": "",
+    "defaultCity": "Madrid",
+    "units": "metric"
+  },
+  "dependencies": ["axios"],
+  "minBotVersion": "2.0.0",
+  "tags": ["clima", "tiempo", "meteorología", "utilidad"],
+  "screenshots": [
+    "https://example.com/weather1.png",
+    "https://example.com/weather2.png"
+  ],
+  "changelog": [
+    {
+      "version": "1.2.0",
+      "date": "2024-01-15",
+      "changes": [
+        "Añadido pronóstico de 5 días",
+        "Mejorada la precisión de ubicaciones",
+        "Corregidos errores menores"
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2024-01-01",
+      "changes": ["Soporte para múltiples idiomas", "Nuevos iconos del clima"]
+    }
+  ],
+  "size": 45600,
+  "lastUpdated": "2024-01-15T10:30:00Z",
+  "verified": true,
+  "featured": true
+}

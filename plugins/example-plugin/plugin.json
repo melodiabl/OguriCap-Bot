@@ -1,0 +1,42 @@
+{
+  "id": "example-plugin",
+  "name": "Plugin de Ejemplo",
+  "version": "1.0.0",
+  "description": "Plugin de ejemplo que demuestra las capacidades del sistema",
+  "author": "WhatsApp Bot Team",
+  "main": "index.js",
+  "type": "command",
+  "permissions": [
+    "read_messages",
+    "send_messages",
+    "access_database"
+  ],
+  "enabled": true,
+  "hooks": [
+    "message_received",
+    "bot_started"
+  ],
+  "commands": [
+    {
+      "trigger": "/ejemplo",
+      "description": "Comando de ejemplo",
+      "usage": "/ejemplo [mensaje]"
+    }
+  ],
+  "config": {
+    "prefix": "/",
+    "maxExecutions": 100,
+    "cooldown": 5000
+  },
+  "dependencies": [],
+  "minBotVersion": "2.0.0",
+  "tags": ["ejemplo", "demo", "tutorial"],
+  "screenshots": [],
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2024-01-01",
+      "changes": ["Versión inicial del plugin"]
+    }
+  ]
+}
