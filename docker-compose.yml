@@ -58,6 +58,7 @@ services:
       - ./storage:/app/storage
       - ./logs:/app/logs
       - ./tmp:/app/tmp
+      - ./.monitoring:/app/.monitoring # <--- AQUÍ SE AGREGA LA CARPETA
     networks:
       - oguricap-network
     healthcheck:
