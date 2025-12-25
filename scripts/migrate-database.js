@@ -6,9 +6,20 @@
  * Handles database migrations using the custom migration system
  */
 
+import dotenv from 'dotenv';
 import DataMigrationSystem from '../lib/data-migration-system.js';
 import DatabaseAdapter from '../lib/database-adapter.js';
 import { PostgreSQLDriver } from '../lib/postgres-driver.js';
+
+// Load environment variables
+dotenv.config();
+
+console.log('🔧 Environment variables loaded:');
+console.log('POSTGRES_HOST:', process.env.POSTGRES_HOST);
+console.log('POSTGRES_PORT:', process.env.POSTGRES_PORT);
+console.log('POSTGRES_DB:', process.env.POSTGRES_DB);
+console.log('POSTGRES_USER:', process.env.POSTGRES_USER);
+console.log('POSTGRES_PASSWORD:', process.env.POSTGRES_PASSWORD ? '***' : 'NOT SET');
 
 const command = process.argv[2];
 const flags = process.argv.slice(3);
