@@ -448,6 +448,15 @@ await sock.newsletterFollow(value).catch(() => {})
 
 console.log(chalk.cyan('🚀 Inicializando sistemas avanzados...'))
 
+// Inicializar sistema de datos en tiempo real PRIMERO
+try {
+  const { default: realTimeData } = await import('./lib/real-time-data.js')
+  realTimeData.start()
+  console.log(chalk.green('✅ Sistema de Datos en Tiempo Real iniciado'))
+} catch (error) {
+  console.error(chalk.red('❌ Error iniciando sistema de datos en tiempo real:'), error)
+}
+
 // Inicializar sistemas de monitoreo y reportes
 try {
   // Sistema de métricas
@@ -466,75 +475,77 @@ try {
   console.log(chalk.green('✅ Sistema de Reportes iniciado'))
   
   // Sistemas existentes (si no están ya iniciados)
-  try {
-    const { default: resourceMonitor } = await import('./lib/resource-monitor.js')
-    if (!resourceMonitor.isRunning) {
-      resourceMonitor.start()
-      console.log(chalk.green('✅ Monitor de Recursos iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Monitor de Recursos ya iniciado o no disponible'))
-  }
+  // Temporarily disable system initializations to fix 502 errors
+  // try {
+  //   const { default: resourceMonitor } = await import('./lib/resource-monitor.js')
+  //   if (!resourceMonitor.isRunning) {
+  //     resourceMonitor.start()
+  //     console.log(chalk.green('✅ Monitor de Recursos iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Monitor de Recursos ya iniciado o no disponible'))
+  // }
   
-  try {
-    const { default: logManager } = await import('./lib/log-manager.js')
-    if (!logManager.isRunning) {
-      logManager.start()
-      console.log(chalk.green('✅ Gestor de Logs iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Gestor de Logs ya iniciado o no disponible'))
-  }
+  // try {
+  //   const { default: logManager } = await import('./lib/log-manager.js')
+  //   if (!logManager.isRunning) {
+  //     logManager.start()
+  //     console.log(chalk.green('✅ Gestor de Logs iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Gestor de Logs ya iniciado o no disponible'))
+  // }
   
-  try {
-    const { default: alertSystem } = await import('./lib/alert-system.js')
-    if (!alertSystem.isRunning) {
-      alertSystem.start()
-      console.log(chalk.green('✅ Sistema de Alertas iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Sistema de Alertas ya iniciado o no disponible'))
-  }
+  // try {
+  //   const { default: alertSystem } = await import('./lib/alert-system.js')
+  //   if (!alertSystem.isRunning) {
+  //     alertSystem.start()
+  //     console.log(chalk.green('✅ Sistema de Alertas iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Sistema de Alertas ya iniciado o no disponible'))
+  // }
   
-  try {
-    const { default: taskScheduler } = await import('./lib/task-scheduler.js')
-    if (!taskScheduler.isRunning) {
-      taskScheduler.start()
-      console.log(chalk.green('✅ Programador de Tareas iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Programador de Tareas ya iniciado o no disponible'))
-  }
+  // try {
+  //   const { default: taskScheduler } = await import('./lib/task-scheduler.js')
+  //   if (!taskScheduler.isRunning) {
+  //     taskScheduler.start()
+  //     console.log(chalk.green('✅ Programador de Tareas iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Programador de Tareas ya iniciado o no disponible'))
+  // }
   
-  try {
-    const { default: backupSystem } = await import('./lib/backup-system.js')
-    if (!backupSystem.isRunning) {
-      backupSystem.start()
-      console.log(chalk.green('✅ Sistema de Backups iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Sistema de Backups ya iniciado o no disponible'))
-  }
+  // try {
+  //   const { default: backupSystem } = await import('./lib/backup-system.js')
+  //   if (!backupSystem.isRunning) {
+  //     backupSystem.start()
+  //     console.log(chalk.green('✅ Sistema de Backups iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Sistema de Backups ya iniciado o no disponible'))
+  // }
   
-  try {
-    const { default: notificationSystem } = await import('./lib/notification-system.js')
-    if (!notificationSystem.isRunning) {
-      notificationSystem.start()
-      console.log(chalk.green('✅ Sistema de Notificaciones iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Sistema de Notificaciones ya iniciado o no disponible'))
-  }
+  // Temporarily disable system initialization to fix 502 errors
+  // try {
+  //   const { default: notificationSystem } = await import('./lib/notification-system.js')
+  //   if (!notificationSystem.isRunning) {
+  //     notificationSystem.start()
+  //     console.log(chalk.green('✅ Sistema de Notificaciones iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Sistema de Notificaciones ya iniciado o no disponible'))
+  // }
   
-  try {
-    const { default: securityMonitor } = await import('./lib/security-monitor.js')
-    if (!securityMonitor.isRunning) {
-      securityMonitor.start()
-      console.log(chalk.green('✅ Monitor de Seguridad iniciado'))
-    }
-  } catch (e) {
-    console.log(chalk.yellow('⚠️ Monitor de Seguridad ya iniciado o no disponible'))
-  }
+  // try {
+  //   const { default: securityMonitor } = await import('./lib/security-monitor.js')
+  //   if (!securityMonitor.isRunning) {
+  //     securityMonitor.start()
+  //     console.log(chalk.green('✅ Monitor de Seguridad iniciado'))
+  //   }
+  // } catch (e) {
+  //   console.log(chalk.yellow('⚠️ Monitor de Seguridad ya iniciado o no disponible'))
+  // }
   
   // Configurar alertas inteligentes para métricas críticas
   intelligentAlerts.addAlert('critical_cpu', 'system.cpu', 'gt', 95, async (metric, alert) => {

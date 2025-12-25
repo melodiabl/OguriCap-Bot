@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/services/api';
 import { DashboardStats, BotStatus } from '@/types';
 
-export function useDashboardStats(interval = 15000) {
+export function useDashboardStats(interval = 10000) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +16,7 @@ export function useDashboardStats(interval = 15000) {
       setError(null);
     } catch (err) {
       setError('Error al cargar estadísticas');
+      console.error('Error fetching dashboard stats:', err);
     } finally {
       setIsLoading(false);
     }
@@ -174,7 +175,7 @@ export function useNotifications(interval = 30000) {
 }
 
 
-export function useRecentActivity(interval = 30000) {
+export function useRecentActivity(interval = 15000) {
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -183,6 +184,7 @@ export function useRecentActivity(interval = 30000) {
       const response = await api.getRecentActivity(5);
       setActivities(response.data || []);
     } catch (err) {
+      console.error('Error fetching recent activity:', err);
       // Silent fail
     } finally {
       setIsLoading(false);
