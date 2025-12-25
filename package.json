@@ -110,6 +110,7 @@
     "nodemailer": "^6.9.8",
     "twilio": "^4.19.3",
     "pg": "^8.11.3",
+    "pg-commander": "^1.0.0",
     "commander": "^11.1.0"
   },
   "devDependencies": {
