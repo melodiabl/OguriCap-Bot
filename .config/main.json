@@ -1,0 +1,55 @@
+{
+  "version": "1.0.0",
+  "environment": "production",
+  "createdAt": "2025-12-25T21:43:17.003Z",
+  "updatedAt": "2025-12-25T21:43:17.003Z",
+  "system": {
+    "name": "WhatsApp Bot Panel",
+    "version": "2.0.0",
+    "debug": false,
+    "logLevel": "error",
+    "maxMemory": "512MB",
+    "timezone": "America/Mexico_City"
+  },
+  "bot": {
+    "name": "Oguri Bot",
+    "prefix": "#",
+    "autoReconnect": true,
+    "maxRetries": 5,
+    "commandCooldown": 3000,
+    "globallyEnabled": true
+  },
+  "database": {
+    "type": "lowdb",
+    "path": "./database.json",
+    "autoSave": true,
+    "backupInterval": 3600000,
+    "maxBackups": 10
+  },
+  "security": {
+    "enableRateLimit": true,
+    "maxRequestsPerMinute": 100,
+    "enableIPBlocking": true,
+    "sessionTimeout": 86400000,
+    "enableAuditLog": true
+  },
+  "notifications": {
+    "email": {
+      "enabled": false,
+      "smtp": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "secure": false
+      }
+    },
+    "webhook": {
+      "enabled": false,
+      "urls": []
+    },
+    "whatsapp": {
+      "enabled": true,
+      "adminNumbers": []
+    }
+  },
+  "checksum": "01823dc960506df28dab6c17bdbe07b7"
+}

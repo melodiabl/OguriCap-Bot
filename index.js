@@ -92,6 +92,11 @@ import('./lib/startup-sync.js').catch(err => {
   console.warn('Warning: Could not initialize user data synchronization:', err.message);
 });
 
+// Initialize admin user for JWT system
+import('./lib/init-admin.js').catch(err => {
+  console.warn('Warning: Could not initialize admin user:', err.message);
+});
+
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
 const msgRetryCounterMap = new Map()
 const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
