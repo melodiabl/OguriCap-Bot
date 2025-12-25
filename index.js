@@ -19,7 +19,6 @@ import Pino from 'pino'
 import path, { join, dirname } from 'path'
 import { Boom } from '@hapi/boom'
 import { makeWASocket, protoType, serialize } from './lib/simple.js'
-import { Low, JSONFile } from 'lowdb'
 import store from './lib/store.js'
 import qrcode from 'qrcode'
 import { format } from 'util'
@@ -66,41 +65,35 @@ global.prefix = new RegExp('^[#!./-]')
 // ============================================
 // POSTGRESQL DATABASE INITIALIZATION
 // ============================================
-console.log(chalk.cyan('🤖 AUTOMATIC: Initializing PostgreSQL Database System...'))
+console.log(chalk.cyan('🚀 Initializing PostgreSQL Database System...'))
 
-// Import the new database controller
-import DatabaseController from './lib/database-controller.js'
+// Import the PostgreSQL-only database controller
+import DatabaseController from './lib/database-controller-new.js'
 
-// Initialize database controller with FULL AUTOMATION
+// Initialize database controller (PostgreSQL only)
 global.databaseController = new DatabaseController({
-  autoMigrate: true,              // ✅ AUTOMÁTICO: Migra sin preguntar
-  lowdbPath: 'database.json',
   postgres: {
     host: process.env.POSTGRES_HOST || 'localhost',
     port: process.env.POSTGRES_PORT || 5432,
     database: process.env.POSTGRES_DB || 'oguribot',
     user: process.env.POSTGRES_USER || 'bot_user',
-    password: process.env.POSTGRES_PASSWORD || 'secure_bot_password_2024',
+    password: process.env.POSTGRES_PASSWORD || 'melodia',
     ssl: process.env.POSTGRES_SSL === 'true',
     max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS) || 20,
-  },
-  fallback: {
-    enabled: true,                // ✅ AUTOMÁTICO: Fallback si PostgreSQL falla
-    timeout: 5000,
   }
 })
 
-// Initialize database and maintain LowDB compatibility - FULLY AUTOMATIC
+// Initialize database - PostgreSQL only
 global.loadDatabase = async function loadDatabase() {
   try {
-    console.log(chalk.cyan('🤖 AUTOMATIC: Initializing database system...'))
+    console.log(chalk.cyan('🚀 Initializing PostgreSQL database system...'))
     
     if (!global.databaseController.isInitialized) {
-      console.log(chalk.cyan('🤖 AUTOMATIC: Setting up database controller...'))
+      console.log(chalk.cyan('🔄 Setting up database controller...'))
       await global.databaseController.initialize()
     }
     
-    // Get database adapter (maintains LowDB interface)
+    // Get database adapter (maintains LowDB interface compatibility)
     global.db = global.databaseController.getDatabase()
     global.DATABASE = global.db
     
@@ -109,71 +102,32 @@ global.loadDatabase = async function loadDatabase() {
       await global.db.read()
     }
     
-    global.db.data = {
-      users: {},
-      chats: {},
-      settings: {},
-      usuarios: {},
-      ...(global.db.data || {}),
-    }
-    
     // Maintain LowDB chain compatibility
-    global.db.chain = chain(global.db.data)
-    
-    // Log database status
-    const status = global.databaseController.getStatus()
-    if (status.usingFallback) {
-      console.log(chalk.yellow('🤖 AUTOMATIC: Using LowDB fallback mode (PostgreSQL unavailable)'))
-    } else {
-      console.log(chalk.green('🤖 AUTOMATIC: PostgreSQL database connected successfully'))
-      if (status.migrationCompleted) {
-        console.log(chalk.green('🤖 AUTOMATIC: Data migration completed automatically'))
-      } else if (status.migration === 'running') {
-        console.log(chalk.cyan('🤖 AUTOMATIC: Data migration in progress...'))
+    global.db.chain = global.db.chain || ((data) => ({
+      get: (path) => {
+        const keys = path.split('.');
+        let result = data;
+        for (const key of keys) {
+          result = result?.[key];
+        }
+        return { value: () => result };
       }
-    }
+    }))
+    
+    console.log(chalk.green('✅ PostgreSQL database connected successfully'))
+    console.log(chalk.green('✅ All data loaded from PostgreSQL'))
     
     return global.db.data
     
   } catch (error) {
-    console.error(chalk.red('🤖 AUTOMATIC: Database initialization failed, using emergency fallback:'), error.message)
-    
-    // AUTOMATIC Emergency fallback to original LowDB
-    console.log(chalk.yellow('🤖 AUTOMATIC: Emergency fallback to LowDB...'))
-    const { Low, JSONFile } = await import('lowdb')
-    global.db = new Low(new JSONFile('database.json'))
-    global.DATABASE = global.db
-    await global.db.read().catch(console.error)
-    global.db.data = {
-      users: {},
-      chats: {},
-      settings: {},
-      usuarios: {},
-      ...(global.db.data || {}),
-    }
-    global.db.chain = chain(global.db.data)
-    
-    console.log(chalk.yellow('🤖 AUTOMATIC: Running in emergency LowDB mode'))
-    return global.db.data
+    console.error(chalk.red('❌ PostgreSQL database initialization failed:'), error.message)
+    console.error(chalk.red('💡 Make sure PostgreSQL is running and configured correctly'))
+    process.exit(1) // Exit if PostgreSQL fails - no fallback
   }
 }
 
-// Set up AUTOMATIC database event listeners
-global.databaseController.on('migration_completed', (stats) => {
-  console.log(chalk.green('🤖 AUTOMATIC: Database migration completed successfully!'))
-  console.log(chalk.cyan(`🤖 AUTOMATIC: Migrated ${stats.migratedRecords || 0}/${stats.totalRecords || 0} records`))
-})
-
-global.databaseController.on('database_error', (error) => {
-  console.error(chalk.red('🤖 AUTOMATIC: Database error (will auto-fallback):'), error.message)
-})
-
-global.databaseController.on('fallback_initialized', () => {
-  console.log(chalk.yellow('🤖 AUTOMATIC: Database running in fallback mode'))
-})
-
-// AUTOMATIC Load database
-console.log(chalk.cyan('🤖 AUTOMATIC: Starting database initialization...'))
+// POSTGRESQL Load database
+console.log(chalk.cyan('🚀 Starting PostgreSQL database initialization...'))
 await loadDatabase()
 
 // Initialize user data synchronization
