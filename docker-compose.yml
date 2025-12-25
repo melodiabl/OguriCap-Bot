@@ -58,7 +58,7 @@ services:
       - ./storage:/app/storage
       - ./logs:/app/logs
       - ./tmp:/app/tmp
-      - ./.monitoring:/app/.monitoring
+      - ./.monitoring:/app/.monitoring # <--- AQUÍ SE AGREGA LA CARPETA
     networks:
       - oguricap-network
     healthcheck:
@@ -76,12 +76,12 @@ services:
       context: ./frontend-next
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://whatsapp-bot:3001
+        - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
     container_name: admin-panel
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://whatsapp-bot:3001
+      - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
     ports:
       - "3000:3000"
     depends_on:
@@ -95,7 +95,6 @@ services:
       retries: 3
       start_period: 60s
 
-  
 # ============================================
 # Redes
 # ============================================
@@ -108,5 +107,3 @@ networks:
 # ============================================
 volumes:
   nginx-logs:
-  prometheus-data:
-  grafana-data:
