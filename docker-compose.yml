@@ -95,6 +95,7 @@ services:
       retries: 3
       start_period: 60s
 
+  
 # ============================================
 # Redes
 # ============================================
@@ -107,3 +108,5 @@ networks:
 # ============================================
 volumes:
   nginx-logs:
+  prometheus-data:
+  grafana-data:
