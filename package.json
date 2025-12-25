@@ -18,6 +18,20 @@
     "setup:panel": "npm run install:panel && npm run build:panel",
     "start:panel": "cd frontend-next && npm start",
     
+    "migrate": "node scripts/migrate-database.js migrate",
+    "migrate:dry-run": "node scripts/migrate-database.js migrate --dry-run",
+    "migrate:force": "node scripts/migrate-database.js migrate --force",
+    "migrate:status": "node scripts/migrate-database.js status",
+    "migrate:health": "node scripts/migrate-database.js health",
+    
+    "db:status": "node scripts/migrate-database.js status",
+    "db:health": "node scripts/migrate-database.js health",
+    "db:migrate": "node scripts/migrate-database.js migrate",
+    "verify:config": "node scripts/verify-config.js",
+    "setup:postgres": "docker-compose up postgres -d && sleep 5 && npm run verify:config",
+    "setup:postgres:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-postgres.ps1",
+    "setup:postgres:unix": "bash scripts/setup-postgres.sh",
+    
     "clean": "rm -rf node_modules frontend-next/node_modules",
     "clean:logs": "rm -rf logs/* Sessions/*/logs/*",
     "backup": "tar -czf backup-$(date +%Y%m%d-%H%M%S).tar.gz --exclude=node_modules --exclude=.git .",
@@ -94,7 +108,9 @@
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.8",
-    "twilio": "^4.19.3"
+    "twilio": "^4.19.3",
+    "pg": "^8.11.3",
+    "commander": "^11.1.0"
   },
   "devDependencies": {
     "pm2": "^5.3.0",
