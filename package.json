@@ -18,15 +18,6 @@
     "setup:panel": "npm run install:panel && npm run build:panel",
     "start:panel": "cd frontend-next && npm start",
     
-    "migrate": "node scripts/migrate-database.js migrate",
-    "migrate:dry-run": "node scripts/migrate-database.js migrate --dry-run",
-    "migrate:force": "node scripts/migrate-database.js migrate --force",
-    "migrate:status": "node scripts/migrate-database.js status",
-    "migrate:health": "node scripts/migrate-database.js health",
-    
-    "db:status": "node scripts/migrate-database.js status",
-    "db:health": "node scripts/migrate-database.js health",
-    "db:migrate": "node scripts/migrate-database.js migrate",
     "verify:config": "node scripts/verify-config.js",
     "setup:postgres": "docker-compose up postgres -d && sleep 5 && npm run verify:config",
     "setup:postgres:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-postgres.ps1",

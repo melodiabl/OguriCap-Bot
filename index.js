@@ -63,71 +63,48 @@ global.opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse()
 global.prefix = new RegExp('^[#!./-]')
 
 // ============================================
-// POSTGRESQL DATABASE INITIALIZATION
+// POSTGRESQL DATABASE - SIMPLE
 // ============================================
-console.log(chalk.cyan('🚀 Initializing PostgreSQL Database System...'))
+console.log(chalk.cyan('🚀 Initializing PostgreSQL...'))
 
-// Import the simple PostgreSQL-only database controller
-import DatabaseController from './lib/database-controller-simple.js'
+import Database from './lib/database.js'
 
-// Initialize database controller (PostgreSQL only)
-global.databaseController = new DatabaseController({
-  postgres: {
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: process.env.POSTGRES_PORT || 5432,
-    database: process.env.POSTGRES_DB || 'oguribot',
-    user: process.env.POSTGRES_USER || 'bot_user',
-    password: process.env.POSTGRES_PASSWORD || 'melodia',
-    ssl: process.env.POSTGRES_SSL === 'true',
-    max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS) || 20,
-  }
-})
-
-// Initialize database - PostgreSQL only
+// Simple database initialization
 global.loadDatabase = async function loadDatabase() {
   try {
-    console.log(chalk.cyan('🚀 Initializing PostgreSQL database system...'))
+    const db = new Database();
+    await db.init();
     
-    if (!global.databaseController.isInitialized) {
-      console.log(chalk.cyan('🔄 Setting up database controller...'))
-      await global.databaseController.initialize()
-    }
-    
-    // Get database adapter (maintains LowDB interface compatibility)
-    global.db = global.databaseController.getDatabase()
-    global.DATABASE = global.db
-    
-    // Ensure data structure exists
-    if (!global.db.data) {
-      await global.db.read()
-    }
-    
-    // Maintain LowDB chain compatibility
-    global.db.chain = global.db.chain || ((data) => ({
-      get: (path) => {
-        const keys = path.split('.');
-        let result = data;
-        for (const key of keys) {
-          result = result?.[key];
+    // Make it compatible with existing code
+    global.db = {
+      data: db.data,
+      read: () => db.read(),
+      write: () => db.write(),
+      chain: (data) => ({
+        get: (path) => {
+          const keys = path.split('.');
+          let result = data;
+          for (const key of keys) {
+            result = result?.[key];
+          }
+          return { value: () => result };
         }
-        return { value: () => result };
-      }
-    }))
+      })
+    };
     
-    console.log(chalk.green('✅ PostgreSQL database connected successfully'))
-    console.log(chalk.green('✅ All data loaded from PostgreSQL'))
+    global.DATABASE = global.db;
     
-    return global.db.data
+    console.log(chalk.green('✅ PostgreSQL ready'));
+    return global.db.data;
     
   } catch (error) {
-    console.error(chalk.red('❌ PostgreSQL database initialization failed:'), error.message)
-    console.error(chalk.red('💡 Make sure PostgreSQL is running and configured correctly'))
-    process.exit(1) // Exit if PostgreSQL fails - no fallback
+    console.error(chalk.red('❌ PostgreSQL failed:'), error.message);
+    process.exit(1);
   }
 }
 
-// POSTGRESQL Load database
-console.log(chalk.cyan('🚀 Starting PostgreSQL database initialization...'))
+// Load database
+console.log(chalk.cyan('🚀 Starting database...'))
 await loadDatabase()
 
 // Initialize user data synchronization

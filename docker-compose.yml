@@ -37,33 +37,6 @@ services:
       - oguricap-network
 
   # ============================================
-  # PostgreSQL Database
-  # ============================================
-  postgres:
-    image: postgres:15-alpine
-    container_name: oguricap-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-oguribot}
-      POSTGRES_USER: ${POSTGRES_USER:-bot_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_bot_password_2024}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d:ro
-      - ./database/backups:/backups
-    networks:
-      - oguricap-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bot_user} -d ${POSTGRES_DB:-oguribot}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # ============================================
   # WhatsApp Bot (Backend)
   # ============================================
   whatsapp-bot:
