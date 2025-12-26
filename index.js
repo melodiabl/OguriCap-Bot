@@ -155,15 +155,27 @@ if (noPrompt) {
 }
 }
 console.info = () => {}
-const connectionOptions = {
-logger: pino({ level: 'silent' }),
-printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
-mobile: MethodMobile,
-browser: ["MacOs", "Safari"],
-auth: {
-creds: state.creds,
-keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
-},
+	// Obtener configuración del panel si existe
+	let panelAuthMethod = 'qr'
+	let panelPairingPhone = null
+	try {
+	  const dbPath = path.join(__dirname, 'database.json')
+	  if (fs.existsSync(dbPath)) {
+	    const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+	    panelAuthMethod = dbData?.whatsapp?.authMethod || 'qr'
+	    panelPairingPhone = dbData?.whatsapp?.pairingPhone || null
+	  }
+	} catch (e) {}
+
+	const connectionOptions = {
+	logger: pino({ level: 'silent' }),
+	printQRInTerminal: (opcion == '1' || methodCodeQR) && panelAuthMethod !== 'pairing',
+	mobile: MethodMobile,
+	browser: panelAuthMethod === 'pairing' ? ["Ubuntu", "Chrome", "20.0.04"] : ["MacOs", "Safari"],
+	auth: {
+	creds: state.creds,
+	keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
+	},
 markOnlineOnConnect: false,
 generateHighQualityLinkPreview: true,
 syncFullHistory: false,
@@ -326,22 +338,36 @@ await global.reloadHandler(true).catch(console.error)
 process.on('uncaughtException', console.error)
 let isInit = true
 let handler = await import('./handler.js')
-global.reloadHandler = async function (restatConn) {
-try {
-const Handler = await import(`./handler.js?update=${Date.now()}`).catch(console.error)
-if (Object.keys(Handler || {}).length) handler = Handler
-} catch (e) {
-console.error(e)
-}
-if (restatConn) {
-const oldChats = global.conn.chats
-try {
-global.conn.ws.close()
-} catch { }
-conn.ev.removeAllListeners()
-global.conn = makeWASocket(connectionOptions, { chats: oldChats })
-isInit = true
-}
+	global.reloadHandler = async function (restatConn) {
+	try {
+	const Handler = await import(`./handler.js?update=${Date.now()}`).catch(console.error)
+	if (Object.keys(Handler || {}).length) handler = Handler
+	} catch (e) {
+	console.error(e)
+	}
+	if (restatConn) {
+	const oldChats = global.conn.chats
+	try {
+	global.conn.ws.close()
+	} catch { }
+	conn.ev.removeAllListeners()
+	
+	// Recargar configuración del panel antes de reconectar
+	let currentOptions = { ...connectionOptions }
+	try {
+	  const dbPath = path.join(__dirname, 'database.json')
+	  if (fs.existsSync(dbPath)) {
+	    const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+	    if (dbData?.whatsapp?.authMethod === 'pairing') {
+	      currentOptions.browser = ["Ubuntu", "Chrome", "20.0.04"]
+	      currentOptions.printQRInTerminal = false
+	    }
+	  }
+	} catch (e) {}
+
+	global.conn = makeWASocket(currentOptions, { chats: oldChats })
+	isInit = true
+	}
 if (!isInit) {
 conn.ev.off('messages.upsert', conn.handler)
 conn.ev.off('connection.update', conn.connectionUpdate)
