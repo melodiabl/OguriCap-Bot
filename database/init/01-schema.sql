@@ -5,7 +5,7 @@
 -- Extensiones necesarias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Función para actualizar updated_at automáticamente
+-- Funcion para actualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -35,7 +35,7 @@ CREATE TABLE usuarios (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para usuarios
+-- ا?ndices para usuarios
 CREATE INDEX idx_usuarios_username ON usuarios(username);
 CREATE INDEX idx_usuarios_whatsapp ON usuarios(whatsapp_number);
 CREATE INDEX idx_usuarios_rol ON usuarios(rol);
@@ -59,7 +59,7 @@ CREATE TABLE whatsapp_users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para WhatsApp users
+-- ا?ndices para WhatsApp users
 CREATE INDEX idx_whatsapp_users_name ON whatsapp_users(name);
 CREATE INDEX idx_whatsapp_users_stats_gin ON whatsapp_users USING GIN(stats);
 CREATE INDEX idx_whatsapp_users_level ON whatsapp_users(((stats->>'level')::int));
@@ -83,7 +83,7 @@ CREATE TABLE chats (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para chats
+-- ا?ndices para chats
 CREATE INDEX idx_chats_banned ON chats(((settings->>'is_banned')::boolean)) 
     WHERE (settings->>'is_banned')::boolean = true;
 CREATE INDEX idx_chats_settings_gin ON chats USING GIN(settings);
@@ -94,7 +94,7 @@ CREATE TRIGGER update_chats_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
--- Configuración del sistema
+-- Configuraciاün del sistema
 -- ============================================
 CREATE TABLE settings (
   key_name VARCHAR(100) PRIMARY KEY,
@@ -105,7 +105,7 @@ CREATE TABLE settings (
   updated_by VARCHAR(50)
 );
 
--- Índices para settings
+-- ا?ndices para settings
 CREATE INDEX idx_settings_value_gin ON settings USING GIN(value);
 
 -- ============================================
@@ -122,7 +122,7 @@ CREATE TABLE panel_groups (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para panel_groups
+-- ا?ndices para panel_groups
 CREATE INDEX idx_panel_groups_search_text ON panel_groups 
     USING GIN (to_tsvector('spanish', nombre || ' ' || COALESCE(descripcion, '')));
 CREATE INDEX idx_panel_groups_config_gin ON panel_groups USING GIN(config);
@@ -135,7 +135,7 @@ CREATE TRIGGER update_panel_groups_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
--- Tabla de auditoría
+-- Tabla de auditorاًa
 -- ============================================
 CREATE TABLE audit_log (
   id SERIAL PRIMARY KEY,
@@ -148,7 +148,7 @@ CREATE TABLE audit_log (
   changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para audit_log
+-- ا?ndices para audit_log
 CREATE INDEX idx_audit_log_table_record ON audit_log(table_name, record_id);
 CREATE INDEX idx_audit_log_changed_at ON audit_log(changed_at);
 CREATE INDEX idx_audit_log_changed_by ON audit_log(changed_by);
@@ -156,14 +156,16 @@ CREATE INDEX idx_audit_log_changed_by ON audit_log(changed_by);
 -- ============================================
 -- Usuario admin por defecto
 -- ============================================
+-- Default: admin/admin123
 INSERT INTO usuarios (username, password, rol, activo) 
-VALUES ('admin', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'owner', true)
+VALUES ('admin', '$2a$10$TzVacCHVPXRyzYzs.59uX.BYll/C/tYpr9ja3tKpjBnQvVf6bp16e', 'owner', true)
 ON CONFLICT (username) DO NOTHING;
 
--- Configuración inicial
+-- Configuraciاün inicial
 INSERT INTO settings (key_name, value, description) VALUES 
-('migration_status', '{"completed": false, "version": "1.0.0"}', 'Estado de la migración de base de datos'),
-('system_config', '{"maintenance_mode": false, "debug_mode": false}', 'Configuración general del sistema')
+('migration_status', '{"completed": false, "version": "1.0.0"}', 'Estado de la migraciاün de base de datos'),
+('system_config', '{"maintenance_mode": false, "debug_mode": false}', 'Configuraciاün general del sistema')
 ON CONFLICT (key_name) DO NOTHING;
 
 COMMIT;
+
