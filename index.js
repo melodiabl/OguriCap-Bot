@@ -176,10 +176,14 @@ console.info = () => {}
 	creds: state.creds,
 	keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
 	},
-markOnlineOnConnect: false,
-generateHighQualityLinkPreview: true,
-syncFullHistory: false,
-getMessage: async (key) => {
+	markOnlineOnConnect: false,
+	generateHighQualityLinkPreview: true,
+	syncFullHistory: false,
+	// Reducir reintentos y timeouts para evitar bucles infinitos de QR
+	connectTimeoutMs: 60000,
+	defaultQueryTimeoutMs: 0,
+	keepAliveIntervalMs: 10000,
+	getMessage: async (key) => {
 try {
 let jid = jidNormalizedUser(key.remoteJid)
 let msg = await store.loadMessage(jid, key.id)
@@ -270,14 +274,17 @@ if (isNewLogin) conn.isInit = true
 const code = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode
 
 // Actualizar QR para el panel
-if (qr) {
-global.panelApiMainQr = qr
-// Emitir QR via Socket.IO
-try {
-  const { emitBotQR } = await import('./lib/socket-io.js')
-  emitBotQR(qr)
-} catch {}
-}
+	if (qr) {
+	// Si el método es pairing, no guardar ni emitir QR para evitar bucles
+	if (panelAuthMethod === 'pairing') return
+	
+	global.panelApiMainQr = qr
+	// Emitir QR via Socket.IO
+	try {
+	  const { emitBotQR } = await import('./lib/socket-io.js')
+	  emitBotQR(qr)
+	} catch {}
+	}
 
 // Actualizar último seen
 if (connection === 'open') {
