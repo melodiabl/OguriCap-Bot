@@ -19,6 +19,7 @@ import QRCode from 'qrcode';
 export default function BotStatusPage() {
   const [authMethod, setAuthMethod] = useState<'qr' | 'pairing'>('qr');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [pairKey, setPairKey] = useState('');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
@@ -62,14 +63,14 @@ export default function BotStatusPage() {
           setIsConnecting(false);
           return;
         }
-        const response = await api.connectMainBot('pairing', phoneNumber.replace(/\D/g, ''));
+        const response = await api.connectMainBot('pairing', phoneNumber.replace(/\D/g, ''), pairKey.trim() || undefined);
         if (response?.pairingCode) {
           setPairingCode(response.pairingCode);
           toast.success('Código de emparejamiento generado');
         } else {
           setTimeout(async () => {
             try {
-              const codeResponse = await api.getMainBotPairingCode();
+              const codeResponse = await api.getMainBotPairingCode(pairKey.trim() || undefined);
               if (codeResponse?.code) {
                 setPairingCode(codeResponse.code);
                 toast.success('Código de emparejamiento generado');
@@ -295,6 +296,17 @@ export default function BotStatusPage() {
                   <label className="block text-sm font-medium text-gray-400 mb-2">Número de teléfono (con código de país)</label>
                   <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Ej: 521234567890" className="input-glass w-full" />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Código personalizado (opcional)</label>
+                  <input
+                    type="text"
+                    value={pairKey}
+                    onChange={(e) => setPairKey(e.target.value)}
+                    placeholder="Ej: ABCD1234"
+                    className="input-glass w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">Si lo dejas vacío, Baileys genera un código nuevo automáticamente.</p>
                 </div>
                 {pairingCode && (
                   <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}

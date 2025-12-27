@@ -187,8 +187,11 @@ class ApiService {
     return response.data
   }
 
-  async getMainBotPairingCode() {
-    const response = await this.api.get('/api/bot/main/pairing-code')
+  async getMainBotPairingCode(pairKey?: string) {
+    const params = new URLSearchParams()
+    if (pairKey) params.set('pairKey', pairKey)
+    const qs = params.toString()
+    const response = await this.api.get(`/api/bot/main/pairing-code${qs ? `?${qs}` : ''}`)
     return response.data
   }
 
@@ -197,8 +200,8 @@ class ApiService {
     return response.data
   }
 
-  async connectMainBot(method: 'qr' | 'pairing', phoneNumber?: string) {
-    const response = await this.api.post('/api/bot/main/connect', { method, phoneNumber })
+  async connectMainBot(method: 'qr' | 'pairing', phoneNumber?: string, pairKey?: string) {
+    const response = await this.api.post('/api/bot/main/connect', { method, phoneNumber, pairKey })
     return response.data
   }
 
