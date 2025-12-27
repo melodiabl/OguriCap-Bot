@@ -35,6 +35,24 @@ const yukiJBOptions = {}
 if (global.conns instanceof Array) console.log()
 else global.conns = []
 function isSubBotConnected(jid) { return global.conns.some(sock => sock?.user?.jid && sock.user.jid.split("@")[0] === jid.split("@")[0]) }
+function sanitizeSessionAliasName(input) {
+  const raw = String(input || '').trim()
+  if (!raw) return ''
+  try {
+    const normalized = raw.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    return normalized
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 48)
+  } catch {
+    return raw
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 48)
+  }
+}
 let handler = async (m, { conn, args, usedPrefix, command, isOwner }) => {
 if (!globalThis.db.data.settings[conn.user.jid].jadibotmd) return m.reply(`ꕥ El Comando *${command}* está desactivado temporalmente.`)
 let time = global.db.data.users[m.sender].Subs + 120000
@@ -46,7 +64,7 @@ return m.reply(`ꕥ No se han encontrado espacios para *Sub-Bots* disponibles.`)
 let mentionedJid = await m.mentionedJid
 let who = mentionedJid && mentionedJid[0] ? mentionedJid[0] : m.fromMe ? conn.user.jid : m.sender
 let id = `${who.split`@`[0]}`
-let pathYukiJadiBot = path.join(`./${jadi}/`, id)
+let pathYukiJadiBot = path.join(global.jadi || 'Sessions/SubBot', id)
 if (!fs.existsSync(pathYukiJadiBot)){
 fs.mkdirSync(pathYukiJadiBot, { recursive: true })
 }
@@ -166,7 +184,7 @@ return
 if (qr && mcode) {
 const pairingNumber = api?.pairingNumber || (m?.sender ? m.sender.split`@`[0] : '')
 if (!pairingNumber) return resolveOnce({ success: false, error: 'pairingNumber requerido' })
-let secret = await sock.requestPairingCode(pairingNumber, null)
+let secret = await sock.requestPairingCode(pairingNumber)
 secret = secret.match(/.{1,4}/g)?.join("-")
 try {
 api?.onUpdate?.({ pairingCode: secret, numero: pairingNumber, estado: 'activo', updated_at: new Date().toISOString() })
@@ -259,6 +277,10 @@ if (options.fromCommand) m?.chat ? await conn.sendMessage(`${path.basename(pathY
 console.error(chalk.bold.yellow(`⚠︎ Error 405 no se pudo enviar mensaje a: +${path.basename(pathYukiJadiBot)}`))
 }
 const subbotCode = path.basename(pathYukiJadiBot)
+try {
+  if (sock?.sessionAliasPath) fs.rmSync(sock.sessionAliasPath, { recursive: false, force: true })
+  if (sock?.phoneAliasPath) fs.rmSync(sock.phoneAliasPath, { recursive: false, force: true })
+} catch {}
 fs.rmdirSync(pathYukiJadiBot, { recursive: true })
 // Emitir evento de subbot eliminado al panel
 try {
@@ -285,6 +307,10 @@ await creloadHandler(true).catch(console.error)
 if (reason === 403) {
 console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ Sesión cerrada o cuenta en soporte para la sesión (+${path.basename(pathYukiJadiBot)}).\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
 const subbotCode403 = path.basename(pathYukiJadiBot)
+try {
+  if (sock?.sessionAliasPath) fs.rmSync(sock.sessionAliasPath, { recursive: false, force: true })
+  if (sock?.phoneAliasPath) fs.rmSync(sock.phoneAliasPath, { recursive: false, force: true })
+} catch {}
 fs.rmdirSync(pathYukiJadiBot, { recursive: true })
 // Emitir evento de subbot eliminado al panel
 try {
@@ -308,7 +334,62 @@ userName = sock.authState.creds.me.name || 'Anónimo'
 userJid = sock.authState.creds.me.jid || `${path.basename(pathYukiJadiBot)}@s.whatsapp.net`
 try {
 const phone = sock?.user?.jid ? String(sock.user.jid).split('@')[0] : String(userJid).split('@')[0]
-api?.onUpdate?.({ numero: phone || null, qr_data: null, pairingCode: null, estado: 'activo', updated_at: new Date().toISOString() })
+const whatsappName = sock?.authState?.creds?.me?.name ? String(sock.authState.creds.me.name).trim() : ''
+// Si el subbot fue creado desde el panel (code sb_*), crear un alias de carpeta con el nombre (fallback: número):
+// Sessions/SubBot/<nombre_o_numero> -> Sessions/SubBot/<codigo>
+try {
+  const shouldAlias = Boolean(api?.code && /^sb_/.test(String(api.code)))
+  if (shouldAlias) {
+    const root = path.resolve(global.jadi || 'Sessions/SubBot')
+    const targetPath = resolvedSessionPath
+    const baseFromName = whatsappName ? sanitizeSessionAliasName(whatsappName) : ''
+    const base = baseFromName || String(phone || sessionCode)
+    const targetReal = fs.realpathSync(targetPath)
+
+    let aliasDir = null
+    const candidates = [
+      base,
+      baseFromName && phone ? `${baseFromName}_${phone}` : null,
+      phone ? `${base}_${phone}` : null,
+      `${base}_${sessionCode}`,
+    ].filter(Boolean)
+
+    for (const cand of candidates) {
+      const aliasPath = path.join(root, String(cand))
+      if (fs.existsSync(aliasPath)) {
+        try {
+          const st = fs.lstatSync(aliasPath)
+          if (st.isSymbolicLink()) {
+            const real = fs.realpathSync(aliasPath)
+            if (real === targetReal) {
+              sock.sessionAliasPath = aliasPath
+              aliasDir = String(cand)
+              break
+            }
+          }
+        } catch {}
+        continue
+      }
+      try {
+        fs.symlinkSync(targetPath, aliasPath, process.platform === 'win32' ? 'junction' : 'dir')
+        sock.sessionAliasPath = aliasPath
+        aliasDir = String(cand)
+        break
+      } catch {}
+    }
+
+    if (aliasDir) sock.sessionAliasDir = aliasDir
+  }
+} catch {}
+api?.onUpdate?.({ 
+  numero: phone || null, 
+  nombre_whatsapp: whatsappName || null,
+  alias_dir: sock?.sessionAliasDir || null,
+  qr_data: null, 
+  pairingCode: null, 
+  estado: 'activo', 
+  updated_at: new Date().toISOString() 
+})
 } catch {}
 console.log(chalk.bold.cyanBright(`\n❒⸺⸺⸺⸺【• SUB-BOT •】⸺⸺⸺⸺❒\n│\n│ ❍ ${userName} (+${path.basename(pathYukiJadiBot)}) conectado exitosamente.\n│\n❒⸺⸺⸺【• CONECTADO •】⸺⸺⸺❒`))
 sock.isInit = true

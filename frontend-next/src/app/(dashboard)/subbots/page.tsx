@@ -27,6 +27,8 @@ interface Subbot {
   usuario: string;
   fecha_creacion: string;
   numero?: string | null;
+  whatsappName?: string | null;
+  aliasDir?: string | null;
   qr_data?: string | null;
   pairingCode?: string | null;
   isOnline?: boolean;
@@ -156,6 +158,8 @@ export default function SubbotsPage() {
       usuario: String(raw?.usuario || raw?.owner || 'admin'),
       fecha_creacion: String(raw?.fecha_creacion || raw?.created_at || new Date().toISOString()),
       numero: raw?.numero ?? raw?.phoneNumber ?? null,
+      whatsappName: raw?.nombre_whatsapp ?? raw?.whatsappName ?? null,
+      aliasDir: raw?.alias_dir ?? raw?.aliasDir ?? null,
       qr_data: raw?.qr_data ?? raw?.qr_code ?? null,
       pairingCode: raw?.pairingCode ?? raw?.pairing_code ?? null,
       isOnline: Boolean(raw?.isOnline || raw?.connected),
@@ -429,7 +433,12 @@ export default function SubbotsPage() {
                         {subbot.type === 'qr' ? 'QR Code' : 'Pairing Code'}
                       </span>
                     </div>
-                    <code className="text-sm text-gray-400 font-mono bg-white/5 px-2 py-1 rounded">{subbot.code}</code>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-200 font-medium">
+                        {subbot.whatsappName || subbot.numero || subbot.code}
+                      </span>
+                      <code className="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded">{subbot.code}</code>
+                    </div>
                     {subbot.numero && (
                       <div className="flex items-center gap-2 text-gray-400">
                         <Smartphone className="w-4 h-4" />

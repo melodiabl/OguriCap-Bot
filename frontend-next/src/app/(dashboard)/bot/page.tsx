@@ -291,21 +291,10 @@ export default function BotStatusPage() {
             {authMethod === 'pairing' && (
               <motion.div key="pairing" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
                 className="max-w-md mx-auto">
-	                <div className="mb-4" style={{ display: 'none' }}>
+	                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-400 mb-2">Número de teléfono (con código de país)</label>
                   <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Ej: 521234567890" className="input-glass w-full" />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Código personalizado (opcional)</label>
-                  <input
-                    type="text"
-	                    value={''}
-	                    onChange={() => {}}
-                    placeholder="Ej: ABCD1234"
-                    className="input-glass w-full"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">Si lo dejas vacío, Baileys genera un código nuevo automáticamente.</p>
                 </div>
                 {pairingCode && (
                   <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}

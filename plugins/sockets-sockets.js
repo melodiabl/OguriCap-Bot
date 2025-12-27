@@ -57,13 +57,24 @@ if (index === -1 || !global.conns[index])
 return conn.reply(m.chat, '⚠︎ La sesión ya está cerrada o no se encontró una conexión activa.', m)
 conn.reply(m.chat, '✩ Tu sesión ha sido cerrada exitosamente.', m)
 setTimeout(async () => {
-await global.conns[index].logout()
+const sock = global.conns[index]
+await sock.logout()
 global.conns.splice(index, 1)
 const sessionPath = conn.sessionPath || path.join(global.jadi, conn.subbotCode || cleanId)
 if (fs.existsSync(sessionPath)) {
 fs.rmSync(sessionPath, { recursive: true, force: true })
 console.log(`⚠︎ Sesión de ${cleanId} eliminada de ${sessionPath}`)
-}}, 3000)
+}
+// Si existe un alias "Sessions/SubBot/<numero>" (symlink), eliminarlo también
+try {
+  const aliasPath = sock?.sessionAliasPath || sock?.phoneAliasPath || null
+  if (aliasPath) fs.rmSync(aliasPath, { recursive: false, force: true })
+} catch {}
+try {
+  const aliasPath = path.join(global.jadi, cleanId)
+  if (fs.existsSync(aliasPath) && fs.lstatSync(aliasPath).isSymbolicLink()) fs.rmSync(aliasPath, { recursive: false, force: true })
+} catch {}
+}, 3000)
 break
 }
 case 'reload': {
