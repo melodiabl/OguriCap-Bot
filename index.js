@@ -244,8 +244,8 @@ phoneNumber = `+${phoneNumber}`
 rl.close()
 addNumber = phoneNumber.replace(/\D/g, '')
 setTimeout(async () => {
-  // ✅ CAMBIO ÚNICO: IGUAL A YUKI (sin pairKey)
-  let codeBot = await conn.requestPairingCode(addNumber)
+  // ✅ Generar código aleatorio (no hardcodeado)
+  let codeBot = await conn.requestPairingCode(addNumber, null)
   codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
   console.log(chalk.bold.white(chalk.bgMagenta(`[ ✿ ]  Código:`)), chalk.bold.white(chalk.white(codeBot)))
 }, 3000)

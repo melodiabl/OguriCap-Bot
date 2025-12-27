@@ -277,11 +277,15 @@ export default function BotStatusPage() {
                     ) : (
                       <div className="text-center">
                         <QrCode className="w-12 h-12 text-gray-500 mx-auto mb-2" />
-                        <p className="text-gray-400 text-sm">Haz clic en "Conectar Bot" para generar el QR</p>
+                        <p className="text-gray-400 text-sm">Haz clic en "Generar QR" para generar el QR</p>
                       </div>
                     )}
                   </div>
                 )}
+                <Button variant="primary" className="mt-4" icon={<QrCode className="w-4 h-4" />}
+                  onClick={handleConnect} loading={isConnecting}>
+                  Generar QR
+                </Button>
                 <p className="text-sm text-gray-400 mt-4 text-center">
                   Abre WhatsApp → Dispositivos vinculados → Vincular dispositivo
                 </p>

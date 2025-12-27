@@ -184,7 +184,7 @@ return
 if (qr && mcode) {
 const pairingNumber = api?.pairingNumber || (m?.sender ? m.sender.split`@`[0] : '')
 if (!pairingNumber) return resolveOnce({ success: false, error: 'pairingNumber requerido' })
-let secret = await sock.requestPairingCode(pairingNumber)
+let secret = await sock.requestPairingCode(pairingNumber, null)
 secret = secret.match(/.{1,4}/g)?.join("-")
 try {
 api?.onUpdate?.({ pairingCode: secret, numero: pairingNumber, estado: 'activo', updated_at: new Date().toISOString() })
