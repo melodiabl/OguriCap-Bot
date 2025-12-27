@@ -19,7 +19,6 @@ import QRCode from 'qrcode';
 export default function BotStatusPage() {
   const [authMethod, setAuthMethod] = useState<'qr' | 'pairing'>('qr');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [pairKey, setPairKey] = useState('');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
@@ -63,14 +62,14 @@ export default function BotStatusPage() {
           setIsConnecting(false);
           return;
         }
-        const response = await api.connectMainBot('pairing', phoneNumber.replace(/\D/g, ''), pairKey.trim() || undefined);
+        const response = await api.connectMainBot('pairing', phoneNumber.replace(/\D/g, ''));
         if (response?.pairingCode) {
           setPairingCode(response.pairingCode);
           toast.success('Código de emparejamiento generado');
         } else {
           setTimeout(async () => {
             try {
-              const codeResponse = await api.getMainBotPairingCode(pairKey.trim() || undefined);
+              const codeResponse = await api.getMainBotPairingCode();
               if (codeResponse?.code) {
                 setPairingCode(codeResponse.code);
                 toast.success('Código de emparejamiento generado');
@@ -292,7 +291,7 @@ export default function BotStatusPage() {
             {authMethod === 'pairing' && (
               <motion.div key="pairing" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
                 className="max-w-md mx-auto">
-                <div className="mb-4">
+	                <div className="mb-4" style={{ display: 'none' }}>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Número de teléfono (con código de país)</label>
                   <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Ej: 521234567890" className="input-glass w-full" />
@@ -301,8 +300,8 @@ export default function BotStatusPage() {
                   <label className="block text-sm font-medium text-gray-400 mb-2">Código personalizado (opcional)</label>
                   <input
                     type="text"
-                    value={pairKey}
-                    onChange={(e) => setPairKey(e.target.value)}
+	                    value={''}
+	                    onChange={() => {}}
                     placeholder="Ej: ABCD1234"
                     className="input-glass w-full"
                   />
