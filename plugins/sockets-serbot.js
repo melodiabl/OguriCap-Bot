@@ -58,7 +58,7 @@ function generateSubbotCode(phoneNumber, sessionCode) {
   try {
     const panelConfig = global.db?.data?.panel?.whatsapp?.subbots
     if (!panelConfig?.useFixedCodes) {
-      return null // Usar código aleatorio
+      return null // Usar código fijo
     }
     
     const prefix = panelConfig.codePrefix || 'SUB-'
@@ -70,9 +70,9 @@ function generateSubbotCode(phoneNumber, sessionCode) {
     // Generar código basado en el número o sessionCode
     let baseCode = phoneDigits || String(sessionCode || '').slice(-4)
     
-    // Completar con caracteres adicionales si es necesario
+    // Completar con el número de teléfono si es necesario
     while (baseCode.length < (length - prefix.length)) {
-      baseCode += String(Math.floor(Math.random() * 10))
+      baseCode += phoneDigits || '0'
     }
     
     const finalCode = (prefix + baseCode).toUpperCase().slice(0, length)
@@ -229,12 +229,12 @@ if (panelConfig?.useFixedCodes) {
     console.log(chalk.cyan(`[ ✿ ] SubBot usando código fijo: ${customCode}`))
   } else {
     secret = await sock.requestPairingCode(pairingNumber)
-    console.log(chalk.yellow('[ ⚠ ] SubBot usando código aleatorio (fallback)'))
+    console.log(chalk.yellow('[ ⚠ ] SubBot usando código fijo (fallback)'))
   }
 } else {
-  // Usar código aleatorio para subbots
+  // Usar código fijo para subbots
   secret = await sock.requestPairingCode(pairingNumber)
-  console.log(chalk.cyan('[ ✿ ] SubBot usando código aleatorio'))
+  console.log(chalk.cyan('[ ✿ ] SubBot usando código fijo'))
 }
 
 // Formatear el código
@@ -256,7 +256,7 @@ const content = {
           text: secret
         }),
         footer: proto.Message.InteractiveMessage.Footer.create({
-          text: panelConfig?.useFixedCodes ? '🔒 Código Fijo Personalizado' : '🎲 Código Aleatorio'
+          text: panelConfig?.useFixedCodes ? '🔒 Código Fijo Personalizado' : '🔒 Código Fijo'
         }),
         header: proto.Message.InteractiveMessage.Header.create({
           title: '📱 Código SubBot',
