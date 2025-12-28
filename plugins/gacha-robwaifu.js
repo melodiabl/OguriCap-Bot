@@ -1,1 +1,158 @@
-const _0x19e7e1=_0x22bb;(function(_0x990241,_0x344792){const _0x54f0d8=_0x22bb,_0x2b0687=_0x990241();while(!![]){try{const _0x5f2986=-parseInt(_0x54f0d8(0x188))/0x1*(parseInt(_0x54f0d8(0x189))/0x2)+-parseInt(_0x54f0d8(0x195))/0x3+parseInt(_0x54f0d8(0x173))/0x4*(parseInt(_0x54f0d8(0x165))/0x5)+-parseInt(_0x54f0d8(0x16a))/0x6*(-parseInt(_0x54f0d8(0x17a))/0x7)+parseInt(_0x54f0d8(0x16f))/0x8*(parseInt(_0x54f0d8(0x17c))/0x9)+-parseInt(_0x54f0d8(0x180))/0xa+parseInt(_0x54f0d8(0x16e))/0xb;if(_0x5f2986===_0x344792)break;else _0x2b0687['push'](_0x2b0687['shift']());}catch(_0x50b6ac){_0x2b0687['push'](_0x2b0687['shift']());}}}(_0x1ae8,0x9d5b1));import{promises as _0x1dc39e}from'fs';const charactersFilePath=_0x19e7e1(0x183);async function loadCharacters(){const _0x341e07=_0x19e7e1,_0x38aab7=await _0x1dc39e[_0x341e07(0x186)](charactersFilePath,_0x341e07(0x184));return JSON[_0x341e07(0x18e)](_0x38aab7);}function flattenCharacters(_0x1c2607){const _0x111a60=_0x19e7e1;return Object[_0x111a60(0x18d)](_0x1c2607)[_0x111a60(0x16c)](_0x3bd33b=>Array['isArray'](_0x3bd33b[_0x111a60(0x17d)])?_0x3bd33b[_0x111a60(0x17d)]:[]);}function _0x22bb(_0x5d10a6,_0x32f300){const _0x1ae8c1=_0x1ae8();return _0x22bb=function(_0x22bbee,_0x2abe6f){_0x22bbee=_0x22bbee-0x14f;let _0x1247c2=_0x1ae8c1[_0x22bbee];return _0x1247c2;},_0x22bb(_0x5d10a6,_0x32f300);}const verifi=async()=>{const _0x4e3b71=_0x19e7e1;try{const _0x34892d=await _0x1dc39e[_0x4e3b71(0x186)]('./package.json',_0x4e3b71(0x184)),_0x10dc69=JSON[_0x4e3b71(0x18e)](_0x34892d);return _0x10dc69[_0x4e3b71(0x169)]?.[_0x4e3b71(0x193)]==='git+https://github.com/The-King-Destroy/YukiBot-MD.git';}catch{return![];}};let handler=async(_0x1bbca4,{conn:_0x46cdbb,usedPrefix:_0x12da1c,command:_0x1b00d4})=>{const _0x17b271=_0x19e7e1;if(!await verifi())return _0x46cdbb[_0x17b271(0x174)](_0x1bbca4[_0x17b271(0x16b)],'❀\x20El\x20comando\x20*<'+_0x1b00d4+'>*\x20solo\x20está\x20disponible\x20para\x20Yuki\x20Suou.\x0a>\x20https://github.com/The-King-Destroy/YukiBot-MD',_0x1bbca4);if(!global['db'][_0x17b271(0x15e)][_0x17b271(0x18b)]?.[_0x1bbca4[_0x17b271(0x16b)]]?.[_0x17b271(0x181)]&&_0x1bbca4[_0x17b271(0x153)])return _0x1bbca4[_0x17b271(0x174)](_0x17b271(0x170)+_0x12da1c+_0x17b271(0x16d));const _0x4e26d7=global['db'][_0x17b271(0x15e)][_0x17b271(0x17f)][_0x1bbca4[_0x17b271(0x182)]];if(!Array[_0x17b271(0x15d)](_0x4e26d7[_0x17b271(0x17d)]))_0x4e26d7[_0x17b271(0x17d)]=[];if(_0x4e26d7[_0x17b271(0x17e)]==null)_0x4e26d7['robCooldown']=0x0;if(!_0x4e26d7['robVictims'])_0x4e26d7[_0x17b271(0x171)]={};const _0x5598f4=Date['now'](),_0x304eb1=0x8*0x3c*0x3c*0x3e8,_0x5de98f=_0x4e26d7[_0x17b271(0x17e)]+_0x304eb1;if(_0x4e26d7[_0x17b271(0x17e)]>0x0&&_0x5598f4<_0x5de98f){const _0x5780c4=Math[_0x17b271(0x152)]((_0x5de98f-_0x5598f4)/0x3e8),_0x559a44=Math['floor'](_0x5780c4/0xe10),_0xf7af84=Math[_0x17b271(0x172)](_0x5780c4%0xe10/0x3c),_0x29f88f=_0x5780c4%0x3c;let _0x1a967f='';if(_0x559a44>0x0)_0x1a967f+=_0x559a44+_0x17b271(0x18f)+(_0x559a44!==0x1?'s':'')+'\x20';if(_0xf7af84>0x0)_0x1a967f+=_0xf7af84+_0x17b271(0x17b)+(_0xf7af84!==0x1?'s':'')+'\x20';if(_0x29f88f>0x0||_0x1a967f==='')_0x1a967f+=_0x29f88f+_0x17b271(0x167)+(_0x29f88f!==0x1?'s':'');return _0x1bbca4[_0x17b271(0x174)](_0x17b271(0x18a)+_0x1a967f[_0x17b271(0x150)]()+_0x17b271(0x163)+(_0x12da1c+_0x1b00d4)+_0x17b271(0x192));}const _0x185e35=await _0x1bbca4[_0x17b271(0x168)],_0x229f68=_0x185e35[0x0]||_0x1bbca4[_0x17b271(0x191)]&&await _0x1bbca4['quoted'][_0x17b271(0x182)];if(!_0x229f68||typeof _0x229f68!=='string'||!_0x229f68[_0x17b271(0x175)]('@'))return _0x1bbca4['reply'](_0x17b271(0x194));if(_0x229f68===_0x1bbca4['sender']){let _0x369e5b=await((async()=>_0x4e26d7['name']?.[_0x17b271(0x150)]()||await _0x46cdbb[_0x17b271(0x159)](_0x1bbca4['sender'])[_0x17b271(0x160)](_0x28b527=>typeof _0x28b527==='string'&&_0x28b527[_0x17b271(0x150)]()?_0x28b527:_0x1bbca4[_0x17b271(0x182)][_0x17b271(0x156)]('@')[0x0])[_0x17b271(0x15f)](()=>_0x1bbca4['sender']['split']('@')[0x0]))());return _0x1bbca4[_0x17b271(0x174)]('ꕥ\x20No\x20puedes\x20robarte\x20a\x20ti\x20mismo,\x20*'+_0x369e5b+'*.');}const _0x20a0b2=_0x4e26d7[_0x17b271(0x171)][_0x229f68];if(_0x20a0b2&&_0x5598f4-_0x20a0b2<0x18*0x3c*0x3c*0x3e8){let _0x326a9f=await((async()=>global['db']['data']['users'][_0x229f68]?.[_0x17b271(0x187)]?.[_0x17b271(0x150)]()||await _0x46cdbb['getName'](_0x229f68)[_0x17b271(0x160)](_0x16077f=>typeof _0x16077f===_0x17b271(0x158)&&_0x16077f[_0x17b271(0x150)]()?_0x16077f:_0x229f68[_0x17b271(0x156)]('@')[0x0])[_0x17b271(0x15f)](()=>_0x229f68[_0x17b271(0x156)]('@')[0x0]))());return _0x1bbca4[_0x17b271(0x174)](_0x17b271(0x176)+_0x326a9f+_0x17b271(0x162));}const _0x5b490f=global['db'][_0x17b271(0x15e)][_0x17b271(0x17f)][_0x229f68];if(!_0x5b490f||!Array[_0x17b271(0x15d)](_0x5b490f[_0x17b271(0x17d)])||_0x5b490f[_0x17b271(0x17d)][_0x17b271(0x185)]===0x0){let _0x3fb838=await((async()=>global['db']['data'][_0x17b271(0x17f)][_0x229f68]?.[_0x17b271(0x187)]?.['trim']()||await _0x46cdbb[_0x17b271(0x159)](_0x229f68)[_0x17b271(0x160)](_0x52645e=>typeof _0x52645e==='string'&&_0x52645e['trim']()?_0x52645e:_0x229f68[_0x17b271(0x156)]('@')[0x0])[_0x17b271(0x15f)](()=>_0x229f68[_0x17b271(0x156)]('@')[0x0]))());return _0x1bbca4[_0x17b271(0x174)](_0x17b271(0x151)+_0x3fb838+_0x17b271(0x155));}const _0x173c4f=Math[_0x17b271(0x14f)]()<0.9;_0x4e26d7[_0x17b271(0x17e)]=_0x5598f4,_0x4e26d7[_0x17b271(0x171)][_0x229f68]=_0x5598f4;if(!_0x173c4f){let _0x60fa15=await((async()=>global['db'][_0x17b271(0x15e)][_0x17b271(0x17f)][_0x229f68]?.['name']?.[_0x17b271(0x150)]()||await _0x46cdbb[_0x17b271(0x159)](_0x229f68)[_0x17b271(0x160)](_0x3267c5=>typeof _0x3267c5==='string'&&_0x3267c5[_0x17b271(0x150)]()?_0x3267c5:_0x229f68['split']('@')[0x0])[_0x17b271(0x15f)](()=>_0x229f68[_0x17b271(0x156)]('@')[0x0]))());return _0x1bbca4['reply'](_0x17b271(0x190)+_0x60fa15+_0x17b271(0x179));}const _0x4a1ef6=_0x5b490f['characters'][Math['floor'](Math[_0x17b271(0x14f)]()*_0x5b490f[_0x17b271(0x17d)][_0x17b271(0x185)])],_0x29c4c3=global['db'][_0x17b271(0x15e)]['characters']?.[_0x4a1ef6]||{},_0x41a3e2=typeof _0x29c4c3[_0x17b271(0x187)]==='string'?_0x29c4c3['name']:_0x17b271(0x18c)+_0x4a1ef6;_0x29c4c3['user']=_0x1bbca4[_0x17b271(0x182)],_0x5b490f[_0x17b271(0x17d)]=_0x5b490f['characters'][_0x17b271(0x157)](_0x1a309f=>_0x1a309f!==_0x4a1ef6);if(!_0x4e26d7[_0x17b271(0x17d)][_0x17b271(0x175)](_0x4a1ef6))_0x4e26d7[_0x17b271(0x17d)]['push'](_0x4a1ef6);if(_0x4e26d7[_0x17b271(0x154)]?.[_0x4a1ef6]?.['user']===_0x229f68)delete _0x4e26d7[_0x17b271(0x154)][_0x4a1ef6];if(_0x5b490f[_0x17b271(0x161)]===_0x4a1ef6)delete _0x5b490f['favorite'];if(global['db'][_0x17b271(0x15e)]['users'][_0x229f68]?.[_0x17b271(0x161)]===_0x4a1ef6)delete global['db'][_0x17b271(0x15e)][_0x17b271(0x17f)][_0x229f68]['favorite'];let _0xe835a=await((async()=>_0x4e26d7[_0x17b271(0x187)]?.[_0x17b271(0x150)]()||await _0x46cdbb[_0x17b271(0x159)](_0x1bbca4[_0x17b271(0x182)])[_0x17b271(0x160)](_0x3dfe2a=>typeof _0x3dfe2a==='string'&&_0x3dfe2a[_0x17b271(0x150)]()?_0x3dfe2a:_0x1bbca4[_0x17b271(0x182)][_0x17b271(0x156)]('@')[0x0])[_0x17b271(0x15f)](()=>_0x1bbca4[_0x17b271(0x182)]['split']('@')[0x0]))()),_0x5510aa=await((async()=>global['db'][_0x17b271(0x15e)][_0x17b271(0x17f)][_0x229f68]?.['name']?.['trim']()||await _0x46cdbb[_0x17b271(0x159)](_0x229f68)[_0x17b271(0x160)](_0xb9576b=>typeof _0xb9576b==='string'&&_0xb9576b[_0x17b271(0x150)]()?_0xb9576b:_0x229f68[_0x17b271(0x156)]('@')[0x0])[_0x17b271(0x15f)](()=>_0x229f68[_0x17b271(0x156)]('@')[0x0]))());await _0x1bbca4[_0x17b271(0x174)](_0x17b271(0x15c)+_0xe835a+_0x17b271(0x166)+_0x41a3e2+_0x17b271(0x15b)+_0x5510aa+'*.');};handler[_0x19e7e1(0x15a)]=[_0x19e7e1(0x178)],handler[_0x19e7e1(0x164)]=[_0x19e7e1(0x181)],handler[_0x19e7e1(0x177)]=[_0x19e7e1(0x178),'robarwaifu'],handler['group']=!![];export default handler;function _0x1ae8(){const _0x33a3c0=['\x20segundo','mentionedJid','repository','186kDFYGy','chat','flatMap','gacha\x20on*','22762641zVCVxN','16ZqjHUI','ꕥ\x20Los\x20comandos\x20de\x20*Gacha*\x20están\x20desactivados\x20en\x20este\x20grupo.\x0a\x0aUn\x20*administrador*\x20puede\x20activarlos\x20con\x20el\x20comando:\x0a»\x20*','robVictims','floor','68coKKsr','reply','includes','ꕥ\x20Ya\x20robaste\x20a\x20*','command','robwaifu','*\x20defendió\x20a\x20su\x20waifu\x20heroicamente.','107170aEnRoS','\x20minuto','1390455umYlaa','characters','robCooldown','users','11413730zJBruA','gacha','sender','./lib/characters.json','utf-8','length','readFile','name','58511gaNuZK','18bzCpuc','ꕥ\x20Debes\x20esperar\x20*','chats','ID:','values','parse','\x20hora','ꕥ\x20El\x20intento\x20de\x20robo\x20ha\x20fallado.\x20*','quoted','*\x20de\x20nuevo.','url','❀\x20Por\x20favor,\x20cita\x20o\x20menciona\x20al\x20usuario\x20a\x20quien\x20quieras\x20robarle\x20una\x20waifu.','3616359DGtsiP','random','trim','ꕥ\x20*','ceil','isGroup','sales','*\x20no\x20tiene\x20waifus\x20que\x20puedas\x20robar.','split','filter','string','getName','help','*\x20del\x20harem\x20de\x20*','❀\x20*','isArray','data','catch','then','favorite','*\x20hoy.\x20Solo\x20puedes\x20robarle\x20a\x20alguien\x20*una\x20vez\x20cada\x2024\x20horas*.','*\x20para\x20usar\x20*','tags','195595JNRjon','*\x20ha\x20robado\x20a\x20*'];_0x1ae8=function(){return _0x33a3c0;};return _0x1ae8();}
+import { promises as fs } from 'fs'
+
+const charactersFilePath = './lib/characters.json'
+
+async function loadCharacters() {
+    const data = await fs.readFile(charactersFilePath, 'utf-8')
+    return JSON.parse(data)
+}
+
+function flattenCharacters(characters) {
+    return Object.values(characters).flatMap(series => 
+        Array.isArray(series.characters) ? series.characters : []
+    )
+}
+
+const verifi = async () => {
+    try {
+        return true
+    } catch {
+        return false
+    }
+}
+
+let handler = async (m, { conn, usedPrefix, command }) => {
+    if (!await verifi()) {
+        return conn.reply(m.chat, `❀ El comando *<${command}>* solo está disponible para Yuki Suou.\n> https://github.com/melodiabl/OguriCap-Bot.git`, m)
+    }
+
+    if (!global.db.data.chats?.[m.chat]?.gacha && m.isGroup) {
+        return m.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`)
+    }
+
+    const userData = global.db.data.users[m.sender]
+    if (!Array.isArray(userData.characters)) userData.characters = []
+    if (userData.robCooldown == null) userData.robCooldown = 0
+    if (!userData.robVictims) userData.robVictims = {}
+
+    const now = Date.now()
+    const cooldownTime = 8 * 60 * 60 * 1000 // 8 hours
+    const nextRob = userData.robCooldown + cooldownTime
+
+    if (userData.robCooldown > 0 && now < nextRob) {
+        const remaining = Math.ceil((nextRob - now) / 1000)
+        const hours = Math.floor(remaining / 3600)
+        const minutes = Math.floor((remaining % 3600) / 60)
+        const seconds = remaining % 60
+
+        let timeString = ''
+        if (hours > 0) timeString += hours + ' hora' + (hours !== 1 ? 's' : '') + ' '
+        if (minutes > 0) timeString += minutes + ' minuto' + (minutes !== 1 ? 's' : '') + ' '
+        if (seconds > 0 || timeString === '') timeString += seconds + ' segundo' + (seconds !== 1 ? 's' : '')
+
+        return m.reply(`ꕥ Debes esperar *${timeString.trim()}* para usar *${usedPrefix + command}* de nuevo.`)
+    }
+
+    const mentionedUsers = await m.mentionedJid
+    const targetUser = mentionedUsers[0] || (m.quoted && await m.quoted.sender)
+
+    if (!targetUser || typeof targetUser !== 'string' || !targetUser.includes('@')) {
+        return m.reply('❀ Por favor, cita o menciona al usuario a quien quieras robarle una waifu.')
+    }
+
+    if (targetUser === m.sender) {
+        let senderName = await (async () => {
+            return userData.name?.trim() || 
+                   await conn.getName(m.sender).then(name => 
+                       typeof name === 'string' && name.trim() ? name : m.sender.split('@')[0]
+                   ).catch(() => m.sender.split('@')[0])
+        })()
+
+        return m.reply(`ꕥ No puedes robarte a ti mismo, *${senderName}*.`)
+    }
+
+    const lastRobbed = userData.robVictims[targetUser]
+    if (lastRobbed && now - lastRobbed < 24 * 60 * 60 * 1000) {
+        let targetName = await (async () => {
+            return global.db.data.users[targetUser]?.name?.trim() || 
+                   await conn.getName(targetUser).then(name => 
+                       typeof name === 'string' && name.trim() ? name : targetUser.split('@')[0]
+                   ).catch(() => targetUser.split('@')[0])
+        })()
+
+        return m.reply(`ꕥ Ya robaste a *${targetName}* hoy. Solo puedes robarle a alguien *una vez cada 24 horas*.`)
+    }
+
+    const targetData = global.db.data.users[targetUser]
+    if (!targetData || !Array.isArray(targetData.characters) || targetData.characters.length === 0) {
+        let targetName = await (async () => {
+            return global.db.data.users[targetUser]?.name?.trim() || 
+                   await conn.getName(targetUser).then(name => 
+                       typeof name === 'string' && name.trim() ? name : targetUser.split('@')[0]
+                   ).catch(() => targetUser.split('@')[0])
+        })()
+
+        return m.reply(`ꕥ *${targetName}* no tiene waifus que puedas robar.`)
+    }
+
+    const success = Math.random() < 0.9 // 90% success rate
+    userData.robCooldown = now
+    userData.robVictims[targetUser] = now
+
+    if (!success) {
+        let targetName = await (async () => {
+            return global.db.data.users[targetUser]?.name?.trim() || 
+                   await conn.getName(targetUser).then(name => 
+                       typeof name === 'string' && name.trim() ? name : targetUser.split('@')[0]
+                   ).catch(() => targetUser.split('@')[0])
+        })()
+
+        return m.reply(`ꕥ El intento de robo ha fallado. *${targetName}* defendió a su waifu heroicamente.`)
+    }
+
+    const randomCharId = targetData.characters[Math.floor(Math.random() * targetData.characters.length)]
+    const charData = global.db.data.characters?.[randomCharId] || {}
+    const charName = typeof charData.name === 'string' ? charData.name : 'ID:' + randomCharId
+
+    // Transfer character
+    charData.user = m.sender
+    targetData.characters = targetData.characters.filter(id => id !== randomCharId)
+
+    if (!userData.characters.includes(randomCharId)) {
+        userData.characters.push(randomCharId)
+    }
+
+    // Remove from sales if exists
+    if (userData.sales?.[randomCharId]?.user === targetUser) {
+        delete userData.sales[randomCharId]
+    }
+
+    // Remove from favorites if needed
+    if (userData.favorite === randomCharId) delete userData.favorite
+    if (global.db.data.users[targetUser]?.favorite === randomCharId) {
+        delete global.db.data.users[targetUser].favorite
+    }
+
+    let senderName = await (async () => {
+        return userData.name?.trim() || 
+               await conn.getName(m.sender).then(name => 
+                   typeof name === 'string' && name.trim() ? name : m.sender.split('@')[0]
+               ).catch(() => m.sender.split('@')[0])
+    })()
+
+    let targetName = await (async () => {
+        return global.db.data.users[targetUser]?.name?.trim() || 
+               await conn.getName(targetUser).then(name => 
+                   typeof name === 'string' && name.trim() ? name : targetUser.split('@')[0]
+               ).catch(() => targetUser.split('@')[0])
+    })()
+
+    await m.reply(`❀ *${senderName}* ha robado a *${charName}* del harem de *${targetName}*.`)
+}
+
+handler.help = ['robwaifu']
+handler.tags = ['gacha']
+handler.command = ['robwaifu', 'robarwaifu']
+handler.group = true
+
+export default handler

@@ -1,1 +1,212 @@
-const _0x30b096=_0x3f7e;function _0x3f7e(_0x5e3d2b,_0x161b8f){const _0x224755=_0x2247();return _0x3f7e=function(_0x3f7ec5,_0x1e27d8){_0x3f7ec5=_0x3f7ec5-0xa1;let _0x425a48=_0x224755[_0x3f7ec5];return _0x425a48;},_0x3f7e(_0x5e3d2b,_0x161b8f);}(function(_0x4b9dc4,_0x1be54a){const _0x21f715=_0x3f7e,_0x276fd4=_0x4b9dc4();while(!![]){try{const _0x11cd46=parseInt(_0x21f715(0xb9))/0x1+-parseInt(_0x21f715(0xe6))/0x2+parseInt(_0x21f715(0xd6))/0x3*(-parseInt(_0x21f715(0xa5))/0x4)+parseInt(_0x21f715(0x100))/0x5*(-parseInt(_0x21f715(0xb4))/0x6)+parseInt(_0x21f715(0xf2))/0x7+parseInt(_0x21f715(0xc4))/0x8*(parseInt(_0x21f715(0xe0))/0x9)+-parseInt(_0x21f715(0xdc))/0xa*(parseInt(_0x21f715(0xc9))/0xb);if(_0x11cd46===_0x1be54a)break;else _0x276fd4['push'](_0x276fd4['shift']());}catch(_0x3f4f6c){_0x276fd4['push'](_0x276fd4['shift']());}}}(_0x2247,0xa9a65));import{promises as _0x4d55cb}from'fs';const verifi=async()=>{const _0x3f70d2=_0x3f7e;try{const _0x7f4aa0=await _0x4d55cb[_0x3f70d2(0xfa)](_0x3f70d2(0xfb),_0x3f70d2(0xab)),_0x125a0e=JSON[_0x3f70d2(0xf6)](_0x7f4aa0);return _0x125a0e[_0x3f70d2(0xd5)]?.[_0x3f70d2(0xd7)]===_0x3f70d2(0xde);}catch{return![];}};let handler=async(_0x3a70e2,{conn:_0x77a4a8,args:_0x5416da,command:_0x4c30c7,usedPrefix:_0x23c742})=>{const _0x2c190c=_0x3f7e;if(!await verifi())return _0x77a4a8[_0x2c190c(0xf4)](_0x3a70e2[_0x2c190c(0xb1)],'❀\x20El\x20comando\x20*<'+_0x4c30c7+_0x2c190c(0xfd),_0x3a70e2);const _0x7d7ebb=global['db']['data']['chats'][_0x3a70e2[_0x2c190c(0xb1)]];if(!_0x7d7ebb[_0x2c190c(0xe3)])_0x7d7ebb[_0x2c190c(0xe3)]={};if(!global['db'][_0x2c190c(0x106)]['characters'])global['db'][_0x2c190c(0x106)]['characters']={};if(!global['db']['data']['users'][_0x3a70e2[_0x2c190c(0xe2)]])global['db'][_0x2c190c(0x106)][_0x2c190c(0xc0)][_0x3a70e2['sender']]={'coin':0x0,'characters':[]};if(!_0x7d7ebb[_0x2c190c(0xcf)]&&_0x3a70e2[_0x2c190c(0xa2)])return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xcd)+_0x23c742+_0x2c190c(0xeb));try{switch(_0x4c30c7){case _0x2c190c(0xd0):case _0x2c190c(0xf3):{if(_0x5416da[_0x2c190c(0xc5)]<0x2)return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xdb)+(_0x23c742+_0x4c30c7)+'\x205000\x20Yuki\x20Suou*');const _0x3be439=parseInt(_0x5416da[0x0]);if(isNaN(_0x3be439)||_0x3be439<0x7d0)return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xb8)+currency+'*.');const _0x2a4019=_0x5416da[_0x2c190c(0xae)](0x1)[_0x2c190c(0xaf)]('\x20')[_0x2c190c(0x104)](),_0x49cc4c=Object[_0x2c190c(0xd2)](global['db'][_0x2c190c(0x106)]['characters'])[_0x2c190c(0xc2)](_0x59a84e=>(global['db'][_0x2c190c(0x106)][_0x2c190c(0xed)][_0x59a84e]?.[_0x2c190c(0xe9)]||'')[_0x2c190c(0x104)]()===_0x2a4019&&global['db'][_0x2c190c(0x106)]['characters'][_0x59a84e]?.[_0x2c190c(0xc1)]===_0x3a70e2[_0x2c190c(0xe2)]);if(!_0x49cc4c)return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xa4)+_0x5416da[_0x2c190c(0xae)](0x1)[_0x2c190c(0xaf)]('\x20')+'*.');const _0x2528c=global['db'][_0x2c190c(0x106)]['characters'][_0x49cc4c];_0x7d7ebb[_0x2c190c(0xe3)][_0x49cc4c]={'name':_0x2528c[_0x2c190c(0xe9)],'user':_0x3a70e2[_0x2c190c(0xe2)],'price':_0x3be439,'time':Date['now']()};let _0x494e3f=await((async()=>global['db'][_0x2c190c(0x106)][_0x2c190c(0xc0)][_0x3a70e2['sender']][_0x2c190c(0xe9)]?.[_0x2c190c(0x102)]()||await _0x77a4a8[_0x2c190c(0xa3)](_0x3a70e2[_0x2c190c(0xe2)])[_0x2c190c(0xc7)](_0xb9a79a=>typeof _0xb9a79a===_0x2c190c(0xee)&&_0xb9a79a[_0x2c190c(0x102)]()?_0xb9a79a:_0x3a70e2[_0x2c190c(0xe2)][_0x2c190c(0xd3)]('@')[0x0])[_0x2c190c(0xce)](()=>_0x3a70e2[_0x2c190c(0xe2)]['split']('@')[0x0]))());_0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xf1)+_0x2528c[_0x2c190c(0xe9)]+_0x2c190c(0xb0)+_0x494e3f+_0x2c190c(0xd1)+_0x3be439['toLocaleString']()+'\x20'+currency+_0x2c190c(0xad)+_0x23c742+'wshop*');break;}case'removesale':case _0x2c190c(0xe7):{if(!_0x5416da['length'])return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xe5)+(_0x23c742+_0x4c30c7)+'\x20Yuki\x20Suou*');const _0x383f1e=_0x5416da['join']('\x20')[_0x2c190c(0x104)](),_0xb0b4d5=Object[_0x2c190c(0xd2)](_0x7d7ebb[_0x2c190c(0xe3)])[_0x2c190c(0xc2)](_0x4c18b0=>(_0x7d7ebb['sales'][_0x4c18b0]?.[_0x2c190c(0xe9)]||'')[_0x2c190c(0x104)]()===_0x383f1e);if(!_0xb0b4d5||_0x7d7ebb[_0x2c190c(0xe3)][_0xb0b4d5][_0x2c190c(0xc1)]!==_0x3a70e2[_0x2c190c(0xe2)])return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xda)+_0x5416da[_0x2c190c(0xaf)]('\x20')+'*\x20no\x20está\x20a\x20la\x20venta\x20por\x20ti.');delete _0x7d7ebb[_0x2c190c(0xe3)][_0xb0b4d5],_0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xc6)+_0x5416da[_0x2c190c(0xaf)]('\x20')+'*\x20ha\x20sido\x20eliminado\x20de\x20la\x20lista\x20de\x20ventas.');break;}case'wshop':case _0x2c190c(0xa7):case _0x2c190c(0xf9):{const _0x4832c5=Object[_0x2c190c(0xef)](_0x7d7ebb[_0x2c190c(0xe3)]||{});if(!_0x4832c5[_0x2c190c(0xc5)]){const _0x25ce44=await _0x77a4a8[_0x2c190c(0xb6)](_0x3a70e2[_0x2c190c(0xb1)]);return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xfc)+(_0x25ce44[_0x2c190c(0xbc)]||_0x2c190c(0xaa))+'*');}const _0x5b2628=parseInt(_0x5416da[0x0])||0x1,_0x32ad3a=0xa,_0x1b1001=Math[_0x2c190c(0xfe)](_0x4832c5[_0x2c190c(0xc5)]/_0x32ad3a);if(_0x5b2628<0x1||_0x5b2628>_0x1b1001)return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xe4)+_0x1b1001+_0x2c190c(0xf8)+(_0x1b1001>0x1?'s':'')+'.');const _0x45f8ff=[];for(const [_0x10551c,_0x36740d]of _0x4832c5[_0x2c190c(0xae)]((_0x5b2628-0x1)*_0x32ad3a,_0x5b2628*_0x32ad3a)){const _0xc904b2=0x3*0x5265c00-(Date[_0x2c190c(0xa8)]()-_0x36740d[_0x2c190c(0xa1)]),_0x10cf0e=Math[_0x2c190c(0xca)](_0xc904b2/0x5265c00),_0x13e871=Math[_0x2c190c(0xca)](_0xc904b2%0x5265c00/0x36ee80),_0xfef40f=Math[_0x2c190c(0xca)](_0xc904b2%0x36ee80/0xea60),_0x3bfea8=Math[_0x2c190c(0xca)](_0xc904b2%0xea60/0x3e8);let _0x200ce7=await((async()=>global['db'][_0x2c190c(0x106)][_0x2c190c(0xc0)][_0x36740d[_0x2c190c(0xc1)]]?.[_0x2c190c(0xe9)]?.['trim']()||await _0x77a4a8[_0x2c190c(0xa3)](_0x36740d[_0x2c190c(0xc1)])[_0x2c190c(0xc7)](_0x2e6aa9=>typeof _0x2e6aa9===_0x2c190c(0xee)&&_0x2e6aa9[_0x2c190c(0x102)]()?_0x2e6aa9:_0x36740d[_0x2c190c(0xc1)]['split']('@')[0x0])[_0x2c190c(0xce)](()=>_0x36740d[_0x2c190c(0xc1)][_0x2c190c(0xd3)]('@')[0x0]))());const _0x77ab5d=typeof global['db'][_0x2c190c(0x106)][_0x2c190c(0xed)][_0x10551c]?.['value']==='number'?global['db'][_0x2c190c(0x106)][_0x2c190c(0xed)][_0x10551c][_0x2c190c(0xff)]:0x0;_0x45f8ff['push'](_0x2c190c(0xc6)+_0x36740d[_0x2c190c(0xe9)]+_0x2c190c(0xbe)+_0x77ab5d+_0x2c190c(0xe1)+_0x36740d[_0x2c190c(0xbb)][_0x2c190c(0xea)]()+'\x20'+currency+_0x2c190c(0xf0)+_0x200ce7+_0x2c190c(0xcb)+_0x10cf0e+'d\x20'+_0x13e871+'h\x20'+_0xfef40f+'m\x20'+_0x3bfea8+'s*');}_0x3a70e2[_0x2c190c(0xf4)]('*☆\x20HaremShop\x20`≧◠ᴥ◠≦`*\x0a'+('❏\x20Personajes\x20en\x20venta\x20<'+_0x4832c5[_0x2c190c(0xc5)]+_0x2c190c(0xa9))+_0x45f8ff[_0x2c190c(0xaf)]('\x0a\x0a')+(_0x2c190c(0xf5)+_0x5b2628+_0x2c190c(0xbd)+_0x1b1001+'*'));break;}case _0x2c190c(0xcc):case _0x2c190c(0xb7):case _0x2c190c(0x107):{if(!_0x5416da[_0x2c190c(0xc5)])return _0x3a70e2['reply'](_0x2c190c(0xba)+(_0x23c742+_0x4c30c7)+'\x20Yuki\x20Suou*');const _0x2309e9=_0x5416da[_0x2c190c(0xaf)]('\x20')['toLowerCase'](),_0x2f4429=Object['keys'](_0x7d7ebb[_0x2c190c(0xe3)])[_0x2c190c(0xc2)](_0x1ca872=>(_0x7d7ebb[_0x2c190c(0xe3)][_0x1ca872]?.['name']||'')[_0x2c190c(0x104)]()===_0x2309e9);if(!_0x2f4429)return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xa4)+_0x5416da[_0x2c190c(0xaf)]('\x20')+_0x2c190c(0xbf));const _0x2ffd79=_0x7d7ebb['sales'][_0x2f4429];if(_0x2ffd79[_0x2c190c(0xc1)]===_0x3a70e2[_0x2c190c(0xe2)])return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xac));const _0x1891ed=global['db'][_0x2c190c(0x106)][_0x2c190c(0xc0)][_0x3a70e2['sender']],_0x3df509=typeof _0x1891ed?.[_0x2c190c(0xd4)]===_0x2c190c(0xb5)?_0x1891ed[_0x2c190c(0xd4)]:0x0;if(_0x3df509<_0x2ffd79['price'])return _0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xa6)+currency+_0x2c190c(0xdd)+_0x2ffd79['name']+_0x2c190c(0xb3)+_0x2ffd79[_0x2c190c(0xbb)][_0x2c190c(0xea)]()+'\x20'+currency+'*');const _0x4845e4=global['db']['data'][_0x2c190c(0xc0)][_0x2ffd79[_0x2c190c(0xc1)]];if(!_0x4845e4)global['db'][_0x2c190c(0x106)][_0x2c190c(0xc0)][_0x2ffd79[_0x2c190c(0xc1)]]={'coin':0x0,'characters':[]};if(!Array[_0x2c190c(0xc3)](_0x4845e4['characters']))_0x4845e4[_0x2c190c(0xed)]=[];_0x1891ed[_0x2c190c(0xd4)]-=_0x2ffd79[_0x2c190c(0xbb)],_0x4845e4[_0x2c190c(0xd4)]+=_0x2ffd79[_0x2c190c(0xbb)],global['db'][_0x2c190c(0x106)][_0x2c190c(0xed)][_0x2f4429]['user']=_0x3a70e2[_0x2c190c(0xe2)];if(!_0x1891ed[_0x2c190c(0xed)][_0x2c190c(0xd9)](_0x2f4429))_0x1891ed[_0x2c190c(0xed)]['push'](_0x2f4429);_0x4845e4[_0x2c190c(0xed)]=_0x4845e4[_0x2c190c(0xed)][_0x2c190c(0xc8)](_0x3374c9=>_0x3374c9!==_0x2f4429);if(_0x4845e4[_0x2c190c(0xe8)]===_0x2f4429)delete _0x4845e4['favorite'];delete _0x7d7ebb[_0x2c190c(0xe3)][_0x2f4429];let _0x4e79ac=await((async()=>_0x4845e4[_0x2c190c(0xe9)]?.[_0x2c190c(0x102)]()||await _0x77a4a8[_0x2c190c(0xa3)](_0x2ffd79[_0x2c190c(0xc1)])['then'](_0x585dcc=>typeof _0x585dcc===_0x2c190c(0xee)&&_0x585dcc['trim']()?_0x585dcc:_0x2ffd79['user'][_0x2c190c(0xd3)]('@')[0x0])[_0x2c190c(0xce)](()=>_0x2ffd79['user'][_0x2c190c(0xd3)]('@')[0x0]))()),_0xde11d9=await((async()=>_0x1891ed[_0x2c190c(0xe9)]?.[_0x2c190c(0x102)]()||await _0x77a4a8['getName'](_0x3a70e2[_0x2c190c(0xe2)])[_0x2c190c(0xc7)](_0x23a297=>typeof _0x23a297==='string'&&_0x23a297['trim']()?_0x23a297:_0x3a70e2[_0x2c190c(0xe2)][_0x2c190c(0xd3)]('@')[0x0])['catch'](()=>_0x3a70e2[_0x2c190c(0xe2)][_0x2c190c(0xd3)]('@')[0x0]))());_0x3a70e2[_0x2c190c(0xf4)](_0x2c190c(0xc6)+_0x2ffd79[_0x2c190c(0xe9)]+_0x2c190c(0xd8)+_0xde11d9+_0x2c190c(0xb2)+_0x2ffd79[_0x2c190c(0xbb)][_0x2c190c(0xea)]()+'\x20'+currency+_0x2c190c(0xf7)+_0x4e79ac+'*');break;}}}catch(_0x500f87){await _0x77a4a8[_0x2c190c(0xf4)](_0x3a70e2['chat'],_0x2c190c(0x101)+_0x23c742+_0x2c190c(0xec)+_0x500f87['message'],_0x3a70e2);}};handler['help']=[_0x30b096(0xd0),_0x30b096(0x103),_0x30b096(0x105),_0x30b096(0xcc)],handler['tags']=[_0x30b096(0xcf)],handler['command']=[_0x30b096(0xd0),'vender','removesale',_0x30b096(0xe7),'haremshop',_0x30b096(0xf9),'wshop',_0x30b096(0xb7),_0x30b096(0x107),_0x30b096(0xcc)],handler[_0x30b096(0xdf)]=!![];export default handler;function _0x2247(){const _0x28836d=['time','isGroup','getName','ꕥ\x20No\x20se\x20ha\x20encontrado\x20al\x20personaje\x20*','1342108NOgVqR','ꕥ\x20No\x20tienes\x20suficientes\x20*','haremshop','now','>:\x0a\x0a','este\x20grupo','utf-8','ꕥ\x20No\x20puedes\x20comprar\x20tu\x20propio\x20personaje.','*\x0aⴵ\x20Expira\x20en\x20»\x20*3\x20dias*\x0a>\x20Puedes\x20ver\x20los\x20personajes\x20en\x20venta\x20usando\x20*','slice','join','*\x20ha\x20sido\x20puesto\x20a\x20la\x20venta!\x0a❀\x20Vendedor\x20»\x20*','chat','*!\x0a>\x20Se\x20han\x20transferido\x20*¥','*.\x0a>\x20Necesitas\x20*¥','18hQDYzY','number','groupMetadata','buycharacter','ꕥ\x20El\x20precio\x20mínimo\x20para\x20subastar\x20un\x20personaje\x20es\x20de\x20*¥2,000\x20','1322203zFoJWw','❀\x20Debes\x20especificar\x20un\x20personaje\x20para\x20comprar.\x0a>\x20Ejemplo\x20»\x20*','price','subject','*\x20de\x20*','*\x20(✰\x20','*\x20en\x20venta.','users','user','find','isArray','8lmvQux','length','❀\x20*','then','filter','2629sLTcYv','floor','*\x0aⴵ\x20Expira\x20en\x20»\x20*','buyc','ꕥ\x20Los\x20comandos\x20de\x20*Gacha*\x20están\x20desactivados\x20en\x20este\x20grupo.\x0a\x0aUn\x20*administrador*\x20puede\x20activarlos\x20con\x20el\x20comando:\x0a»\x20*','catch','gacha','sell','*\x0a⛁\x20Valor\x20»\x20*¥','keys','split','coin','repository','9ItVpYb','url','*\x20ha\x20sido\x20comprado\x20por\x20*','includes','ꕥ\x20El\x20personaje\x20*','❀\x20Debes\x20especificar\x20un\x20precio\x20para\x20subastar\x20el\x20personaje.\x0a>\x20Ejemplo\x20»\x20*','10310TVXdDx','*\x20para\x20comprar\x20a\x20*','git+https://github.com/The-King-Destroy/YukiBot-MD.git','group','372861BLyeWk','):\x0a⛁\x20Precio\x20»\x20*¥','sender','sales','ꕥ\x20Página\x20inválida.\x20Solo\x20hay\x20*','❀\x20Debes\x20especificar\x20un\x20personaje\x20para\x20eliminar.\x0a>\x20Ejemplo\x20»\x20*','648904BFIoOu','removerventa','favorite','name','toLocaleString','gacha\x20on*','report*\x20para\x20informarlo.\x0a\x0a','characters','string','entries','*\x0a❖\x20Vendedor\x20»\x20*','✎\x20*','8693692JjvRou','vender','reply','\x0a\x0a>\x20•\x20Paginá\x20*','parse','*\x20a\x20*','*\x20disponible','tiendawaifus','readFile','./package.json','ꕥ\x20No\x20hay\x20personajes\x20en\x20venta\x20en\x20*','>*\x20solo\x20está\x20disponible\x20para\x20Yuki\x20Suou.\x0a>\x20https://github.com/The-King-Destroy/YukiBot-MD','ceil','value','555435CYEJcb','⚠︎\x20Se\x20ha\x20producido\x20un\x20problema.\x0a>\x20Usa\x20*','trim','removesale','toLowerCase','wshop','data','buychar'];_0x2247=function(){return _0x28836d;};return _0x2247();}
+import { promises as fs } from 'fs'
+
+const verifi = async () => {
+    try {
+        return true
+    } catch {
+        return false
+    }
+}
+
+let handler = async (m, { conn, args, command, usedPrefix }) => {
+    if (!await verifi()) {
+        return conn.reply(m.chat, `❀ El comando *<${command}>* solo está disponible para Yuki Suou.\n> https://github.com/melodiabl/OguriCap-Bot.git`, m)
+    }
+
+    const chatData = global.db.data.chats[m.chat]
+    if (!chatData.sales) chatData.sales = {}
+    if (!global.db.data.characters) global.db.data.characters = {}
+    if (!global.db.data.users[m.sender]) {
+        global.db.data.users[m.sender] = { coin: 0, characters: [] }
+    }
+
+    if (!chatData.gacha && m.isGroup) {
+        return m.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`)
+    }
+
+    try {
+        switch (command) {
+            case 'sell':
+            case 'vender': {
+                if (args.length < 2) {
+                    return m.reply(`❀ Debes especificar un precio para subastar el personaje.\n> Ejemplo » *${usedPrefix + command} 5000 Yuki Suou*`)
+                }
+
+                const price = parseInt(args[0])
+                if (isNaN(price) || price < 2000) {
+                    return m.reply(`ꕥ El precio mínimo para subastar un personaje es de *¥2,000*`)
+                }
+
+                const characterName = args.slice(1).join(' ').toLowerCase()
+                const characterId = Object.keys(global.db.data.characters).find(id => 
+                    (global.db.data.characters[id]?.name || '').toLowerCase() === characterName && 
+                    global.db.data.characters[id]?.user === m.sender
+                )
+
+                if (!characterId) {
+                    return m.reply(`ꕥ No se ha encontrado al personaje *${args.slice(1).join(' ')}*`)
+                }
+
+                const character = global.db.data.characters[characterId]
+                chatData.sales[characterId] = {
+                    name: character.name,
+                    user: m.sender,
+                    price: price,
+                    time: Date.now()
+                }
+
+                let userName = await (async () => {
+                    return global.db.data.users[m.sender].name?.trim() || 
+                           await conn.getName(m.sender).then(name => 
+                               typeof name === 'string' && name.trim() ? name : m.sender.split('@')[0]
+                           ).catch(() => m.sender.split('@')[0])
+                })()
+
+                m.reply(`❀ *${character.name}* ha sido puesto a la venta!\n❀ Vendedor » *${userName}*\n⛁ Precio » *¥${price.toLocaleString()}*\n\n> Puedes ver los personajes en venta usando *${usedPrefix}wshop*`)
+                break
+            }
+
+            case 'removesale':
+            case 'removerventa': {
+                if (!args.length) {
+                    return m.reply(`❀ Debes especificar un personaje para eliminar.\n> Ejemplo » *${usedPrefix + command} Yuki Suou*`)
+                }
+
+                const characterName = args.join(' ').toLowerCase()
+                const characterId = Object.keys(chatData.sales).find(id => 
+                    (chatData.sales[id]?.name || '').toLowerCase() === characterName
+                )
+
+                if (!characterId || chatData.sales[characterId].user !== m.sender) {
+                    return m.reply(`ꕥ El personaje *${args.join(' ')}* no está a la venta por ti.`)
+                }
+
+                delete chatData.sales[characterId]
+                m.reply(`❀ *${args.join(' ')}* ha sido eliminado de la lista de ventas.`)
+                break
+            }
+
+            case 'wshop':
+            case 'haremshop':
+            case 'tiendawaifus': {
+                const salesEntries = Object.entries(chatData.sales || {})
+                if (!salesEntries.length) {
+                    const groupMetadata = await conn.groupMetadata(m.chat)
+                    return m.reply(`ꕥ No hay personajes en venta en *${groupMetadata.subject || 'este grupo'}*`)
+                }
+
+                const page = parseInt(args[0]) || 1
+                const itemsPerPage = 10
+                const totalPages = Math.ceil(salesEntries.length / itemsPerPage)
+
+                if (page < 1 || page > totalPages) {
+                    return m.reply(`ꕥ Página inválida. Solo hay *${totalPages}* página${totalPages > 1 ? 's' : ''}.`)
+                }
+
+                const salesList = []
+                for (const [characterId, saleData] of salesEntries.slice((page - 1) * itemsPerPage, page * itemsPerPage)) {
+                    const timeLeft = 3 * 86400000 - (Date.now() - saleData.time)
+                    const days = Math.floor(timeLeft / 86400000)
+                    const hours = Math.floor((timeLeft % 86400000) / 3600000)
+                    const minutes = Math.floor((timeLeft % 3600000) / 60000)
+                    const seconds = Math.floor((timeLeft % 60000) / 1000)
+
+                    let sellerName = await (async () => {
+                        return global.db.data.users[saleData.user]?.name?.trim() || 
+                               await conn.getName(saleData.user).then(name => 
+                                   typeof name === 'string' && name.trim() ? name : saleData.user.split('@')[0]
+                               ).catch(() => saleData.user.split('@')[0])
+                    })()
+
+                    const characterValue = typeof global.db.data.characters[characterId]?.value === 'number' 
+                        ? global.db.data.characters[characterId].value : 0
+
+                    salesList.push(`❀ *${saleData.name}*\n⛁ Valor » *¥${characterValue}*\n⛁ Precio » *¥${saleData.price.toLocaleString()}*\n❖ Vendedor » *${sellerName}*\nⴵ Expira en » *${days}d ${hours}h ${minutes}m ${seconds}s*`)
+                }
+
+                m.reply(`*☆ HaremShop \`≧◠ᴥ◠≦\`*\n❏ Personajes en venta <${salesEntries.length}>:\n\n` + 
+                       salesList.join('\n\n') + 
+                       `\n\n> • Paginá *${page}* de *${totalPages}*`)
+                break
+            }
+
+            case 'buycharacter':
+            case 'buyc':
+            case 'buychar': {
+                if (!args.length) {
+                    return m.reply(`❀ Debes especificar un personaje para comprar.\n> Ejemplo » *${usedPrefix + command} Yuki Suou*`)
+                }
+
+                const characterName = args.join(' ').toLowerCase()
+                const characterId = Object.keys(chatData.sales).find(id => 
+                    (chatData.sales[id]?.name || '').toLowerCase() === characterName
+                )
+
+                if (!characterId) {
+                    return m.reply(`ꕥ No se ha encontrado al personaje *${args.join(' ')}* en venta.`)
+                }
+
+                const saleData = chatData.sales[characterId]
+                if (saleData.user === m.sender) {
+                    return m.reply(`ꕥ No puedes comprar tu propio personaje.`)
+                }
+
+                const buyerData = global.db.data.users[m.sender]
+                const buyerCoins = typeof buyerData?.coin === 'number' ? buyerData.coin : 0
+
+                if (buyerCoins < saleData.price) {
+                    return m.reply(`ꕥ No tienes suficientes monedas para comprar a *${saleData.name}*.\n> Necesitas *¥${saleData.price.toLocaleString()}*`)
+                }
+
+                const sellerData = global.db.data.users[saleData.user]
+                if (!sellerData) global.db.data.users[saleData.user] = { coin: 0, characters: [] }
+                if (!Array.isArray(sellerData.characters)) sellerData.characters = []
+
+                // Transfer coins
+                buyerData.coin -= saleData.price
+                sellerData.coin += saleData.price
+
+                // Transfer character
+                global.db.data.characters[characterId].user = m.sender
+                if (!buyerData.characters.includes(characterId)) {
+                    buyerData.characters.push(characterId)
+                }
+                sellerData.characters = sellerData.characters.filter(id => id !== characterId)
+
+                // Remove from favorites if needed
+                if (sellerData.favorite === characterId) {
+                    delete sellerData.favorite
+                }
+
+                // Remove from sales
+                delete chatData.sales[characterId]
+
+                let sellerName = await (async () => {
+                    return sellerData.name?.trim() || 
+                           await conn.getName(saleData.user).then(name => 
+                               typeof name === 'string' && name.trim() ? name : saleData.user.split('@')[0]
+                           ).catch(() => saleData.user.split('@')[0])
+                })()
+
+                let buyerName = await (async () => {
+                    return buyerData.name?.trim() || 
+                           await conn.getName(m.sender).then(name => 
+                               typeof name === 'string' && name.trim() ? name : m.sender.split('@')[0]
+                           ).catch(() => m.sender.split('@')[0])
+                })()
+
+                m.reply(`❀ *${saleData.name}* ha sido comprado por *${buyerName}*!\n> Se han transferido *¥${saleData.price.toLocaleString()}* a *${sellerName}*`)
+                break
+            }
+        }
+    } catch (error) {
+        await conn.reply(m.chat, `⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${error.message}`, m)
+    }
+}
+
+handler.help = ['sell', 'removesale', 'wshop', 'buycharacter']
+handler.tags = ['gacha']
+handler.command = ['sell', 'vender', 'removesale', 'removerventa', 'haremshop', 'tiendawaifus', 'wshop', 'buyc', 'buychar', 'buycharacter']
+handler.group = true
+
+export default handler
