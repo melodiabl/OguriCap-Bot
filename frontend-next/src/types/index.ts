@@ -134,6 +134,20 @@ export interface DashboardStats {
   totalMensajes: number;
   totalComandos: number;
   actividadPorHora?: Array<{ label: string; value: number; color?: string }>;
+  rendimiento?: {
+    tiempoRespuesta: number;
+    disponibilidad: number;
+    errorRate: number;
+    throughput: number;
+  };
+  tendencias?: {
+    usuarios: number;
+    grupos: number;
+    aportes: number;
+    pedidos: number;
+    mensajes: number;
+    comandos: number;
+  };
   comunidad?: {
     usuariosWhatsApp: number;
     usuariosActivos: number;
@@ -141,6 +155,9 @@ export interface DashboardStats {
     comandosHoy: number;
     totalMensajes: number;
     totalComandos: number;
+    gruposConBot?: number;
+    mensajesRecibidos?: number;
+    comandosEjecutados?: number;
   };
 }
 

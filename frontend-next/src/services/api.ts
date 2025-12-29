@@ -273,21 +273,73 @@ class ApiService {
       this.api.get('/api/pedidos/stats').then(r => r.data).catch(() => ({}))
     ])
 
+    const totalUsuarios = overview.totalUsuarios ?? overview.usuarios ?? 0
+    const totalGrupos = overview.totalGrupos ?? overview.grupos ?? 0
+    const totalAportes = overview.totalAportes ?? overview.aportes ?? 0
+    const totalPedidos = overview.totalPedidos ?? overview.pedidos ?? 0
+    const totalSubbots = overview.totalSubbots ?? overview.subbots ?? 0
+
+    const usuariosActivos = overview.usuariosActivos ?? 0
+    const gruposActivos = overview.gruposActivos ?? 0
+    const aportesHoy = overview.aportesHoy ?? 0
+
+    const mensajesHoy = overview.mensajesHoy ?? 0
+    const comandosHoy = overview.comandosHoy ?? 0
+    const totalMensajes = overview.totalMensajes ?? 0
+    const totalComandos = overview.totalComandos ?? 0
+
+    const rendimiento = overview.rendimiento
+      ? {
+          tiempoRespuesta: overview.rendimiento.tiempoRespuesta ?? 0,
+          disponibilidad: overview.rendimiento.disponibilidad ?? 0,
+          errorRate: overview.rendimiento.errorRate ?? 0,
+          throughput: overview.rendimiento.throughput ?? 0,
+        }
+      : { tiempoRespuesta: 0, disponibilidad: 0, errorRate: 0, throughput: 0 }
+
+    const tendencias = overview.tendencias
+      ? {
+          usuarios: overview.tendencias.usuarios ?? 0,
+          grupos: overview.tendencias.grupos ?? 0,
+          aportes: overview.tendencias.aportes ?? 0,
+          pedidos: overview.tendencias.pedidos ?? 0,
+          mensajes: overview.tendencias.mensajes ?? 0,
+          comandos: overview.tendencias.comandos ?? 0,
+        }
+      : { usuarios: 0, grupos: 0, aportes: 0, pedidos: 0, mensajes: 0, comandos: 0 }
+
+    const comunidad = overview.comunidad
+      ? {
+          usuariosWhatsApp: overview.comunidad.usuariosWhatsApp ?? 0,
+          usuariosActivos: overview.comunidad.usuariosActivos ?? 0,
+          mensajesHoy: overview.comunidad.mensajesHoy ?? 0,
+          comandosHoy: overview.comunidad.comandosHoy ?? 0,
+          totalMensajes: overview.comunidad.totalMensajes ?? 0,
+          totalComandos: overview.comunidad.totalComandos ?? 0,
+          gruposConBot: overview.comunidad.gruposConBot ?? undefined,
+          mensajesRecibidos: overview.comunidad.mensajesRecibidos ?? undefined,
+          comandosEjecutados: overview.comunidad.comandosEjecutados ?? undefined,
+        }
+      : undefined
+
     return {
-      totalUsuarios: overview.usuarios || 0,
-      totalGrupos: overview.grupos || 0,
-      totalAportes: overview.aportes || 0,
-      totalPedidos: overview.pedidos || 0,
-      totalSubbots: overview.subbots || 0,
-      usuariosActivos: overview.usuariosActivos || 0,
-      gruposActivos: overview.gruposActivos || 0,
-      aportesHoy: overview.aportesHoy || 0,
-      pedidosHoy: pedidos.pedidosPendientes || 0,
-      mensajesHoy: overview.mensajesHoy || 0,
-      comandosHoy: overview.comandosHoy || 0,
-      totalMensajes: overview.totalMensajes || 0,
-      totalComandos: overview.totalComandos || 0,
+      totalUsuarios,
+      totalGrupos,
+      totalAportes,
+      totalPedidos,
+      totalSubbots,
+      usuariosActivos,
+      gruposActivos,
+      aportesHoy,
+      pedidosHoy: pedidos.pedidosPendientes ?? overview.pedidosHoy ?? 0,
+      mensajesHoy,
+      comandosHoy,
+      totalMensajes,
+      totalComandos,
       actividadPorHora: Array.isArray(overview.actividadPorHora) ? overview.actividadPorHora : [],
+      rendimiento,
+      tendencias,
+      comunidad,
     }
   }
 
