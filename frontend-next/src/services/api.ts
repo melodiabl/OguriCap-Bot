@@ -287,6 +287,7 @@ class ApiService {
       comandosHoy: overview.comandosHoy || 0,
       totalMensajes: overview.totalMensajes || 0,
       totalComandos: overview.totalComandos || 0,
+      actividadPorHora: Array.isArray(overview.actividadPorHora) ? overview.actividadPorHora : [],
     }
   }
 

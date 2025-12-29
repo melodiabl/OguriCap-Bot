@@ -133,6 +133,7 @@ export interface DashboardStats {
   comandosHoy: number;
   totalMensajes: number;
   totalComandos: number;
+  actividadPorHora?: Array<{ label: string; value: number; color?: string }>;
   comunidad?: {
     usuariosWhatsApp: number;
     usuariosActivos: number;
