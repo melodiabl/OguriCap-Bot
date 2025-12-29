@@ -30,10 +30,37 @@ class ApiService {
     this.api.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401 && typeof window !== 'undefined') {
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          if (window.location.pathname !== '/login') window.location.href = '/login'
+        if (typeof window !== 'undefined' && error?.response?.status === 401) {
+          const token = localStorage.getItem('token')
+          const url = String(error?.config?.url || '')
+
+          const isJwtExpired = (jwtToken: string) => {
+            try {
+              const parts = String(jwtToken || '').split('.')
+              if (parts.length !== 3) return false
+              const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+              const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4)
+              const decoded = JSON.parse(atob(padded))
+              const exp = Number(decoded?.exp)
+              if (!Number.isFinite(exp) || exp <= 0) return false
+              return Date.now() > (exp * 1000 + 30_000) // 30s de margen
+            } catch {
+              return false
+            }
+          }
+
+          const isAuthProbe = url.includes('/api/auth/me') || url.includes('/api/auth/verify')
+
+          // No expulsar al usuario por cualquier 401: solo si no hay token, si expiró,
+          // o si falló un endpoint de verificación de sesión.
+          if (!token || isJwtExpired(token) || isAuthProbe) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            if (window.location.pathname !== '/login') window.location.href = '/login'
+          } else {
+            // Mantener sesión; la UI debe manejar el 401 (p.ej. permisos/ruta).
+            console.warn('[API] 401 sin logout', { url })
+          }
         }
         if (error.response?.status === 503 && error.response?.data?.maintenanceMode && typeof window !== 'undefined') {
           // Verificar si el usuario es administrador antes de redirigir

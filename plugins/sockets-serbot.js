@@ -397,26 +397,29 @@ try {
   const subbotCode = path.basename(pathYukiJadiBot)
   if (!global.db.data.panel.subbots) global.db.data.panel.subbots = {}
   
+  const prev = global.db.data.panel.subbots[subbotCode] || {}
   global.db.data.panel.subbots[subbotCode] = {
-    id: subbotCode,
-    numero: phone || null,
-    nombre_whatsapp: whatsappName || 'Anónimo',
+    ...prev,
+    id: prev?.id || subbotCode,
+    code: prev?.code || subbotCode,
+    codigo: prev?.codigo || subbotCode,
+    numero: phone || prev?.numero || null,
+    nombre_whatsapp: whatsappName || prev?.nombre_whatsapp || 'Anónimo',
     estado: 'activo',
-    conectado_desde: new Date().toISOString(),
+    isOnline: true,
+    connected: true,
+    conectado_desde: prev?.conectado_desde || new Date().toISOString(),
     ultima_actividad: new Date().toISOString(),
     qr_data: null,
     pairingCode: null,
-    alias_dir: null
+    alias_dir: prev?.alias_dir || null
   }
   
   // Emitir evento de subbot conectado al panel
   try {
     const { emitSubbotConnected, emitSubbotStatus } = await import('../lib/socket-io.js')
-    emitSubbotConnected(subbotCode, {
-      numero: phone,
-      nombre: whatsappName,
-      estado: 'activo'
-    })
+    emitSubbotConnected(subbotCode, phone)
+    // Emitir estado global para que el panel refresque rápido
     emitSubbotStatus()
   } catch {}
 } catch (e) {
