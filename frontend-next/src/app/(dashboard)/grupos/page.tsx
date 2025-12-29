@@ -103,6 +103,25 @@ export default function GruposPage() {
     }
   };
 
+  const syncWhatsAppGroups = async () => {
+    if (!connectionStatus?.connected) {
+      toast.error('El bot debe estar conectado para sincronizar grupos.');
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      const res = await api.syncWhatsAppGroups();
+      toast.success(res?.message || 'Grupos sincronizados');
+      setShowSyncModal(false);
+      await manualRefresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error al sincronizar grupos');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleSearch = () => {
     setPage(1);
     loadGroups();
@@ -397,7 +416,14 @@ export default function GruposPage() {
           </div>
 
           <div className="space-y-3 pt-4">
-            <Button variant="primary" className="w-full" loading={syncing} icon={<RefreshCw className="w-4 h-4" />}>
+            <Button
+              variant="primary"
+              className="w-full"
+              loading={syncing}
+              disabled={syncing || !connectionStatus?.connected}
+              icon={<RefreshCw className="w-4 h-4" />}
+              onClick={syncWhatsAppGroups}
+            >
               Sincronización Simple
             </Button>
             <Button variant="secondary" className="w-full" onClick={() => setShowSyncModal(false)} disabled={syncing}>

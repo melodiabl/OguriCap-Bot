@@ -126,6 +126,17 @@ global.loadDatabase = async function loadDatabase() {
 console.log(chalk.cyan('🚀 Starting database...'))
 await loadDatabase()
 
+// Asegurar estructura base del panel desde el arranque (evita perder métricas/logs antes del primer request al panel)
+try {
+  if (global.db?.data) {
+    global.db.data.panel ||= {}
+    const panel = global.db.data.panel
+    panel.logs ||= []
+    panel.logsCounter ||= 0
+    panel.dailyMetrics ||= {}
+  }
+} catch {}
+
 // Initialize user data synchronization
 import('./lib/startup-sync.js').catch(err => {
   console.warn('Warning: Could not initialize user data synchronization:', err.message);
@@ -365,6 +376,28 @@ global.panelApiMainDisconnect = false
 global.reauthInProgress = false
 global.panelApiLastSeen = null
 global.stopped = 'connecting'
+global.__panelLastConnState ||= null
+
+function pushPanelLog(entry) {
+  try {
+    if (!global.db?.data) return
+    const panel = global.db.data.panel ||= {}
+    panel.logs ||= []
+    panel.logsCounter ||= 0
+
+    panel.logs.push({
+      id: panel.logsCounter++,
+      fecha: new Date().toISOString(),
+      nivel: 'info',
+      ...entry,
+    })
+
+    const maxLogs = parseInt(process.env.PANEL_LOGS_MAX || '2000', 10)
+    if (Number.isFinite(maxLogs) && maxLogs > 0 && panel.logs.length > maxLogs) {
+      panel.logs.splice(0, panel.logs.length - maxLogs)
+    }
+  } catch {}
+}
 
 // ============================================
 // MANEJADOR DE ACTUALIZACIONES DE CONEXIÓN
@@ -408,6 +441,16 @@ async function connectionUpdate(update) {
       emitBotConnected(conn.user?.id)
       emitBotStatus()
     } catch {}
+
+    if (global.__panelLastConnState !== 'open') {
+      pushPanelLog({
+        tipo: 'bot',
+        titulo: 'Bot conectado',
+        detalles: conn.user?.id ? `Conectado como ${conn.user.id}` : 'Conexión abierta',
+        usuario: conn.user?.id || 'bot',
+        metadata: { event: 'connection_open' },
+      })
+    }
   }
 
   if (connection === 'connecting') {
@@ -449,6 +492,17 @@ async function connectionUpdate(update) {
       emitBotStatus()
     } catch {}
 
+    if (global.__panelLastConnState !== 'close') {
+      pushPanelLog({
+        tipo: 'bot',
+        titulo: 'Bot desconectado',
+        detalles: reason ? `Razón: ${reason}` : 'Conexión cerrada',
+        usuario: conn.user?.id || 'bot',
+        nivel: 'error',
+        metadata: { event: 'connection_close', reason: reason || null },
+      })
+    }
+
     // Si el panel solicitó desconexión, no reconectar
     if (global.panelApiMainDisconnect) {
       console.log(chalk.yellow("→ Bot desconectado desde el panel"))
@@ -462,6 +516,8 @@ async function connectionUpdate(update) {
     console.log(chalk.yellow("→ Reconectando el Bot Principal..."))
     await global.reloadHandler(true).catch(console.error)
   }
+
+  if (connection) global.__panelLastConnState = connection
 }
 
 process.on('uncaughtException', console.error)

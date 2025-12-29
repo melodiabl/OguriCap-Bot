@@ -112,6 +112,7 @@ interface Report {
   generatedAt: string
   size: number
   status: 'completed' | 'generating' | 'failed'
+  manifest?: any
 }
 
 const LOG_LEVELS = {
@@ -228,7 +229,23 @@ export default function LogsPage() {
       // Cargar reportes recientes
       try {
         const reportsData = await api.getBackups();
-        setReports(reportsData.reports || []);
+        const backupsRaw = (reportsData as any)?.backups;
+        const backups = Array.isArray(backupsRaw) ? backupsRaw : [];
+        const mapped = backups.map((b: any) => {
+          const statusRaw = String(b?.status || '').toLowerCase();
+          const status =
+            statusRaw === 'completed' ? 'completed' :
+            statusRaw === 'failed' ? 'failed' :
+            'generating';
+
+          const type = String(b?.type || 'backup');
+          const title = String(b?.description || '').trim() || `Reporte ${type}`;
+          const generatedAt = String(b?.completedAt || b?.timestamp || new Date().toISOString());
+          const size = Number(b?.size || 0);
+
+          return { id: String(b?.id || ''), type, title, generatedAt, size, status, manifest: b } as Report;
+        }).filter((r: Report) => Boolean(r.id));
+        setReports(mapped);
       } catch (err) {
         console.error('Error loading reports:', err);
       }
@@ -400,22 +417,37 @@ export default function LogsPage() {
 
   const generateReport = async (type: string) => {
     try {
-      const response = await fetch('/api/system/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ type })
+      await api.createBackup({
+        type,
+        includeDatabase: type === 'daily',
+        includeConfig: true,
+        includeLogs: type !== 'performance',
+        description: `Reporte ${type}`,
       });
-      
-      if (response.ok) {
-        await loadSystemData(); // Recargar datos
-        toast.success('Reporte generado');
-      } else {
-        const data = await response.json().catch(() => ({}));
-        toast.error(data?.error || 'Error generando reporte');
-      }
+      await loadSystemData(); // Recargar datos
+      toast.success('Reporte generado');
     } catch (error) {
       console.error('Error generando reporte:', error);
-      toast.error('Error generando reporte');
+      toast.error((error as any)?.response?.data?.error || 'Error generando reporte');
+    }
+  };
+
+  const downloadReport = async (report: Report) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const data = report?.manifest ?? report;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `reporte-${report.id}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error descargando reporte:', error);
+      toast.error('Error descargando reporte');
     }
   };
 
@@ -1174,7 +1206,7 @@ export default function LogsPage() {
                           {report.status}
                         </Badge>
                         {report.status === 'completed' && (
-                          <Button size="sm" variant="secondary">
+                          <Button size="sm" variant="secondary" onClick={() => downloadReport(report)}>
                             Descargar
                           </Button>
                         )}

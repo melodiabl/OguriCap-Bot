@@ -576,9 +576,18 @@ export default function DashboardPage() {
                   danger: 'red'
                 }[item.color] || 'primary';
 
+                const bgClass = {
+                  emerald: 'bg-emerald-500/20',
+                  amber: 'bg-amber-500/20',
+                  cyan: 'bg-cyan-500/20',
+                  primary: 'bg-primary-500/20',
+                  violet: 'bg-violet-500/20',
+                  red: 'bg-red-500/20',
+                }[colorClass] || 'bg-primary-500/20';
+
                 return (
                   <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-                    <div className={`p-2 rounded-lg bg-${colorClass}-500/20`}>
+                    <div className={`p-2 rounded-lg ${bgClass}`}>
                       <IconComponent className="w-4 h-4 text-gray-400" />
                     </div>
                     <div className="flex-1 min-w-0">

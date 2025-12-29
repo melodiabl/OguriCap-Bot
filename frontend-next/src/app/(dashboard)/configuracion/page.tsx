@@ -145,8 +145,9 @@ export default function ConfiguracionPage() {
     if (!socket) return;
 
     const handleConfigUpdate = (data: any) => {
-      if (data.configKey === selectedConfig) {
+      if (data?.configKey === 'main') {
         loadConfiguration(selectedConfig);
+        loadVersionHistory(selectedConfig);
         toast.success('Configuración actualizada por otro usuario');
       }
     };
@@ -161,7 +162,7 @@ export default function ConfiguracionPage() {
   const loadConfigurations = async () => {
     try {
       setIsLoading(true);
-      const data = await api.getSystemConfig();
+      const data = await api.getConfig('main');
       
       const configSections: ConfigSection[] = [
         {
@@ -178,7 +179,7 @@ export default function ConfiguracionPage() {
           description: 'Configuración del sistema y recursos',
           icon: Database,
           color: 'green',
-          data: data?.system || {}
+          data: (data as any)?.system || {}
         },
         {
           key: 'bot',
@@ -186,7 +187,7 @@ export default function ConfiguracionPage() {
           description: 'Configuración del bot de WhatsApp',
           icon: Bot,
           color: 'purple',
-          data: data?.bot || {}
+          data: (data as any)?.bot || {}
         },
         {
           key: 'security',
@@ -194,7 +195,7 @@ export default function ConfiguracionPage() {
           description: 'Configuración de seguridad y autenticación',
           icon: Shield,
           color: 'red',
-          data: data?.security || {}
+          data: (data as any)?.security || {}
         },
         {
           key: 'notifications',
@@ -202,7 +203,7 @@ export default function ConfiguracionPage() {
           description: 'Configuración de notificaciones y alertas',
           icon: Bell,
           color: 'yellow',
-          data: data?.notifications || {}
+          data: (data as any)?.notifications || {}
         }
       ];
       
@@ -217,9 +218,10 @@ export default function ConfiguracionPage() {
 
   const loadConfiguration = async (key: string) => {
     try {
-      const data = await api.getSystemConfig();
-      setConfigData(data || {});
-      setOriginalData(JSON.parse(JSON.stringify(data || {})));
+      const main = await api.getConfig('main');
+      const sectionData = key === 'main' ? (main || {}) : ((main as any)?.[key] || {});
+      setConfigData(sectionData || {});
+      setOriginalData(JSON.parse(JSON.stringify(sectionData || {})));
       setValidationErrors([]);
     } catch (error) {
       console.error('Error loading configuration:', error);
@@ -229,7 +231,9 @@ export default function ConfiguracionPage() {
 
   const loadVersionHistory = async (key: string) => {
     try {
-      setVersions([]);
+      const res = await api.getConfigVersions('main', 50).catch(() => ({} as any));
+      const list = (res as any)?.versions || [];
+      setVersions(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error('Error loading version history:', error);
     }
@@ -237,8 +241,8 @@ export default function ConfiguracionPage() {
 
   const loadStats = async () => {
     try {
-      const [config, backupsRes] = await Promise.all([
-        api.getSystemConfig().catch(() => ({})),
+      const [configStats, backupsRes] = await Promise.all([
+        api.getConfigStats().catch(() => ({} as any)),
         api.getBackups().catch(() => ({} as any))
       ]);
 
@@ -250,20 +254,13 @@ export default function ConfiguracionPage() {
         [];
 
       const totalBackups = Array.isArray(backupsList) ? backupsList.length : (Number((backupsRes as any)?.count) || 0);
-      const lastUpdate = (config as any)?.updated_at || (config as any)?.updatedAt || '';
-      const environment =
-        (config as any)?.environment ||
-        (config as any)?.env ||
-        (config as any)?.nodeEnv ||
-        (config as any)?.main?.environment ||
-        '';
 
       setStats({
-        totalConfigurations: config && typeof config === 'object' ? Object.keys(config as any).length : configurations.length,
-        currentEnvironment: environment || 'unknown',
-        totalVersions: 0,
+        totalConfigurations: Number((configStats as any)?.totalConfigurations) || configurations.length,
+        currentEnvironment: (configStats as any)?.currentEnvironment || 'unknown',
+        totalVersions: Number((configStats as any)?.totalVersions) || 0,
         totalBackups,
-        lastUpdate: lastUpdate || ''
+        lastUpdate: (configStats as any)?.lastUpdate || ''
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -307,10 +304,26 @@ export default function ConfiguracionPage() {
   const saveSystemConfig = async () => {
     setSaving(true);
     try {
-      await api.updateSystemConfig(systemConfig);
+      const { currentIP, ...payload } = systemConfig as any;
+      await api.updateSystemConfig(payload);
       toast.success('Configuración del sistema guardada');
     } catch (err) {
       toast.error('Error al guardar configuración');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleMaintenanceMode = async () => {
+    const next = !systemConfig.maintenanceMode;
+    setSystemConfig(prev => ({ ...prev, maintenanceMode: next }));
+    setSaving(true);
+    try {
+      await api.updateSystemConfig({ maintenanceMode: next });
+      toast.success(next ? 'Modo mantenimiento activado' : 'Modo mantenimiento desactivado');
+    } catch (err) {
+      setSystemConfig(prev => ({ ...prev, maintenanceMode: !next }));
+      toast.error('No se pudo aplicar modo mantenimiento');
     } finally {
       setSaving(false);
     }
@@ -362,7 +375,13 @@ export default function ConfiguracionPage() {
     try {
       setSaving(true);
       
-      await api.updateSystemConfig(configData);
+      const currentMain = await api.getConfig('main').catch(() => ({} as any));
+      const nextMain =
+        selectedConfig === 'main'
+          ? configData
+          : { ...(currentMain || {}), [selectedConfig]: configData };
+
+      await api.updateConfig('main', nextMain);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
       setHasChanges(false);
       toast.success('Configuración guardada exitosamente');
@@ -370,9 +389,15 @@ export default function ConfiguracionPage() {
       // Recargar versiones
       loadVersionHistory(selectedConfig);
       loadStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving configuration:', error);
-      toast.error('Error guardando configuración');
+      const validation = error?.response?.data?.validationErrors;
+      if (Array.isArray(validation) && validation.length) {
+        setValidationErrors(validation);
+        toast.error('Validación fallida');
+      } else {
+        toast.error('Error guardando configuración');
+      }
     } finally {
       setSaving(false);
     }
@@ -382,6 +407,7 @@ export default function ConfiguracionPage() {
     if (!confirm('¿Estás seguro de que quieres hacer rollback a esta versión?')) return;
 
     try {
+      await api.rollbackConfig('main', versionId);
       toast.success('Rollback realizado exitosamente');
       loadConfiguration(selectedConfig);
       loadVersionHistory(selectedConfig);
@@ -1037,7 +1063,7 @@ export default function ConfiguracionPage() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => setSystemConfig({ ...systemConfig, maintenanceMode: !systemConfig.maintenanceMode })}
+                <button onClick={toggleMaintenanceMode}
                   className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.maintenanceMode ? 'bg-orange-500' : 'bg-gray-600'}`}>
                   <motion.div animate={{ x: systemConfig.maintenanceMode ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />

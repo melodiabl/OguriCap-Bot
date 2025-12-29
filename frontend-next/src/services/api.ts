@@ -230,12 +230,12 @@ class ApiService {
   }
 
   async deleteSubbot(subbotId: string) {
-    const response = await this.api.delete(`/api/subbot/${subbotId}`)
+    const response = await this.api.delete(`/api/subbots/${encodeURIComponent(subbotId)}`)
     return response.data
   }
 
   async getSubbotQR(subbotId: string) {
-    const response = await this.api.get(`/api/subbot/qr/${encodeURIComponent(subbotId)}`)
+    const response = await this.api.get(`/api/subbots/${encodeURIComponent(subbotId)}/qr`)
     return response.data
   }
 
@@ -532,8 +532,49 @@ class ApiService {
     return response.data;
   }
 
+  async getSystemConfigVersions(limit = 50) {
+    const response = await this.api.get(`/api/system/config/versions?limit=${limit}`);
+    return response.data;
+  }
+
+  async rollbackSystemConfig(versionId: string) {
+    const response = await this.api.post('/api/system/config/rollback', { versionId });
+    return response.data;
+  }
+
   async addCurrentIPAsAdmin() {
     const response = await this.api.post('/api/system/add-admin-ip');
+    return response.data;
+  }
+
+  // Config Manager (versionado / rollback)
+  async getConfig(key = 'main') {
+    const response = await this.api.get(`/api/config/${encodeURIComponent(key)}`);
+    return response.data;
+  }
+
+  async updateConfig(key: string, config: any) {
+    const response = await this.api.put(`/api/config/${encodeURIComponent(key)}`, config);
+    return response.data;
+  }
+
+  async getConfigStats() {
+    const response = await this.api.get('/api/config/stats');
+    return response.data;
+  }
+
+  async getConfigVersions(key = 'main', limit = 50) {
+    const response = await this.api.get(`/api/config/${encodeURIComponent(key)}/versions?limit=${limit}`);
+    return response.data;
+  }
+
+  async rollbackConfig(key: string, versionId: string) {
+    const response = await this.api.post(`/api/config/${encodeURIComponent(key)}/rollback`, { versionId });
+    return response.data;
+  }
+
+  async importConfig(key: string, config: any) {
+    const response = await this.api.post(`/api/config/${encodeURIComponent(key)}/import`, { config });
     return response.data;
   }
 
@@ -588,6 +629,11 @@ class ApiService {
 
   async toggleGroupBot(groupId: string, action: 'on' | 'off') {
     const response = await this.api.post(`/api/grupos/${groupId}/toggle`, { action });
+    return response.data;
+  }
+
+  async syncWhatsAppGroups(options: { clearOld?: boolean } = {}) {
+    const response = await this.api.post('/api/grupos/sync', { clearOld: options.clearOld === true });
     return response.data;
   }
 
@@ -655,6 +701,37 @@ class ApiService {
 
   async updateBotConfig(config: any) {
     const response = await this.api.patch('/api/bot/config', config);
+    return response.data;
+  }
+
+  async getBotConfigVersions(limit = 50) {
+    const response = await this.api.get(`/api/bot/config/versions?limit=${limit}`);
+    return response.data;
+  }
+
+  async rollbackBotConfig(versionId: string) {
+    const response = await this.api.post('/api/bot/config/rollback', { versionId });
+    return response.data;
+  }
+
+  // Notifications configuration (no confundir con /api/notificaciones)
+  async getNotificationsConfig() {
+    const response = await this.api.get('/api/notifications/config');
+    return response.data;
+  }
+
+  async updateNotificationsConfig(config: any) {
+    const response = await this.api.patch('/api/notifications/config', config);
+    return response.data;
+  }
+
+  async getNotificationsConfigVersions(limit = 50) {
+    const response = await this.api.get(`/api/notifications/config/versions?limit=${limit}`);
+    return response.data;
+  }
+
+  async rollbackNotificationsConfig(versionId: string) {
+    const response = await this.api.post('/api/notifications/config/rollback', { versionId });
     return response.data;
   }
 
@@ -830,8 +907,18 @@ class ApiService {
   }
 
   // Backup and restore
-  async createBackup() {
-    const response = await this.api.post('/api/system/backup');
+  async createBackup(options: {
+    type?: string
+    includeDatabase?: boolean
+    includeMedia?: boolean
+    includeConfig?: boolean
+    includeLogs?: boolean
+    compress?: boolean
+    encrypt?: boolean
+    description?: string
+    tags?: string[]
+  } = {}) {
+    const response = await this.api.post('/api/system/backup', options);
     return response.data;
   }
 

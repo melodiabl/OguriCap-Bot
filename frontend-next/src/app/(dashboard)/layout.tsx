@@ -20,10 +20,6 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // Temporal: permitir acceso a /logs sin autenticación para debug
-      if (typeof window !== 'undefined' && window.location.pathname === '/logs') {
-        return;
-      }
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
@@ -47,10 +43,7 @@ export default function DashboardLayout({
     );
   }
 
-  // Temporal: permitir acceso a /logs sin autenticación
-  const isLogsPage = typeof window !== 'undefined' && window.location.pathname === '/logs';
-  
-  if (!isAuthenticated && !isLogsPage) {
+  if (!isAuthenticated) {
     return null;
   }
 

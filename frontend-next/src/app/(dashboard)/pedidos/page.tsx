@@ -32,6 +32,7 @@ export default function PedidosPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPedido, setNewPedido] = useState({ titulo: '', descripcion: '', tipo: 'manhwa', prioridad: 'media' });
   const [stats, setStats] = useState<any>(null);
+  const [creatingPedido, setCreatingPedido] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const { isConnected: isSocketConnected } = useSocket();
 
@@ -106,7 +107,7 @@ export default function PedidosPage() {
         toast.error('El título es requerido');
         return;
       }
-      setAiProcessing(true);
+      setCreatingPedido(true);
       const pedidoData = { ...newPedido, usuario: user?.username || 'Anónimo' };
       const result = await api.createPedido(pedidoData as any);
       
@@ -125,6 +126,38 @@ export default function PedidosPage() {
       loadStats();
     } catch (err) {
       toast.error('Error al crear pedido');
+    } finally {
+      setCreatingPedido(false);
+    }
+  };
+
+  const improveWithAI = async () => {
+    try {
+      const titulo = newPedido.titulo.trim();
+      if (!titulo) {
+        toast.error('El título es requerido');
+        return;
+      }
+
+      setAiProcessing(true);
+      const prompt = [
+        'Mejora y amplía la descripción de este pedido para que sea clara y útil.',
+        'Devuelve solo el texto final (sin comillas, sin markdown).',
+        '',
+        `Título: ${titulo}`,
+        newPedido.descripcion?.trim() ? `Descripción actual: ${newPedido.descripcion.trim()}` : '',
+      ].filter(Boolean).join('\n');
+
+      const res = await api.sendAIMessage({ message: prompt });
+      const improved = String((res as any)?.response || '').trim();
+      if (!improved) {
+        toast.error('La IA no devolvió contenido');
+        return;
+      }
+      setNewPedido(prev => ({ ...prev, descripcion: improved }));
+      toast.success('Descripción mejorada');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error usando IA');
     } finally {
       setAiProcessing(false);
     }
@@ -330,7 +363,13 @@ export default function PedidosPage() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-400">Descripción</label>
-              <Button variant="secondary" size="sm" icon={aiProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} disabled={aiProcessing || !newPedido.titulo.trim()}>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={aiProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                disabled={aiProcessing || creatingPedido || !newPedido.titulo.trim()}
+                onClick={improveWithAI}
+              >
                 {aiProcessing ? 'Procesando...' : 'Mejorar con IA'}
               </Button>
             </div>
@@ -374,8 +413,12 @@ export default function PedidosPage() {
             </div>
           )}
           <div className="flex gap-3 pt-4">
-            <Button variant="primary" className="flex-1" onClick={createPedido}>Crear Pedido</Button>
-            <Button variant="secondary" className="flex-1" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
+            <Button variant="primary" className="flex-1" onClick={createPedido} loading={creatingPedido} disabled={creatingPedido || aiProcessing}>
+              Crear Pedido
+            </Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowCreateModal(false)} disabled={creatingPedido || aiProcessing}>
+              Cancelar
+            </Button>
           </div>
         </div>
       </Modal>

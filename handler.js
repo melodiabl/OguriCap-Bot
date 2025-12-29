@@ -117,9 +117,9 @@ if (typeof m.text !== "string") m.text = ""
 // Métricas reales por día (mensajes/comandos) para el panel
 setImmediate(() => {
 try {
-if (!m?.sender || !global.db?.data?.panel) return
-if (m.fromMe) return
-const panel = global.db.data.panel
+if (!m?.sender || !global.db?.data) return
+if (m.fromMe || m.isBaileys) return
+const panel = global.db.data.panel ||= {}
 panel.dailyMetrics ||= {}
 const dayKey = getDayKey()
 panel.dailyMetrics[dayKey] ||= { mensajes: 0, comandos: 0, mensajesPorHora: {}, comandosPorHora: {}, erroresComandos: 0 }
@@ -128,6 +128,39 @@ const hour = String(new Date().getHours()).padStart(2, '0')
 dm.mensajes = (dm.mensajes || 0) + 1
 dm.mensajesPorHora ||= {}
 dm.mensajesPorHora[hour] = (dm.mensajesPorHora[hour] || 0) + 1
+
+// Actividad reciente (panel.logs): registrar mensajes de forma limitada para no spamear
+panel.logs ||= []
+panel.logsCounter ||= 0
+const throttleMs = Number(process.env.PANEL_MESSAGE_LOG_THROTTLE_MS || 15000)
+const snippetMax = Number(process.env.PANEL_MESSAGE_SNIPPET_MAX || 120)
+global.__panelMsgLogDedup ||= new Map()
+const mtype = String(m?.mtype || m?.type || (m?.message && typeof m.message === 'object' ? Object.keys(m.message)[0] : '') || '')
+const dedupKey = `${m.chat || ''}|${mtype}`
+const last = global.__panelMsgLogDedup.get(dedupKey) || 0
+const now = Date.now()
+if (now - last >= throttleMs) {
+global.__panelMsgLogDedup.set(dedupKey, now)
+if (global.__panelMsgLogDedup.size > 5000) global.__panelMsgLogDedup.clear()
+const text = typeof m.text === 'string' ? m.text.trim() : ''
+const snippet = text ? text.slice(0, Math.max(0, snippetMax)) : ''
+panel.logs.push({
+id: panel.logsCounter++,
+usuario: m.sender,
+comando: '',
+detalles: snippet || (mtype ? `(${mtype})` : 'mensaje'),
+grupo: m.isGroup ? m.chat : '',
+fecha: new Date().toISOString(),
+tipo: 'mensaje',
+nivel: 'info',
+titulo: 'Mensaje',
+metadata: { mtype }
+})
+const maxLogs = parseInt(process.env.PANEL_LOGS_MAX || '2000', 10)
+if (Number.isFinite(maxLogs) && maxLogs > 0 && panel.logs.length > maxLogs) {
+panel.logs.splice(0, panel.logs.length - maxLogs)
+}
+}
 } catch {}
 })
 const user = global.db.data.users[m.sender]
