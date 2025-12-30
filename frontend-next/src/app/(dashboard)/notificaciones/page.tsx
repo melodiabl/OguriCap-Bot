@@ -7,6 +7,7 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { SOCKET_EVENTS, useSocket } from '@/contexts/SocketContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -36,6 +37,7 @@ export default function NotificacionesPage() {
     tipo: 'info' as 'info' | 'success' | 'warning' | 'error',
     categoria: 'sistema'
   });
+  const { socket } = useSocket();
 
   const createNotification = async () => {
     if (!newNotification.titulo.trim() || !newNotification.mensaje.trim()) {
@@ -62,14 +64,27 @@ export default function NotificacionesPage() {
 
   useEffect(() => { loadNotifications(); loadStats(); }, [page, typeFilter, readFilter]);
 
-  // Auto-refresh cada 30 segundos para notificaciones
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadNotifications();
-      loadStats();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [page, typeFilter, readFilter]);
+    if (!socket) return;
+
+    let timer: any;
+    const scheduleReload = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        loadNotifications();
+        loadStats();
+      }, 750);
+    };
+
+    socket.on(SOCKET_EVENTS.NOTIFICATION, scheduleReload);
+    socket.on('notification:created', scheduleReload);
+
+    return () => {
+      clearTimeout(timer);
+      socket.off(SOCKET_EVENTS.NOTIFICATION, scheduleReload);
+      socket.off('notification:created', scheduleReload);
+    };
+  }, [socket, page, typeFilter, readFilter, searchTerm]);
 
   const loadNotifications = async () => {
     try {

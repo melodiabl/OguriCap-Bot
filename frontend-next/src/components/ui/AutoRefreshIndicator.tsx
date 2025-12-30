@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { RefreshCw, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -15,26 +15,17 @@ export const AutoRefreshIndicator: React.FC<AutoRefreshIndicatorProps> = ({
   onRefresh,
   isActive = true
 }) => {
-  const [timeLeft, setTimeLeft] = useState(interval / 1000);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (!isActive) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setIsRefreshing(true);
-          onRefresh?.();
-          setTimeout(() => setIsRefreshing(false), 1000);
-          return interval / 1000;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [interval, onRefresh, isActive]);
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.resolve(onRefresh());
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 600);
+    }
+  };
 
   if (!isActive) return null;
 
@@ -45,7 +36,13 @@ export const AutoRefreshIndicator: React.FC<AutoRefreshIndicatorProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs">
+    <button
+      type="button"
+      onClick={handleRefresh}
+      disabled={!onRefresh || isRefreshing}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs disabled:opacity-60"
+      title={onRefresh ? 'Actualizar' : 'Tiempo real por Socket.IO'}
+    >
       <motion.div
         animate={isRefreshing ? { rotate: 360 } : {}}
         transition={{ duration: 1, ease: "linear" }}
@@ -54,9 +51,9 @@ export const AutoRefreshIndicator: React.FC<AutoRefreshIndicatorProps> = ({
       </motion.div>
       <Clock className="w-3 h-3 text-gray-400" />
       <span className="text-gray-400 font-mono">
-        {isRefreshing ? 'Actualizando...' : formatTime(timeLeft)}
+        {isRefreshing ? 'Actualizando...' : onRefresh ? 'Actualizar' : formatTime(Math.round(interval / 1000))}
       </span>
-    </div>
+    </button>
   );
 };
 

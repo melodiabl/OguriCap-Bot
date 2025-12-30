@@ -73,28 +73,32 @@ export function useSmartRefresh({
   useEffect(() => {
     if (!socket || !isConnected || socketEvents.length === 0) return;
 
-    const handleSocketEvent = (eventName: string) => (data?: any) => {
-      console.log(`${name}: Socket event '${eventName}' received`, data);
-      
-      // Usar timeout para evitar múltiples refreshes simultáneos
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      
-      refreshTimeoutRef.current = setTimeout(() => {
-        throttledRefresh();
-      }, 1000); // Esperar 1 segundo antes de refrescar
-    };
+    const handlers: Record<string, (data?: any) => void> = {};
 
     // Registrar todos los eventos
-    socketEvents.forEach(eventName => {
-      socket.on(eventName, handleSocketEvent(eventName));
+    socketEvents.forEach((eventName) => {
+      const handler = (data?: any) => {
+        console.log(`${name}: Socket event '${eventName}' received`, data);
+
+        // Usar timeout para evitar múltiples refreshes simultáneos
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+        }
+
+        refreshTimeoutRef.current = setTimeout(() => {
+          throttledRefresh();
+        }, 1000); // Esperar 1 segundo antes de refrescar
+      };
+
+      handlers[eventName] = handler;
+      socket.on(eventName, handler);
     });
 
     return () => {
       // Limpiar eventos
-      socketEvents.forEach(eventName => {
-        socket.off(eventName, handleSocketEvent(eventName));
+      socketEvents.forEach((eventName) => {
+        const handler = handlers[eventName];
+        if (handler) socket.off(eventName, handler);
       });
       
       if (refreshTimeoutRef.current) {
@@ -103,17 +107,27 @@ export function useSmartRefresh({
     };
   }, [socket, isConnected, socketEvents, throttledRefresh, name]);
 
-  // Fallback interval (solo si no hay Socket.IO)
+  // Fallback sin intervalos (solo si no hay Socket.IO)
   useEffect(() => {
     if (isConnected || fallbackInterval === 0) return;
 
-    console.log(`${name}: Using fallback interval (${fallbackInterval}ms)`);
-    const interval = setInterval(() => {
-      console.log(`${name}: Fallback refresh triggered`);
+    const onFocus = () => {
+      console.log(`${name}: Fallback refresh (focus)`);
       throttledRefresh();
-    }, fallbackInterval);
+    };
 
-    return () => clearInterval(interval);
+    const onOnline = () => {
+      console.log(`${name}: Fallback refresh (online)`);
+      throttledRefresh();
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
   }, [isConnected, fallbackInterval, throttledRefresh, name]);
 
   return {

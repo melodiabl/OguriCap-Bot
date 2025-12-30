@@ -44,13 +44,7 @@ export default function MultimediaPage() {
     loadData(); 
   }, [currentPage, typeFilter]);
 
-  // Auto-refresh cada 2 minutos para multimedia
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadData();
-    }, 120000);
-    return () => clearInterval(interval);
-  }, [currentPage, typeFilter]);
+
 
   const loadData = async () => {
     setLoading(true);

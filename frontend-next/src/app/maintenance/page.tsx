@@ -32,10 +32,20 @@ export default function MaintenancePage() {
     }
   };
 
-  // Verificar cada 30 segundos si el mantenimiento terminó
+  // Verificar cuando se vuelve al foco / vuelve la red
   useEffect(() => {
-    const interval = setInterval(checkStatus, 30000);
-    return () => clearInterval(interval);
+    checkStatus();
+
+    const onFocus = () => checkStatus();
+    const onOnline = () => checkStatus();
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
   }, []);
 
   // Verificar estado de conexión

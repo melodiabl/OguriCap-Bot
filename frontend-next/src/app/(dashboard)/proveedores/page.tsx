@@ -57,15 +57,6 @@ export default function ProveedoresPage() {
     loadAvailableGroups();
   }, []);
 
-  // Auto-refresh cada 60 segundos para proveedores
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadProveedores();
-      loadStats();
-    }, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => setSuccess(null), 3000);

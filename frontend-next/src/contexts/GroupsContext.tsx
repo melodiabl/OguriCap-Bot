@@ -91,16 +91,20 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
     };
   }, [socket, isConnected, refreshGroups]);
 
-  // Fallback: Auto-refresh cada 10 minutos solo si no hay conexión Socket.IO
+  // Fallback sin intervalos (solo si no hay conexión Socket.IO)
   useEffect(() => {
     if (isConnected) return; // No usar timer si hay Socket.IO
 
-    const interval = setInterval(() => {
-      console.log('Fallback refresh - sin Socket.IO');
-      refreshGroups();
-    }, 10 * 60 * 1000); // 10 minutos
-    
-    return () => clearInterval(interval);
+    const onFocus = () => refreshGroups();
+    const onOnline = () => refreshGroups();
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
   }, [isConnected, refreshGroups]);
 
   const value = {

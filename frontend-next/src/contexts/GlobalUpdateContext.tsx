@@ -261,14 +261,21 @@ export const GlobalUpdateProvider: React.FC<{ children: ReactNode }> = ({ childr
     // Solo hacer polling si no hay conexión Socket.IO
     if (isConnected) return; // Si hay Socket.IO, no hacer polling
     
-    const interval = setInterval(() => {
-      if (!isRefreshing) {
-        console.log('🔄 Fallback polling - Socket.IO no disponible');
-        refreshAll();
-      }
-    }, 60000); // Cada 60 segundos solo como respaldo
+    const onFocus = () => {
+      if (!isRefreshing) refreshAll();
+    };
 
-    return () => clearInterval(interval);
+    const onOnline = () => {
+      if (!isRefreshing) refreshAll();
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
   }, [isRefreshing, isConnected]);
 
   // Escuchar eventos personalizados del navegador

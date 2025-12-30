@@ -27,7 +27,7 @@ import {
   RefreshCw,
   AlertTriangle
 } from 'lucide-react';
-import { useSocket } from '../../../hooks/useSocket';
+import { useSocket } from '@/contexts/SocketContext';
 import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
@@ -64,7 +64,7 @@ export default function AnalyticsPage() {
   const [topCommands, setTopCommands] = useState<ChartData[]>([]);
   const [responseTimeData, setResponseTimeData] = useState<ChartData[]>([]);
 
-  const socket = useSocket();
+  const { socket } = useSocket();
 
   // Colores para gráficos
   const colors = {
@@ -78,12 +78,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     loadAnalytics();
-    
-    if (autoRefresh) {
-      const interval = setInterval(loadAnalytics, 30000); // Actualizar cada 30 segundos
-      return () => clearInterval(interval);
-    }
-  }, [timeRange, autoRefresh]);
+  }, [timeRange]);
 
   useEffect(() => {
     if (!socket) return;

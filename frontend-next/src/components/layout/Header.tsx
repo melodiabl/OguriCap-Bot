@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { useSocket } from '@/contexts/SocketContext';
 import { useBotStatus, useNotifications } from '@/hooks/useRealTime';
@@ -41,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const { isConnected: isSocketConnected } = useSocket();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
   const { notifications, unreadCount } = useNotifications(30000);
+  const reduceMotion = useReducedMotion();
 
   const currentPage = menuItems.find(item => item.path === pathname);
   const isConnected = pollingConnected;
@@ -108,7 +109,20 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
             >
-              <Bell className="w-5 h-5" />
+              <motion.div
+                animate={
+                  !reduceMotion && unreadCount > 0
+                    ? { rotate: [0, -10, 10, -6, 6, 0] }
+                    : { rotate: 0 }
+                }
+                transition={
+                  !reduceMotion && unreadCount > 0
+                    ? { duration: 0.6, ease: 'easeOut', repeat: Infinity, repeatDelay: 4 }
+                    : undefined
+                }
+              >
+                <Bell className="w-5 h-5" />
+              </motion.div>
               {unreadCount > 0 && (
                 <span className="notification-dot">{unreadCount}</span>
               )}
@@ -133,8 +147,11 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                   <div className="max-h-80 overflow-y-auto">
                     {notifications && notifications.length > 0 ? (
                       notifications.slice(0, 5).map((notif: any, index: number) => (
-                        <div
+                        <motion.div
                           key={notif.id || index}
+                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                          transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
                           className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${
                             !notif.leida ? 'bg-primary-500/5' : ''
                           }`}
@@ -145,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                           <p className="text-xs text-gray-400 truncate mt-1">
                             {notif.mensaje || notif.message || ''}
                           </p>
-                        </div>
+                        </motion.div>
                       ))
                     ) : (
                       <div className="p-6 text-center text-gray-400">

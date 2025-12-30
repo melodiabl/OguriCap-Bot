@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/contexts/SocketContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
@@ -170,7 +170,7 @@ export default function LogsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
-  const socket = useSocket();
+  const { socket } = useSocket();
 
   // Initial load
   useEffect(() => {

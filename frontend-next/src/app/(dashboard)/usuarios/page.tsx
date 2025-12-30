@@ -38,14 +38,6 @@ export default function UsuariosPage() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
-
-  // Auto-refresh cada 60 segundos para usuarios
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadUsers();
-    }, 60000);
-    return () => clearInterval(interval);
   }, [searchTerm, roleFilter]);
 
   const loadUsers = async () => {

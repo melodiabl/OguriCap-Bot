@@ -42,23 +42,20 @@ export const useAutoRefresh = (
     }
   }, [isGloballyOn, isConnected, ...dependencies]);
 
-  // Auto-refresh periódico (solo como respaldo si no hay Socket.IO)
+  // Auto-refresh sin intervalos (solo como respaldo si no hay Socket.IO)
   useEffect(() => {
     if (!enabled || !interval) return;
     
-    // Si hay conexión Socket.IO, usar intervalos más largos como respaldo
-    const actualInterval = isConnected ? interval * 3 : interval;
+    const onFocus = () => refresh();
+    const onOnline = () => refresh();
 
-    const intervalId = setInterval(() => {
-      if (!isRefreshing) {
-        if (!isConnected) {
-          console.log('🔄 Fallback refresh - Socket.IO no disponible');
-        }
-        refresh();
-      }
-    }, actualInterval);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
   }, [refresh, interval, enabled, isRefreshing, isConnected]);
 
   // Auto-refresh cuando se actualiza el contexto global

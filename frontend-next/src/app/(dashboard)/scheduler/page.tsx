@@ -90,8 +90,6 @@ export default function SchedulerPage() {
     if (contextGroups.length === 0) {
       loadGroupsDirectly();
     }
-    const interval = setInterval(loadMessages, 60000);
-    return () => clearInterval(interval);
   }, [contextGroups.length]);
 
   const loadMessages = async () => {
@@ -242,7 +240,7 @@ export default function SchedulerPage() {
           <p className="text-gray-400 mt-1">Programa mensajes automáticos para tu comunidad</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-          <AutoRefreshIndicator isActive={true} interval={60000} />
+          <AutoRefreshIndicator isActive={true} interval={60000} onRefresh={loadMessages} />
           <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
             Nuevo Mensaje
           </Button>

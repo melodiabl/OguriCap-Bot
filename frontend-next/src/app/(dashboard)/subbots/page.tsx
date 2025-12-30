@@ -67,18 +67,25 @@ export default function SubbotsPage() {
     }
   }, []);
 
-  // Auto-refresh controlado (solo cuando no hay Socket.IO)
+  // Fallback sin intervalos (solo cuando no hay Socket.IO)
   useEffect(() => {
-    // Solo hacer polling si no hay conexión Socket.IO
     if (isSocketConnected) return;
     
-    const interval = setInterval(() => {
-      if (!loading) {
-        loadSubbots();
-      }
-    }, 30000); // Cada 30 segundos solo como respaldo
+    const onFocus = () => {
+      if (!loading) loadSubbots();
+    };
 
-    return () => clearInterval(interval);
+    const onOnline = () => {
+      if (!loading) loadSubbots();
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
   }, [isSocketConnected, loading, loadSubbots]);
 
   // Socket events

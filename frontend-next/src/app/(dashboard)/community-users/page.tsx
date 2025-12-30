@@ -48,8 +48,6 @@ export default function CommunityUsersPage() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 120000); // Auto-refresh cada 2 minutos
-    return () => clearInterval(interval);
   }, [page, statusFilter, roleFilter]);
 
   useEffect(() => {
@@ -165,7 +163,7 @@ export default function CommunityUsersPage() {
           <p className="text-gray-400 mt-1">Gestiona los miembros de tu comunidad de WhatsApp</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-          <AutoRefreshIndicator isActive={true} interval={60000} />
+          <AutoRefreshIndicator isActive={true} interval={60000} onRefresh={loadData} />
         </motion.div>
       </div>
 

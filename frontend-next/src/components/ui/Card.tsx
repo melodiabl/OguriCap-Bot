@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/Skeleton';
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface CardProps extends Omit<HTMLMotionProps<'div'>, 'ref'> {
   animated?: boolean;
   delay?: number;
   hover?: boolean;
@@ -17,8 +18,10 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     if (animated) {
       return (
         <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          ref={ref}
+          initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.95 }}
+          whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, amount: 0.25 }}
           whileHover={!reduceMotion && hover ? { 
             y: -5, 
             scale: 1.02,
@@ -28,6 +31,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
           } : undefined}
           transition={{ duration: 0.3, delay, ease: "easeOut" }}
           className={cn('glass-card', glow && 'shadow-glow', className)}
+          {...props}
         >
           {children}
         </motion.div>
@@ -35,9 +39,15 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     }
 
     return (
-      <div ref={ref} className={cn('glass-card', glow && 'shadow-glow', className)} {...props}>
+      <motion.div
+        ref={ref}
+        whileHover={!reduceMotion && hover ? { y: -2, scale: 1.01 } : undefined}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className={cn('glass-card', glow && 'shadow-glow', className)}
+        {...props}
+      >
         {children}
-      </div>
+      </motion.div>
     );
   }
 );
@@ -122,21 +132,23 @@ export const StatCard: React.FC<StatCardProps> = ({
   trend,
   animated = true
 }) => {
+  const reduceMotion = useReducedMotion();
   if (loading) {
     return (
       <motion.div
         className={`p-6 rounded-xl bg-gradient-to-br ${gradientClasses[color]} border backdrop-blur-sm`}
-        initial={animated ? { opacity: 0, y: 20 } : undefined}
-        animate={animated ? { opacity: 1, y: 0 } : undefined}
-        transition={animated ? { duration: 0.4, delay } : undefined}
+        initial={!reduceMotion && animated ? { opacity: 0, y: 20 } : undefined}
+        whileInView={!reduceMotion && animated ? { opacity: 1, y: 0 } : undefined}
+        viewport={!reduceMotion && animated ? { once: true, amount: 0.35 } : undefined}
+        transition={!reduceMotion && animated ? { duration: 0.4, delay } : undefined}
       >
-        <div className="animate-pulse">
+        <div>
           <div className="flex items-center justify-between mb-4">
-            <div className="h-4 bg-white/10 rounded w-20"></div>
-            <div className="h-6 w-6 bg-white/10 rounded"></div>
+            <Skeleton className="h-4 w-24 rounded" />
+            <Skeleton className="h-10 w-10 rounded-xl" />
           </div>
-          <div className="h-8 bg-white/10 rounded w-16 mb-2"></div>
-          <div className="h-3 bg-white/10 rounded w-24"></div>
+          <Skeleton className="h-8 w-20 rounded mb-2" />
+          <Skeleton className="h-3 w-32 rounded" />
         </div>
       </motion.div>
     );
@@ -145,14 +157,15 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <motion.div
       className={`p-6 rounded-xl bg-gradient-to-br ${gradientClasses[color]} border backdrop-blur-sm relative overflow-hidden group`}
-      initial={animated ? { opacity: 0, y: 30, scale: 0.9 } : undefined}
-      animate={animated ? { opacity: 1, y: 0, scale: 1 } : undefined}
-      whileHover={animated ? { 
+      initial={!reduceMotion && animated ? { opacity: 0, y: 30, scale: 0.9 } : undefined}
+      whileInView={!reduceMotion && animated ? { opacity: 1, y: 0, scale: 1 } : undefined}
+      viewport={!reduceMotion && animated ? { once: true, amount: 0.35 } : undefined}
+      whileHover={!reduceMotion && animated ? { 
         y: -8, 
         scale: 1.02,
         boxShadow: "0 20px 40px rgba(0,0,0,0.15)"
       } : undefined}
-      transition={animated ? { duration: 0.4, delay, ease: "easeOut" } : undefined}
+      transition={!reduceMotion && animated ? { duration: 0.4, delay, ease: "easeOut" } : undefined}
     >
       {/* Background glow effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -238,44 +251,49 @@ export const GlowCard: React.FC<GlowCardProps> = ({
   color = '#6366f1',
   animated = true,
   delay = 0
-}) => (
-  <motion.div
-    className={cn(
-      'p-6 rounded-xl bg-gray-800/50 backdrop-blur-sm border border-gray-700/50',
-      'relative overflow-hidden group cursor-pointer',
-      className
-    )}
-    initial={animated ? { opacity: 0, y: 20, scale: 0.95 } : undefined}
-    animate={animated ? { opacity: 1, y: 0, scale: 1 } : undefined}
-    whileHover={animated ? { 
-      scale: 1.02,
-      boxShadow: `0 20px 40px ${color}30`
-    } : undefined}
-    transition={animated ? { duration: 0.3, delay, ease: "easeOut" } : undefined}
-  >
-    {/* Animated background gradient */}
+}) => {
+  const reduceMotion = useReducedMotion();
+
+  return (
     <motion.div
-      className="absolute inset-0 opacity-0 group-hover:opacity-100"
-      style={{
-        background: `linear-gradient(135deg, ${color}10, transparent)`
-      }}
-      transition={{ duration: 0.3 }}
-    />
-    
-    {/* Glow effect */}
-    <motion.div
-      className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 blur-sm"
-      style={{
-        background: `linear-gradient(135deg, ${color}20, transparent)`
-      }}
-      transition={{ duration: 0.3 }}
-    />
-    
-    <div className="relative z-10">
-      {children}
-    </div>
-  </motion.div>
-);
+      className={cn(
+        'p-6 rounded-xl bg-gray-800/50 backdrop-blur-sm border border-gray-700/50',
+        'relative overflow-hidden group cursor-pointer',
+        className
+      )}
+      initial={!reduceMotion && animated ? { opacity: 0, y: 20, scale: 0.95 } : undefined}
+      whileInView={!reduceMotion && animated ? { opacity: 1, y: 0, scale: 1 } : undefined}
+      viewport={!reduceMotion && animated ? { once: true, amount: 0.3 } : undefined}
+      whileHover={!reduceMotion && animated ? { 
+        scale: 1.02,
+        boxShadow: `0 20px 40px ${color}30`
+      } : undefined}
+      transition={!reduceMotion && animated ? { duration: 0.3, delay, ease: "easeOut" } : undefined}
+    >
+      {/* Animated background gradient */}
+      <motion.div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100"
+        style={{
+          background: `linear-gradient(135deg, ${color}10, transparent)`
+        }}
+        transition={{ duration: 0.3 }}
+      />
+      
+      {/* Glow effect */}
+      <motion.div
+        className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 blur-sm"
+        style={{
+          background: `linear-gradient(135deg, ${color}20, transparent)`
+        }}
+        transition={{ duration: 0.3 }}
+      />
+      
+      <div className="relative z-10">
+        {children}
+      </div>
+    </motion.div>
+  );
+};
 
 // Animated Counter Component
 interface AnimatedCounterProps {

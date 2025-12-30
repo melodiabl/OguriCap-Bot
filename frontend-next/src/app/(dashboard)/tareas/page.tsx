@@ -21,7 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/contexts/SocketContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -64,7 +64,7 @@ export default function TareasPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showExecutions, setShowExecutions] = useState(false);
 
-  const socket = useSocket();
+  const { socket } = useSocket();
 
   useEffect(() => {
     loadTasks();
@@ -74,6 +74,14 @@ export default function TareasPage() {
   useEffect(() => {
     if (!socket) return;
 
+    const handleTaskCreated = (data: any) => {
+      if (!data?.task) return;
+      setTasks(prev => {
+        const exists = prev.some(t => String(t.id) === String(data.task.id));
+        return exists ? prev : [data.task, ...prev];
+      });
+    };
+
     const handleTaskUpdate = (data: any) => {
       setTasks(prev => prev.map(task => 
         task.id === data.taskId ? { ...task, ...data.updates } : task
@@ -81,7 +89,11 @@ export default function TareasPage() {
     };
 
     const handleTaskExecution = (data: TaskExecution) => {
-      setExecutions(prev => [data, ...prev.slice(0, 99)]);
+      setExecutions(prev => {
+        const id = String((data as any)?.id ?? '');
+        const next = id ? prev.filter(e => String((e as any)?.id ?? '') !== id) : prev;
+        return [data, ...next].slice(0, 100);
+      });
       
       // Actualizar estado de la tarea
       setTasks(prev => prev.map(task => 
@@ -91,12 +103,23 @@ export default function TareasPage() {
       ));
     };
 
+    const handleTaskDeleted = (data: any) => {
+      const taskId = String(data?.taskId ?? '');
+      if (!taskId) return;
+      setTasks(prev => prev.filter(t => String(t.id) !== taskId));
+      setExecutions(prev => prev.filter(e => String(e.taskId) !== taskId));
+    };
+
+    socket.on('task:created', handleTaskCreated);
     socket.on('task:updated', handleTaskUpdate);
     socket.on('task:executed', handleTaskExecution);
+    socket.on('task:deleted', handleTaskDeleted);
 
     return () => {
+      socket.off('task:created', handleTaskCreated);
       socket.off('task:updated', handleTaskUpdate);
       socket.off('task:executed', handleTaskExecution);
+      socket.off('task:deleted', handleTaskDeleted);
     };
   }, [socket]);
 

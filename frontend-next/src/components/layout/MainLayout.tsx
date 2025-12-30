@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useBotStatus, useConnectionHealth } from '@/hooks/useRealTime';
 import { RealTimeBadge } from '@/components/ui/StatusIndicator';
+import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -23,9 +24,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="h-screen overflow-hidden mesh-bg">
       {/* Animated background particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl animate-blob" />
-        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-blob animation-delay-2000" />
-        <div className="absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-blob animation-delay-4000" />
+        <div className={cn(
+          "absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl",
+          !reduceMotion && "animate-blob"
+        )} />
+        <div className={cn(
+          "absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl",
+          !reduceMotion && "animate-blob animation-delay-2000"
+        )} />
+        <div className={cn(
+          "absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl",
+          !reduceMotion && "animate-blob animation-delay-4000"
+        )} />
       </div>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

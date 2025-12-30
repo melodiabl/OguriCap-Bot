@@ -27,7 +27,7 @@ import {
   Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/contexts/SocketContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -79,7 +79,7 @@ export default function AlertasPage() {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [showCreateRule, setShowCreateRule] = useState(false);
 
-  const socket = useSocket();
+  const { socket } = useSocket();
 
   useEffect(() => {
     loadAlerts();

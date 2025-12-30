@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, StatCard } from '@/components/ui/Card';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import { ProgressRing } from '@/components/ui/Charts';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/contexts/SocketContext';
 import { useSystemStats, useBotStatus } from '@/hooks/useRealTime';
 import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
@@ -114,7 +114,7 @@ export default function ConfiguracionPage() {
 
   const [globalOffMessage, setGlobalOffMessage] = useState('El bot está desactivado globalmente por el administrador.');
 
-  const socket = useSocket();
+  const { socket } = useSocket();
 
   useEffect(() => {
     loadConfigurations();
