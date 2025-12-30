@@ -165,11 +165,13 @@ let opcion
 
 // Verificar si hay argumento --no-prompt para modo panel (sin preguntas interactivas)
 const noPrompt = process.argv.includes("--no-prompt") || process.env.NO_PROMPT === '1'
-// En modo panel/producción, desactivar el "print" detallado de mensajes para evitar spam y lag.
-const printMessages = process.env.PRINT_MESSAGES === '1' || process.env.PRINT_MESSAGES === 'true'
-if ((noPrompt || process.env.PANEL_MODE === '1' || process.env.NODE_ENV === 'production' || process.env.PANEL_API_KEY) && !printMessages) {
-  global.opts['noprint'] = true
-}
+// Print (lib/print.js) en producción:
+// Antes se desactivaba automáticamente en modo panel/producción.
+// Ahora solo se desactiva si lo pides explícitamente (env).
+const noprintEnv =
+  process.env.NOPRINT === '1' || process.env.NOPRINT === 'true' ||
+  process.env.NO_PRINT === '1' || process.env.NO_PRINT === 'true'
+if (noprintEnv) global.opts['noprint'] = true
 
 // ============================================
 // CONFIGURACIÓN DEL PANEL - MEJORADA
