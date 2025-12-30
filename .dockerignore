@@ -45,8 +45,10 @@ jspm_packages/
 .yarn-integrity
 
 # Git
-.git
-.gitignore
+# NOTE: We keep `.git` inside the image so the in-bot `update/fix` command can run `git pull`.
+# If you don't want this, re-enable these lines and rebuild the image.
+# .git
+# .gitignore
 
 # Docker
 Dockerfile*
