@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const isPublicPath = (pathname: string) => {
   if (pathname === '/login') return true;
+  if (pathname === '/register') return true;
   if (pathname.startsWith('/maintenance')) return true;
   return false;
 };
@@ -26,4 +27,3 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
 };
-
