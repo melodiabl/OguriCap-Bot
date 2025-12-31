@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const roles = [
     { 
@@ -72,6 +73,12 @@ export default function LoginPage() {
       router.replace('/');
     }
   }, [authLoading, isAuthenticated, router]);
+
+  // Prefill username después de registrarse
+  useEffect(() => {
+    const u = searchParams?.get('username');
+    if (u && !username) setUsername(u);
+  }, [searchParams, username]);
 
   const checkMaintenanceStatus = async () => {
     try {

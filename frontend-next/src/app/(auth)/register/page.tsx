@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -53,9 +53,8 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       await api.registerPublic({ email: emailStr, username: usernameStr, password });
-      toast.success('Cuenta creada. Iniciando sesión…');
-      await login(usernameStr, password, 'usuario');
-      router.push('/');
+      toast.success('Cuenta creada. Ahora iniciá sesión.');
+      router.push(`/login?username=${encodeURIComponent(usernameStr)}`);
     } catch (error: any) {
       const msg = error?.response?.data?.error || error?.message || 'Error registrando usuario';
       toast.error(msg);
@@ -165,4 +164,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
