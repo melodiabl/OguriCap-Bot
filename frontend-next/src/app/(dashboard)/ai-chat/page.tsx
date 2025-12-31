@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Bot, Send, User, Sparkles, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { SimpleSelect } from '@/components/ui/Select';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -15,10 +16,22 @@ interface Message {
   timestamp: Date;
 }
 
+const MODEL_OPTIONS = [
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'gpt-4', label: 'GPT-4' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  { value: 'claude', label: 'Claude' },
+  { value: 'qwen', label: 'Qwen' },
+  { value: 'luminai', label: 'Luminai' },
+  { value: 'chatgpt', label: 'ChatGPT' },
+];
+
 export default function AiChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [model, setModel] = useState('gemini');
+  const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -46,7 +59,8 @@ export default function AiChatPage() {
     try {
       const response = await api.sendAIMessage({
         message: input,
-        model: 'gpt-3.5-turbo',
+        model,
+        sessionId,
       });
 
       const assistantMessage: Message = {
@@ -85,9 +99,28 @@ export default function AiChatPage() {
           <h1 className="text-3xl font-bold text-white">AI Chat</h1>
           <p className="text-gray-400 mt-1">Conversa con la inteligencia artificial</p>
         </motion.div>
-        <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={() => setMessages([])}>
-          Limpiar
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="w-52">
+            <SimpleSelect
+              value={model}
+              onChange={setModel}
+              options={MODEL_OPTIONS}
+              placeholder="Modelo"
+              disabled={isLoading}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw className="w-4 h-4" />}
+            onClick={() => {
+              setMessages([]);
+              setSessionId(`session-${Date.now()}`);
+            }}
+          >
+            Limpiar
+          </Button>
+        </div>
       </div>
 
       <Card animated className="flex-1 flex flex-col overflow-hidden">
