@@ -19,7 +19,13 @@ export default function LoginPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
-  const { login } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
+  const [regEmail, setRegEmail] = useState('');
+  const [regUsername, setRegUsername] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regPassword2, setRegPassword2] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
   const roles = [
@@ -65,6 +71,13 @@ export default function LoginPage() {
   useEffect(() => {
     checkMaintenanceStatus();
   }, []);
+
+  // Si ya hay sesión (por token en cookie/localStorage), no mostrar login
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const checkMaintenanceStatus = async () => {
     try {
@@ -157,6 +170,44 @@ export default function LoginPage() {
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!regEmail.trim() || !regEmail.includes('@')) {
+      toast.error('Email inválido');
+      return;
+    }
+    if (!regUsername.trim() || regUsername.trim().length < 3) {
+      toast.error('El usuario debe tener al menos 3 caracteres');
+      return;
+    }
+    if (!regPassword || regPassword.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    if (regPassword !== regPassword2) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      await api.registerPublic({
+        email: regEmail.trim(),
+        username: regUsername.trim(),
+        password: regPassword,
+      });
+      toast.success('Cuenta creada. Iniciando sesión…');
+      await login(regUsername.trim(), regPassword, 'usuario');
+      router.push('/');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || error?.message || 'Error registrando usuario';
+      toast.error(msg);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -447,6 +498,73 @@ export default function LoginPage() {
                   {!selectedRole ? 'Selecciona un rol para continuar' : 'Iniciar Sesión'}
                 </Button>
               </form>
+
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowRegister((v) => !v)}
+                  className="w-full text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                >
+                  {showRegister ? 'Cerrar registro' : 'Crear cuenta (rol usuario)'}
+                </button>
+
+                {showRegister && (
+                  <div className="mt-4 space-y-4">
+                    <div className="text-xs text-gray-400">
+                      La cuenta se crea con rol <span className="text-emerald-400 font-medium">Usuario</span>.
+                    </div>
+
+                    <form onSubmit={handleRegister} className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
+                        <input
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          type="email"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          placeholder="tu@email.com"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Usuario</label>
+                        <input
+                          value={regUsername}
+                          onChange={(e) => setRegUsername(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          placeholder="usuario"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Contraseña</label>
+                        <input
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          type="password"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          placeholder="••••••••"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Repetir contraseña</label>
+                        <input
+                          value={regPassword2}
+                          onChange={(e) => setRegPassword2(e.target.value)}
+                          type="password"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          placeholder="••••••••"
+                        />
+                      </div>
+
+                      <Button type="submit" variant="primary" className="w-full" loading={isRegistering} disabled={isRegistering}>
+                        Crear cuenta
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </div>
             </motion.div>
 
             <motion.p

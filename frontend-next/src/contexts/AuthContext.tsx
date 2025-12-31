@@ -47,21 +47,72 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+  const setTokenCookie = (newToken: string) => {
+    try {
+      const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `token=${encodeURIComponent(newToken)}; Path=/; SameSite=Lax${secure}`;
+    } catch {}
+  };
 
-    if (storedToken && storedUser) {
+  const clearTokenCookie = () => {
+    try {
+      const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `token=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+    } catch {}
+  };
+
+  const getTokenCookie = () => {
+    try {
+      const parts = (typeof document !== 'undefined' ? document.cookie : '').split(';').map(s => s.trim());
+      const found = parts.find(p => p.startsWith('token='));
+      if (!found) return null;
+      return decodeURIComponent(found.slice('token='.length));
+    } catch {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      const cookieToken = getTokenCookie();
+      const effectiveToken = storedToken || cookieToken;
+
+      if (!effectiveToken) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        if (!storedToken) localStorage.setItem('token', effectiveToken);
+        setToken(effectiveToken);
+        setTokenCookie(effectiveToken);
+
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          setIsLoading(false);
+          return;
+        }
+
+        // Token existe pero no hay user guardado: reconstruir sesión antes de declarar "no autenticado"
+        const userData = await api.getMe();
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setIsLoading(false);
       } catch (error) {
-        console.error('Error parsing stored user data:', error);
+        console.error('Error initializing auth:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        clearTokenCookie();
+        setToken(null);
+        setUser(null);
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    void init();
   }, []);
 
   const login = async (username: string, password: string, role?: string) => {
@@ -77,6 +128,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(newUser));
+      setTokenCookie(newToken);
 
       setToken(newToken);
       setUser(newUser);
@@ -131,6 +183,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearTokenCookie();
     setToken(null);
     setUser(null);
     toast.success('Sesión cerrada correctamente');

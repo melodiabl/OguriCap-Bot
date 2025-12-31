@@ -21,7 +21,17 @@ class ApiService {
 
     this.api.interceptors.request.use((config) => {
       if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('token')
+        let token = localStorage.getItem('token')
+
+        // Fallback: cookie token (middleware/auth global)
+        if (!token) {
+          try {
+            const parts = document.cookie.split(';').map((s) => s.trim())
+            const found = parts.find((p) => p.startsWith('token='))
+            if (found) token = decodeURIComponent(found.slice('token='.length))
+          } catch {}
+        }
+
         if (token) config.headers.Authorization = `Bearer ${token}`
       }
       return config
@@ -32,6 +42,10 @@ class ApiService {
       (error) => {
         if (error.response?.status === 401 && typeof window !== 'undefined') {
           localStorage.removeItem('token')
+          try {
+            const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+            document.cookie = `token=; Path=/; Max-Age=0; SameSite=Lax${secure}`
+          } catch {}
           if (window.location.pathname !== '/login') window.location.href = '/login'
         }
         if (error.response?.status === 503 && error.response?.data?.maintenanceMode && typeof window !== 'undefined') {
@@ -117,6 +131,11 @@ class ApiService {
 
   async register(userData: { username: string; password: string; rol: string; whatsapp_number?: string }) {
     const response = await this.api.post('/api/auth/register', userData);
+    return response.data;
+  }
+
+  async registerPublic(userData: { email: string; username: string; password: string }) {
+    const response = await this.api.post('/api/auth/register-public', userData);
     return response.data;
   }
 

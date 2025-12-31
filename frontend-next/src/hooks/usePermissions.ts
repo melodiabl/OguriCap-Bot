@@ -22,25 +22,41 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'dashboard', 'notificaciones'
   ],
   usuario: [
-    'dashboard', 'notificaciones'
+    'dashboard',
+    'pedidos',
+    'aportes',
+    'subbots',
+    'ai-chat',
+    'bot-status',
+    'notificaciones',
   ],
 };
+
+function normalizeRole(role: string) {
+  const r = (role || '').toLowerCase().trim()
+  if (!r) return 'member'
+  if (r === 'administrador') return 'admin'
+  if (r === 'moderador') return 'moderator'
+  if (r === 'colaborador') return 'collaborator'
+  if (r === 'miembro') return 'member'
+  return r
+}
 
 export function usePermissions() {
   const { user } = useAuth();
 
   const hasPermission = (page: string): boolean => {
     if (!user) return false;
-    const role = user.rol?.toLowerCase() || 'member';
+    const role = normalizeRole(user.rol || 'member');
     const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member;
     return permissions.includes('*') || permissions.includes(page);
   };
 
   const hasRole = (roles: string | string[]): boolean => {
     if (!user) return false;
-    const userRole = user.rol?.toLowerCase() || 'member';
+    const userRole = normalizeRole(user.rol || 'member');
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    return allowedRoles.map(r => r.toLowerCase()).includes(userRole);
+    return allowedRoles.map(r => normalizeRole(r)).includes(userRole);
   };
 
   const isAdmin = (): boolean => {
