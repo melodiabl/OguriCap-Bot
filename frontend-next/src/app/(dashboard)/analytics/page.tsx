@@ -109,48 +109,50 @@ export default function AnalyticsPage() {
     try {
       setIsLoading(true);
       
-      // Cargar datos de múltiples endpoints
+      // Usar el endpoint principal de dashboard que tiene datos reales
       const [
+        dashboardStats,
         commandStats,
         userStats,
         groupStats
       ] = await Promise.all([
+        api.getStats(), // Este usa /api/dashboard/stats que tiene datos reales
         api.getBotCommandStats(),
         api.getUsuarioStats(),
         api.getGroupStats()
       ]);
 
-      // Procesar métricas principales
+      // Procesar métricas principales usando datos reales del dashboard
       const newMetrics: MetricCard[] = [
         {
           title: 'Comandos Ejecutados',
-          value: commandStats.totalToday || 0,
-          change: calculateChange(commandStats.totalToday, commandStats.totalYesterday),
-          changeType: commandStats.totalToday > (commandStats.totalYesterday || 0) ? 'increase' : 'decrease',
+          value: dashboardStats.comandosHoy || commandStats.totalToday || 0,
+          change: calculateChange(dashboardStats.comandosHoy || commandStats.totalToday, dashboardStats.totalComandos || commandStats.totalYesterday),
+          changeType: (dashboardStats.comandosHoy || commandStats.totalToday) > (dashboardStats.totalComandos || commandStats.totalYesterday || 0) ? 'increase' : 'decrease',
           icon: Zap,
           color: colors.primary
         },
         {
           title: 'Usuarios Activos',
-          value: userStats.activeToday || 0,
-          change: calculateChange(userStats.activeToday, userStats.activeYesterday),
-          changeType: userStats.activeToday > (userStats.activeYesterday || 0) ? 'increase' : 'decrease',
+          value: dashboardStats.usuariosActivos || userStats.activeToday || 0,
+          change: calculateChange(dashboardStats.usuariosActivos || userStats.activeToday, userStats.activeYesterday),
+          changeType: (dashboardStats.usuariosActivos || userStats.activeToday) > (userStats.activeYesterday || 0) ? 'increase' : 'decrease',
           icon: Users,
           color: colors.success
         },
         {
           title: 'Grupos Activos',
-          value: groupStats.activeToday || 0,
-          change: calculateChange(groupStats.activeToday, groupStats.activeYesterday),
-          changeType: groupStats.activeToday > (groupStats.activeYesterday || 0) ? 'increase' : 'decrease',
+          value: dashboardStats.gruposActivos || groupStats.activeToday || 0,
+          change: calculateChange(dashboardStats.gruposActivos || groupStats.activeToday, groupStats.activeYesterday),
+          changeType: (dashboardStats.gruposActivos || groupStats.activeToday) > (groupStats.activeYesterday || 0) ? 'increase' : 'decrease',
           icon: MessageSquare,
           color: colors.info
         },
         {
           title: 'Tasa de Errores',
-          value: commandStats.errorRate || 0,
-          change: calculateChange(commandStats.errorRate, commandStats.errorRateYesterday),
-          changeType: commandStats.errorRate < (commandStats.errorRateYesterday || 0) ? 'increase' : 'decrease',
+          value: dashboardStats.rendimiento?.errorRate || commandStats.errorRate || 0,
+          change: calculateChange(dashboardStats.rendimiento?.errorRate || commandStats.errorRate, commandStats.errorRateYesterday),
+          changeType: (dashboardStats.rendimiento?.errorRate || commandStats.errorRate) < (commandStats.errorRateYesterday || 0) ? 'increase' : 'decrease',
           icon: AlertTriangle,
           color: colors.error
         }
@@ -158,8 +160,18 @@ export default function AnalyticsPage() {
 
       setMetrics(newMetrics);
 
-      // Procesar datos de gráficos
-      setCommandsOverTime(processTimeSeriesData(commandStats.hourlyData || []));
+      // Usar datos de actividad por hora del dashboard si están disponibles
+      const activityData = dashboardStats.actividadPorHora || [];
+      if (activityData.length > 0) {
+        setCommandsOverTime(activityData.map(item => ({
+          name: item.label || item.name,
+          value: item.value || 0,
+          timestamp: item.timestamp
+        })));
+      } else {
+        setCommandsOverTime(processTimeSeriesData(commandStats.hourlyData || []));
+      }
+
       setUserActivity(processTimeSeriesData(userStats.hourlyActivity || []));
       setGroupActivity(processTimeSeriesData(groupStats.hourlyActivity || []));
       setErrorRates(processTimeSeriesData(commandStats.hourlyErrors || []));
