@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
@@ -96,9 +97,12 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
-  return (
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -125,7 +129,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
           {children}
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
