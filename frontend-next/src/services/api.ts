@@ -428,6 +428,26 @@ class ApiService {
     return response.data;
   }
 
+  async processPedidoWithLibrary(id: number, groupJid: string) {
+    const response = await this.api.post(`/api/pedidos/${id}/process`, { groupJid });
+    return response.data;
+  }
+
+  async getPedidoLibraryMatches(id: number) {
+    const response = await this.api.get(`/api/pedidos/${id}/library-matches`);
+    return response.data;
+  }
+
+  async sendLibraryItem(itemId: number, jid: string, opts?: { caption?: string; pedidoId?: number; markCompleted?: boolean }) {
+    const response = await this.api.post(`/api/library/items/${itemId}/send`, {
+      jid,
+      caption: opts?.caption,
+      pedidoId: opts?.pedidoId,
+      markCompleted: typeof opts?.markCompleted === 'boolean' ? opts.markCompleted : undefined,
+    });
+    return response.data;
+  }
+
   // Usuarios
   async getUsuarios(page = 1, limit = 20, search?: string, rol?: string) {
     const params = new URLSearchParams();
@@ -476,6 +496,36 @@ class ApiService {
 
   async updateProveedor(id: number, data: Partial<Proveedor>) {
     const response = await this.api.patch(`/api/proveedores/${id}`, data);
+    return response.data;
+  }
+
+  async getProveedor(idOrJid: string | number) {
+    const response = await this.api.get(`/api/proveedores/${encodeURIComponent(String(idOrJid))}`);
+    return response.data;
+  }
+
+  async getProveedorLibrary(idOrJid: string | number, params?: { page?: number; limit?: number; search?: string; category?: string }) {
+    const qp = new URLSearchParams();
+    qp.set('page', String(params?.page || 1));
+    qp.set('limit', String(params?.limit || 20));
+    if (params?.search) qp.set('search', params.search);
+    if (params?.category && params.category !== 'all') qp.set('category', params.category);
+    const suffix = qp.toString() ? `?${qp}` : '';
+    const response = await this.api.get(`/api/proveedores/${encodeURIComponent(String(idOrJid))}/library${suffix}`);
+    return response.data;
+  }
+
+  async uploadProveedorLibraryFile(idOrJid: string | number, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await this.api.post(`/api/proveedores/${encodeURIComponent(String(idOrJid))}/library/upload`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async deleteProveedorLibraryItem(idOrJid: string | number, itemId: number) {
+    const response = await this.api.delete(`/api/proveedores/${encodeURIComponent(String(idOrJid))}/library/items/${itemId}`);
     return response.data;
   }
 

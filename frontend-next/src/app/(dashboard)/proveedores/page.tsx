@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Search, Plus, Eye, CheckCircle, XCircle, Clock, User, Calendar,
-  MessageSquare, AlertCircle, RefreshCw, Star, Activity, Users, Trash2
+  MessageSquare, AlertCircle, RefreshCw, Star, Activity, Users, Trash2, FolderOpen
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -40,6 +41,7 @@ interface ProveedorStats {
 }
 
 export default function ProveedoresPage() {
+  const router = useRouter();
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [stats, setStats] = useState<ProveedorStats | null>(null);
   const [availableGroups, setAvailableGroups] = useState<any[]>([]);
@@ -327,6 +329,13 @@ export default function ProveedoresPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => proveedor.jid && router.push(`/proveedores/${encodeURIComponent(proveedor.jid)}`)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                      title="Biblioteca del proveedor"
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                    </button>
                     <button onClick={() => { setSelectedProveedor(proveedor); setShowViewModal(true); }}
                       className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="Ver detalles">
                       <Eye className="w-4 h-4" />

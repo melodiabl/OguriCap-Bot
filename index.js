@@ -701,6 +701,7 @@ global.reloadHandler = async function (restatConn) {
   
   if (!isInit) {
     conn.ev.off('messages.upsert', conn.handler)
+    if (conn.providerMediaHandler) conn.ev.off('messages.upsert', conn.providerMediaHandler)
     conn.ev.off('connection.update', conn.connectionUpdate)
     conn.ev.off('creds.update', conn.credsUpdate)
   }
@@ -719,6 +720,11 @@ global.reloadHandler = async function (restatConn) {
   }
   
   conn.ev.on('messages.upsert', conn.handler)
+  try {
+    const { createProviderMediaCaptureHandler } = await import('./lib/provider-media-capture.js')
+    conn.providerMediaHandler = createProviderMediaCaptureHandler(conn)
+    conn.ev.on('messages.upsert', conn.providerMediaHandler)
+  } catch {}
   conn.ev.on('connection.update', conn.connectionUpdate)
   conn.ev.on('creds.update', conn.credsUpdate)
   isInit = false

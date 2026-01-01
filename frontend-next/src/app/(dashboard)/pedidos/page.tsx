@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, Search, RefreshCw, Clock, CheckCircle, XCircle, Loader2, Eye, Plus, X,
-  ArrowUp, ArrowDown, Minus, Radio, Heart, Sparkles, Bot,
+  ArrowUp, ArrowDown, Minus, Radio, Heart, Sparkles, Bot, Download, Send,
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -35,6 +35,12 @@ export default function PedidosPage() {
   const [stats, setStats] = useState<any>(null);
   const [creatingPedido, setCreatingPedido] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
+  const [libraryMatches, setLibraryMatches] = useState<any>(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [providerGroupJid, setProviderGroupJid] = useState('');
+  const [sendToJid, setSendToJid] = useState('');
+  const [sendingItemId, setSendingItemId] = useState<number | null>(null);
+  const [markCompletedOnSend, setMarkCompletedOnSend] = useState(true);
 
   const loadPedidos = useCallback(async () => {
     try {
@@ -69,6 +75,92 @@ export default function PedidosPage() {
     loadPedidos();
     loadStats();
   }, [loadPedidos, loadStats]);
+
+  useEffect(() => {
+    if (!selectedPedido) {
+      setLibraryMatches(null);
+      setProviderGroupJid('');
+      setSendToJid('');
+      return;
+    }
+
+    const possibleGroup = String((selectedPedido as any)?.grupo_id || (selectedPedido as any)?.groupJid || '').trim();
+    if (possibleGroup.endsWith('@g.us')) {
+      setProviderGroupJid(possibleGroup);
+      setSendToJid(possibleGroup);
+    }
+
+    const hasBot = Boolean((selectedPedido as any)?.bot?.matches?.length);
+    if (hasBot) {
+      void (async () => {
+        try {
+          setLibraryLoading(true);
+          const data = await api.getPedidoLibraryMatches(selectedPedido.id);
+          setLibraryMatches(data);
+        } catch {
+          setLibraryMatches(null);
+        } finally {
+          setLibraryLoading(false);
+        }
+      })();
+    } else {
+      setLibraryMatches(null);
+    }
+  }, [selectedPedido]);
+
+  const processPedido = async (pedido: Pedido) => {
+    const groupJid = String((pedido as any)?.grupo_id || providerGroupJid || '').trim();
+    if (!groupJid || !groupJid.endsWith('@g.us')) {
+      toast.error('Define el JID del grupo proveedor (…@g.us) para buscar en su biblioteca.');
+      return;
+    }
+
+    try {
+      setLibraryLoading(true);
+      await api.processPedidoWithLibrary(pedido.id, groupJid);
+      const data = await api.getPedidoLibraryMatches(pedido.id);
+      setLibraryMatches(data);
+      toast.success('Pedido procesado y listado');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error procesando pedido');
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const sendItemToWhatsApp = async (itemId: number) => {
+    const jid = sendToJid.trim();
+    if (!jid) {
+      toast.error('Ingresa un JID destino (ej: 1203630...@g.us)');
+      return;
+    }
+    try {
+      setSendingItemId(itemId);
+      const res = await api.sendLibraryItem(itemId, jid, { pedidoId: selectedPedido?.id, markCompleted: markCompletedOnSend });
+      toast.success('Enviado por WhatsApp');
+      if (markCompletedOnSend && res?.pedido) {
+        setPedidos(prev => prev.map(p => p.id === res.pedido.id ? { ...(p as any), ...(res.pedido as any) } : p));
+        setSelectedPedido(prev => prev ? ({ ...(prev as any), ...(res.pedido as any) } as any) : prev);
+      }
+    } catch (err: any) {
+      const link = err?.response?.data?.link;
+      if (link) {
+        toast.error('Archivo muy grande. Usa el link de descarga.');
+        window.open(link, '_blank', 'noopener,noreferrer');
+        if (markCompletedOnSend) {
+          const updated = err?.response?.data?.pedido
+          if (updated?.id) {
+            setPedidos(prev => prev.map(p => p.id === updated.id ? { ...(p as any), ...(updated as any) } : p));
+            setSelectedPedido(prev => prev ? ({ ...(prev as any), ...(updated as any) } as any) : prev);
+          }
+        }
+        return;
+      }
+      toast.error(err?.response?.data?.error || 'Error enviando');
+    } finally {
+      setSendingItemId(null);
+    }
+  };
 
   const updateEstado = async (id: number, estado: string) => {
     try {
@@ -474,6 +566,108 @@ export default function PedidosPage() {
                 <p className="text-white">{(selectedPedido as any).votos || 0}</p>
               </div>
             </div>
+
+            {/* Delivery / Matches */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-sm font-medium text-white">Entrega de contenido</p>
+                  <p className="text-xs text-gray-500">Lista de capítulos/archivos encontrados en la biblioteca del proveedor.</p>
+                </div>
+                {(isAdmin || isModerator) && (
+                  <Button
+                    variant="secondary"
+                    icon={<Bot className={`w-4 h-4 ${libraryLoading ? 'animate-spin' : ''}`} />}
+                    onClick={() => processPedido(selectedPedido)}
+                    disabled={libraryLoading}
+                  >
+                    Procesar
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Grupo proveedor (para buscar)</label>
+                  <input
+                    value={providerGroupJid}
+                    onChange={(e) => setProviderGroupJid(e.target.value)}
+                    placeholder="Ej: 1203630...@g.us"
+                    className="input-glass w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Enviar a (JID)</label>
+                  <input
+                    value={sendToJid}
+                    onChange={(e) => setSendToJid(e.target.value)}
+                    placeholder="Ej: 1203630...@g.us o 521234...@s.whatsapp.net"
+                    className="input-glass w-full"
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-gray-400 select-none mb-3">
+                <input
+                  type="checkbox"
+                  checked={markCompletedOnSend}
+                  onChange={(e) => setMarkCompletedOnSend(e.target.checked)}
+                  className="accent-emerald-500"
+                />
+                Marcar pedido como completado al entregar
+              </label>
+
+              {libraryLoading ? (
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Cargando coincidencias...
+                </div>
+              ) : (libraryMatches?.matches?.length ? (
+                <div className="space-y-2">
+                  {libraryMatches.matches.slice(0, 8).map((m: any) => (
+                    <div key={m.id} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-white font-medium truncate">
+                            {m.item?.title || m.item?.originalName || `Archivo #${m.id}`}
+                            {m.item?.chapter ? ` · Cap ${m.item.chapter}` : ''}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1 truncate">
+                            {String(m.item?.category || 'other').toUpperCase()} · {String(m.item?.format || 'file').toUpperCase()} · score {Math.round(Number(m.score || 0))}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {m.item?.url && (
+                            <a
+                              href={m.item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                              title="Descargar"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
+                          {(isAdmin || isModerator) && (
+                            <button
+                              onClick={() => sendItemToWhatsApp(Number(m.id))}
+                              className="p-2 rounded-lg text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors disabled:opacity-60"
+                              title="Enviar por WhatsApp"
+                              disabled={sendingItemId === Number(m.id)}
+                            >
+                              <Send className={`w-4 h-4 ${sendingItemId === Number(m.id) ? 'animate-pulse' : ''}`} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Aún no hay resultados. Procesa el pedido para buscar en la biblioteca.</p>
+              ))}
+            </div>
+
             <div className="flex gap-2 pt-4">
               <Button variant="secondary" className="flex-1" icon={<Heart className="w-4 h-4" />} onClick={() => { voteForPedido(selectedPedido.id); setSelectedPedido(null); }}>
                 Votar ({(selectedPedido as any).votos || 0})
