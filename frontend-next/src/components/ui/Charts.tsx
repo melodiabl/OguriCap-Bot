@@ -88,20 +88,22 @@ export const BarChart: React.FC<BarChartProps> = ({ data, height = 200, animated
   return (
     <div className="flex items-end gap-1" style={{ height }}>
       {data.map((item, index) => (
-        <div key={index} className="flex-1 flex flex-col items-center group">
-          <motion.div
-            initial={animated ? { height: 0, opacity: 0 } : undefined}
-            animate={animated ? { height: `${(item.value / maxValue) * 100}%`, opacity: 1 } : undefined}
-            transition={animated ? { duration: 0.8, delay: index * 0.1, ease: "easeOut" } : undefined}
-            whileHover={{ scale: 1.05, filter: "brightness(1.2)" }}
-            className="w-full rounded-t-lg transition-all duration-200 cursor-pointer relative"
-            style={{ backgroundColor: item.color || '#6366f1', minHeight: 4 }}
-          >
-            {/* Tooltip on hover */}
-            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-              {item.value}
-            </div>
-          </motion.div>
+        <div key={index} className="flex-1 h-full flex flex-col items-center">
+          <div className="w-full flex-1 flex items-end group">
+            <motion.div
+              initial={animated ? { height: 0, opacity: 0 } : undefined}
+              animate={animated ? { height: `${(item.value / maxValue) * 100}%`, opacity: 1 } : undefined}
+              transition={animated ? { duration: 0.8, delay: index * 0.1, ease: "easeOut" } : undefined}
+              whileHover={{ scale: 1.05, filter: "brightness(1.2)" }}
+              className="w-full rounded-t-lg transition-all duration-200 cursor-pointer relative"
+              style={{ backgroundColor: item.color || '#6366f1', minHeight: 4 }}
+            >
+              {/* Tooltip on hover */}
+              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                {item.value}
+              </div>
+            </motion.div>
+          </div>
           <motion.span 
             initial={animated ? { opacity: 0, y: 10 } : undefined}
             animate={animated ? { opacity: 1, y: 0 } : undefined}

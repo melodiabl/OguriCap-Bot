@@ -378,7 +378,7 @@ export const FloatingSupportButton: React.FC = () => {
     <>
       <div ref={constraintsRef} className="fixed inset-0 z-50 pointer-events-none">
         <motion.div
-          className="absolute bottom-6 right-6 pointer-events-auto"
+          className="absolute bottom-6 right-6 pointer-events-auto touch-none select-none cursor-grab active:cursor-grabbing"
           drag
           dragMomentum={false}
           dragConstraints={constraintsRef}
