@@ -69,7 +69,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         {/* Footer */}
         <footer className="px-6 py-4 border-t border-white/10">
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>ЖИ 2025 Oguri Bot Panel</span>
+            <span>© 2025 Oguri Bot Panel</span>
             <div className="flex items-center gap-4">
               <span>v1.0.0</span>
               <RealTimeBadge isActive={isConnected} latency={latency} />

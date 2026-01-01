@@ -197,7 +197,7 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
     return (
       <div className="space-y-4">
         {header}
-        <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">Cargando…</p>
+        <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">Cargando...</p>
       </div>
     );
   }
