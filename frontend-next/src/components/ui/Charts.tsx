@@ -80,40 +80,61 @@ interface BarChartProps {
   data: { label: string; value: number; color?: string }[];
   height?: number;
   animated?: boolean;
+  scale?: 'linear' | 'sqrt' | 'log';
+  minBarHeight?: number;
 }
 
-export const BarChart: React.FC<BarChartProps> = ({ data, height = 200, animated = true }) => {
+export const BarChart: React.FC<BarChartProps> = ({
+  data,
+  height = 200,
+  animated = true,
+  scale = 'linear',
+  minBarHeight = 4,
+}) => {
   const maxValue = Math.max(...data.map(d => d.value), 1);
 
   return (
     <div className="flex items-end gap-1" style={{ height }}>
-      {data.map((item, index) => (
-        <div key={index} className="flex-1 h-full flex flex-col items-center">
-          <div className="w-full flex-1 flex items-end group">
-            <motion.div
-              initial={animated ? { height: 0, opacity: 0 } : undefined}
-              animate={animated ? { height: `${(item.value / maxValue) * 100}%`, opacity: 1 } : undefined}
-              transition={animated ? { duration: 0.8, delay: index * 0.1, ease: "easeOut" } : undefined}
-              whileHover={{ scale: 1.05, filter: "brightness(1.2)" }}
-              className="w-full rounded-t-lg transition-all duration-200 cursor-pointer relative"
-              style={{ backgroundColor: item.color || '#6366f1', minHeight: 4 }}
+      {data.map((item, index) => {
+        const rawRatio = maxValue > 0 ? item.value / maxValue : 0;
+        const ratio = Math.max(0, Math.min(1, rawRatio));
+        const scaled =
+          scale === 'sqrt'
+            ? Math.sqrt(ratio)
+            : scale === 'log'
+              ? Math.log(item.value + 1) / Math.log(maxValue + 1)
+              : ratio;
+        const heightPct = item.value > 0 ? `${scaled * 100}%` : '0%';
+        const barMinHeight = item.value > 0 ? minBarHeight : 0;
+
+        return (
+          <div key={index} className="flex-1 h-full flex flex-col items-center">
+            <div className="w-full flex-1 flex items-end group">
+              <motion.div
+                initial={animated ? { height: 0, opacity: 0 } : undefined}
+                animate={animated ? { height: heightPct, opacity: 1 } : undefined}
+                transition={animated ? { duration: 0.8, delay: index * 0.1, ease: "easeOut" } : undefined}
+                whileHover={{ scale: 1.05, filter: "brightness(1.2)" }}
+                className="w-full rounded-t-lg transition-all duration-200 cursor-pointer relative"
+                style={{ backgroundColor: item.color || '#6366f1', minHeight: barMinHeight }}
+              >
+                {/* Tooltip on hover */}
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                  {item.value}
+                </div>
+              </motion.div>
+            </div>
+            <motion.span 
+              initial={animated ? { opacity: 0, y: 10 } : undefined}
+              animate={animated ? { opacity: 1, y: 0 } : undefined}
+              transition={animated ? { duration: 0.4, delay: index * 0.1 + 0.5 } : undefined}
+              className="text-xs text-gray-500 mt-2 truncate w-full text-center"
             >
-              {/* Tooltip on hover */}
-              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                {item.value}
-              </div>
-            </motion.div>
+              {item.label}
+            </motion.span>
           </div>
-          <motion.span 
-            initial={animated ? { opacity: 0, y: 10 } : undefined}
-            animate={animated ? { opacity: 1, y: 0 } : undefined}
-            transition={animated ? { duration: 0.4, delay: index * 0.1 + 0.5 } : undefined}
-            className="text-xs text-gray-500 mt-2 truncate w-full text-center"
-          >
-            {item.label}
-          </motion.span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

@@ -421,7 +421,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.9 }}
           >
-            <BarChart data={getHourlyActivity()} height={180} animated={true} />
+            <BarChart data={getHourlyActivity()} height={180} animated={true} scale="sqrt" minBarHeight={3} />
           </motion.div>
 
           <motion.div 
