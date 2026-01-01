@@ -163,8 +163,8 @@ export default function AnalyticsPage() {
       // Usar datos de actividad por hora del dashboard si están disponibles
       const activityData = dashboardStats.actividadPorHora || [];
       if (activityData.length > 0) {
-        setCommandsOverTime(activityData.map(item => ({
-          name: item.label || item.name,
+        setCommandsOverTime(activityData.map((item: any) => ({
+          name: item.label || item.name || 'N/A',
           value: item.value || 0,
           timestamp: item.timestamp
         })));
