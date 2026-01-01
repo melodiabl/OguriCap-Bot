@@ -6,6 +6,7 @@ import { io, Socket } from 'socket.io-client';
 export const SOCKET_EVENTS = {
   BOT_STATUS: 'bot:status',
   BOT_QR: 'bot:qr',
+  BOT_PAIRING_CODE: 'bot:pairingCode',
   BOT_CONNECTED: 'bot:connected',
   BOT_DISCONNECTED: 'bot:disconnected',
   BOT_MESSAGE: 'bot:message',
@@ -38,8 +39,17 @@ interface BotStatus {
   connectionStatus: string;
   phone: string | null;
   qrCode: string | null;
+  pairingCode?: string | null;
+  pairingPhone?: string | null;
   uptime: string;
   lastSeen: string | null;
+  timestamp: string;
+}
+
+interface BotPairingCodeEvent {
+  pairingCode?: string | null;
+  displayCode?: string | null;
+  phoneNumber?: string | null;
   timestamp: string;
 }
 
@@ -115,6 +125,15 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     newSocket.on(SOCKET_EVENTS.BOT_QR, (data) => {
       setBotStatus(prev => prev ? { ...prev, qrCode: data.qr } : null);
+    });
+
+    newSocket.on(SOCKET_EVENTS.BOT_PAIRING_CODE, (data: BotPairingCodeEvent) => {
+      setBotStatus(prev => prev ? {
+        ...prev,
+        pairingCode: data?.pairingCode ?? null,
+        pairingPhone: data?.phoneNumber ?? prev.pairingPhone ?? null,
+      } : prev);
+      newSocket.emit('request:botStatus');
     });
 
     newSocket.on(SOCKET_EVENTS.BOT_CONNECTED, (data) => {

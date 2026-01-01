@@ -58,6 +58,14 @@ export default function BotStatusPage() {
     }
   }, [socketBotStatus?.qrCode, status?.qrCode, connected]);
 
+  useEffect(() => {
+    if (socketBotStatus?.pairingCode) setPairingCode(socketBotStatus.pairingCode);
+  }, [socketBotStatus?.pairingCode]);
+
+  useEffect(() => {
+    if (connected) setPairingCode(null);
+  }, [connected]);
+
   const handleConnect = async () => {
     if (!canControl) {
       toast.error('No tienes permisos para controlar el bot');
@@ -76,7 +84,7 @@ export default function BotStatusPage() {
         if (response?.pairingCode) {
           setPairingCode(response.pairingCode);
           toast.success('Código de emparejamiento generado');
-        } else {
+        } else if (!isSocketConnected) {
           setTimeout(async () => {
             try {
               const codeResponse = await api.getMainBotPairingCode();
