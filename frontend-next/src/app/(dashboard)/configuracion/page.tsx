@@ -110,6 +110,9 @@ export default function ConfiguracionPage() {
     adminIPs: [],
     allowLocalhost: true,
     currentIP: '',
+    supportNotifyEmailTo: '',
+    supportNotifyWhatsAppTo: '',
+    supportNotifyIncludeAdmins: true,
   });
 
   const [globalOffMessage, setGlobalOffMessage] = useState('El bot está desactivado globalmente por el administrador.');
@@ -1085,6 +1088,48 @@ export default function ConfiguracionPage() {
                 <input type="number" value={systemConfig.apiRateLimit}
                   onChange={(e) => setSystemConfig({ ...systemConfig, apiRateLimit: parseInt(e.target.value) })}
                   className="input-glass w-full" min={10} max={1000} />
+              </div>
+
+              <div className="pt-4 border-t border-white/10 space-y-4">
+                <div>
+                  <p className="text-sm font-semibold text-white">Notificaciones de Soporte</p>
+                  <p className="text-xs text-gray-500">Define a quién avisar cuando un usuario abre un chat de soporte en el panel.</p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-white">Incluir Admins/Owner</p>
+                    <p className="text-xs text-gray-500">Además de los destinatarios configurados abajo</p>
+                  </div>
+                  <button onClick={() => setSystemConfig({ ...systemConfig, supportNotifyIncludeAdmins: !systemConfig.supportNotifyIncludeAdmins })}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.supportNotifyIncludeAdmins ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                    <motion.div animate={{ x: systemConfig.supportNotifyIncludeAdmins ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Emails destino (separados por coma)</label>
+                  <input
+                    type="text"
+                    value={systemConfig.supportNotifyEmailTo}
+                    onChange={(e) => setSystemConfig({ ...systemConfig, supportNotifyEmailTo: e.target.value })}
+                    className="input-glass w-full"
+                    placeholder="melodiayaoivv@gmail.com, otro@correo.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">WhatsApp destino (números, separados por coma)</label>
+                  <input
+                    type="text"
+                    value={systemConfig.supportNotifyWhatsAppTo}
+                    onChange={(e) => setSystemConfig({ ...systemConfig, supportNotifyWhatsAppTo: e.target.value })}
+                    className="input-glass w-full"
+                    placeholder="51900373696, 573001112233"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Se ignoran símbolos; se usan solo números.</p>
+                </div>
               </div>
               <Button variant="primary" className="w-full" icon={<Save className="w-4 h-4" />} onClick={saveSystemConfig} loading={isSaving}>
                 Guardar Configuración

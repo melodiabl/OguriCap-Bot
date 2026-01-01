@@ -31,14 +31,19 @@ export default function UsuariosPage() {
     username: string;
     password: string | null;
     reset?: boolean;
+    delivered?: 'whatsapp' | 'email' | null;
+    deliveredTo?: string | null;
     message?: string;
   } | null>(null);
   const [newRole, setNewRole] = useState<string>('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editWhatsApp, setEditWhatsApp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newUser, setNewUser] = useState({ 
     username: '', 
     password: '', 
     rol: '', // Sin rol por defecto
+    email: '',
     whatsapp_number: '' 
   });
   const reduceMotion = useReducedMotion();
@@ -71,17 +76,36 @@ export default function UsuariosPage() {
     }
   };
 
-  const updateUserRole = async (userId: number, role: string) => {
+  const saveUserEdits = async () => {
+    if (!selectedUser) return;
+
+    const emailStr = editEmail.trim();
+    const whatsappStr = editWhatsApp.trim();
+
+    if (!emailStr && !whatsappStr) {
+      toast.error('Debes ingresar Email o WhatsApp');
+      return;
+    }
+    if (emailStr && !emailStr.includes('@')) {
+      toast.error('Email inválido');
+      return;
+    }
+
     try {
-      await api.updateUsuario(userId, { rol: role } as any);
-      setUsers(prev => prev.map(user =>
-        user.id === userId ? { ...user, rol: role as any } : user
-      ));
-      toast.success('Rol actualizado correctamente');
+      const updated = await api.updateUsuario(selectedUser.id, {
+        rol: newRole,
+        email: emailStr,
+        whatsapp_number: whatsappStr,
+      } as any);
+
+      setUsers(prev =>
+        prev.map(u => (u.id === selectedUser.id ? { ...u, ...updated } : u))
+      );
+      toast.success('Usuario actualizado');
       setShowEditModal(false);
       setSelectedUser(null);
     } catch (err) {
-      toast.error('Error al actualizar rol');
+      toast.error('Error al actualizar usuario');
     }
   };
 
@@ -113,6 +137,17 @@ export default function UsuariosPage() {
         return;
       }
 
+      const emailStr = newUser.email?.trim?.() || '';
+      const whatsappStr = newUser.whatsapp_number?.trim?.() || '';
+      if (!emailStr && !whatsappStr) {
+        toast.error('Debes ingresar Email o WhatsApp');
+        return;
+      }
+      if (emailStr && !emailStr.includes('@')) {
+        toast.error('Email inválido');
+        return;
+      }
+
       // Verificar permisos para crear el rol seleccionado
       const currentUserRole = currentUser?.rol || 'usuario';
       const roleHierarchy = { owner: 4, admin: 3, administrador: 3, moderador: 2, usuario: 1 };
@@ -127,7 +162,7 @@ export default function UsuariosPage() {
       await api.createUsuario(newUser as any);
       toast.success(`Usuario creado correctamente como ${newUser.rol}`);
       setShowCreateModal(false);
-      setNewUser({ username: '', password: '', rol: '', whatsapp_number: '' });
+      setNewUser({ username: '', password: '', rol: '', email: '', whatsapp_number: '' });
       loadUsers();
     } catch (err: any) {
       console.error('Error al crear usuario:', err);
@@ -175,6 +210,8 @@ export default function UsuariosPage() {
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
     setNewRole(user.rol);
+    setEditEmail(user.email || '');
+    setEditWhatsApp(user.whatsapp_number || '');
     setShowEditModal(true);
   };
 
@@ -186,7 +223,7 @@ export default function UsuariosPage() {
 
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
-    setNewUser({ username: '', password: '', rol: '', whatsapp_number: '' });
+    setNewUser({ username: '', password: '', rol: '', email: '', whatsapp_number: '' });
   };
 
   const handleViewPassword = async (user: User) => {
@@ -201,10 +238,10 @@ export default function UsuariosPage() {
 
       // 2) Fallback: generar temporal
       const ok = confirm(
-        'No hay contraseña en texto disponible para este usuario. Esto restablecerá la contraseña y generará una temporal. ¿Continuar?'
+        'No hay contraseña en texto disponible para este usuario. Esto restablecerá la contraseña y generará una temporal (se enviará al Email/WhatsApp del usuario si existe). ¿Continuar?'
       );
       if (!ok) return;
-      const response = await api.viewUsuarioPassword(user.id, { reset: true });
+      const response = await api.viewUsuarioPassword(user.id, { reset: true, deliver: true });
       setViewPasswordData(response);
       setShowViewPasswordModal(true);
     } catch (err: any) {
@@ -430,6 +467,10 @@ export default function UsuariosPage() {
                       <td>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 text-sm">
+                            <Mail className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-300">{user.email || '-'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
                             <Phone className="w-4 h-4 text-gray-500" />
                             <span className="text-gray-300">{user.whatsapp_number || '-'}</span>
                           </div>
@@ -504,12 +545,32 @@ export default function UsuariosPage() {
         )}
       </Card>
 
-      {/* Edit Role Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Rol de Usuario">
+      {/* Edit User Modal */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Usuario">
         <div className="space-y-4">
           <div className="p-4 rounded-xl bg-white/5">
             <p className="text-sm text-gray-400">Usuario</p>
             <p className="text-white font-medium">{selectedUser?.username}</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
+            <input
+              type="email"
+              value={editEmail}
+              onChange={(e) => setEditEmail(e.target.value)}
+              className="input-glass w-full"
+              placeholder="Email (opcional si hay WhatsApp)"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">WhatsApp</label>
+            <input
+              type="text"
+              value={editWhatsApp}
+              onChange={(e) => setEditWhatsApp(e.target.value)}
+              className="input-glass w-full"
+              placeholder="Número de WhatsApp (opcional si hay Email)"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Nuevo Rol</label>
@@ -526,7 +587,7 @@ export default function UsuariosPage() {
             </Select>
           </div>
           <div className="flex gap-3 pt-4">
-            <Button variant="primary" className="flex-1" onClick={() => selectedUser && updateUserRole(selectedUser.id, newRole)}>
+            <Button variant="primary" className="flex-1" onClick={saveUserEdits}>
               Guardar
             </Button>
             <Button variant="secondary" className="flex-1" onClick={() => setShowEditModal(false)}>
@@ -571,6 +632,17 @@ export default function UsuariosPage() {
               className="input-glass w-full"
               placeholder="Número de WhatsApp (opcional)"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
+            <input
+              type="email"
+              value={newUser.email}
+              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+              className="input-glass w-full"
+              placeholder="Email (opcional)"
+            />
+            <p className="text-xs text-gray-500 mt-1">Debes ingresar Email o WhatsApp.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -655,21 +727,32 @@ export default function UsuariosPage() {
           </div>
           <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
             <p className="text-sm text-gray-400 mb-2">
-              {viewPasswordData?.reset ? 'Contraseña temporal (se acaba de generar)' : 'Contraseña (guardada encriptada para owner)'}
+              {viewPasswordData?.reset ? 'Resultado' : 'Contraseña (guardada encriptada para owner)'}
             </p>
-            <div className="flex items-center justify-between">
-              <p className="text-white font-mono text-lg">{viewPasswordData?.password}</p>
-              <Button 
-                variant="secondary" 
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard.writeText(viewPasswordData?.password || '');
-                  toast.success('Contraseña copiada al portapapeles');
-                }}
-              >
-                Copiar
-              </Button>
-            </div>
+            {viewPasswordData?.password ? (
+              <div className="flex items-center justify-between">
+                <p className="text-white font-mono text-lg">{viewPasswordData?.password}</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(viewPasswordData?.password || '');
+                    toast.success('Contraseña copiada al portapapeles');
+                  }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-white text-sm">
+                  {viewPasswordData?.delivered
+                    ? `Enviado por ${viewPasswordData.delivered === 'whatsapp' ? 'WhatsApp' : 'Email'}${viewPasswordData.deliveredTo ? ` a ${viewPasswordData.deliveredTo}` : ''}.`
+                    : 'No se pudo enviar automáticamente. Agrega Email/WhatsApp al usuario e intenta de nuevo.'}
+                </p>
+                {viewPasswordData?.message && <p className="text-gray-400 text-xs">{viewPasswordData.message}</p>}
+              </div>
+            )}
           </div>
           {viewPasswordData?.reset && (
             <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">

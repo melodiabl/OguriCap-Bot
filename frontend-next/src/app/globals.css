@@ -628,6 +628,18 @@ html.light .text-gray-500 {
   color: #94a3b8 !important;
 }
 
+html.light .text-gray-300 {
+  color: #475569 !important;
+}
+
+html.light .text-gray-200 {
+  color: #334155 !important;
+}
+
+html.light .text-gray-100 {
+  color: #1f2937 !important;
+}
+
 html.light .bg-white\/5 {
   background-color: rgba(0, 0, 0, 0.03) !important;
 }

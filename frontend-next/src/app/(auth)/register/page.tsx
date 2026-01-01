@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Bot, Mail, User, Lock, ArrowLeft } from 'lucide-react';
+import { Bot, Mail, User, Lock, ArrowLeft, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import api from '@/services/api';
@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -50,9 +51,9 @@ export default function RegisterPage() {
       return;
     }
 
-    setIsLoading(true);
+      setIsLoading(true);
     try {
-      await api.registerPublic({ email: emailStr, username: usernameStr, password });
+      await api.registerPublic({ email: emailStr, username: usernameStr, password, whatsapp_number: whatsapp.trim() || undefined });
       toast.success('Registro exitoso. Tu rol es Usuario. Revisá tu email de confirmación.');
       router.push(`/login?username=${encodeURIComponent(usernameStr)}&registered=1&role=usuario`);
     } catch (error: any) {
@@ -112,6 +113,21 @@ export default function RegisterPage() {
                   placeholder="tu@email.com"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">WhatsApp (opcional)</label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                  type="text"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  placeholder="51900373696"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Si lo ingresás, el bot puede escribirte por WhatsApp.</p>
             </div>
 
             <div>

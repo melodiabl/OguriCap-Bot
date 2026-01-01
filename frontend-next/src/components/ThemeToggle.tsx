@@ -1,30 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from './ui/Button';
 
 export const ThemeToggle: React.FC = () => {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
-  useEffect(() => {
-    // Check for saved theme preference or default to dark
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' || 'dark';
-    setTheme(savedTheme);
-    applyTheme(savedTheme);
-  }, []);
-
-  const applyTheme = (newTheme: 'light' | 'dark') => {
-    const html = document.documentElement;
-    html.classList.remove('light', 'dark');
-    html.classList.add(newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
+  const current = useMemo(() => {
+    const t = (resolvedTheme || theme || 'dark').toString();
+    return t === 'light' ? 'light' : 'dark';
+  }, [resolvedTheme, theme]);
 
   const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    applyTheme(newTheme);
+    setTheme(current === 'dark' ? 'light' : 'dark');
   };
 
   return (
@@ -32,10 +22,11 @@ export const ThemeToggle: React.FC = () => {
       variant="secondary"
       size="sm"
       onClick={toggleTheme}
-      icon={theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-      title={`Cambiar a tema ${theme === 'dark' ? 'claro' : 'oscuro'}`}
+      icon={current === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      title={`Cambiar a tema ${current === 'dark' ? 'claro' : 'oscuro'}`}
     >
-      {theme === 'dark' ? 'Claro' : 'Oscuro'}
+      {current === 'dark' ? 'Claro' : 'Oscuro'}
     </Button>
   );
 };
+

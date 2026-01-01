@@ -12,6 +12,7 @@ import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ProgressRing } from '@/components/ui/Charts';
 import { useBotStatus, useBotGlobalState, useSystemStats } from '@/hooks/useRealTime';
 import { useSocket } from '@/contexts/SocketContext';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -27,9 +28,11 @@ export default function BotStatusPage() {
   const { isOn, setGlobalState, refetch: refetchGlobal } = useBotGlobalState(5000);
   const { memoryUsage, cpuUsage, diskUsage, uptime } = useSystemStats(10000);
   const { isConnected: isSocketConnected, botStatus: socketBotStatus } = useSocket();
+  const { user } = useAuth();
 
   const connected = socketBotStatus?.connected ?? isConnected;
   const connecting = socketBotStatus?.connecting ?? botConnecting ?? isConnecting;
+  const canControl = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
 
   const formatUptime = (seconds: number) => {
     const days = Math.floor(seconds / 86400);
@@ -53,6 +56,10 @@ export default function BotStatusPage() {
   }, [socketBotStatus?.qrCode, status?.qrCode, connected]);
 
   const handleConnect = async () => {
+    if (!canControl) {
+      toast.error('No tienes permisos para controlar el bot');
+      return;
+    }
     setIsConnecting(true);
     setPairingCode(null);
     try {
@@ -93,6 +100,10 @@ export default function BotStatusPage() {
   };
 
   const handleDisconnect = async () => {
+    if (!canControl) {
+      toast.error('No tienes permisos para controlar el bot');
+      return;
+    }
     try {
       await api.disconnectMainBot();
       toast.success('Bot desconectado');
@@ -103,6 +114,10 @@ export default function BotStatusPage() {
   };
 
   const handleRestart = async () => {
+    if (!canControl) {
+      toast.error('No tienes permisos para controlar el bot');
+      return;
+    }
     try {
       await api.restartMainBot();
       toast.success('Bot reiniciado');
@@ -113,6 +128,10 @@ export default function BotStatusPage() {
   };
 
   const handleGlobalToggle = async () => {
+    if (!canControl) {
+      toast.error('No tienes permisos para controlar el bot');
+      return;
+    }
     try {
       await setGlobalState(!isOn);
       toast.success(isOn ? 'Bot desactivado globalmente' : 'Bot activado globalmente');
@@ -189,13 +208,19 @@ export default function BotStatusPage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-white/10">
-            {connected ? (
-              <>
-                <Button variant="danger" icon={<PowerOff className="w-4 h-4" />} onClick={handleDisconnect}>Desconectar</Button>
-                <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={handleRestart}>Reiniciar</Button>
-              </>
+            {canControl ? (
+              connected ? (
+                <>
+                  <Button variant="danger" icon={<PowerOff className="w-4 h-4" />} onClick={handleDisconnect}>Desconectar</Button>
+                  <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={handleRestart}>Reiniciar</Button>
+                </>
+              ) : (
+                <Button variant="success" icon={<Power className="w-4 h-4" />} onClick={handleConnect} loading={isConnecting}>Conectar Bot</Button>
+              )
             ) : (
-              <Button variant="success" icon={<Power className="w-4 h-4" />} onClick={handleConnect} loading={isConnecting}>Conectar Bot</Button>
+              <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+                Solo admins/owner pueden controlar la conexiÇün del bot.
+              </p>
             )}
           </div>
         </Card>
@@ -214,11 +239,15 @@ export default function BotStatusPage() {
             <p className="text-sm text-gray-400 text-center mb-4">
               {isOn ? 'El bot está respondiendo a todos los grupos' : 'El bot no responderá a ningún mensaje'}
             </p>
-            <button onClick={handleGlobalToggle}
-              className={`relative w-16 h-8 rounded-full transition-colors ${isOn ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-              <motion.div animate={{ x: isOn ? 32 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md" />
-            </button>
+            {canControl ? (
+              <button onClick={handleGlobalToggle}
+                className={`relative w-16 h-8 rounded-full transition-colors ${isOn ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                <motion.div animate={{ x: isOn ? 32 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md" />
+              </button>
+            ) : (
+              <p className="text-xs text-gray-500 [html.light_&]:text-gray-600">Control global solo para admins/owner.</p>
+            )}
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 rounded-xl bg-white/5">
@@ -238,7 +267,7 @@ export default function BotStatusPage() {
       </div>
 
       {/* QR / Pairing Section */}
-      {!connected && (
+      {!connected && canControl && (
         <Card animated delay={0.3} className="p-6">
           <h3 className="text-lg font-semibold text-white mb-6">Método de Conexión</h3>
           {/* Method selector */}

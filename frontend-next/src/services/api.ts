@@ -134,7 +134,7 @@ class ApiService {
     return response.data;
   }
 
-  async registerPublic(userData: { email: string; username: string; password: string }) {
+  async registerPublic(userData: { email: string; username: string; password: string; whatsapp_number?: string }) {
     const response = await this.api.post('/api/auth/register-public', userData);
     return response.data;
   }
@@ -264,6 +264,37 @@ class ApiService {
 
   async getSubbotQR(subbotId: string) {
     const response = await this.api.get(`/api/subbot/qr/${encodeURIComponent(subbotId)}`)
+    return response.data
+  }
+
+  // Support chat (panel)
+  async getMySupportChat() {
+    const response = await this.api.get('/api/support/my-chat')
+    return response.data
+  }
+
+  async createOrSendMySupportChat(message: string) {
+    const response = await this.api.post('/api/support/my-chat', { message })
+    return response.data
+  }
+
+  async getSupportChats() {
+    const response = await this.api.get('/api/support/chats')
+    return response.data
+  }
+
+  async getSupportChat(chatId: number | string) {
+    const response = await this.api.get(`/api/support/chats/${encodeURIComponent(String(chatId))}`)
+    return response.data
+  }
+
+  async sendSupportMessage(chatId: number | string, message: string) {
+    const response = await this.api.post(`/api/support/chats/${encodeURIComponent(String(chatId))}/messages`, { message })
+    return response.data
+  }
+
+  async closeSupportChat(chatId: number | string) {
+    const response = await this.api.post(`/api/support/chats/${encodeURIComponent(String(chatId))}/close`)
     return response.data
   }
 
@@ -660,9 +691,11 @@ class ApiService {
     return response.data;
   }
 
-  async viewUsuarioPassword(id: number, opts?: { reset?: boolean }) {
+  async viewUsuarioPassword(id: number, opts?: { reset?: boolean; deliver?: boolean; show?: boolean }) {
     const params = new URLSearchParams();
     if (opts?.reset) params.set('reset', '1');
+    if (opts?.deliver === false) params.set('deliver', '0');
+    if (opts?.show) params.set('show', '1');
     const qs = params.toString();
     const response = await this.api.get(`/api/usuarios/${id}/view-password${qs ? `?${qs}` : ''}`);
     return response.data;

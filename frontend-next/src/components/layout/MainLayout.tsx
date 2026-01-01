@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
@@ -7,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useBotStatus, useConnectionHealth } from '@/hooks/useRealTime';
 import { RealTimeBadge } from '@/components/ui/StatusIndicator';
+import { FloatingSupportButton } from '@/components/ui/FloatingSupportButton';
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
@@ -24,18 +23,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="h-screen overflow-hidden mesh-bg">
       {/* Animated background particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className={cn(
-          "absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl",
-          !reduceMotion && "animate-blob"
-        )} />
-        <div className={cn(
-          "absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl",
-          !reduceMotion && "animate-blob animation-delay-2000"
-        )} />
-        <div className={cn(
-          "absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl",
-          !reduceMotion && "animate-blob animation-delay-4000"
-        )} />
+        <div
+          className={cn(
+            'absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl',
+            !reduceMotion && 'animate-blob'
+          )}
+        />
+        <div
+          className={cn(
+            'absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl',
+            !reduceMotion && 'animate-blob animation-delay-2000'
+          )}
+        />
+        <div
+          className={cn(
+            'absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl',
+            !reduceMotion && 'animate-blob animation-delay-4000'
+          )}
+        />
       </div>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -59,10 +64,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </AnimatePresence>
         </main>
 
+        <FloatingSupportButton />
+
         {/* Footer */}
         <footer className="px-6 py-4 border-t border-white/10">
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>© 2025 Oguri Bot Panel</span>
+            <span>ЖИ 2025 Oguri Bot Panel</span>
             <div className="flex items-center gap-4">
               <span>v1.0.0</span>
               <RealTimeBadge isActive={isConnected} latency={latency} />
@@ -73,3 +80,4 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     </div>
   );
 };
+

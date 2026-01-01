@@ -16,6 +16,7 @@ export interface User {
   id: number;
   username: string;
   rol: string;
+  email?: string;
   whatsapp_number?: string;
   grupo_registro?: string;
   fecha_registro: string;

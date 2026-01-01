@@ -7,7 +7,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
     'dashboard', 'bot-status', 'usuarios', 'subbots', 'grupos', 'grupos-management',
     'aportes', 'pedidos', 'proveedores', 'ai-chat', 'bot-commands', 'logs',
-    'notificaciones', 'analytics', 'multimedia', 'settings'
+    'notificaciones', 'analytics', 'multimedia', 'settings', 'support'
   ],
   moderator: [
     'dashboard', 'bot-status', 'grupos', 'aportes', 'pedidos', 'notificaciones', 'logs'
@@ -29,6 +29,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'ai-chat',
     'bot-status',
     'notificaciones',
+    'support',
   ],
 };
 

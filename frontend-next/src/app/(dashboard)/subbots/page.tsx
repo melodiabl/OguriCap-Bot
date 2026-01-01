@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useSocket } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -51,6 +52,9 @@ export default function SubbotsPage() {
 
   const { isConnected: isSocketConnected, socket } = useSocket();
   const { isGloballyOn } = useBotGlobalState();
+  const { user } = useAuth();
+  const canDeleteSubbots = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
+  const isUsuario = !!user && String(user.rol || '').toLowerCase() === 'usuario';
 
   const loadSubbots = useCallback(async () => {
     try {
@@ -330,9 +334,13 @@ export default function SubbotsPage() {
             <div className="p-2 bg-blue-500/20 rounded-xl">
               <Bot className="w-8 h-8 text-blue-400" />
             </div>
-            Gestión de Subbots
+            {isUsuario ? 'Mis SubBots' : 'Gestión de Subbots'}
           </h1>
-          <p className="text-gray-400 mt-2">Crea y gestiona subbots para conectar múltiples cuentas de WhatsApp</p>
+          <p className="text-gray-400 mt-2">
+            {isUsuario
+              ? 'Crea y revisa tus subbots (solo tú y admins/owner pueden verlos)'
+              : 'Crea y gestiona subbots para conectar múltiples cuentas de WhatsApp'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
@@ -470,10 +478,12 @@ export default function SubbotsPage() {
                           <Key className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => deleteSubbot(subbot.code)} disabled={actionLoading === `delete-${subbot.code}`}
-                        className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar">
-                        {actionLoading === `delete-${subbot.code}` ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      </button>
+                      {canDeleteSubbots && (
+                        <button onClick={() => deleteSubbot(subbot.code)} disabled={actionLoading === `delete-${subbot.code}`}
+                          className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar">
+                          {actionLoading === `delete-${subbot.code}` ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

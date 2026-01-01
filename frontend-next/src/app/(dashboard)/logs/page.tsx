@@ -38,6 +38,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { SOCKET_EVENTS, useSocket } from '@/contexts/SocketContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
@@ -172,6 +173,8 @@ export default function LogsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { socket } = useSocket();
+  const { user } = useAuth();
+  const canControl = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
 
   const normalizeLogEntry = (raw: any): LogEntry => {
     const timestampRaw = raw?.timestamp ?? raw?.fecha ?? raw?.date ?? raw?.createdAt ?? raw?.time;
@@ -472,6 +475,10 @@ export default function LogsPage() {
 
   const generateReport = async (type: string) => {
     try {
+      if (!canControl) {
+        toast.error('Permisos insuficientes');
+        return;
+      }
       await api.createBackup({
         type,
         includeDatabase: type === 'daily',
@@ -508,6 +515,10 @@ export default function LogsPage() {
 
   const restartSystem = async (systemName: string) => {
     try {
+      if (!canControl) {
+        toast.error('Permisos insuficientes');
+        return;
+      }
       const response = await fetch(`/api/system/${systemName}/restart`, {
         method: 'POST',
         headers: { ...getAuthHeaders() },
@@ -1185,42 +1196,44 @@ export default function LogsPage() {
           </Card>
 
           {/* Control de sistemas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Settings className="h-5 w-5" />
-                <span>Control de Sistemas</span>
-              </CardTitle>
-              <CardDescription>
-                Gestionar y controlar los sistemas del bot
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {systemStatus && Object.entries(systemStatus.systems).map(([name, isRunning]) => (
-                  <div key={name} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium capitalize">
-                          {name.replace(/([A-Z])/g, ' $1').trim()}
-                        </h4>
-                        <p className={`text-sm ${getSystemStatusColor(isRunning)}`}>
-                          {isRunning ? 'Activo' : 'Inactivo'}
-                        </p>
+          {canControl && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Settings className="h-5 w-5" />
+                  <span>Control de Sistemas</span>
+                </CardTitle>
+                <CardDescription>
+                  Gestionar y controlar los sistemas del bot
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {systemStatus && Object.entries(systemStatus.systems).map(([name, isRunning]) => (
+                    <div key={name} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium capitalize">
+                            {name.replace(/([A-Z])/g, ' $1').trim()}
+                          </h4>
+                          <p className={`text-sm ${getSystemStatusColor(isRunning)}`}>
+                            {isRunning ? 'Activo' : 'Inactivo'}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => restartSystem(name)}
+                        >
+                          Reiniciar
+                        </Button>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => restartSystem(name)}
-                      >
-                        Reiniciar
-                      </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Reportes del sistema */}
           <Card>
@@ -1236,16 +1249,21 @@ export default function LogsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex space-x-2">
-                  <Button onClick={() => generateReport('daily')} variant="secondary">
+                  <Button onClick={() => generateReport('daily')} variant="secondary" disabled={!canControl}>
                     Reporte Diario
                   </Button>
-                  <Button onClick={() => generateReport('performance')} variant="secondary">
+                  <Button onClick={() => generateReport('performance')} variant="secondary" disabled={!canControl}>
                     Reporte de Rendimiento
                   </Button>
-                  <Button onClick={() => generateReport('security')} variant="secondary">
+                  <Button onClick={() => generateReport('security')} variant="secondary" disabled={!canControl}>
                     Reporte de Seguridad
                   </Button>
                 </div>
+                {!canControl && (
+                  <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+                    Solo admins/owner pueden generar reportes o reiniciar sistemas.
+                  </p>
+                )}
 
                 <div className="space-y-3">
                   {reports.map((report) => (

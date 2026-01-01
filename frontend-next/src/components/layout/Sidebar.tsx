@@ -16,7 +16,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
   LogOut, Bell, FileText, BarChart3, Image, Zap, Globe,
-  Calendar, AlertTriangle, Server
+  Calendar, AlertTriangle, Server, MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +38,7 @@ const menuItems = [
   { path: '/configuracion', icon: Settings, label: 'Configuración', color: 'cyan', page: 'configuracion' },
   { path: '/logs', icon: FileText, label: 'Logs & Sistema', color: 'danger', page: 'logs' },
   { path: '/notificaciones', icon: Bell, label: 'Notificaciones', color: 'primary', page: 'notificaciones' },
+  { path: '/soporte', icon: MessageCircle, label: 'Soporte', color: 'info', page: 'support' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
   { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
 ];
