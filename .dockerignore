@@ -55,6 +55,17 @@ Dockerfile*
 docker-compose*
 .dockerignore
 
+# Frontend (se construye en otro servicio / no es runtime del bot)
+frontend-next/
+
+# Datos runtime montados por volumen (no deben ir al build context)
+Sessions/
+storage/
+tmp/
+.monitoring/
+backups/
+certbot/
+
 # Otros
 README.md
 LICENSE
