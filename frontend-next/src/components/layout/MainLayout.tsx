@@ -9,6 +9,7 @@ import { FloatingSupportButton } from '@/components/ui/FloatingSupportButton';
 import { RouteProgressBar } from '@/components/motion/RouteProgressBar';
 import { cn } from '@/lib/utils';
 import { getPageKeyFromPathname } from '@/lib/pageTheme';
+import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { isConnected } = useBotStatus(5000);
   const { latency } = useConnectionHealth();
   const reduceMotion = useReducedMotion();
+  const { performanceMode, viewport } = useDevicePerformance();
   const pageKey = getPageKeyFromPathname(pathname);
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
 
@@ -44,24 +46,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <RouteProgressBar />
       {/* Animated background particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div
-          className={cn(
-            'absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl',
-            !reduceMotion && 'animate-blob'
-          )}
-        />
-        <div
-          className={cn(
-            'absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl',
-            !reduceMotion && 'animate-blob animation-delay-2000'
-          )}
-        />
-        <div
-          className={cn(
-            'absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl',
-            !reduceMotion && 'animate-blob animation-delay-4000'
-          )}
-        />
+        {performanceMode ? (
+          <div
+            className={cn(
+              'absolute -top-16 -left-24 w-[420px] h-[420px] rounded-full',
+              'bg-gradient-to-br from-primary-500/10 via-cyan-500/8 to-transparent',
+              viewport === 'mobile' ? 'opacity-60' : 'opacity-70'
+            )}
+          />
+        ) : (
+          <>
+            <div
+              className={cn(
+                'absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl',
+                !reduceMotion && 'animate-blob'
+              )}
+            />
+            <div
+              className={cn(
+                'absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl',
+                !reduceMotion && 'animate-blob animation-delay-2000'
+              )}
+            />
+            <div
+              className={cn(
+                'absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl',
+                !reduceMotion && 'animate-blob animation-delay-4000'
+              )}
+            />
+          </>
+        )}
       </div>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -75,7 +89,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pathname}
-              className="relative page-perspective"
+              className="relative page-perspective page-shell"
               initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
               animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
@@ -88,6 +102,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     }
               }
             >
+              <div aria-hidden="true" className="page-backdrop" />
+              <div aria-hidden="true" className="page-backdrop-grid" />
               <motion.div
                 aria-hidden="true"
                 className="page-transition-overlay"
@@ -95,7 +111,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
                 transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               />
-              {stagedChildren}
+              <div className="relative z-10">{stagedChildren}</div>
             </motion.div>
           </AnimatePresence>
         </main>

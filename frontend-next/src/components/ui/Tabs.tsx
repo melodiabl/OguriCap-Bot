@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useNavParticleBurst } from '@/components/ui/NavParticles'
 
 const TabsContext = React.createContext<{
   value: string
@@ -120,8 +121,9 @@ interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
-  ({ className, value, ...props }, ref) => {
+  ({ className, value, children, ...props }, ref) => {
     const { value: selectedValue, onValueChange } = React.useContext(TabsContext)
+    const { emit, layer } = useNavParticleBurst()
     
     return (
       <button
@@ -132,14 +134,21 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         data-tabs-trigger="true"
         data-value={value}
         className={cn(
-          'tab press-scale focus-ring-animated',
+          'tab press-scale focus-ring-animated relative overflow-hidden',
           selectedValue === value && 'tab-active',
           'disabled:pointer-events-none disabled:opacity-50',
           className
         )}
-        onClick={() => (selectedValue === value ? null : onValueChange(value))}
+        onPointerEnter={() => emit()}
+        onClick={() => {
+          emit()
+          return selectedValue === value ? null : onValueChange(value)
+        }}
         {...props}
-      />
+      >
+        {children}
+        {layer}
+      </button>
     )
   }
 )

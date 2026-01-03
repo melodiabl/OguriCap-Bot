@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -71,18 +71,21 @@ export default function AnalyticsPage() {
   const { socket } = useSocket();
 
   // Colores para gráficos
-  const colors = {
-    primary: '#3B82F6',
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#06B6D4',
-    purple: '#8B5CF6'
-  };
-
-  useEffect(() => {
-    loadAnalytics();
-  }, [timeRange]);
+  const colors = useMemo(
+    () => ({
+      primary: 'rgb(var(--primary))',
+      primaryFill: 'rgb(var(--primary) / 0.18)',
+      success: 'rgb(var(--success))',
+      warning: 'rgb(var(--warning))',
+      error: 'rgb(var(--danger))',
+      errorFill: 'rgb(var(--danger) / 0.18)',
+      info: 'rgb(var(--accent))',
+      purple: 'rgb(var(--secondary))',
+      grid: 'rgb(var(--border) / 0.18)',
+      axis: 'rgb(var(--text-muted))',
+    }),
+    []
+  );
 
   useEffect(() => {
     if (!socket) return;
@@ -109,7 +112,7 @@ export default function AnalyticsPage() {
     };
   }, [socket, autoRefresh]);
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -189,7 +192,11 @@ export default function AnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [colors]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [timeRange, loadAnalytics]);
 
   const updateRealTimeMetrics = (data: any) => {
     // Actualizar métricas en tiempo real cuando se ejecuta un comando
@@ -285,6 +292,12 @@ export default function AnalyticsPage() {
     const IconComponent = metric.icon;
     const tone = (() => {
       const c = String(metric.color || '').toLowerCase();
+      if (c.includes('--success') || c.includes('success')) return 'success';
+      if (c.includes('--warning') || c.includes('warning') || c.includes('orange')) return 'warning';
+      if (c.includes('--danger') || c.includes('danger') || c.includes('error')) return 'danger';
+      if (c.includes('--accent') || c.includes('info') || c.includes('cyan')) return 'info';
+      if (c.includes('--secondary') || c.includes('violet') || c.includes('purple')) return 'violet';
+      if (c.includes('--primary') || c.includes('primary') || c.includes('brand')) return 'primary';
       if (c.includes('10b981') || c.includes('16b981') || c.includes('emerald')) return 'success';
       if (c.includes('f59e0b') || c.includes('amber') || c.includes('orange')) return 'warning';
       if (c.includes('ef4444') || c.includes('f43f5e') || c.includes('red') || c.includes('rose')) return 'danger';
@@ -339,6 +352,23 @@ export default function AnalyticsPage() {
     );
   };
 
+  const ChartTooltip: React.FC<any> = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const first = payload[0];
+    const name = String(first?.name || first?.dataKey || '').trim();
+    const value = first?.value;
+
+    return (
+      <div className="chart-tooltip">
+        <div className="text-[11px] font-black tracking-[0.18em] uppercase opacity-80">{label}</div>
+        <div className="mt-1 text-sm font-extrabold">
+          {name ? `${name}: ` : ''}
+          {typeof value === 'number' ? <AnimatedNumber value={value} duration={0.4} /> : String(value ?? '')}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -346,8 +376,8 @@ export default function AnalyticsPage() {
         title="Analytics"
         description={
           lastUpdate
-            ? `M?tricas y estad?sticas en tiempo real ? ?ltima actualizaci?n: ${lastUpdate.toLocaleTimeString('es-ES')}`
-            : 'M?tricas y estad?sticas en tiempo real'
+            ? `Métricas y estadísticas en tiempo real • Última actualización: ${lastUpdate.toLocaleTimeString('es-ES')}`
+            : 'Métricas y estadísticas en tiempo real'
         }
         icon={<Activity className="w-6 h-6 text-primary-400" />}
         actions={
@@ -361,8 +391,8 @@ export default function AnalyticsPage() {
               >
                 <option value="1h">1 Hora</option>
                 <option value="24h">24 Horas</option>
-                <option value="7d">7 D?as</option>
-                <option value="30d">30 D?as</option>
+                <option value="7d">7 Días</option>
+                <option value="30d">30 Días</option>
               </select>
             </div>
 
@@ -389,7 +419,7 @@ export default function AnalyticsPage() {
         }
       />
 
-      {/* M?tricas principales */}
+      {/* Métricas principales */}
       <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" delay={0.06} stagger={0.06}>
         {metrics.map((metric, index) => (
           <StaggerItem key={index}>
@@ -398,50 +428,38 @@ export default function AnalyticsPage() {
         ))}
       </Stagger>
 
-      {/* Gr?ficos */}
+      {/* Gráficos */}
       <Stagger className="grid grid-cols-1 lg:grid-cols-2 gap-6" delay={0.08} stagger={0.08}>
         <StaggerItem>
           <div className="glass-card p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Comandos Ejecutados</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={commandsOverTime}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="name" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
-                    borderRadius: '8px'
-                  }}
-                />
+             <ResponsiveContainer width="100%" height={300}>
+               <AreaChart data={commandsOverTime}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                <XAxis dataKey="name" stroke={colors.axis} />
+                <YAxis stroke={colors.axis} />
+                <Tooltip content={<ChartTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="value"
                   stroke={colors.primary}
-                  fill={`${colors.primary}30`}
+                  fill={colors.primaryFill}
                   strokeWidth={2}
                 />
-              </AreaChart>
-            </ResponsiveContainer>
+               </AreaChart>
+             </ResponsiveContainer>
           </div>
         </StaggerItem>
 
         <StaggerItem>
           <div className="glass-card p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Actividad de Usuarios</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={userActivity}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="name" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
-                    borderRadius: '8px'
-                  }}
-                />
+             <ResponsiveContainer width="100%" height={300}>
+               <LineChart data={userActivity}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                <XAxis dataKey="name" stroke={colors.axis} />
+                <YAxis stroke={colors.axis} />
+                <Tooltip content={<ChartTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="value"
@@ -449,56 +467,44 @@ export default function AnalyticsPage() {
                   strokeWidth={2}
                   dot={{ fill: colors.success, strokeWidth: 2, r: 4 }}
                 />
-              </LineChart>
-            </ResponsiveContainer>
+               </LineChart>
+             </ResponsiveContainer>
           </div>
         </StaggerItem>
 
         <StaggerItem>
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Comandos M?s Usados</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topCommands} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis type="number" stroke="#9CA3AF" />
-                <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={80} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
-                    borderRadius: '8px'
-                  }}
-                />
+            <h3 className="text-lg font-semibold text-white mb-4">Comandos Más Usados</h3>
+             <ResponsiveContainer width="100%" height={300}>
+               <BarChart data={topCommands} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                <XAxis type="number" stroke={colors.axis} />
+                <YAxis dataKey="name" type="category" stroke={colors.axis} width={80} />
+                <Tooltip content={<ChartTooltip />} />
                 <Bar dataKey="value" fill={colors.info} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+               </BarChart>
+             </ResponsiveContainer>
           </div>
         </StaggerItem>
 
         <StaggerItem>
           <div className="glass-card p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Tasa de Errores</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={errorRates}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="name" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
-                    borderRadius: '8px'
-                  }}
-                />
+             <ResponsiveContainer width="100%" height={300}>
+               <AreaChart data={errorRates}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                <XAxis dataKey="name" stroke={colors.axis} />
+                <YAxis stroke={colors.axis} />
+                <Tooltip content={<ChartTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="value"
                   stroke={colors.error}
-                  fill={`${colors.error}30`}
+                  fill={colors.errorFill}
                   strokeWidth={2}
                 />
-              </AreaChart>
-            </ResponsiveContainer>
+               </AreaChart>
+             </ResponsiveContainer>
           </div>
         </StaggerItem>
       </Stagger>
@@ -507,18 +513,12 @@ export default function AnalyticsPage() {
       <Reveal>
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Tiempo de Respuesta Promedio</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={responseTimeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="name" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: '1px solid #374151',
-                  borderRadius: '8px'
-                }}
-              />
+           <ResponsiveContainer width="100%" height={200}>
+             <LineChart data={responseTimeData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+              <XAxis dataKey="name" stroke={colors.axis} />
+              <YAxis stroke={colors.axis} />
+              <Tooltip content={<ChartTooltip />} />
               <Line
                 type="monotone"
                 dataKey="value"

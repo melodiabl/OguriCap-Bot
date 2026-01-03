@@ -495,7 +495,7 @@ export default function GruposManagementPage() {
             </div>
             <div className="p-3 bg-white/5 rounded-xl">
               <p className="text-sm text-gray-400">Mensaje</p>
-              <code className="block mt-2 p-3 bg-black/30 rounded-lg text-sm text-gray-300 whitespace-pre-wrap">
+              <code className="block mt-2 p-3 code-surface rounded-lg text-sm text-gray-300 whitespace-pre-wrap">
                 {selectedNotification.mensaje}
               </code>
             </div>

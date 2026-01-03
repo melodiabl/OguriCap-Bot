@@ -218,7 +218,7 @@ export default function LogsPage() {
     loadLogs();
     loadStats();
     loadSystemData();
-  }, []); // Only run once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- bootstrap on mount
 
   // Load logs when filters change (with debouncing)
   useEffect(() => {
@@ -227,7 +227,7 @@ export default function LogsPage() {
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, selectedLevel, selectedCategory, startDate, endDate, currentPage]);
+  }, [searchQuery, selectedLevel, selectedCategory, startDate, endDate, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps -- debounced filters
 
   // Auto-refresh cada 30 segundos - DISABLED to prevent resource exhaustion
   // useAutoRefresh(() => {
@@ -1067,8 +1067,8 @@ export default function LogsPage() {
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleString()}
                     />
-                    <Line type="monotone" dataKey="cpu" stroke="#8884d8" name="CPU %" />
-                    <Line type="monotone" dataKey="memory" stroke="#82ca9d" name="Memoria %" />
+                    <Line type="monotone" dataKey="cpu" stroke="rgb(var(--primary))" name="CPU %" />
+                    <Line type="monotone" dataKey="memory" stroke="rgb(var(--success))" name="Memoria %" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1090,7 +1090,7 @@ export default function LogsPage() {
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleString()}
                     />
-                    <Area type="monotone" dataKey="disk" stroke="#ffc658" fill="#ffc658" name="Disco %" />
+                    <Area type="monotone" dataKey="disk" stroke="rgb(var(--warning))" fill="rgb(var(--warning))" name="Disco %" />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1228,7 +1228,7 @@ export default function LogsPage() {
                   </Button>
                 </div>
                 {!canControl && (
-                  <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+                  <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
                     Solo admins/owner pueden generar reportes o reiniciar sistemas.
                   </p>
                 )}

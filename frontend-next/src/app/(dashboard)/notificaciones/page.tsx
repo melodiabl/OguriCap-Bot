@@ -71,7 +71,10 @@ export default function NotificacionesPage() {
     }
   };
 
-  useEffect(() => { loadNotifications(); loadStats(); }, [page, typeFilter, readFilter]);
+  useEffect(() => {
+    loadNotifications();
+    loadStats();
+  }, [page, typeFilter, readFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps -- load fns are defined below
 
   useEffect(() => {
     if (!socket) return;
@@ -93,7 +96,7 @@ export default function NotificacionesPage() {
       socket.off(SOCKET_EVENTS.NOTIFICATION, scheduleReload);
       socket.off('notification:created', scheduleReload);
     };
-  }, [socket, page, typeFilter, readFilter, searchTerm]);
+  }, [socket, page, typeFilter, readFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps -- scheduleReload uses load fns
 
   const loadNotifications = async () => {
     try {

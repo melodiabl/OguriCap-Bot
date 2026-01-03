@@ -13,6 +13,7 @@ import { useBotStatus, useNotifications } from '@/hooks/useRealTime';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useNavParticleBurst } from '@/components/ui/NavParticles';
 import {
   Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
   LogOut, Bell, FileText, BarChart3, Image, Zap, Globe,
@@ -57,6 +58,29 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+const SidebarNavLink: React.FC<{
+  href: string;
+  onClose: () => void;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ href, onClose, className, children }) => {
+  const { emit, layer } = useNavParticleBurst();
+  return (
+    <Link
+      href={href}
+      onClick={(e) => {
+        emit();
+        onClose();
+      }}
+      onPointerEnter={() => emit()}
+      className={cn('relative', className)}
+    >
+      {children}
+      {layer}
+    </Link>
+  );
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -78,13 +102,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Mobile overlay */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-          />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+            className="fixed inset-0 overlay-scrim z-40 lg:hidden"
+            />
         )}
       </AnimatePresence>
 
@@ -161,11 +185,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Link
+                  <SidebarNavLink
                     href={item.path}
-                    onClick={onClose}
+                    onClose={onClose}
                     className={cn(
-                      'group relative focus-ring-animated press-scale hover-outline-gradient',
+                      'group focus-ring-animated press-scale hover-outline-gradient',
                       isActive ? 'sidebar-item-active' : 'sidebar-item'
                     )}
                   >
@@ -193,7 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         className="absolute right-4 w-2 h-2 rounded-full bg-primary-500 shadow-glow"
                       />
                     )}
-                  </Link>
+                  </SidebarNavLink>
                 </motion.div>
               );
             })}

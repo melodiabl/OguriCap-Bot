@@ -102,14 +102,14 @@ export default function DashboardPage() {
       return activity.map((item: any, i: number) => ({
         label: String(item?.label ?? `${(i * 2).toString().padStart(2, '0')}:00`),
         value: Number(item?.value) || 0,
-        color: String(item?.color || '#6366f1'),
+        color: String(item?.color || 'rgb(var(--primary))'),
       }));
     }
 
     return Array.from({ length: 12 }, (_, i) => ({
       label: `${(i * 2).toString().padStart(2, '0')}:00`,
       value: 0,
-      color: '#6366f1',
+      color: 'rgb(var(--primary))',
     }));
   };
 
@@ -256,7 +256,7 @@ export default function DashboardPage() {
               <ProgressRing 
                 progress={isConnected && isGloballyOn ? 100 : 0} 
                 size={140} 
-                color={isConnected && isGloballyOn ? '#10b981' : '#ef4444'} 
+                color={isConnected && isGloballyOn ? 'rgb(var(--success))' : 'rgb(var(--danger))'} 
                 label={
                   !isGloballyOn ? 'Desactivado Globalmente' : 
                   isConnected ? 'Conectado' : 'Desconectado'
@@ -412,7 +412,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center mb-6">
             <DonutChart
               data={[
-                { label: 'Usado', value: memoryUsage?.systemPercentage || 0, color: '#6366f1' },
+                { label: 'Usado', value: memoryUsage?.systemPercentage || 0, color: 'rgb(var(--primary))' },
                 { label: 'Libre', value: Math.max(0, 100 - (memoryUsage?.systemPercentage || 0)), color: 'rgba(255,255,255,0.1)' },
               ]}
               size={140}

@@ -10,6 +10,12 @@ type ChartTone = 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'violet';
 function toneFromColor(color?: string): ChartTone {
   if (!color) return 'brand';
   const c = color.toLowerCase();
+  if (c.includes('--success') || c.includes('success')) return 'success';
+  if (c.includes('--warning') || c.includes('warning')) return 'warning';
+  if (c.includes('--danger') || c.includes('danger') || c.includes('error')) return 'danger';
+  if (c.includes('--accent') || c.includes('info') || c.includes('cyan')) return 'info';
+  if (c.includes('--secondary') || c.includes('violet') || c.includes('purple')) return 'violet';
+  if (c.includes('--primary') || c.includes('brand') || c.includes('primary') || c.includes('indigo')) return 'brand';
   if (c.includes('10b981') || c.includes('16b981') || c.includes('emerald') || c === '#10b981') return 'success';
   if (c.includes('f59e0b') || c.includes('amber') || c === '#f59e0b') return 'warning';
   if (c.includes('ef4444') || c.includes('f43f5e') || c.includes('red') || c.includes('rose')) return 'danger';
@@ -31,7 +37,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   progress,
   size = 120,
   strokeWidth = 8,
-  color = '#6366f1',
+  color = 'rgb(var(--primary))',
   label,
 }) => {
   const reduceMotion = useReducedMotion();
@@ -50,28 +56,28 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
       <svg
         width={size}
         height={size}
-        className="relative block transform -rotate-90 drop-shadow-[0_0_18px_rgba(0,0,0,0.35)]"
+        className="relative block transform -rotate-90"
       >
         <defs>
           <linearGradient id="ring-brand" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="1" />
-            <stop offset="55%" stopColor="#8b5cf6" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="rgb(var(--primary))" stopOpacity="1" />
+            <stop offset="55%" stopColor="rgb(var(--secondary))" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="rgb(var(--accent))" stopOpacity="0.95" />
           </linearGradient>
           <linearGradient id="ring-success" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="1" />
-            <stop offset="60%" stopColor="#06b6d4" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.9" />
+            <stop offset="0%" stopColor="rgb(var(--success))" stopOpacity="1" />
+            <stop offset="60%" stopColor="rgb(var(--accent))" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="rgb(var(--primary))" stopOpacity="0.9" />
           </linearGradient>
           <linearGradient id="ring-warning" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
-            <stop offset="55%" stopColor="#fb7185" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.85" />
+            <stop offset="0%" stopColor="rgb(var(--warning))" stopOpacity="1" />
+            <stop offset="55%" stopColor="rgb(var(--danger))" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="rgb(var(--secondary))" stopOpacity="0.85" />
           </linearGradient>
           <linearGradient id="ring-danger" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
-            <stop offset="55%" stopColor="#f43f5e" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.85" />
+            <stop offset="0%" stopColor="rgb(var(--danger))" stopOpacity="1" />
+            <stop offset="55%" stopColor="rgb(var(--warning))" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="rgb(var(--primary))" stopOpacity="0.85" />
           </linearGradient>
         </defs>
 
@@ -81,7 +87,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.12)"
+          stroke="rgb(var(--border) / 0.18)"
           strokeWidth={strokeWidth}
         />
         {/* Progress circle */}
@@ -234,7 +240,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
+          stroke="rgb(var(--border) / 0.14)"
           strokeWidth={strokeWidth}
         />
         
@@ -246,16 +252,16 @@ export const DonutChart: React.FC<DonutChartProps> = ({
           const tone = toneFromColor(item.color);
           const stroke =
             tone === 'success'
-              ? '#10b981'
+              ? 'rgb(var(--success))'
               : tone === 'warning'
-                ? '#f59e0b'
+                ? 'rgb(var(--warning))'
                 : tone === 'danger'
-                  ? '#ef4444'
+                  ? 'rgb(var(--danger))'
                   : tone === 'info'
-                    ? '#06b6d4'
+                    ? 'rgb(var(--accent))'
                     : tone === 'violet'
-                      ? '#8b5cf6'
-                      : '#6366f1';
+                      ? 'rgb(var(--secondary))'
+                      : 'rgb(var(--primary))';
           
           accumulatedPercentage += percentage;
 
@@ -273,7 +279,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
               initial={animated ? { strokeDasharray: `0 ${circumference}` } : undefined}
               animate={animated ? { strokeDasharray } : undefined}
               transition={animated ? { duration: 1.5, delay: index * 0.2, ease: 'easeOut' } : undefined}
-              className="drop-shadow-[0_0_10px_rgba(0,0,0,0.25)]"
+              className="chart-shadow-soft"
             />
           );
         })}
@@ -315,7 +321,7 @@ interface SparklineProps {
 
 export const Sparkline: React.FC<SparklineProps> = ({
   data,
-  color = '#6366f1',
+  color = 'rgb(var(--primary))',
   width = 80,
   height = 24,
   animated = true,
@@ -344,7 +350,7 @@ export const Sparkline: React.FC<SparklineProps> = ({
         initial={animated ? { pathLength: 0, opacity: 0 } : undefined}
         animate={animated ? { pathLength: 1, opacity: 1 } : undefined}
         transition={animated ? { duration: 1.5, ease: "easeOut" } : undefined}
-        className="drop-shadow-[0_0_10px_rgba(0,0,0,0.25)]"
+        className="chart-shadow-soft"
       />
       {/* Data points */}
       {animated && data.map((value, index) => {
@@ -376,7 +382,7 @@ interface LineChartProps {
 
 export const LineChart: React.FC<LineChartProps> = ({
   data,
-  color = '#6366f1',
+  color = 'rgb(var(--primary))',
   height = 200,
   animated = true,
 }) => {
@@ -402,7 +408,7 @@ export const LineChart: React.FC<LineChartProps> = ({
         {/* Grid lines */}
         <defs>
           <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgb(var(--border) / 0.12)" strokeWidth="1"/>
           </pattern>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor={color} stopOpacity="0.3" />
@@ -431,7 +437,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           initial={animated ? { pathLength: 0 } : undefined}
           animate={animated ? { pathLength: 1 } : undefined}
           transition={animated ? { duration: 2, ease: "easeOut" } : undefined}
-          className="drop-shadow-[0_0_12px_rgba(0,0,0,0.35)]"
+          className="chart-shadow"
         />
         
         {/* Data points */}
@@ -442,7 +448,7 @@ export const LineChart: React.FC<LineChartProps> = ({
               cy={point.y}
               r={4}
               fill={color}
-              stroke="white"
+              stroke="rgb(var(--bg) / 1)"
               strokeWidth={2}
               initial={animated ? { scale: 0, opacity: 0 } : undefined}
               animate={animated ? { scale: 1, opacity: 1 } : undefined}
@@ -462,13 +468,13 @@ export const LineChart: React.FC<LineChartProps> = ({
                 width={50}
                 height={25}
                 rx={4}
-                fill="rgba(0,0,0,0.8)"
+                fill="rgb(var(--shadow-rgb) / 0.82)"
               />
               <text
                 x={point.x}
                 y={point.y - 20}
                 textAnchor="middle"
-                fill="white"
+                fill="rgb(var(--text-on-accent) / 1)"
                 fontSize={12}
               >
                 {point.value}

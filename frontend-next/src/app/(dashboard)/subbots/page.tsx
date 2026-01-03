@@ -158,7 +158,7 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket, subbots]);
+  }, [socket, subbots, loadSubbots]);
 
   const normalizeSubbot = (raw: any): Subbot => {
     const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();

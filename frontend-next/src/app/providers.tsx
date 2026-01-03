@@ -7,11 +7,17 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { SocketProvider } from '@/contexts/SocketContext';
 import { PreferencesProvider } from '@/contexts/PreferencesContext';
 import { LoadingOverlayProvider } from '@/contexts/LoadingOverlayContext';
-import { NotificationEffectsListener } from '@/components/effects/NotificationEffectsListener';
 import { useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { getPageKeyFromPathname } from '@/lib/pageTheme';
+import { DevicePerformanceProvider, useDevicePerformance } from '@/contexts/DevicePerformanceContext';
+import dynamic from 'next/dynamic';
+
+const NotificationEffectsListener = dynamic(
+  () => import('@/components/effects/NotificationEffectsListener').then((m) => m.NotificationEffectsListener),
+  { ssr: false }
+);
 
 function PageThemeSync() {
   const pathname = usePathname();
@@ -23,6 +29,27 @@ function PageThemeSync() {
   }, [pathname]);
 
   return null;
+}
+
+function MotionMode({ children }: { children: React.ReactNode }) {
+  const { performanceMode } = useDevicePerformance();
+  return (
+    <MotionConfig
+      reducedMotion="user"
+      transition={
+        performanceMode
+          ? { duration: 0.18, ease: 'easeOut' }
+          : { type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }
+      }
+    >
+      {children}
+    </MotionConfig>
+  );
+}
+
+function EffectsGate() {
+  const { performanceMode } = useDevicePerformance();
+  return performanceMode ? null : <NotificationEffectsListener />;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -37,33 +64,32 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }));
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem enableColorScheme>
       <QueryClientProvider client={queryClient}>
         <PageThemeSync />
-        <MotionConfig
-          reducedMotion="user"
-          transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
-        >
-          <AuthProvider>
-            <SocketProvider>
-              <PreferencesProvider>
+        <DevicePerformanceProvider>
+          <MotionMode>
+            <AuthProvider>
+              <SocketProvider>
+                <PreferencesProvider>
                 <LoadingOverlayProvider>
-                  <NotificationEffectsListener />
+                    <EffectsGate />
                   {children}
                   <Toaster
                     position="top-right"
                     toastOptions={{
-                      duration: 4000,
-                      className: 'toast-custom',
-                      success: { className: 'toast-custom toast-success' },
-                      error: { className: 'toast-custom toast-error' },
-                    }}
-                  />
-                </LoadingOverlayProvider>
-              </PreferencesProvider>
-            </SocketProvider>
-          </AuthProvider>
-        </MotionConfig>
+                        duration: 4000,
+                        className: 'toast-custom',
+                        success: { className: 'toast-custom toast-success' },
+                        error: { className: 'toast-custom toast-error' },
+                      }}
+                    />
+                  </LoadingOverlayProvider>
+                </PreferencesProvider>
+              </SocketProvider>
+            </AuthProvider>
+          </MotionMode>
+        </DevicePerformanceProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

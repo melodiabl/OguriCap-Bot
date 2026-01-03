@@ -191,7 +191,7 @@ export default function BotStatusPage() {
             <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5">
               <motion.div animate={connected ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
                 <ProgressRing progress={connected ? 100 : connecting ? 50 : 0} size={160} strokeWidth={12}
-                  color={connected ? '#10b981' : connecting ? '#f59e0b' : '#ef4444'}
+                  color={connected ? 'rgb(var(--success))' : connecting ? 'rgb(var(--warning))' : 'rgb(var(--danger))'}
                   label={connected ? 'Conectado' : connecting ? 'Conectando...' : 'Desconectado'} />
               </motion.div>
               <div className="mt-4 text-center">
@@ -237,7 +237,7 @@ export default function BotStatusPage() {
                 <Button variant="success" icon={<Power className="w-4 h-4" />} onClick={handleConnect} loading={isConnecting}>Conectar Bot</Button>
               )
             ) : (
-              <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+              <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
                 Solo admins/owner pueden controlar la conexi?n del bot.
               </p>
             )}
@@ -265,7 +265,7 @@ export default function BotStatusPage() {
                   className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md" />
               </button>
             ) : (
-              <p className="text-xs text-gray-500 [html.light_&]:text-gray-600">Control global solo para admins/owner.</p>
+              <p className="text-xs text-gray-500 [html[data-theme=light]_&]:text-gray-600">Control global solo para admins/owner.</p>
             )}
           </div>
           <div className="space-y-3">

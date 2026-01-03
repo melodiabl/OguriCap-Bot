@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Users, Search, RefreshCw, Shield, UserCheck, Mail, Phone, Calendar,
@@ -50,11 +50,7 @@ export default function UsuariosPage() {
   });
   const reduceMotion = useReducedMotion();
 
-  useEffect(() => {
-    loadUsers();
-  }, [searchTerm, roleFilter]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.getUsuarios(1, 100, searchTerm, roleFilter !== 'all' ? roleFilter : undefined);
@@ -76,7 +72,11 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, roleFilter]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const saveUserEdits = async () => {
     if (!selectedUser) return;

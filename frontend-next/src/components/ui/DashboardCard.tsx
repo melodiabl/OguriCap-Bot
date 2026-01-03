@@ -56,9 +56,9 @@ export function DashboardCard({
           <div className="flex items-start gap-3 min-w-0">
             {icon ? <div className="shrink-0">{icon}</div> : null}
             <div className="min-w-0">
-              {title ? <h3 className="text-sm font-semibold text-white [html.light_&]:text-gray-900">{title}</h3> : null}
+              {title ? <h3 className="text-sm font-semibold text-white [html[data-theme=light]_&]:text-gray-900">{title}</h3> : null}
               {description ? (
-                <p className="text-xs text-gray-400 [html.light_&]:text-gray-600 truncate">{description}</p>
+                <p className="text-xs text-gray-400 [html[data-theme=light]_&]:text-gray-600 truncate">{description}</p>
               ) : null}
             </div>
           </div>
@@ -80,4 +80,3 @@ export function DashboardCard({
     </Card>
   );
 }
-
