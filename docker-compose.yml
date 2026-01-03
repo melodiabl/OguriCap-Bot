@@ -54,7 +54,7 @@ services:
       - ./tmp:/app/tmp
       - ./.monitoring:/app/.monitoring
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -76,7 +76,7 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000"]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
       interval: 30s
       timeout: 10s
       retries: 3
