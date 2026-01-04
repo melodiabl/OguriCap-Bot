@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Bot, Send, User, Sparkles, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -35,14 +35,11 @@ export default function AiChatPage() {
   const [model, setModel] = useState('gemini');
   const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [messages, reduceMotion]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -64,6 +61,8 @@ export default function AiChatPage() {
         model,
         sessionId,
       });
+
+      if (response?.error) toast.error(`El modelo respondió con error: ${response.error}`);
 
       const assistantMessage: Message = {
         id: Date.now() + 1,
@@ -87,7 +86,7 @@ export default function AiChatPage() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -95,11 +94,11 @@ export default function AiChatPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-12rem)] flex flex-col">
+    <div className="min-h-full flex flex-col min-h-0">
       <PageHeader
         title="AI Chat"
         description="Conversa con la inteligencia artificial"
-        icon={<Sparkles className="w-5 h-5 text-primary-400" />}
+        icon={<Sparkles className="w-5 h-5 text-primary" />}
         actions={
           <>
             <div className="w-52">
@@ -127,17 +126,17 @@ export default function AiChatPage() {
         className="mb-6"
       />
 
-      <Reveal className="flex-1">
-        <Card className="flex-1 flex flex-col overflow-hidden">
+      <Reveal className="flex-1 min-h-0">
+        <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="w-20 h-20 rounded-full bg-primary-500/20 flex items-center justify-center mb-4">
-                <Sparkles className="w-10 h-10 text-primary-400" />
+              <div className="w-20 h-20 rounded-3xl bg-primary/12 border border-primary/20 flex items-center justify-center mb-4">
+                <Sparkles className="w-10 h-10 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">¡Hola! Soy tu asistente AI</h3>
-              <p className="text-gray-400 max-w-md">
+              <h3 className="text-xl font-extrabold text-foreground mb-2">¡Hola! Soy tu asistente AI</h3>
+              <p className="text-muted max-w-md text-balance">
                 Puedo ayudarte con preguntas sobre el bot, comandos, o cualquier otra cosa.
               </p>
             </div>
@@ -145,29 +144,29 @@ export default function AiChatPage() {
             messages.map((message, index) => (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index < 8 ? index * 0.04 : 0 }}
+                transition={reduceMotion ? { duration: 0 } : { delay: index < 8 ? index * 0.04 : 0 }}
                 className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-primary-400" />
+                  <div className="w-8 h-8 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-4 h-4 text-primary" />
                   </div>
                 )}
                 <div className={`max-w-[70%] p-4 rounded-2xl ${
                   message.role === 'user'
-                    ? 'bg-primary-500 text-white rounded-br-sm'
-                    : 'bg-white/5 text-gray-200 rounded-bl-sm'
+                    ? 'bg-primary/85 text-[rgb(var(--text-on-accent)/1)] rounded-br-sm'
+                    : 'bg-card/20 border border-border/20 text-foreground/90 rounded-bl-sm'
                 }`}>
                   <p className="whitespace-pre-wrap">{message.content}</p>
-                  <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-primary-200' : 'text-gray-500'}`}>
+                  <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-[rgb(var(--text-on-accent)/0.80)]' : 'text-muted/80'}`}>
                     {message.timestamp.toLocaleTimeString()}
                   </p>
                 </div>
                 {message.role === 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-emerald-400" />
+                  <div className="w-8 h-8 rounded-2xl bg-success/12 border border-success/20 flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-success" />
                   </div>
                 )}
               </motion.div>
@@ -175,14 +174,14 @@ export default function AiChatPage() {
           )}
           {isLoading && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary-400" />
+              <div className="w-8 h-8 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-primary" />
               </div>
-              <div className="bg-white/5 p-4 rounded-2xl rounded-bl-sm">
+              <div className="bg-card/20 border border-border/20 p-4 rounded-2xl rounded-bl-sm">
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" />
-                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce animation-delay-150" />
-                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce animation-delay-300" />
+                  <div className="w-2 h-2 rounded-full bg-muted animate-bounce" />
+                  <div className="w-2 h-2 rounded-full bg-muted animate-bounce animation-delay-150" />
+                  <div className="w-2 h-2 rounded-full bg-muted animate-bounce animation-delay-300" />
                 </div>
               </div>
             </div>
@@ -191,12 +190,12 @@ export default function AiChatPage() {
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-border/20">
           <div className="flex gap-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder="Escribe tu mensaje..."
               className="input-glass flex-1 resize-none"
               rows={1}

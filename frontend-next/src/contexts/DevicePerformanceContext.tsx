@@ -61,10 +61,22 @@ function computeIsLowEnd(opts: {
   saveData: boolean;
 }): boolean {
   const { viewport, deviceMemoryGB, hardwareConcurrency, saveData } = opts;
-  const lowMemory = deviceMemoryGB !== null ? deviceMemoryGB <= 4 : false;
-  const lowCores = hardwareConcurrency !== null ? hardwareConcurrency <= 4 : false;
   const lowViewport = viewport === 'mobile';
-  return Boolean(saveData || lowMemory || lowCores || lowViewport);
+
+  const lowMemory = deviceMemoryGB !== null ? deviceMemoryGB <= 4 : false;
+  const lowCores =
+    hardwareConcurrency !== null
+      ? hardwareConcurrency <= (viewport === 'desktop' ? 2 : 4)
+      : false;
+
+  // Desktop machines with 4 cores are common; avoid forcing "low" mode unless clearly constrained.
+  if (viewport === 'desktop') return Boolean(saveData || (lowMemory && lowCores));
+
+  // Mobile: always prioritize smoothness.
+  if (lowViewport) return true;
+
+  // Tablet: be conservative but not too aggressive.
+  return Boolean(saveData || lowMemory || lowCores);
 }
 
 export function DevicePerformanceProvider({ children }: { children: React.ReactNode }) {
@@ -164,4 +176,3 @@ export function useDevicePerformance() {
   if (!ctx) throw new Error('useDevicePerformance must be used within DevicePerformanceProvider');
   return ctx;
 }
-

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Users, Power, Bell, CheckCircle, XCircle, Eye, RefreshCw,
   ToggleRight, AlertTriangle, X
@@ -510,6 +510,7 @@ export default function GruposManagementPage() {
       </Modal>
 
       {/* Modal Shutdown */}
+      {/* Legacy shutdown modal (deprecated)
       <AnimatePresence>
         {isShutdownModalOpen && (
           <motion.div
@@ -554,6 +555,45 @@ export default function GruposManagementPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      */}
+
+      <Modal
+        isOpen={isShutdownModalOpen}
+        onClose={() => {
+          if (isShuttingDown) return;
+          setIsShutdownModalOpen(false);
+        }}
+        title="Confirmar Apagado Global"
+        className="max-w-md"
+      >
+        <div className="p-4 rounded-2xl bg-warning/10 border border-warning/20 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm text-warning font-semibold mb-1">¡Atención!</p>
+              <p className="text-sm text-warning/90">
+                Esta acción desactivará el bot en TODOS los grupos. Solo el administrador podrá reactivarlo.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-muted mb-6">¿Estás seguro de que quieres desactivar el bot globalmente?</p>
+
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setIsShutdownModalOpen(false)}
+            variant="secondary"
+            className="flex-1"
+            disabled={isShuttingDown}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={handleShutdownGlobally} variant="danger" className="flex-1" loading={isShuttingDown}>
+            Desactivar
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
