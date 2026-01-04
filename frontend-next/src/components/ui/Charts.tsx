@@ -224,30 +224,29 @@ export const BarChart: React.FC<BarChartProps> = ({
         {data.map((item, i) => {
           const ratio = clamp01(scaleFn(item.value) / scaledMax);
           const visibleRatio = item.value > 0 ? Math.max(ratio, minScale) : 0;
+          const tone = toneFromColor(item.color);
 
           return (
-            <div key={i} className="flex-1 flex flex-col items-center">
-              {shouldAnimate ? (
-                <motion.div
-                  className="bar w-full rounded-md"
-                  style={{
-                    background: item.color ?? 'rgb(var(--primary))',
-                    transformOrigin: 'bottom',
-                  }}
-                  initial={{ scaleY: 0 }}
-                  animate={{ scaleY: visibleRatio }}
-                  transition={{ duration: 0.8, delay: i * 0.05, ease: 'easeOut' }}
-                />
-              ) : (
-                <div
-                  className="bar w-full rounded-md"
-                  style={{
-                    background: item.color ?? 'rgb(var(--primary))',
-                    transform: `scaleY(${visibleRatio})`,
-                    transformOrigin: 'bottom',
-                  }}
-                />
-              )}
+            <div key={i} className="flex-1 flex flex-col items-center self-stretch">
+              <div className="w-full flex-1 flex items-end">
+                {shouldAnimate ? (
+                  <motion.div
+                    className={cn("bar h-full", `bar--${tone}`)}
+                    style={item.color ? { background: item.color } : undefined}
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: visibleRatio }}
+                    transition={{ duration: 0.8, delay: i * 0.05, ease: 'easeOut' }}
+                  />
+                ) : (
+                  <div
+                    className={cn("bar h-full", `bar--${tone}`)}
+                    style={{
+                      ...(item.color ? { background: item.color } : null),
+                      transform: `scaleY(${visibleRatio})`,
+                    }}
+                  />
+                )}
+              </div>
               <span className="mt-2 text-xs text-gray-500 truncate">
                 {item.label}
               </span>
