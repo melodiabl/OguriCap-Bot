@@ -7,6 +7,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { SocketProvider } from '@/contexts/SocketContext';
 import { PreferencesProvider } from '@/contexts/PreferencesContext';
 import { LoadingOverlayProvider } from '@/contexts/LoadingOverlayContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { usePathname } from 'next/navigation';
@@ -72,9 +73,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <AuthProvider>
               <SocketProvider>
                 <PreferencesProvider>
-                <LoadingOverlayProvider>
-                    <EffectsGate />
-                  {children}
+                  <NotificationProvider>
+                    <LoadingOverlayProvider>
+                      <EffectsGate />
+                      {children}
                   <Toaster
                     position="top-right"
                     toastOptions={{
@@ -84,7 +86,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
                         error: { className: 'toast-custom toast-error' },
                       }}
                     />
-                  </LoadingOverlayProvider>
+                    </LoadingOverlayProvider>
+                  </NotificationProvider>
                 </PreferencesProvider>
               </SocketProvider>
             </AuthProvider>

@@ -47,6 +47,7 @@ import { useSystemStats, useBotStatus } from '@/hooks/useRealTime';
 import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useNotifications } from '@/contexts/NotificationContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -802,6 +803,7 @@ export default function ConfiguracionPage() {
   );
 
   const renderNotificationsConfigEditor = () => {
+    const { settings, updateSettings } = useNotifications();
     const emailEnabled = Boolean(getConfigValue('email.enabled'));
     const smtpHost = String(getConfigValue('email.smtp.host') || '').trim();
     const smtpPortValue = getConfigValue('email.smtp.port');
@@ -1000,6 +1002,155 @@ export default function ConfiguracionPage() {
             </div>
           </Card>
         </div>
+
+        {/* Panel Notifications Settings */}
+        <Card animated delay={0.3} className="p-6 mt-6">
+          <div className="flex items-start gap-3 mb-6">
+            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-primary-500/20 to-violet-500/20 border border-white/10 shadow-inner-glow">
+              <Bell className="w-5 h-5 text-primary-200" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-lg font-semibold text-white leading-tight">Notificaciones del Panel</h4>
+              <p className="text-sm text-gray-400 mt-1">Configura qué tipos de notificaciones quieres recibir en el panel.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Enabled Toggle */}
+            <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
+              <div className="min-w-0">
+                <p className="font-semibold text-white">Notificaciones Generales</p>
+                <p className="text-sm text-gray-400">Activa o desactiva todas las notificaciones del panel.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateSettings({ enabled: !settings.enabled })}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                aria-pressed={settings.enabled}
+                aria-label={settings.enabled ? 'Desactivar notificaciones' : 'Activar notificaciones'}
+              >
+                <motion.div
+                  animate={{ x: settings.enabled ? 28 : 2 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                />
+              </button>
+            </div>
+
+            {/* Category Toggles */}
+            <div className={`space-y-3 ${!settings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    Eventos del Bot
+                  </p>
+                  <p className="text-sm text-gray-400">Notificaciones sobre cambios en el estado del bot.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ botEvents: !settings.botEvents })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.botEvents ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!settings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: settings.botEvents ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-cyan-400" />
+                    Usuarios / Comunidad
+                  </p>
+                  <p className="text-sm text-gray-400">Notificaciones relacionadas con usuarios y comunidad.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ users: !settings.users })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.users ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!settings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: settings.users ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-violet-400" />
+                    Pedidos / Tareas
+                  </p>
+                  <p className="text-sm text-gray-400">Notificaciones sobre pedidos y tareas programadas.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ tasks: !settings.tasks })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.tasks ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!settings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: settings.tasks ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    Errores Críticos
+                  </p>
+                  <p className="text-sm text-gray-400">Alertas importantes sobre errores del sistema.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ critical: !settings.critical })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.critical ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!settings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: settings.critical ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary-400" />
+                    Push Notifications
+                  </p>
+                  <p className="text-sm text-gray-400">Recibe notificaciones incluso cuando el panel esté cerrado.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ push: !settings.push })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.push ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!settings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: settings.push ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   };

@@ -9,7 +9,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useSocketBotStatus } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
-import { useBotStatus, useNotifications } from '@/hooks/useRealTime';
+import { useBotStatus } from '@/hooks/useRealTime';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -38,7 +39,6 @@ const menuItems = [
   { path: '/recursos', icon: BarChart3, label: 'Recursos', color: 'success', page: 'recursos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración', color: 'cyan', page: 'configuracion' },
   { path: '/logs', icon: FileText, label: 'Logs & Sistema', color: 'danger', page: 'logs' },
-  { path: '/notificaciones', icon: Bell, label: 'Notificaciones', color: 'primary', page: 'notificaciones' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
   { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
 ];
@@ -87,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { hasPermission } = usePermissions();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
   const botStatus = useSocketBotStatus();
-  const { unreadCount } = useNotifications(30000);
+  const { unreadCount } = useNotifications();
   const { isGloballyOn } = useBotGlobalState();
   const { dashboardStats, botStatus: globalBotStatus, refreshAll } = useGlobalUpdate();
 
@@ -200,16 +200,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                       <Icon className="w-5 h-5" />
                     </div>
                     <span className="font-medium">{item.label}</span>
-                    
-                    {item.path === '/notificaciones' && unreadCount > 0 && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="ml-auto badge-danger"
-                      >
-                        {unreadCount}
-                      </motion.span>
-                    )}
 
                     {isActive && (
                       <motion.div

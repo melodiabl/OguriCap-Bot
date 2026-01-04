@@ -5,13 +5,15 @@ import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { useSocketConnection } from '@/contexts/SocketContext';
-import { useBotStatus, useNotifications } from '@/hooks/useRealTime';
-import { usePreferences } from '@/contexts/PreferencesContext';
-import { Bell, Search, Moon, Sun, RefreshCw, Menu, X, Volume2, VolumeX, Smartphone } from 'lucide-react';
+import { useBotStatus } from '@/hooks/useRealTime';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { Bell, Search, Moon, Sun, RefreshCw, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { cn } from '@/lib/utils';
+import { motion, useReducedMotion } from 'framer-motion';
 
 const menuItems = [
   { path: '/', label: 'Dashboard' },
@@ -27,7 +29,6 @@ const menuItems = [
   { path: '/alertas', label: 'Alertas' },
   { path: '/tareas', label: 'Tareas' },
   { path: '/logs', label: 'Logs' },
-  { path: '/notificaciones', label: 'Notificaciones' },
   { path: '/analytics', label: 'Analytics' },
   { path: '/multimedia', label: 'Multimedia' },
   { path: '/configuracion', label: 'Configuración' },
@@ -39,42 +40,17 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { isConnected: isSocketConnected } = useSocketConnection();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
-  const { notifications, unreadCount } = useNotifications(30000);
+  const { unreadCount, isOpen, setIsOpen } = useNotifications();
   const reduceMotion = useReducedMotion();
-  const { preferences, togglePreference } = usePreferences();
 
   const currentPage = menuItems.find(item => item.path === pathname);
   const isConnected = pollingConnected;
-
-  useEffect(() => {
-    if (!showNotifications) return;
-
-    const onPointerDown = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
-        setShowNotifications(false);
-      }
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowNotifications(false);
-    };
-
-    window.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [showNotifications]);
 
   return (
     <header className="sticky top-0 z-30 glass-dark border-b border-white/10 header-chrome">
@@ -136,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowNotifications(v => !v)}
+                onClick={() => setIsOpen(!isOpen)}
                 aria-label="Abrir notificaciones"
                 className={cn('relative hover-glass-bright', unreadCount > 0 && 'pulse-on-alert')}
               >
@@ -154,95 +130,19 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                 >
                   <Bell className="w-5 h-5" />
                 </motion.div>
-                {unreadCount > 0 && <span className="notification-dot">{unreadCount}</span>}
+                {unreadCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center text-xs font-bold bg-red-500 text-white rounded-full border-2 border-background"
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </motion.span>
+                )}
               </Button>
             </Tooltip>
 
-            <AnimatePresence>
-              {showNotifications && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="dropdown w-80 py-0 overflow-hidden"
-                >
-                  <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                    <h3 className="font-semibold text-white">Notificaciones</h3>
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                        {unreadCount} nuevas
-                      </span>
-                    )}
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {notifications && notifications.length > 0 ? (
-                      notifications.slice(0, 5).map((notif: any, index: number) => (
-                        <motion.div
-                          key={notif.id || index}
-                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                          transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
-                          className={cn(
-                            'dropdown-item border-b border-white/5 hover-glass-bright hover-outline-gradient',
-                            !notif.leida && 'bg-primary-500/5 highlight-change'
-                          )}
-                        >
-                          <p className="text-sm text-white font-medium truncate">
-                            {notif.titulo || notif.title || 'Notificación'}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate mt-1">
-                            {notif.mensaje || notif.message || ''}
-                          </p>
-                        </motion.div>
-                      ))
-                    ) : (
-                      <div className="p-6 text-center text-gray-400">
-                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No hay notificaciones</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 border-t border-white/10 flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Efectos</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => togglePreference('soundEnabled')}
-                        title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
-                        className={`p-2 rounded-lg border transition-colors ${
-                          preferences.soundEnabled
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => togglePreference('hapticsEnabled')}
-                        title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
-                        className={`p-2 rounded-lg border transition-colors ${
-                          preferences.hapticsEnabled
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        <Smartphone className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-3 border-t border-white/10">
-                    <button
-                      onClick={() => {
-                        setShowNotifications(false);
-                        router.push('/notificaciones');
-                      }}
-                      className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
-                    >
-                      Ver todas las notificaciones
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} />
           </div>
 
           {/* Theme toggle */}

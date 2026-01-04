@@ -15,7 +15,6 @@ export type PageKey =
   | 'recursos'
   | 'configuracion'
   | 'logs'
-  | 'notificaciones'
   | 'analytics'
   | 'multimedia'
   | 'auth'
@@ -61,8 +60,6 @@ export function getPageKeyFromPathname(pathname?: string | null): PageKey {
       return 'configuracion';
     case 'logs':
       return 'logs';
-    case 'notificaciones':
-      return 'notificaciones';
     case 'analytics':
       return 'analytics';
     case 'multimedia':
