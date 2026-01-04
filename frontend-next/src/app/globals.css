@@ -264,6 +264,11 @@ body,
   padding: 0;
 }
 
+body.modal-open {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 body {
   font-family: var(--font-sans), 'Inter', system-ui, -apple-system, sans-serif;
   background:

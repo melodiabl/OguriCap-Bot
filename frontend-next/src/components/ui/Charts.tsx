@@ -22,7 +22,15 @@ function toneFromColor(color?: string): ChartTone {
   return 'brand';
 }
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const finiteNumber = (v: unknown, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const clamp01 = (v: number) => {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(1, v));
+};
 
 /* =========================
    PROGRESS RING (COMPAT)
@@ -44,10 +52,9 @@ export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
   const reduceMotion = useReducedMotion();
   const { performanceMode } = useDevicePerformance();
 
-  const ratio =
-    'progress' in props
-      ? clamp01(props.progress / 100)
-      : clamp01(props.value / (props.total > 0 ? props.total : 1));
+  const ratio = 'progress' in props
+    ? clamp01(finiteNumber(props.progress) / 100)
+    : clamp01(finiteNumber(props.value) / Math.max(1, finiteNumber(props.total, 1)));
   const percent = Math.round(ratio * 100);
 
   const size = props.size ?? 120;
@@ -216,8 +223,9 @@ export const BarChart: React.FC<BarChartProps> = ({
   const reduceMotion = useReducedMotion();
   const { performanceMode } = useDevicePerformance();
 
-  const values = data.map((d) => (Number.isFinite(Number(d.value)) ? Number(d.value) : 0));
+  const values = data.map((d) => finiteNumber(d.value));
   const maxValue = values.length ? Math.max(...values, 1) : 1;
+  const isEmpty = values.length === 0 || values.every((v) => v <= 0);
 
   const scaleFn = (v: number) => {
     const safe = Math.max(0, v);
@@ -240,7 +248,7 @@ export const BarChart: React.FC<BarChartProps> = ({
     data.length > 0 ? ({ gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))` } as React.CSSProperties) : undefined;
 
   return (
-    <div className={cn("chart-frame", className)}>
+    <div className={cn("chart-frame", className)} data-empty={isEmpty ? 'true' : 'false'}>
       <div className="relative" style={{ height }}>
         {showGrid && (
           <div aria-hidden="true" className="absolute inset-0 flex flex-col justify-between pointer-events-none">
@@ -250,9 +258,18 @@ export const BarChart: React.FC<BarChartProps> = ({
           </div>
         )}
 
+        {isEmpty && (
+          <div className="absolute inset-0 grid place-items-center pointer-events-none z-10">
+            <div className="text-center">
+              <div className="text-xs font-black tracking-[0.22em] uppercase text-muted">Sin datos</div>
+              <div className="mt-1 text-sm text-muted/80">Aún no hay actividad para mostrar</div>
+            </div>
+          </div>
+        )}
+
         <div className="relative z-10 flex items-end gap-1 h-full">
           {data.map((item, i) => {
-            const raw = Number.isFinite(Number(item.value)) ? Number(item.value) : 0;
+            const raw = finiteNumber(item.value);
             const ratio = clamp01(scaleFn(raw) / scaledMax);
             const visibleRatio = raw > 0 ? Math.max(ratio, minScale) : 0;
             const tone = toneFromColor(item.color);

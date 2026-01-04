@@ -103,6 +103,26 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => setMounted(true), []);
 
+  // Lock body scroll while open (supports nested modals)
+  React.useEffect(() => {
+    if (!mounted) return;
+    const body = document.body;
+    const prevCount = Number(body.dataset.modalCount || '0') || 0;
+    if (isOpen) {
+      body.dataset.modalCount = String(prevCount + 1);
+      body.classList.add('modal-open');
+      return () => {
+        const nextCount = Math.max(0, (Number(body.dataset.modalCount || '1') || 1) - 1);
+        body.dataset.modalCount = String(nextCount);
+        if (nextCount === 0) {
+          body.classList.remove('modal-open');
+          delete body.dataset.modalCount;
+        }
+      };
+    }
+    return;
+  }, [isOpen, mounted]);
+
   const getFocusable = React.useCallback(() => {
     const root = contentRef.current;
     if (!root) return [] as HTMLElement[];
@@ -124,8 +144,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     previousFocusRef.current = document.activeElement as HTMLElement | null;
 
     const focusFirst = () => {
+      const root = contentRef.current;
+      if (!root) return;
+      const preferred = root.querySelector<HTMLElement>('[data-autofocus]');
+      if (preferred?.focus) return preferred.focus();
       const focusables = getFocusable();
-      const target = focusables[0] ?? contentRef.current;
+      const target = focusables[0] ?? root;
       target?.focus?.();
     };
     // Wait a tick so the portal content exists.
@@ -166,40 +190,62 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     };
   }, [getFocusable, isOpen, onClose]);
 
-  if (!isOpen || !mounted) return null;
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="modal-overlay"
-        onClick={onClose}
-      >
+      {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className={cn('modal-content', className)}
-          onClick={(e) => e.stopPropagation()}
-          ref={contentRef}
-          tabIndex={-1}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={title ? titleId : undefined}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] pointer-events-none"
+          role="presentation"
         >
-          {title && (
-            <div className="flex items-center justify-between mb-6">
-              <h3 id={titleId} className="text-xl font-semibold text-foreground">{title}</h3>
-              <button onClick={onClose} className="text-muted hover:text-foreground transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-          {children}
+          {/* Scrim */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 overlay-scrim pointer-events-auto"
+            onClick={onClose}
+          />
+
+          {/* Centered content */}
+          <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className={cn('modal-content pointer-events-auto', className)}
+              onClick={(e) => e.stopPropagation()}
+              ref={contentRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={title ? titleId : undefined}
+            >
+              {title && (
+                <div className="flex items-center justify-between mb-6">
+                  <h3 id={titleId} className="text-xl font-semibold text-foreground">
+                    {title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="p-2 rounded-xl text-muted hover:text-foreground hover:bg-card/20 transition-colors focus-ring-animated"
+                  >
+                    <X className="w-5 h-5" />
+                    <span className="sr-only">Cerrar</span>
+                  </button>
+                </div>
+              )}
+              {children}
+            </motion.div>
+          </div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>,
     document.body
   );
