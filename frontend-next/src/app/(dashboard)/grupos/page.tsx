@@ -161,7 +161,7 @@ export default function GruposPage() {
 
       {/* Header */}
       <PageHeader
-        title="Gesti?n de Grupos"
+        title="Gestión de Grupos"
         description="Administra los grupos de WhatsApp conectados"
         icon={<MessageSquare className="w-6 h-6 text-primary-400" />}
         actions={

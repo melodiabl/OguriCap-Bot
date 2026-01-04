@@ -97,23 +97,23 @@ interface StatCardProps {
 }
 
 const colorClasses = {
-  primary: 'text-primary-400 bg-primary-500/20 border-primary-500/30',
-  success: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30',
-  warning: 'text-amber-400 bg-amber-500/20 border-amber-500/30',
-  danger: 'text-red-400 bg-red-500/20 border-red-500/30',
-  info: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30',
-  violet: 'text-violet-400 bg-violet-500/20 border-violet-500/30',
-  cyan: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30',
+  primary: 'text-primary bg-primary/15 ring-1 ring-primary/25',
+  success: 'text-success bg-success/15 ring-1 ring-success/25',
+  warning: 'text-warning bg-warning/15 ring-1 ring-warning/25',
+  danger: 'text-danger bg-danger/15 ring-1 ring-danger/25',
+  info: 'text-accent bg-accent/15 ring-1 ring-accent/25',
+  violet: 'text-secondary bg-secondary/15 ring-1 ring-secondary/25',
+  cyan: 'text-accent bg-accent/15 ring-1 ring-accent/25',
 };
 
 const borderClasses: Record<NonNullable<StatCardProps['color']>, string> = {
-  primary: 'border-primary-500/30',
-  success: 'border-emerald-500/30',
-  warning: 'border-amber-500/30',
-  danger: 'border-red-500/30',
-  info: 'border-cyan-500/30',
-  violet: 'border-violet-500/30',
-  cyan: 'border-cyan-500/30',
+  primary: 'border-primary/25',
+  success: 'border-success/25',
+  warning: 'border-warning/25',
+  danger: 'border-danger/25',
+  info: 'border-accent/25',
+  violet: 'border-secondary/25',
+  cyan: 'border-accent/25',
 };
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -180,12 +180,12 @@ export const StatCard: React.FC<StatCardProps> = ({
       transition={shouldAnimate ? { duration: 0.4, delay, ease: "easeOut" } : undefined}
     >
       {/* Background glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
-          <motion.h3 
-            className="text-sm font-medium text-gray-300"
+          <motion.h3
+            className="text-sm font-semibold text-foreground/70"
             initial={shouldAnimate ? { opacity: 0, x: -10 } : undefined}
             animate={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
             transition={shouldAnimate ? { duration: 0.3, delay: delay + 0.1 } : undefined}
@@ -204,7 +204,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         
         <motion.div
           className={cn(
-            'text-2xl font-bold text-white mb-1 rounded-lg -mx-2 px-2',
+            'text-2xl font-bold text-foreground mb-1 rounded-lg -mx-2 px-2',
             flash && 'flash-update glow-on-update'
           )}
           initial={shouldAnimate ? { opacity: 0, y: 6 } : undefined}
@@ -220,8 +220,8 @@ export const StatCard: React.FC<StatCardProps> = ({
         
         <div className="flex items-center justify-between">
           {subtitle && (
-            <motion.p 
-              className="text-xs text-gray-400"
+            <motion.p
+              className="text-xs text-muted"
               initial={shouldAnimate ? { opacity: 0, y: 8 } : undefined}
               animate={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
               transition={shouldAnimate ? { duration: 0.3, delay: delay + 0.35 } : undefined}
@@ -231,17 +231,19 @@ export const StatCard: React.FC<StatCardProps> = ({
           )}
           
           {trend !== undefined && (
-            <motion.div 
-              className={`flex items-center text-xs ${
-                trend > 0 ? 'text-emerald-400' : trend < 0 ? 'text-red-400' : 'text-gray-400'
-              }`}
+            <motion.div
+              className={cn(
+                'flex items-center text-xs tabular-nums',
+                trend > 0 ? 'text-success' : trend < 0 ? 'text-danger' : 'text-muted'
+              )}
               initial={shouldAnimate ? { opacity: 0, x: 8 } : undefined}
               animate={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
               transition={shouldAnimate ? { duration: 0.3, delay: delay + 0.45 } : undefined}
             >
-              <span className="mr-1">
+              <span className="mr-1 hidden">
                 {trend > 0 ? '▲' : trend < 0 ? '▼' : '•'}
               </span>
+              <span className="mr-0.5">{trend > 0 ? '+' : trend < 0 ? '-' : ''}</span>
               {Math.abs(trend)}%
             </motion.div>
           )}

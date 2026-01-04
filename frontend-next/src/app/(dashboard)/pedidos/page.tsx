@@ -398,7 +398,7 @@ export default function PedidosPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="Gesti?n de Pedidos"
+        title="Gestión de Pedidos"
         description="Administra las solicitudes de la comunidad"
         icon={<ShoppingCart className="w-6 h-6 text-primary-400" />}
         actions={

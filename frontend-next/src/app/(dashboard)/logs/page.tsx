@@ -598,7 +598,7 @@ export default function LogsPage() {
       {/* Header */}
       <PageHeader
         title="Logs & Sistema"
-        description="Gesti?n de logs y monitoreo del sistema"
+        description="Gestión de logs y monitoreo del sistema"
         icon={<FileText className="w-6 h-6 text-primary-400" />}
         actions={
           <>

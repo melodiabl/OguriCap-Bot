@@ -2246,7 +2246,8 @@ html[data-page="bot"] .glass-card::after {
 
 /* Glow effects */
 .btn-glow {
-  @apply relative px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-accent-cyan to-accent-emerald shadow-glow-cyan hover:shadow-glow-lg transform hover:scale-105 transition-all duration-300;
+  @apply relative px-6 py-3 rounded-xl font-semibold text-white shadow-glow-cyan hover:shadow-glow-lg transform hover:scale-105 transition-all duration-300;
+  background: var(--gradient-success);
 }
 
 .card-stat {
@@ -2255,7 +2256,14 @@ html[data-page="bot"] .glass-card::after {
 
 .card-stat::before {
   content: '';
-  @apply absolute inset-0 bg-gradient-to-br from-primary-500/10 to-transparent opacity-0 transition-opacity duration-500;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+  background:
+    radial-gradient(circle at 20% 15%, rgb(var(--primary) / 0.18), transparent 60%),
+    radial-gradient(circle at 85% 25%, rgb(var(--accent) / 0.14), transparent 60%);
 }
 
 .card-stat:hover::before {
@@ -2263,11 +2271,15 @@ html[data-page="bot"] .glass-card::after {
 }
 
 .card-glow {
-  @apply relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-r from-primary-500 via-accent-violet to-accent-cyan;
+  @apply relative overflow-hidden rounded-2xl p-[1px];
+  background: linear-gradient(90deg, rgb(var(--primary) / 1), rgb(var(--secondary) / 1), rgb(var(--accent) / 1));
 }
 
 .card-glow-inner {
-  @apply bg-dark-900 rounded-2xl p-6 h-full;
+  @apply rounded-2xl p-6 h-full;
+  background: linear-gradient(135deg, rgb(var(--card) / 0.78), rgb(var(--bg) / 0.38));
+  border: 1px solid rgb(var(--border) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--shine) / 0.04);
 }
 
 .glass-hover {
