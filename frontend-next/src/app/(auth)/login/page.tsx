@@ -367,14 +367,14 @@ export default function LoginPage() {
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="flex items-center justify-center py-10 lg:py-0"
+          className="flex items-center justify-center py-6 sm:py-8 lg:py-0"
         >
           <div className="w-full max-w-md">
             {/* Mobile logo */}
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="lg:hidden text-center mb-8"
+              className="lg:hidden text-center mb-5 [@media(max-height:740px)]:mb-3"
             >
               <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
                 <Bot className="w-8 h-8 text-white" />
@@ -387,7 +387,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="glass-card p-6 sm:p-7"
+              className="glass-card p-6 sm:p-7 [@media(max-height:740px)]:p-5"
             >
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-black tracking-tight mb-1">
@@ -396,7 +396,7 @@ export default function LoginPage() {
                 <p className="text-sm text-muted">Inicia sesión para continuar</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-muted mb-1.5">Usuario</label>
                   <div className="relative">
@@ -441,7 +441,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-3">
+                  <label className="block text-xs font-semibold text-muted mb-2">
                     Rol de Acceso <span className="text-danger">*</span>
                   </label>
                   {(!selectedRole || fieldErrors.role) && (
@@ -528,26 +528,26 @@ export default function LoginPage() {
                 >
                   {!selectedRole ? 'Selecciona un rol para continuar' : 'Iniciar Sesión'}
                 </Button>
-              </form>
 
-              <div className="mt-6 pt-6 border-t border-border/20">
-                <div className="text-center text-sm text-muted">
-                  ¿No tenés cuenta?
-                </div>
-                <Link
-                  href="/register"
-                  className="mt-2 block w-full text-center text-sm text-primary hover:text-primary/80 transition-colors"
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.12 }}
+                  className="pt-1 text-center text-xs text-muted"
                 >
-                  Registrarte
-                </Link>
-              </div>
+                  ¿No tenés cuenta?{' '}
+                  <Link href="/register" className="text-primary hover:text-primary/80 transition-colors">
+                    Registrarte
+                  </Link>
+                </motion.div>
+              </form>
             </motion.div>
 
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="text-center text-sm text-muted/80 mt-6"
+              className="text-center text-xs text-muted/70 mt-4 [@media(max-height:740px)]:hidden"
             >
               © 2026 Oguri Bot. Todos los derechos reservados.
             </motion.p>
