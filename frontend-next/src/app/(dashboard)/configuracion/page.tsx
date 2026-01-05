@@ -84,6 +84,7 @@ export default function ConfiguracionPage() {
   // Bot Global State Context
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
   const { systemStats, refreshAll } = useGlobalUpdate();
+  const { settings: notificationSettings, updateSettings: updateNotificationSettings } = useNotifications();
 
   // Auto-refresh - DISABLED to prevent resource exhaustion
   // useAutoRefresh(refreshAll, { interval: 30000 });
@@ -803,7 +804,6 @@ export default function ConfiguracionPage() {
   );
 
   const renderNotificationsConfigEditor = () => {
-    const { settings, updateSettings } = useNotifications();
     const emailEnabled = Boolean(getConfigValue('email.enabled'));
     const smtpHost = String(getConfigValue('email.smtp.host') || '').trim();
     const smtpPortValue = getConfigValue('email.smtp.port');
@@ -1024,13 +1024,13 @@ export default function ConfiguracionPage() {
               </div>
               <button
                 type="button"
-                onClick={() => updateSettings({ enabled: !settings.enabled })}
-                className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                aria-pressed={settings.enabled}
-                aria-label={settings.enabled ? 'Desactivar notificaciones' : 'Activar notificaciones'}
+                onClick={() => updateNotificationSettings({ enabled: !notificationSettings.enabled })}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                aria-pressed={notificationSettings.enabled}
+                aria-label={notificationSettings.enabled ? 'Desactivar notificaciones' : 'Activar notificaciones'}
               >
                 <motion.div
-                  animate={{ x: settings.enabled ? 28 : 2 }}
+                  animate={{ x: notificationSettings.enabled ? 28 : 2 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
                 />
@@ -1038,7 +1038,7 @@ export default function ConfiguracionPage() {
             </div>
 
             {/* Category Toggles */}
-            <div className={`space-y-3 ${!settings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
+            <div className={`space-y-3 ${!notificationSettings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
               <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
                 <div className="min-w-0">
                   <p className="font-medium text-white flex items-center gap-2">
@@ -1049,12 +1049,12 @@ export default function ConfiguracionPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => updateSettings({ botEvents: !settings.botEvents })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.botEvents ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!settings.enabled}
+                  onClick={() => updateNotificationSettings({ botEvents: !notificationSettings.botEvents })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.botEvents ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
                 >
                   <motion.div
-                    animate={{ x: settings.botEvents ? 28 : 2 }}
+                    animate={{ x: notificationSettings.botEvents ? 28 : 2 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
                   />
@@ -1071,12 +1071,12 @@ export default function ConfiguracionPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => updateSettings({ users: !settings.users })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.users ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!settings.enabled}
+                  onClick={() => updateNotificationSettings({ users: !notificationSettings.users })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.users ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
                 >
                   <motion.div
-                    animate={{ x: settings.users ? 28 : 2 }}
+                    animate={{ x: notificationSettings.users ? 28 : 2 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
                   />
@@ -1093,12 +1093,12 @@ export default function ConfiguracionPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => updateSettings({ tasks: !settings.tasks })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.tasks ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!settings.enabled}
+                  onClick={() => updateNotificationSettings({ tasks: !notificationSettings.tasks })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.tasks ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
                 >
                   <motion.div
-                    animate={{ x: settings.tasks ? 28 : 2 }}
+                    animate={{ x: notificationSettings.tasks ? 28 : 2 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
                   />
@@ -1115,12 +1115,12 @@ export default function ConfiguracionPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => updateSettings({ critical: !settings.critical })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.critical ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!settings.enabled}
+                  onClick={() => updateNotificationSettings({ critical: !notificationSettings.critical })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.critical ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
                 >
                   <motion.div
-                    animate={{ x: settings.critical ? 28 : 2 }}
+                    animate={{ x: notificationSettings.critical ? 28 : 2 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
                   />
@@ -1137,12 +1137,12 @@ export default function ConfiguracionPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => updateSettings({ push: !settings.push })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${settings.push ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!settings.enabled}
+                  onClick={() => updateNotificationSettings({ push: !notificationSettings.push })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.push ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
                 >
                   <motion.div
-                    animate={{ x: settings.push ? 28 : 2 }}
+                    animate={{ x: notificationSettings.push ? 28 : 2 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
                   />
