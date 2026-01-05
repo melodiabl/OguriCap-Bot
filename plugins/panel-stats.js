@@ -78,7 +78,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
         `└ Node: ${process.version}`,
         ``,
         `🌐 *Panel Web*`,
-        `${process.env.PANEL_URL || 'https://oguricap.ooguy.com'}`
+        `${process.env.PANEL_URL || 'https://melodiaauris.qzz.io'}`
       ].join('\n')
 
       return m.reply(msg)

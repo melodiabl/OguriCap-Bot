@@ -70,13 +70,13 @@ services:
       context: ./frontend-next
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
+        - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
     container_name: admin-panel
     restart: unless-stopped
     network_mode: host
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
+      - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
       interval: 30s

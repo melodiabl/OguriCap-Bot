@@ -29,7 +29,7 @@ const nextConfig = {
   
   // Configuración de imágenes
   images: {
-    domains: ['localhost', '127.0.0.1', 'oguricap.ooguy.com'],
+    domains: ['localhost', '127.0.0.1', 'melodiaauris.qzz.io'],
     remotePatterns: [
       {
         protocol: 'http',
@@ -45,7 +45,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'oguricap.ooguy.com',
+        hostname: 'melodiaauris.qzz.io',
         port: '',
         pathname: '/media/**',
       }
