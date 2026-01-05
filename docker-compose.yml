@@ -85,3 +85,4 @@ services:
 
 volumes:
   nginx-logs:
+
