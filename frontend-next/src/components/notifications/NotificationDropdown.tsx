@@ -101,7 +101,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-50 rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-60 rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden"
           >
             {/* Header */}
             <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary-500/10 to-violet-500/10">
