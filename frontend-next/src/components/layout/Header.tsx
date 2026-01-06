@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           />
 
           {/* Notifications */}
-          <div className="relative" ref={notificationsRef}>
+          <div className="relative inline-flex" ref={notificationsRef}>
             <Tooltip content="Notificaciones" side="bottom">
               <Button
                 variant="ghost"
