@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { useSocketConnection } from '@/contexts/SocketContext';
@@ -39,7 +40,10 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
-  const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
@@ -48,6 +52,23 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const { unreadCount, isOpen, setIsOpen, toggleOpen, notifications } = useNotifications();
   const reduceMotion = useReducedMotion();
   const [preferences, setPreferences] = React.useState({ soundEnabled: true, hapticsEnabled: true });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const position = {
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right
+      };
+      console.log('Dropdown position:', position);
+      console.log('isOpen:', isOpen);
+      setDropdownPosition(position);
+    }
+  }, [isOpen]);
 
   const togglePreference = (key: 'soundEnabled' | 'hapticsEnabled') => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
@@ -111,9 +132,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           />
 
           {/* Notifications */}
-          <div className="relative" ref={notificationsRef}>
+          <div className="relative">
             <Tooltip content="Notificaciones" side="bottom">
               <Button
+                ref={buttonRef}
                 variant="ghost"
                 size="icon"
                 onClick={toggleOpen}
@@ -146,107 +168,115 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               </Button>
             </Tooltip>
 
-            {/* Dropdown personalizado inline */}
-            <AnimatePresence>
-              {isOpen && (
-                <>
-                  {/* Overlay */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[100]"
-                    onClick={() => setIsOpen(false)}
-                  />
+            {/* Portal para el dropdown */}
+            {mounted && createPortal(
+              <AnimatePresence>
+                {isOpen && (
+                  <>
+                    {/* Overlay */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[9998]"
+                      onClick={() => setIsOpen(false)}
+                    />
 
-                  {/* Dropdown */}
-                  <motion.div
-                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                    animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 top-full mt-2 w-96 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[101]"
-                  >
-                    <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                      <h3 className="font-semibold text-white">Notificaciones</h3>
-                      {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                          {unreadCount} nuevas
-                        </span>
-                      )}
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications && notifications.length > 0 ? (
-                        notifications.slice(0, 5).map((notif: any, index: number) => (
-                          <motion.div
-                            key={notif.id || index}
-                            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                            transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
-                            className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.leida ? 'bg-primary-500/5' : ''
+                    {/* Dropdown */}
+                    <motion.div
+                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
+                      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      style={{
+                        position: 'fixed',
+                        top: `${dropdownPosition.top}px`,
+                        right: `${dropdownPosition.right}px`,
+                      }}
+                      className="w-96 bg-red-500 backdrop-blur-xl border-4 border-yellow-400 rounded-xl shadow-2xl z-[9999]"
+                    >
+                      <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                        <h3 className="font-semibold text-white">Notificaciones</h3>
+                        {unreadCount > 0 && (
+                          <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
+                            {unreadCount} nuevas
+                          </span>
+                        )}
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications && notifications.length > 0 ? (
+                          notifications.slice(0, 5).map((notif: any, index: number) => (
+                            <motion.div
+                              key={notif.id || index}
+                              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                              transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
+                              className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.leida ? 'bg-primary-500/5' : ''
+                                }`}
+                            >
+                              <p className="text-sm text-white font-medium truncate">
+                                {notif.titulo || notif.title || 'Notificación'}
+                              </p>
+                              <p className="text-xs text-gray-400 truncate mt-1">
+                                {notif.mensaje || notif.message || ''}
+                              </p>
+                            </motion.div>
+                          ))
+                        ) : (
+                          <div className="p-6 text-center text-gray-400">
+                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No hay notificaciones</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 border-t border-white/10 flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Efectos</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePreference('soundEnabled');
+                            }}
+                            title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
+                            className={`p-2 rounded-lg border transition-colors ${preferences.soundEnabled
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
                               }`}
                           >
-                            <p className="text-sm text-white font-medium truncate">
-                              {notif.titulo || notif.title || 'Notificación'}
-                            </p>
-                            <p className="text-xs text-gray-400 truncate mt-1">
-                              {notif.mensaje || notif.message || ''}
-                            </p>
-                          </motion.div>
-                        ))
-                      ) : (
-                        <div className="p-6 text-center text-gray-400">
-                          <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No hay notificaciones</p>
+                            {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePreference('hapticsEnabled');
+                            }}
+                            title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
+                            className={`p-2 rounded-lg border transition-colors ${preferences.hapticsEnabled
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                              }`}
+                          >
+                            <Smartphone className="w-4 h-4" />
+                          </button>
                         </div>
-                      )}
-                    </div>
-                    <div className="p-3 border-t border-white/10 flex items-center justify-between">
-                      <span className="text-xs text-gray-400">Efectos</span>
-                      <div className="flex items-center gap-2">
+                      </div>
+                      <div className="p-3 border-t border-white/10">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePreference('soundEnabled');
+                          onClick={() => {
+                            setIsOpen(false);
+                            router.push('/notificaciones');
                           }}
-                          title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
-                          className={`p-2 rounded-lg border transition-colors ${preferences.soundEnabled
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                            }`}
+                          className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
                         >
-                          {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePreference('hapticsEnabled');
-                          }}
-                          title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
-                          className={`p-2 rounded-lg border transition-colors ${preferences.hapticsEnabled
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                            }`}
-                        >
-                          <Smartphone className="w-4 h-4" />
+                          Ver todas las notificaciones
                         </button>
                       </div>
-                    </div>
-                    <div className="p-3 border-t border-white/10">
-                      <button
-                        onClick={() => {
-                          setIsOpen(false);
-                          router.push('/notificaciones');
-                        }}
-                        className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
-                      >
-                        Ver todas las notificaciones
-                      </button>
-                    </div>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>,
+              document.body
+            )}
           </div>
 
           {/* Theme toggle */}
