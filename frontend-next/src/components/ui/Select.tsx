@@ -17,21 +17,18 @@ const SelectTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'flex h-10 w-full items-center justify-between rounded-xl px-4 py-2',
-      'bg-gray-900/90 border-gray-700/50 text-white backdrop-blur-sm',
-      'hover:bg-gray-800/90 hover:border-gray-600/50',
-      'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30',
+      'bg-card/60 border border-border/20 text-foreground backdrop-blur-sm',
+      'hover:bg-card/70 hover:border-border/30',
+      'focus:outline-none focus:border-primary/55 focus:ring-2 focus:ring-primary/25',
       'disabled:cursor-not-allowed disabled:opacity-50',
       'transition-all duration-200 shadow-sm',
-      // Theme-aware styles using CSS variables
-      '[html.light_&]:bg-white/90 [html.light_&]:border-gray-300/70 [html.light_&]:text-gray-900',
-      '[html.light_&]:hover:bg-gray-50/90 [html.light_&]:hover:border-gray-400/70',
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 text-gray-400 [html.light_&]:text-gray-600 transition-transform duration-200" />
+      <ChevronDown className="h-4 w-4 text-muted transition-transform duration-200" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -45,8 +42,7 @@ const SelectScrollUpButton = React.forwardRef<
     ref={ref}
     className={cn(
       'flex cursor-default items-center justify-center py-1 transition-colors',
-      'text-gray-400 hover:text-gray-200',
-      '[html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-800',
+      'text-muted hover:text-foreground',
       className
     )}
     {...props}
@@ -64,8 +60,7 @@ const SelectScrollDownButton = React.forwardRef<
     ref={ref}
     className={cn(
       'flex cursor-default items-center justify-center py-1 transition-colors',
-      'text-gray-400 hover:text-gray-200',
-      '[html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-800',
+      'text-muted hover:text-foreground',
       className
     )}
     {...props}
@@ -84,8 +79,7 @@ const SelectContent = React.forwardRef<
       ref={ref}
       className={cn(
         'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl shadow-2xl',
-        'bg-gray-900/95 border border-gray-700/50 backdrop-blur-md',
-        '[html.light_&]:bg-white/95 [html.light_&]:border-gray-300/70',
+        'bg-card/80 border border-border/20 backdrop-blur-md',
         'data-[state=open]:animate-fade-in',
         position === 'popper' &&
           'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
@@ -118,7 +112,7 @@ const SelectLabel = React.forwardRef<
     ref={ref}
     className={cn(
       'py-1.5 pl-8 pr-2 text-sm font-semibold',
-      'text-gray-300 [html.light_&]:text-gray-700',
+      'text-foreground/85',
       className
     )}
     {...props}
@@ -135,11 +129,8 @@ const SelectItem = React.forwardRef<
     className={cn(
       'relative flex w-full cursor-pointer select-none items-center rounded-lg py-2.5 pl-8 pr-2',
       'text-sm outline-none transition-all duration-150',
-      'text-gray-200 hover:bg-gray-800/80 hover:text-white focus:bg-gray-800/80 focus:text-white',
-      'data-[state=checked]:bg-primary-500/20 data-[state=checked]:text-primary-300',
-      '[html.light_&]:text-gray-800 [html.light_&]:hover:bg-gray-100/80 [html.light_&]:hover:text-gray-900',
-      '[html.light_&]:focus:bg-gray-100/80 [html.light_&]:focus:text-gray-900',
-      '[html.light_&]:data-[state=checked]:bg-primary-500/15 [html.light_&]:data-[state=checked]:text-primary-700',
+      'text-foreground/90 hover:bg-card/55 hover:text-foreground focus:bg-card/55 focus:text-foreground',
+      'data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className
     )}
@@ -147,7 +138,7 @@ const SelectItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4 text-primary-400 [html.light_&]:text-primary-600" />
+        <Check className="h-4 w-4 text-primary" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -163,7 +154,7 @@ const SelectSeparator = React.forwardRef<
     ref={ref}
     className={cn(
       '-mx-1 my-1 h-px',
-      'bg-gray-700/50 [html.light_&]:bg-gray-300/50',
+      'bg-border/12',
       className
     )}
     {...props}

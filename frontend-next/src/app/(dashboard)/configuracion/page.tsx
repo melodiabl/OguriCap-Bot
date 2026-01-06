@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -30,7 +30,11 @@ import {
   HardDrive,
   Clock,
   AlertCircle,
-  Wrench
+  Wrench,
+  Mail,
+  Server,
+  Lock,
+  AtSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, StatCard } from '@/components/ui/Card';
@@ -38,11 +42,12 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import { ProgressRing } from '@/components/ui/Charts';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import { useSystemStats, useBotStatus } from '@/hooks/useRealTime';
 import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useNotifications } from '@/contexts/NotificationContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -79,6 +84,7 @@ export default function ConfiguracionPage() {
   // Bot Global State Context
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
   const { systemStats, refreshAll } = useGlobalUpdate();
+  const { settings: notificationSettings, updateSettings: updateNotificationSettings } = useNotifications();
 
   // Auto-refresh - DISABLED to prevent resource exhaustion
   // useAutoRefresh(refreshAll, { interval: 30000 });
@@ -119,7 +125,7 @@ export default function ConfiguracionPage() {
 
   const [globalOffMessage, setGlobalOffMessage] = useState('El bot está desactivado globalmente por el administrador.');
 
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   useEffect(() => {
     loadConfigurations();
@@ -131,7 +137,7 @@ export default function ConfiguracionPage() {
     if (section) {
       setSelectedConfig(section);
     }
-  }, []); // Only run once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- bootstrap on mount
 
   useEffect(() => {
     if (selectedConfig) {
@@ -797,101 +803,357 @@ export default function ConfiguracionPage() {
     </div>
   );
 
-  const renderNotificationsConfigEditor = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-white">Configuración de Notificaciones</h3>
-      
-      {/* Email */}
-      <div className="glass-card p-4">
-        <h4 className="font-medium text-white mb-4">Email</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="emailEnabled"
-              checked={getConfigValue('email.enabled') || false}
-              onChange={(e) => updateConfigValue('email.enabled', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="emailEnabled" className="text-sm text-gray-300">
-              Habilitar Email
-            </label>
-          </div>
-          
+  const renderNotificationsConfigEditor = () => {
+    const emailEnabled = Boolean(getConfigValue('email.enabled'));
+    const smtpHost = String(getConfigValue('email.smtp.host') || '').trim();
+    const smtpPortValue = getConfigValue('email.smtp.port');
+    const smtpPort = typeof smtpPortValue === 'number' ? String(smtpPortValue) : String(smtpPortValue || '');
+    const smtpSecure = Boolean(getConfigValue('email.smtp.secure'));
+
+    const whatsappEnabled = Boolean(getConfigValue('whatsapp.enabled'));
+    const adminNumbers = (getConfigValue('whatsapp.adminNumbers') || []) as string[];
+
+    const emailBadge =
+      !emailEnabled
+        ? 'badge bg-white/5 text-gray-200 border-white/10'
+        : smtpHost
+          ? 'badge-success'
+          : 'badge-warning';
+
+    const emailBadgeText =
+      !emailEnabled ? 'Desactivado' : smtpHost ? 'SMTP listo' : 'Falta host';
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Host SMTP
-            </label>
-            <input
-              type="text"
-              value={getConfigValue('email.smtp.host') || ''}
-              onChange={(e) => updateConfigValue('email.smtp.host', e.target.value)}
-              className="input-glass"
-              placeholder="smtp.gmail.com"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Puerto SMTP
-            </label>
-            <input
-              type="number"
-              value={getConfigValue('email.smtp.port') || ''}
-              onChange={(e) => updateConfigValue('email.smtp.port', parseInt(e.target.value))}
-              className="input-glass"
-              placeholder="587"
-            />
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="smtpSecure"
-              checked={getConfigValue('email.smtp.secure') || false}
-              onChange={(e) => updateConfigValue('email.smtp.secure', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="smtpSecure" className="text-sm text-gray-300">
-              Conexión Segura
-            </label>
+            <h3 className="text-lg font-semibold text-white">Configuración de Notificaciones</h3>
+            <p className="text-sm text-gray-400 mt-1">Canales de alerta para admins y eventos críticos.</p>
           </div>
         </div>
-      </div>
-      
-      {/* WhatsApp */}
-      <div className="glass-card p-4">
-        <h4 className="font-medium text-white mb-4">WhatsApp</h4>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="whatsappEnabled"
-              checked={getConfigValue('whatsapp.enabled') || false}
-              onChange={(e) => updateConfigValue('whatsapp.enabled', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="whatsappEnabled" className="text-sm text-gray-300">
-              Habilitar WhatsApp
-            </label>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Números de Admin (separados por coma)
-            </label>
-            <input
-              type="text"
-              value={(getConfigValue('whatsapp.adminNumbers') || []).join(', ')}
-              onChange={(e) => updateConfigValue('whatsapp.adminNumbers', e.target.value.split(',').map(n => n.trim()))}
-              className="input-glass"
-              placeholder="1234567890, 0987654321"
-            />
-          </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Email Service */}
+          <Card animated delay={0.1} className="p-6">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-primary-500/20 border border-white/10 shadow-inner-glow">
+                  <Mail className="w-5 h-5 text-cyan-200" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-lg font-semibold text-white leading-tight">Email Service</h4>
+                  <p className="text-sm text-gray-400 mt-1">SMTP para seguridad, sistema y alertas.</p>
+                </div>
+              </div>
+
+              <span className={emailBadge}>
+                <span className={emailEnabled ? 'status-online' : 'status-offline'} />
+                {emailBadgeText}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white">Estado</p>
+                  <p className="text-sm text-gray-400">Activa/desactiva envíos por email.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateConfigValue('email.enabled', !emailEnabled)}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${emailEnabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  aria-pressed={emailEnabled}
+                  aria-label={emailEnabled ? 'Desactivar email' : 'Activar email'}
+                >
+                  <motion.div
+                    animate={{ x: emailEnabled ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!emailEnabled ? 'opacity-60' : ''}`}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Host SMTP</label>
+                  <div className="relative">
+                    <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={(e) => updateConfigValue('email.smtp.host', e.target.value)}
+                      className="input-glass pl-10"
+                      placeholder="smtp.gmail.com"
+                      disabled={!emailEnabled}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Puerto</label>
+                  <div className="relative">
+                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="number"
+                      value={smtpPort}
+                      onChange={(e) =>
+                        updateConfigValue('email.smtp.port', e.target.value === '' ? null : parseInt(e.target.value, 10))
+                      }
+                      className="input-glass pl-10"
+                      placeholder="587"
+                      disabled={!emailEnabled}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={`flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 ${!emailEnabled ? 'opacity-60' : ''}`}>
+                <div className="min-w-0">
+                  <p className="font-semibold text-white flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-gray-400" /> Conexión segura (TLS)
+                  </p>
+                  <p className="text-sm text-gray-400">Recomendado para proveedores SMTP modernos.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateConfigValue('email.smtp.secure', !smtpSecure)}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${smtpSecure ? 'bg-primary-500' : 'bg-gray-600'}`}
+                  aria-pressed={smtpSecure}
+                  aria-label={smtpSecure ? 'Desactivar TLS' : 'Activar TLS'}
+                  disabled={!emailEnabled}
+                >
+                  <motion.div
+                    animate={{ x: smtpSecure ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Tip: para Gmail usá “App Password” y el host `smtp.gmail.com` (puerto `587` con TLS o `465` seguro).
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* WhatsApp */}
+          <Card animated delay={0.2} className="p-6">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-white/10 shadow-inner-glow">
+                  <Bell className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-lg font-semibold text-white leading-tight">WhatsApp</h4>
+                  <p className="text-sm text-gray-400 mt-1">Alertas directas a números administradores.</p>
+                </div>
+              </div>
+
+              <span className={whatsappEnabled ? 'badge-success' : 'badge bg-white/5 text-gray-200 border-white/10'}>
+                <span className={whatsappEnabled ? 'status-online' : 'status-offline'} />
+                {whatsappEnabled ? 'Activo' : 'Desactivado'}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white">Estado</p>
+                  <p className="text-sm text-gray-400">Activa/desactiva envíos por WhatsApp.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateConfigValue('whatsapp.enabled', !whatsappEnabled)}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${whatsappEnabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  aria-pressed={whatsappEnabled}
+                  aria-label={whatsappEnabled ? 'Desactivar WhatsApp' : 'Activar WhatsApp'}
+                >
+                  <motion.div
+                    animate={{ x: whatsappEnabled ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className={whatsappEnabled ? '' : 'opacity-60'}>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Números de admin (separados por coma)
+                </label>
+                <input
+                  type="text"
+                  value={adminNumbers.join(', ')}
+                  onChange={(e) =>
+                    updateConfigValue(
+                      'whatsapp.adminNumbers',
+                      e.target.value
+                        .split(',')
+                        .map((n) => n.trim())
+                        .filter(Boolean)
+                    )
+                  }
+                  className="input-glass"
+                  placeholder="1234567890, 0987654321"
+                  disabled={!whatsappEnabled}
+                />
+              </div>
+            </div>
+          </Card>
         </div>
+
+        {/* Panel Notifications Settings */}
+        <Card animated delay={0.3} className="p-6 mt-6">
+          <div className="flex items-start gap-3 mb-6">
+            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-primary-500/20 to-violet-500/20 border border-white/10 shadow-inner-glow">
+              <Bell className="w-5 h-5 text-primary-200" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-lg font-semibold text-white leading-tight">Notificaciones del Panel</h4>
+              <p className="text-sm text-gray-400 mt-1">Configura qué tipos de notificaciones quieres recibir en el panel.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Enabled Toggle */}
+            <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
+              <div className="min-w-0">
+                <p className="font-semibold text-white">Notificaciones Generales</p>
+                <p className="text-sm text-gray-400">Activa o desactiva todas las notificaciones del panel.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateNotificationSettings({ enabled: !notificationSettings.enabled })}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                aria-pressed={notificationSettings.enabled}
+                aria-label={notificationSettings.enabled ? 'Desactivar notificaciones' : 'Activar notificaciones'}
+              >
+                <motion.div
+                  animate={{ x: notificationSettings.enabled ? 28 : 2 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                />
+              </button>
+            </div>
+
+            {/* Category Toggles */}
+            <div className={`space-y-3 ${!notificationSettings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    Eventos del Bot
+                  </p>
+                  <p className="text-sm text-gray-400">Notificaciones sobre cambios en el estado del bot.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateNotificationSettings({ botEvents: !notificationSettings.botEvents })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.botEvents ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: notificationSettings.botEvents ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-cyan-400" />
+                    Usuarios / Comunidad
+                  </p>
+                  <p className="text-sm text-gray-400">Notificaciones relacionadas con usuarios y comunidad.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateNotificationSettings({ users: !notificationSettings.users })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.users ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: notificationSettings.users ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-violet-400" />
+                    Pedidos / Tareas
+                  </p>
+                  <p className="text-sm text-gray-400">Notificaciones sobre pedidos y tareas programadas.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateNotificationSettings({ tasks: !notificationSettings.tasks })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.tasks ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: notificationSettings.tasks ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    Errores Críticos
+                  </p>
+                  <p className="text-sm text-gray-400">Alertas importantes sobre errores del sistema.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateNotificationSettings({ critical: !notificationSettings.critical })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.critical ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: notificationSettings.critical ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="min-w-0">
+                  <p className="font-medium text-white flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary-400" />
+                    Push Notifications
+                  </p>
+                  <p className="text-sm text-gray-400">Recibe notificaciones incluso cuando el panel esté cerrado.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateNotificationSettings({ push: !notificationSettings.push })}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.push ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  disabled={!notificationSettings.enabled}
+                >
+                  <motion.div
+                    animate={{ x: notificationSettings.push ? 28 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -992,7 +1254,12 @@ export default function ConfiguracionPage() {
             </div>
             <div className="flex items-center justify-center mb-6">
               <motion.div animate={contextGlobalState ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
-                <ProgressRing progress={contextGlobalState ? 100 : 0} size={140} color={contextGlobalState ? '#10b981' : '#ef4444'} label={contextGlobalState ? 'Activo' : 'Inactivo'} />
+                <ProgressRing
+                  progress={contextGlobalState ? 100 : 0}
+                  size={140}
+                  color={contextGlobalState ? 'rgb(var(--success))' : 'rgb(var(--danger))'}
+                  label={contextGlobalState ? 'Activo' : 'Inactivo'}
+                />
               </motion.div>
             </div>
             <div className="space-y-4">

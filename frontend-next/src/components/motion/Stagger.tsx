@@ -40,18 +40,16 @@ export function StaggerItem({ className, children, ...props }: StaggerItemProps)
         reduceMotion
           ? undefined
           : {
-              hidden: { opacity: 0, y: 14, scale: 0.99, filter: 'blur(8px)' },
-              show: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' },
+              hidden: { opacity: 0, y: 14, scale: 0.99 },
+              show: { opacity: 1, y: 0, scale: 1 },
             }
       }
       transition={
         reduceMotion
           ? undefined
           : {
-              opacity: { duration: 0.18, ease: 'easeOut' },
-              filter: { duration: 0.22, ease: 'easeOut' },
-              y: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
-              scale: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
+              duration: 0.34,
+              ease: [0.16, 1, 0.3, 1],
             }
       }
       {...props}
@@ -60,4 +58,3 @@ export function StaggerItem({ className, children, ...props }: StaggerItemProps)
     </motion.div>
   );
 }
-

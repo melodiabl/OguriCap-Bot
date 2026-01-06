@@ -1,295 +1,322 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useSocket } from './SocketContext';
+import React from 'react';
+import { useSocketConnection } from './SocketContext';
 import { useBotGlobalState } from './BotGlobalStateContext';
 import api from '@/services/api';
 
 interface GlobalUpdateContextType {
-  // Estados globales
   dashboardStats: any;
   botStatus: any;
   systemStats: any;
   notifications: any[];
-  
-  // Funciones de actualización
+
   refreshAll: () => Promise<void>;
   refreshDashboard: () => Promise<any>;
   refreshBotStatus: () => Promise<any>;
   refreshSystemStats: () => Promise<any>;
   refreshNotifications: () => Promise<any>;
-  
-  // Estados de carga
+
   isRefreshing: boolean;
   lastUpdate: Date | null;
 }
 
-const GlobalUpdateContext = createContext<GlobalUpdateContextType | undefined>(undefined);
+const GlobalUpdateContext = React.createContext<GlobalUpdateContextType | undefined>(undefined);
 
-export const GlobalUpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
-  const [botStatus, setBotStatus] = useState<any>(null);
-  const [systemStats, setSystemStats] = useState<any>(null);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+function emitGlobalDataUpdated() {
+  window.dispatchEvent(
+    new CustomEvent('globalDataUpdated', {
+      detail: { timestamp: Date.now() },
+    })
+  );
+}
 
-  const { socket, isConnected } = useSocket();
+export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [dashboardStats, setDashboardStats] = React.useState<any>(null);
+  const [botStatus, setBotStatus] = React.useState<any>(null);
+  const [systemStats, setSystemStats] = React.useState<any>(null);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [lastUpdate, setLastUpdate] = React.useState<Date | null>(null);
+
+  const { socket, isConnected } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
 
-  // Función para actualizar estadísticas del dashboard
-  const refreshDashboard = async () => {
+  const refreshDashboard = React.useCallback(async () => {
     try {
       const stats = await api.getStats();
       setDashboardStats(stats);
       return stats;
     } catch (error) {
-      console.error('Error refreshing dashboard stats:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error refreshing dashboard stats:', error);
+      }
       return null;
     }
-  };
+  }, []);
 
-  // Función para actualizar estado del bot
-  const refreshBotStatus = async () => {
+  const refreshBotStatus = React.useCallback(async () => {
     try {
       const status = await api.getMainBotStatus();
       setBotStatus(status);
       return status;
     } catch (error) {
-      console.error('Error refreshing bot status:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error refreshing bot status:', error);
+      }
       return null;
     }
-  };
+  }, []);
 
-  // Función para actualizar estadísticas del sistema
-  const refreshSystemStats = async () => {
+  const refreshSystemStats = React.useCallback(async () => {
     try {
       const stats = await api.getSystemStats();
       setSystemStats(stats);
       return stats;
     } catch (error) {
-      console.error('Error refreshing system stats:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error refreshing system stats:', error);
+      }
       return null;
     }
-  };
+  }, []);
 
-  // Función para actualizar notificaciones
-  const refreshNotifications = async () => {
+  const refreshNotifications = React.useCallback(async () => {
     try {
       const response = await api.getNotificaciones(1, 10);
       setNotifications(response?.notificaciones || []);
       return response;
     } catch (error) {
-      console.error('Error refreshing notifications:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error refreshing notifications:', error);
+      }
       return null;
     }
-  };
-
-  // Función para actualizar todo
-  const refreshAll = async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        refreshDashboard(),
-        refreshBotStatus(),
-        refreshSystemStats(),
-        refreshNotifications()
-      ]);
-      setLastUpdate(new Date());
-      
-      // Emitir evento personalizado para que otros componentes se actualicen
-      window.dispatchEvent(new CustomEvent('globalDataUpdated', {
-        detail: { timestamp: new Date() }
-      }));
-      
-    } catch (error) {
-      console.error('Error in refreshAll:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  // Auto-refresh inicial
-  useEffect(() => {
-    console.log('🚀 GlobalUpdateContext initialized');
-    refreshAll();
   }, []);
 
-  // Auto-refresh cuando cambia el estado global del bot
-  useEffect(() => {
-    refreshAll();
-  }, [isGloballyOn]);
+  // Cola simple para evitar overlap de refreshAll (crítico en móvil)
+  const inFlightRef = React.useRef(false);
+  const pendingRef = React.useRef(false);
 
-  // Auto-refresh cuando se reconecta el socket
-  useEffect(() => {
-    if (isConnected) {
-      refreshAll();
+  const refreshAll = React.useCallback(async () => {
+    if (inFlightRef.current) {
+      pendingRef.current = true;
+      return;
     }
-  }, [isConnected]);
 
-  // Escuchar eventos de Socket.IO para actualizaciones en tiempo real
-  useEffect(() => {
+    inFlightRef.current = true;
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([refreshDashboard(), refreshBotStatus(), refreshSystemStats(), refreshNotifications()]);
+      setLastUpdate(new Date());
+      emitGlobalDataUpdated();
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error in refreshAll:', error);
+      }
+    } finally {
+      setIsRefreshing(false);
+      inFlightRef.current = false;
+
+      if (pendingRef.current) {
+        pendingRef.current = false;
+        queueMicrotask(() => refreshAll());
+      }
+    }
+  }, [refreshBotStatus, refreshDashboard, refreshNotifications, refreshSystemStats]);
+
+  // Inicial: 1 refresh fuerte
+  React.useEffect(() => {
+    refreshAll();
+  }, [refreshAll]);
+
+  // Estado global del bot: refrescar (pero sin polling duplicado)
+  React.useEffect(() => {
+    refreshAll();
+  }, [isGloballyOn, refreshAll]);
+
+  // Socket reconnect: refrescar
+  React.useEffect(() => {
+    if (!isConnected) return;
+    refreshAll();
+  }, [isConnected, refreshAll]);
+
+  // Realtime: listeners con throttling + updates parciales (no full refresh por evento)
+  React.useEffect(() => {
     if (!socket) return;
 
-    // Variables para almacenar el último estado conocido
-    let lastKnownBotStatus: any = null;
-    let lastKnownStats: any = null;
-    let lastKnownNotificationId: string | null = null;
-    let lastKnownLogId: string | null = null;
-    let lastGroupUpdateTime = 0;
-    let lastSubbotUpdateTime = 0;
+    const scheduledFullRef = { id: 0 as any };
+    const scheduleFullRefresh = (delayMs = 650) => {
+      if (scheduledFullRef.id) window.clearTimeout(scheduledFullRef.id);
+      scheduledFullRef.id = window.setTimeout(() => refreshAll(), delayMs);
+    };
 
-    const handleBotStatusChange = (data: any) => {
-      console.log('🤖 Bot status changed via Socket.IO:', data);
-      
-      // Solo actualizar si hay cambios reales en el estado
-      const hasChanges = !lastKnownBotStatus || 
-        lastKnownBotStatus.connected !== data.connected ||
-        lastKnownBotStatus.status !== data.status ||
-        lastKnownBotStatus.phone !== data.phone ||
-        lastKnownBotStatus.qrCode !== data.qrCode;
-      
-      if (hasChanges) {
-        lastKnownBotStatus = { ...data };
-        setBotStatus(prev => ({ ...prev, ...data }));
-        setLastUpdate(new Date());
-      }
+    const lastBotRef = { v: null as any };
+    const lastNotificationIdRef = { v: null as string | null };
+    const lastLogIdRef = { v: null as string | null };
+    const lastGroupRefreshAtRef = { v: 0 };
+    const lastSubbotRefreshAtRef = { v: 0 };
+
+    let raf = 0;
+    let pendingStats: any = null;
+
+    const flushStats = () => {
+      if (!pendingStats) return;
+      const next = pendingStats;
+      pendingStats = null;
+      setDashboardStats((prev: any) => ({ ...(prev || {}), ...(next as any) }));
+      setLastUpdate(new Date());
+      emitGlobalDataUpdated();
     };
 
     const handleStatsUpdate = (data: any) => {
-      console.log('📊 Stats updated via Socket.IO:', data);
-      
-      // Solo actualizar si hay cambios significativos en las estadísticas
-      const hasChanges = !lastKnownStats ||
-        JSON.stringify(lastKnownStats) !== JSON.stringify(data);
-      
-      if (hasChanges) {
-        lastKnownStats = { ...data };
-        setDashboardStats(prev => ({ ...prev, ...data }));
-        setLastUpdate(new Date());
+      if (!data || typeof data !== 'object') return;
+      pendingStats = { ...(pendingStats || {}), ...(data as any) };
+      if (!raf) {
+        raf = window.requestAnimationFrame(() => {
+          raf = 0;
+          flushStats();
+        });
       }
+    };
+
+    const handleBotStatusChange = (data: any) => {
+      if (!data || typeof data !== 'object') return;
+      const prev = lastBotRef.v;
+      const hasChanges =
+        !prev ||
+        prev.connected !== data.connected ||
+        prev.isConnected !== data.isConnected ||
+        prev.connecting !== data.connecting ||
+        prev.status !== data.status ||
+        prev.phone !== data.phone ||
+        prev.qrCode !== data.qrCode ||
+        prev.pairingCode !== data.pairingCode;
+
+      if (!hasChanges) return;
+
+      lastBotRef.v = { ...(data as any) };
+      setBotStatus((p: any) => ({ ...(p || {}), ...(data as any) }));
+      setLastUpdate(new Date());
+      emitGlobalDataUpdated();
     };
 
     const handleNotificationUpdate = (data: any) => {
-      console.log('🔔 New notification via Socket.IO:', data);
-      
-      // Solo agregar si es una notificación nueva
-      if (data && data.id && data.id !== lastKnownNotificationId) {
-        lastKnownNotificationId = data.id;
-        setNotifications(prev => [data, ...prev.slice(0, 9)]);
-        setLastUpdate(new Date());
-      }
+      const id = String((data as any)?.id || '').trim();
+      if (!id) return;
+      if (id === lastNotificationIdRef.v) return;
+      lastNotificationIdRef.v = id;
+      setNotifications((prev) => [data, ...prev.slice(0, 9)]);
+      setLastUpdate(new Date());
+      emitGlobalDataUpdated();
     };
 
-    const handleGlobalStateChange = (data: any) => {
-      console.log('🌐 Global state changed via Socket.IO:', data);
-      // Actualizar todo cuando cambie el estado global (esto es importante)
-      setTimeout(() => {
-        refreshAll();
-      }, 500);
+    const handleGlobalStateChange = () => {
+      // Cambio global: refresco fuerte, pero debounce para evitar tormenta
+      scheduleFullRefresh(500);
     };
 
-    const handleGroupUpdate = (data: any) => {
-      console.log('👥 Group updated via Socket.IO:', data);
-      
-      // Throttle más inteligente: Solo actualizar si han pasado al menos 5 segundos
+    const handleGroupUpdate = () => {
       const now = Date.now();
-      if (now - lastGroupUpdateTime > 5000) {
-        lastGroupUpdateTime = now;
-        refreshDashboard();
-      }
+      if (now - lastGroupRefreshAtRef.v < 5_000) return;
+      lastGroupRefreshAtRef.v = now;
+      // Dashboard suele reflejar recuentos relevantes
+      refreshDashboard();
+      setLastUpdate(new Date());
     };
 
-    const handleSubbotUpdate = (data: any) => {
-      console.log('⚡ Subbot updated via Socket.IO:', data);
-      
-      // Throttle más inteligente: Solo actualizar si han pasado al menos 5 segundos
+    const handleSubbotUpdate = () => {
       const now = Date.now();
-      if (now - lastSubbotUpdateTime > 5000) {
-        lastSubbotUpdateTime = now;
-        refreshDashboard();
-      }
+      if (now - lastSubbotRefreshAtRef.v < 5_000) return;
+      lastSubbotRefreshAtRef.v = now;
+      refreshDashboard();
+      setLastUpdate(new Date());
     };
 
     const handleLogEntry = (data: any) => {
-      console.log('📝 New log entry via Socket.IO:', data);
-      
-      // Solo actualizar si es realmente un log nuevo con ID diferente
-      if (data && data.id && data.id !== lastKnownLogId) {
-        lastKnownLogId = data.id;
-        // No actualizar dashboard por cada log, solo emitir evento personalizado
-        window.dispatchEvent(new CustomEvent('newLogEntry', {
-          detail: { log: data, timestamp: new Date() }
-        }));
-      }
+      const id = String((data as any)?.id || '').trim();
+      if (!id) return;
+      if (id === lastLogIdRef.v) return;
+      lastLogIdRef.v = id;
+      window.dispatchEvent(
+        new CustomEvent('newLogEntry', {
+          detail: { log: data, timestamp: Date.now() },
+        })
+      );
     };
 
-    // Registrar listeners para eventos en tiempo real
     socket.on('bot:statusChanged', handleBotStatusChange);
     socket.on('bot:connected', handleBotStatusChange);
     socket.on('bot:disconnected', handleBotStatusChange);
     socket.on('bot:globalStateChanged', handleGlobalStateChange);
+
     socket.on('stats:updated', handleStatsUpdate);
     socket.on('stats:update', handleStatsUpdate);
+
     socket.on('notification:created', handleNotificationUpdate);
+
     socket.on('group:updated', handleGroupUpdate);
+
     socket.on('subbot:created', handleSubbotUpdate);
     socket.on('subbot:connected', handleSubbotUpdate);
     socket.on('subbot:disconnected', handleSubbotUpdate);
     socket.on('subbot:deleted', handleSubbotUpdate);
+
     socket.on('log:entry', handleLogEntry);
 
     return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      if (scheduledFullRef.id) window.clearTimeout(scheduledFullRef.id);
+
       socket.off('bot:statusChanged', handleBotStatusChange);
       socket.off('bot:connected', handleBotStatusChange);
       socket.off('bot:disconnected', handleBotStatusChange);
       socket.off('bot:globalStateChanged', handleGlobalStateChange);
+
       socket.off('stats:updated', handleStatsUpdate);
       socket.off('stats:update', handleStatsUpdate);
+
       socket.off('notification:created', handleNotificationUpdate);
+
       socket.off('group:updated', handleGroupUpdate);
+
       socket.off('subbot:created', handleSubbotUpdate);
       socket.off('subbot:connected', handleSubbotUpdate);
       socket.off('subbot:disconnected', handleSubbotUpdate);
       socket.off('subbot:deleted', handleSubbotUpdate);
+
       socket.off('log:entry', handleLogEntry);
     };
-  }, [socket]);
+  }, [socket, refreshAll, refreshDashboard]);
 
-  // Auto-refresh periódico (solo como respaldo, intervalos más largos)
-  useEffect(() => {
-    // Solo hacer polling si no hay conexión Socket.IO
-    if (isConnected) return; // Si hay Socket.IO, no hacer polling
-    
+  // Fallback: focus/online solo si NO hay Socket.IO
+  React.useEffect(() => {
+    if (isConnected) return;
+
     const onFocus = () => {
-      if (!isRefreshing) refreshAll();
+      if (document.visibilityState !== 'visible') return;
+      refreshAll();
     };
-
     const onOnline = () => {
-      if (!isRefreshing) refreshAll();
+      if (document.visibilityState !== 'visible') return;
+      refreshAll();
     };
 
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
-
     return () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
     };
-  }, [isRefreshing, isConnected]);
+  }, [isConnected, refreshAll]);
 
-  // Escuchar eventos personalizados del navegador
-  useEffect(() => {
-    const handleCustomUpdate = () => {
-      refreshAll();
-    };
-
+  // Evento manual: forzar refresh
+  React.useEffect(() => {
+    const handleCustomUpdate = () => refreshAll();
     window.addEventListener('forceGlobalUpdate', handleCustomUpdate);
-    
-    return () => {
-      window.removeEventListener('forceGlobalUpdate', handleCustomUpdate);
-    };
-  }, []);
+    return () => window.removeEventListener('forceGlobalUpdate', handleCustomUpdate);
+  }, [refreshAll]);
 
   return (
     <GlobalUpdateContext.Provider
@@ -313,9 +340,7 @@ export const GlobalUpdateProvider: React.FC<{ children: ReactNode }> = ({ childr
 };
 
 export const useGlobalUpdate = () => {
-  const context = useContext(GlobalUpdateContext);
-  if (!context) {
-    throw new Error('useGlobalUpdate must be used within a GlobalUpdateProvider');
-  }
+  const context = React.useContext(GlobalUpdateContext);
+  if (!context) throw new Error('useGlobalUpdate must be used within a GlobalUpdateProvider');
   return context;
 };

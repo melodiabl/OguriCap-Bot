@@ -6,11 +6,18 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'class',
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
+        background: 'rgb(var(--bg) / <alpha-value>)',
+        card: 'rgb(var(--card) / <alpha-value>)',
+        border: 'rgb(var(--border) / <alpha-value>)',
+        foreground: 'rgb(var(--text) / <alpha-value>)',
+        muted: 'rgb(var(--muted) / <alpha-value>)',
+
         primary: {
+          DEFAULT: 'rgb(var(--primary) / <alpha-value>)',
           50: '#eef2ff',
           100: '#e0e7ff',
           200: '#c7d2fe',
@@ -23,6 +30,7 @@ const config: Config = {
           900: '#312e81',
           950: '#1e1b4b',
         },
+        secondary: 'rgb(var(--secondary) / <alpha-value>)',
         dark: {
           50: '#f8fafc',
           100: '#f1f5f9',
@@ -37,12 +45,16 @@ const config: Config = {
           950: '#020617',
         },
         accent: {
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
           cyan: '#06b6d4',
           emerald: '#10b981',
           violet: '#8b5cf6',
           rose: '#f43f5e',
           amber: '#f59e0b',
         },
+        success: 'rgb(var(--success) / <alpha-value>)',
+        warning: 'rgb(var(--warning) / <alpha-value>)',
+        danger: 'rgb(var(--danger) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

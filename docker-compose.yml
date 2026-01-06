@@ -16,7 +16,8 @@ services:
     depends_on:
       - whatsapp-bot
       - admin-panel
-    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
 
   # ============================================
   # Certbot
@@ -29,7 +30,8 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;"
 
   # ============================================
   # WhatsApp Bot (Backend)
@@ -42,7 +44,7 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-    network_mode: host # <-- Ya lo tenías
+    network_mode: host
     env_file:
       - .env
     environment:
@@ -54,7 +56,7 @@ services:
       - ./tmp:/app/tmp
       - ./.monitoring:/app/.monitoring
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -68,15 +70,15 @@ services:
       context: ./frontend-next
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
+        - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
     container_name: admin-panel
     restart: unless-stopped
-    network_mode: host # <-- Activado
+    network_mode: host
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
+      - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000"]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -84,3 +86,5 @@ services:
 
 volumes:
   nginx-logs:
+
+

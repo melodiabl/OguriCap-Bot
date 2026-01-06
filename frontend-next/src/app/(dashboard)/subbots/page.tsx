@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
@@ -54,7 +54,7 @@ export default function SubbotsPage() {
   const [currentPairingCode, setCurrentPairingCode] = useState<string | null>(null);
   const [currentPairingSubbot, setCurrentPairingSubbot] = useState<string | null>(null);
 
-  const { isConnected: isSocketConnected, socket } = useSocket();
+  const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
   const { user } = useAuth();
   const canDeleteSubbots = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
@@ -158,7 +158,7 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket, subbots]);
+  }, [socket, subbots, loadSubbots]);
 
   const normalizeSubbot = (raw: any): Subbot => {
     const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
@@ -306,24 +306,26 @@ export default function SubbotsPage() {
     toast.success('Copiado al portapapeles');
   };
 
-  const getStatusColor = (status: string, isOnline: boolean) => {
+  const getStatusColor = (subbot: Subbot) => {
     // Si el bot está globalmente desactivado, mostrar como deshabilitado
     if (!isGloballyOn) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     
-    if (isOnline) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-    if (status === 'activo') return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-    if (status === 'error') return 'bg-red-500/20 text-red-400 border-red-500/30';
+    if (subbot.isOnline) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+    const isPending = Boolean(subbot.qr_data || subbot.pairingCode);
+    if (isPending) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+    if (subbot.status === 'error') return 'bg-red-500/20 text-red-400 border-red-500/30';
     return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   };
 
-  const getStatusText = (status: string, isOnline: boolean) => {
+  const getStatusText = (subbot: Subbot) => {
     // Si el bot está globalmente desactivado, mostrar estado global
     if (!isGloballyOn) return 'Bot Desactivado';
     
-    if (isOnline) return 'Conectado';
-    if (status === 'activo') return 'Activo';
-    if (status === 'inactivo') return 'Inactivo';
-    if (status === 'error') return 'Error';
+    if (subbot.isOnline) return 'Conectado';
+    const isPending = Boolean(subbot.qr_data || subbot.pairingCode);
+    if (isPending) return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
+    if (subbot.status === 'inactivo') return 'Inactivo';
+    if (subbot.status === 'error') return 'Error';
     return 'Desconectado';
   };
 
@@ -394,7 +396,7 @@ export default function SubbotsPage() {
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard
             title="Esperando"
-            value={subbots.filter(s => !s.isOnline && s.status === 'activo').length}
+            value={subbots.filter(s => !s.isOnline && (s.qr_data || s.pairingCode)).length}
             subtitle="Por conectar"
             icon={<Clock className="w-6 h-6" />}
             color="warning"
@@ -469,8 +471,8 @@ export default function SubbotsPage() {
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                       {subbot.isOnline ? <Wifi className="w-5 h-5 text-emerald-400" /> : <WifiOff className="w-5 h-5 text-gray-500" />}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(subbot.status, subbot.isOnline || false)}`}>
-                        {getStatusText(subbot.status, subbot.isOnline || false)}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(subbot)}`}>
+                        {getStatusText(subbot)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

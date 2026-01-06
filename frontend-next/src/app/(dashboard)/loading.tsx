@@ -18,7 +18,7 @@ export default function DashboardLoading() {
         {Array.from({ length: 4 }).map((_, idx) => (
           <div
             key={idx}
-            className="p-6 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 backdrop-blur-sm"
+            className="ultra-card p-6"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="skeleton h-4 w-24 rounded" />
@@ -31,7 +31,7 @@ export default function DashboardLoading() {
       </div>
 
       {/* Table */}
-      <div className="glass-card overflow-hidden">
+      <div className="ultra-card overflow-hidden">
         <div className="p-6 border-b border-white/10">
           <div className="skeleton h-5 w-40 rounded mb-2" />
           <div className="skeleton h-4 w-56 rounded" />
@@ -50,4 +50,3 @@ export default function DashboardLoading() {
     </div>
   );
 }
-

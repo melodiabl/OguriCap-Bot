@@ -36,16 +36,21 @@ import {
   Bell
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
+import { Progress } from '@/components/ui/Progress';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
-import { SOCKET_EVENTS, useSocket } from '@/contexts/SocketContext';
+import { SOCKET_EVENTS, useSocketConnection } from '@/contexts/SocketContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 
 interface LogEntry {
   timestamp: string;
@@ -133,26 +138,6 @@ const LOG_CATEGORIES = [
   'terminal', 'mensaje', 'comando', 'evento', 'grupo', 'subbot', 'pedido', 'aporte', 'notificacion'
 ];
 
-// Componentes UI simples
-const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode, variant?: string, className?: string }) => (
-  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' : 
-    variant === 'destructive' ? 'bg-red-100 text-red-800' : 
-    'bg-blue-100 text-blue-800'
-  } ${className}`}>
-    {children}
-  </span>
-);
-
-const Progress = ({ value = 0, className = '' }: { value?: number, className?: string }) => (
-  <div className={`w-full bg-gray-200 rounded-full h-2.5 ${className}`}>
-    <div 
-      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-      style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
-    />
-  </div>
-);
-
 export default function LogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [stats, setStats] = useState<LogStats | null>(null);
@@ -161,7 +146,7 @@ export default function LogsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState('logs');
+  const [activeTab, setActiveTab] = useState<'logs' | 'system'>('logs');
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
@@ -175,7 +160,7 @@ export default function LogsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
   const { user } = useAuth();
   const canControl = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
   const reduceMotion = useReducedMotion();
@@ -233,7 +218,7 @@ export default function LogsPage() {
     loadLogs();
     loadStats();
     loadSystemData();
-  }, []); // Only run once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- bootstrap on mount
 
   // Load logs when filters change (with debouncing)
   useEffect(() => {
@@ -242,7 +227,7 @@ export default function LogsPage() {
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, selectedLevel, selectedCategory, startDate, endDate, currentPage]);
+  }, [searchQuery, selectedLevel, selectedCategory, startDate, endDate, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps -- debounced filters
 
   // Auto-refresh cada 30 segundos - DISABLED to prevent resource exhaustion
   // useAutoRefresh(() => {
@@ -378,7 +363,7 @@ export default function LogsPage() {
       setLogs(list.map(normalizeLogEntry));
     } catch (error) {
       console.error('Error loading logs:', error);
-      toast.error('Error cargando logs');
+      notify.error('Error cargando logs');
     } finally {
       setIsLoading(false);
     }
@@ -396,9 +381,9 @@ export default function LogsPage() {
   const exportLogs = async (format: string) => {
     try {
       await api.exportLogs();
-      toast.success('Logs exportados');
+      notify.success('Logs exportados');
     } catch (error) {
-      toast.error('Error exportando logs');
+      notify.error('Error exportando logs');
     }
   };
 
@@ -411,9 +396,9 @@ export default function LogsPage() {
       await api.clearLogs();
       setLogs([]);
       loadStats();
-      toast.success('Logs limpiados');
+      notify.success('Logs limpiados');
     } catch (error) {
-      toast.error('Error limpiando logs');
+      notify.error('Error limpiando logs');
     }
   };
 
@@ -430,7 +415,7 @@ export default function LogsPage() {
   const copyLogToClipboard = (log: LogEntry) => {
     const logText = JSON.stringify(log, null, 2);
     navigator.clipboard.writeText(logText);
-    toast.success('Log copiado al portapapeles');
+    notify.success('Log copiado al portapapeles');
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -480,7 +465,7 @@ export default function LogsPage() {
   const generateReport = async (type: string) => {
     try {
       if (!canControl) {
-        toast.error('Permisos insuficientes');
+        notify.error('Permisos insuficientes');
         return;
       }
       await api.createBackup({
@@ -491,10 +476,10 @@ export default function LogsPage() {
         description: `Reporte ${type}`,
       });
       await loadSystemData(); // Recargar datos
-      toast.success('Reporte generado');
+      notify.success('Reporte generado');
     } catch (error) {
       console.error('Error generando reporte:', error);
-      toast.error((error as any)?.response?.data?.error || 'Error generando reporte');
+      notify.error((error as any)?.response?.data?.error || 'Error generando reporte');
     }
   };
 
@@ -513,14 +498,14 @@ export default function LogsPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error descargando reporte:', error);
-      toast.error('Error descargando reporte');
+      notify.error('Error descargando reporte');
     }
   };
 
   const restartSystem = async (systemName: string) => {
     try {
       if (!canControl) {
-        toast.error('Permisos insuficientes');
+        notify.error('Permisos insuficientes');
         return;
       }
       const response = await fetch(`/api/system/${systemName}/restart`, {
@@ -531,14 +516,14 @@ export default function LogsPage() {
       if (response.ok) {
         await loadSystemData(); // Recargar datos
         const data = await response.json().catch(() => ({}));
-        toast.success(data?.message || `Sistema ${systemName} reiniciado`);
+        notify.success(data?.message || `Sistema ${systemName} reiniciado`);
       } else {
         const data = await response.json().catch(() => ({}));
-        toast.error(data?.error || `No se pudo reiniciar ${systemName}`);
+        notify.error(data?.error || `No se pudo reiniciar ${systemName}`);
       }
     } catch (error) {
       console.error('Error reiniciando sistema:', error);
-      toast.error('Error reiniciando sistema');
+      notify.error('Error reiniciando sistema');
     }
   };
 
@@ -556,15 +541,54 @@ export default function LogsPage() {
   };
 
   const logItemVariants = {
-    hidden: reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.99, filter: 'blur(10px)' },
-    show: reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' },
-    exit: reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.99, filter: 'blur(10px)' },
+    hidden: reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.99 },
+    show: reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 },
+    exit: reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.99 },
   };
 
   if (isLoading && logs.length === 0 && !systemMetrics) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
+      <div className="space-y-6">
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between gap-4">
+            <Skeleton className="h-7 w-56 rounded" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-36 rounded-xl" />
+              <Skeleton className="h-10 w-28 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card-stat">
+              <div className="flex items-center justify-between mb-4">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-10 w-10 rounded-xl" />
+              </div>
+              <Skeleton className="h-8 w-20 rounded mb-2" />
+              <Skeleton className="h-3 w-28 rounded" />
+            </div>
+          ))}
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <Skeleton className="h-5 w-44 rounded" />
+            <Skeleton className="h-10 w-28 rounded-xl" />
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white/5">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <div className="flex-1">
+                  <Skeleton className="h-4 w-2/3 rounded mb-2" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -574,7 +598,7 @@ export default function LogsPage() {
       {/* Header */}
       <PageHeader
         title="Logs & Sistema"
-        description="Gesti?n de logs y monitoreo del sistema"
+        description="Gestión de logs y monitoreo del sistema"
         icon={<FileText className="w-6 h-6 text-primary-400" />}
         actions={
           <>
@@ -608,46 +632,26 @@ export default function LogsPage() {
 
       {/* Tabs */}
       <Reveal>
-        <div className="relative flex space-x-1 bg-gray-800/70 border border-white/10 p-1 rounded-xl overflow-hidden">
-          <motion.div
-            className="absolute inset-y-1 rounded-lg bg-gradient-to-r from-primary-500 to-violet-600 shadow-glow"
-            initial={false}
-            animate={{ x: activeTab === 'logs' ? '0%' : '100%' }}
-            transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
-            style={{ width: 'calc(50% - 4px)' }}
-          />
-
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={
-              'relative z-10 flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-colors ' +
-              (activeTab === 'logs' ? 'text-white' : 'text-gray-300 hover:text-white')
-            }
-          >
-            <FileText className="w-4 h-4 inline mr-2" />
-            Logs del Sistema
-          </button>
-          <button
-            onClick={() => setActiveTab('system')}
-            className={
-              'relative z-10 flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-colors ' +
-              (activeTab === 'system' ? 'text-white' : 'text-gray-300 hover:text-white')
-            }
-          >
-            <Activity className="w-4 h-4 inline mr-2" />
-            Monitoreo del Sistema
-          </button>
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="border-b-0">
+            <TabsTrigger value="logs" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Logs del Sistema
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              Monitoreo del Sistema
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </Reveal>
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
-              <span>{error}</span>
-            </div>
-          </CardContent>
+        <Card className="p-4 border border-red-500/20 bg-red-500/10">
+          <div className="flex items-center gap-2 text-red-300">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <span className="text-sm">{error}</span>
+          </div>
         </Card>
       )}
 
@@ -683,122 +687,57 @@ export default function LogsPage() {
             </Button>
           </div>
 
-          {/* Estad?sticas de Logs */}
+          {/* Estadísticas de Logs */}
           {stats && (
-            <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" delay={0.08} stagger={0.07}>
+            <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" delay={0.08} stagger={0.07}>
               <StaggerItem>
-                <div className="glass-card p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 rounded-lg bg-blue-500/20">
-                      <FileText className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Total Logs</p>
-                      <p className="text-xl font-bold text-white">{stats.totalLogs.toLocaleString()}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-red-400">Errores</span>
-                      <span className="text-white">{stats.errorCount}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-yellow-400">Warnings</span>
-                      <span className="text-white">{stats.warnCount}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-blue-400">Info</span>
-                      <span className="text-white">{stats.infoCount}</span>
-                    </div>
-                  </div>
-                </div>
+                <StatCard
+                  title="Total Logs"
+                  value={stats.totalLogs}
+                  subtitle={`${stats.errorCount} errores • ${stats.warnCount} warnings`}
+                  icon={<FileText className="w-6 h-6" />}
+                  color="primary"
+                  delay={0}
+                  loading={false}
+                  animated
+                />
               </StaggerItem>
-
               <StaggerItem>
-                <div className="glass-card p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 rounded-lg bg-green-500/20">
-                      <HardDrive className="w-5 h-5 text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Almacenamiento</p>
-                      <p className="text-xl font-bold text-white">{stats.diskUsage.formattedSize}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Archivos</span>
-                      <span className="text-white">{stats.diskUsage.fileCount}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Rotados</span>
-                      <span className="text-white">{stats.filesRotated}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Comprimidos</span>
-                      <span className="text-white">{stats.filesCompressed}</span>
-                    </div>
-                  </div>
-                </div>
+                <StatCard
+                  title="Errores"
+                  value={stats.errorCount}
+                  subtitle="Últimas 24h"
+                  icon={<XCircle className="w-6 h-6" />}
+                  color="danger"
+                  delay={0.05}
+                  loading={false}
+                  animated
+                  active={stats.errorCount > 0}
+                />
               </StaggerItem>
-
               <StaggerItem>
-                <div className="glass-card p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 rounded-lg bg-purple-500/20">
-                      <Clock className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Tiempo Activo</p>
-                      <p className="text-xl font-bold text-white">{formatUptime(stats.uptime)}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Buffer</span>
-                      <span className="text-white">{stats.bufferSize}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Streams</span>
-                      <span className="text-white">{stats.activeStreams}</span>
-                    </div>
-                    {stats.lastLogTime && (
-                      <div className="text-xs text-gray-500">?ltimo: {formatTimestamp(stats.lastLogTime)}</div>
-                    )}
-                  </div>
-                </div>
+                <StatCard
+                  title="Disco (logs)"
+                  value={stats.diskUsage.formattedSize}
+                  subtitle={`${stats.diskUsage.fileCount} archivos`}
+                  icon={<HardDrive className="w-6 h-6" />}
+                  color="success"
+                  delay={0.1}
+                  loading={false}
+                  animated
+                />
               </StaggerItem>
-
               <StaggerItem>
-                <div className="glass-card p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 rounded-lg bg-yellow-500/20">
-                      <Database className="w-5 h-5 text-yellow-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Estado</p>
-                      <p className="text-xl font-bold text-white">Activo</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-green-400" />
-                      <span className="text-sm text-gray-400">Logging habilitado</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-400" />
-                      <span className="text-sm text-gray-400">Rotaci?n autom?tica</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-purple-400" />
-                      <span className="text-sm text-gray-400">Compresi?n activa</span>
-                    </div>
-                  </div>
-                </div>
+                <StatCard
+                  title="Uptime"
+                  value={formatUptime(stats.uptime)}
+                  subtitle={stats.lastLogTime ? `Último: ${formatTimestamp(stats.lastLogTime)}` : undefined}
+                  icon={<Clock className="w-6 h-6" />}
+                  color="info"
+                  delay={0.15}
+                  loading={false}
+                  animated
+                />
               </StaggerItem>
             </Stagger>
           )}
@@ -916,9 +855,12 @@ export default function LogsPage() {
             <motion.div variants={logsListVariants} initial="hidden" animate="show" className="divide-y divide-white/5">
               <AnimatePresence mode="popLayout" initial={false}>
                 {logs.length === 0 ? (
-                  <motion.div key="empty" variants={logItemVariants} exit="exit" className="p-8 text-center">
-                    <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                    <p className="text-gray-400">No se encontraron logs</p>
+                  <motion.div key="empty" variants={logItemVariants} exit="exit" className="p-6">
+                    <EmptyState
+                      title="No se encontraron logs"
+                      description="Probá ajustando filtros o refrescando."
+                      icon={<FileText className="w-6 h-6 text-primary-400" />}
+                    />
                   </motion.div>
                 ) : (
                   logs.map((log, index) => {
@@ -937,7 +879,6 @@ export default function LogsPage() {
                             ? { duration: 0 }
                             : {
                                 opacity: { duration: 0.18, ease: 'easeOut' },
-                                filter: { duration: 0.22, ease: 'easeOut' },
                                 y: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
                                 scale: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
                               }
@@ -1047,14 +988,14 @@ export default function LogsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">CPU</CardTitle>
-                <Cpu className="h-4 w-4 text-muted-foreground" />
+                <Cpu className="h-4 w-4 text-gray-400" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {systemMetrics?.cpu.usage.toFixed(1)}%
                 </div>
                 <Progress value={systemMetrics?.cpu.usage || 0} className="mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   {systemMetrics?.cpu.cores} núcleos
                 </p>
               </CardContent>
@@ -1063,14 +1004,14 @@ export default function LogsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Memoria</CardTitle>
-                <MemoryStick className="h-4 w-4 text-muted-foreground" />
+                <MemoryStick className="h-4 w-4 text-gray-400" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {systemMetrics?.memory.usage.toFixed(1)}%
                 </div>
                 <Progress value={systemMetrics?.memory.usage || 0} className="mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   {formatBytes(systemMetrics?.memory.used || 0)} / {formatBytes(systemMetrics?.memory.total || 0)}
                 </p>
               </CardContent>
@@ -1079,14 +1020,14 @@ export default function LogsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Disco</CardTitle>
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                <HardDrive className="h-4 w-4 text-gray-400" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {systemMetrics?.disk.usage.toFixed(1)}%
                 </div>
                 <Progress value={systemMetrics?.disk.usage || 0} className="mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   {systemMetrics?.disk.used} / {systemMetrics?.disk.total}
                 </p>
               </CardContent>
@@ -1095,13 +1036,13 @@ export default function LogsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Uptime</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Clock className="h-4 w-4 text-gray-400" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {formatUptime(systemMetrics?.uptime || 0)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   Sistema activo
                 </p>
               </CardContent>
@@ -1126,8 +1067,8 @@ export default function LogsPage() {
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleString()}
                     />
-                    <Line type="monotone" dataKey="cpu" stroke="#8884d8" name="CPU %" />
-                    <Line type="monotone" dataKey="memory" stroke="#82ca9d" name="Memoria %" />
+                    <Line type="monotone" dataKey="cpu" stroke="rgb(var(--primary))" name="CPU %" />
+                    <Line type="monotone" dataKey="memory" stroke="rgb(var(--success))" name="Memoria %" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1149,7 +1090,7 @@ export default function LogsPage() {
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleString()}
                     />
-                    <Area type="monotone" dataKey="disk" stroke="#ffc658" fill="#ffc658" name="Disco %" />
+                    <Area type="monotone" dataKey="disk" stroke="rgb(var(--warning))" fill="rgb(var(--warning))" name="Disco %" />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1194,7 +1135,7 @@ export default function LogsPage() {
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <p className="text-lg font-medium">No hay alertas activas</p>
-                  <p className="text-muted-foreground">El sistema está funcionando correctamente</p>
+                  <p className="text-gray-400">El sistema está funcionando correctamente</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1205,13 +1146,13 @@ export default function LogsPage() {
                           <div className={`w-3 h-3 rounded-full mt-1 ${getSeverityColor(alert.severity)}`} />
                           <div className="flex-1">
                             <h4 className="font-medium">{alert.title}</h4>
-                            <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
-                            <p className="text-xs text-muted-foreground mt-2">
+                            <p className="text-sm text-gray-400 mt-1">{alert.message}</p>
+                            <p className="text-xs text-gray-500 mt-2">
                               {new Date(alert.timestamp).toLocaleString()}
                             </p>
                           </div>
                         </div>
-                        <Badge variant={alert.resolved ? 'secondary' : 'destructive'}>
+                        <Badge variant={alert.resolved ? 'success' : 'danger'}>
                           {alert.resolved ? 'Resuelta' : (String(alert.severity || 'info')).toUpperCase()}
                         </Badge>
                       </div>
@@ -1287,7 +1228,7 @@ export default function LogsPage() {
                   </Button>
                 </div>
                 {!canControl && (
-                  <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+                  <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
                     Solo admins/owner pueden generar reportes o reiniciar sistemas.
                   </p>
                 )}
@@ -1297,13 +1238,25 @@ export default function LogsPage() {
                     <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <p className="font-medium">{report.title}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-gray-400">
                           {new Date(report.generatedAt).toLocaleString()} • {formatBytes(report.size)}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge variant={report.status === 'completed' ? 'secondary' : 'default'}>
-                          {report.status}
+                        <Badge
+                          variant={
+                            report.status === 'completed'
+                              ? 'success'
+                              : report.status === 'failed'
+                                ? 'danger'
+                                : 'warning'
+                          }
+                        >
+                          {report.status === 'completed'
+                            ? 'Completado'
+                            : report.status === 'generating'
+                              ? 'Generando'
+                              : 'Error'}
                         </Badge>
                         {report.status === 'completed' && (
                           <Button size="sm" variant="secondary" onClick={() => downloadReport(report)}>

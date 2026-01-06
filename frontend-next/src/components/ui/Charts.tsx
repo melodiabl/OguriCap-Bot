@@ -2,80 +2,204 @@
 
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
+import { cn } from '@/lib/utils';
+import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 
-interface ProgressRingProps {
-  progress: number;
-  size?: number;
-  strokeWidth?: number;
-  color?: string;
-  label?: string;
+/* =========================
+   HELPERS
+========================= */
+
+type ChartTone = 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'violet';
+
+function toneFromColor(color?: string): ChartTone {
+  if (!color) return 'brand';
+  const c = color.toLowerCase();
+  if (c.includes('success') || c.includes('emerald')) return 'success';
+  if (c.includes('warning') || c.includes('amber')) return 'warning';
+  if (c.includes('danger') || c.includes('error') || c.includes('red')) return 'danger';
+  if (c.includes('info') || c.includes('cyan')) return 'info';
+  if (c.includes('violet') || c.includes('purple')) return 'violet';
+  return 'brand';
 }
 
-export const ProgressRing: React.FC<ProgressRingProps> = ({
-  progress,
-  size = 120,
-  strokeWidth = 8,
-  color = '#6366f1',
-  label,
-}) => {
+const finiteNumber = (v: unknown, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const clamp01 = (v: number) => {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(1, v));
+};
+
+/* =========================
+   PROGRESS RING (COMPAT)
+========================= */
+
+type ProgressRingBaseProps = {
+  size?: number;
+  strokeWidth?: number;
+  label?: string;
+  color?: string;
+  className?: string;
+};
+
+type ProgressRingProps =
+  | (ProgressRingBaseProps & { progress: number })
+  | (ProgressRingBaseProps & { value: number; total: number });
+
+export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
+  const reduceMotion = useReducedMotion();
+  const { performanceMode } = useDevicePerformance();
+
+  const ratio = 'progress' in props
+    ? clamp01(finiteNumber(props.progress) / 100)
+    : clamp01(finiteNumber(props.value) / Math.max(1, finiteNumber(props.total, 1)));
+  const percent = Math.round(ratio * 100);
+
+  const size = props.size ?? 120;
+  const strokeWidth = props.strokeWidth ?? 8;
+  const label = props.label;
+  const stroke = props.color ?? 'rgb(var(--primary))';
+  const tone = toneFromColor(stroke);
+
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (progress / 100) * circumference;
+  const dashOffset = circumference * (1 - ratio);
+  const transition = reduceMotion
+    ? { duration: 0 }
+    : performanceMode
+      ? { duration: 0.65, ease: [0.16, 1, 0.3, 1] as any }
+      : { duration: 1.15, ease: [0.16, 1, 0.3, 1] as any };
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        {/* Background circle */}
+    <div className={cn("relative grid place-items-center progress-ring", `progress-ring--${tone}`, props.className)}>
+      {!performanceMode && <div aria-hidden="true" className="progress-ring__glow" />}
+      <svg width={size} height={size} className="-rotate-90">
+        {/* background */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
+          stroke="rgb(var(--border) / 0.18)"
           strokeWidth={strokeWidth}
         />
-        {/* Progress circle */}
+        {/* progress */}
         <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={color}
+          stroke={stroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
+          strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.5, ease: 'easeOut' }}
-          style={{ 
-            strokeDasharray: circumference,
-            filter: 'drop-shadow(0 0 8px rgba(99, 102, 241, 0.5))'
-          }}
+          animate={{ strokeDashoffset: dashOffset }}
+          transition={transition}
+          className="progress-ring__arc"
+          style={{ transformOrigin: '50% 50%' }}
         />
       </svg>
+
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.span 
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="text-2xl font-bold text-white"
-        >
-          {progress}%
-        </motion.span>
-        {label && (
-          <motion.span 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.7 }}
-            className="text-xs text-gray-400"
-          >
-            {label}
-          </motion.span>
-        )}
+        <span className="text-2xl font-bold text-foreground">{percent}%</span>
+        {label && <span className="text-xs text-muted mt-1">{label}</span>}
       </div>
     </div>
   );
 };
+
+/* =========================
+   DONUT CHART (SAFE)
+========================= */
+
+interface DonutChartProps {
+  data: { label: string; value: number; color?: string }[];
+  size?: number;
+  strokeWidth?: number;
+  centerValue?: React.ReactNode;
+  centerLabel?: React.ReactNode;
+  className?: string;
+}
+
+export const DonutChart: React.FC<DonutChartProps> = ({
+  data,
+  size = 140,
+  strokeWidth = 14,
+  centerValue,
+  centerLabel,
+  className,
+}) => {
+  const reduceMotion = useReducedMotion();
+  const { performanceMode } = useDevicePerformance();
+
+  const total = data.reduce((sum, item) => sum + Math.max(0, item.value || 0), 0) || 1;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+
+  let offset = 0;
+
+  return (
+    <div className={cn("relative grid place-items-center", className)}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgb(var(--border) / 0.18)"
+          strokeWidth={strokeWidth}
+        />
+
+        {data.map((item, i) => {
+          const value = Math.max(0, item.value || 0);
+          const segmentLength = (value / total) * circumference;
+          const dashArray = `${segmentLength} ${circumference - segmentLength}`;
+          const dashOffset = -offset;
+
+          offset += segmentLength;
+
+          return (
+            <motion.circle
+              key={`${item.label}-${i}`}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={item.color ?? 'rgb(var(--primary))'}
+              strokeWidth={strokeWidth}
+              strokeLinecap="butt"
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : performanceMode
+                    ? { duration: 0.25, delay: i * 0.02 }
+                    : { duration: 0.4, delay: i * 0.05 }
+              }
+            />
+          );
+        })}
+      </svg>
+
+      {(centerValue || centerLabel) && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+          {centerValue && <div className="text-2xl font-bold text-foreground leading-none">{centerValue}</div>}
+          {centerLabel && <div className="text-xs text-muted mt-1">{centerLabel}</div>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================
+   BAR CHART (FIXED)
+========================= */
 
 interface BarChartProps {
   data: { label: string; value: number; color?: string }[];
@@ -83,6 +207,8 @@ interface BarChartProps {
   animated?: boolean;
   scale?: 'linear' | 'sqrt' | 'log';
   minBarHeight?: number;
+  showGrid?: boolean;
+  className?: string;
 }
 
 export const BarChart: React.FC<BarChartProps> = ({
@@ -90,177 +216,121 @@ export const BarChart: React.FC<BarChartProps> = ({
   height = 200,
   animated = true,
   scale = 'linear',
-  minBarHeight = 4,
+  minBarHeight = 0,
+  showGrid = true,
+  className,
 }) => {
-  const maxValue = Math.max(...data.map(d => d.value), 1);
-  const didMountRef = React.useRef(false);
   const reduceMotion = useReducedMotion();
+  const { performanceMode } = useDevicePerformance();
+
+  const values = data.map((d) => finiteNumber(d.value));
+  const maxValue = values.length ? Math.max(...values, 1) : 1;
+  const isEmpty = values.length === 0 || values.every((v) => v <= 0);
+
+  const scaleFn = (v: number) => {
+    const safe = Math.max(0, v);
+    switch (scale) {
+      case 'sqrt':
+        return Math.sqrt(safe);
+      case 'log':
+        return Math.log1p(safe);
+      case 'linear':
+      default:
+        return safe;
+    }
+  };
+
+  const scaledMax = Math.max(scaleFn(maxValue), 1);
+  const minScale = minBarHeight > 0 ? minBarHeight / height : 0;
   const shouldAnimate = animated && !reduceMotion;
 
-  React.useEffect(() => {
-    didMountRef.current = true;
-  }, []);
+  const labelGridStyle =
+    data.length > 0 ? ({ gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))` } as React.CSSProperties) : undefined;
 
   return (
-    <div className="flex items-end gap-1" style={{ height }}>
-      {data.map((item, index) => {
-        const rawRatio = maxValue > 0 ? item.value / maxValue : 0;
-        const ratio = Math.max(0, Math.min(1, rawRatio));
-        const scaled =
-          scale === 'sqrt'
-            ? Math.sqrt(ratio)
-            : scale === 'log'
-              ? Math.log(item.value + 1) / Math.log(maxValue + 1)
-              : ratio;
-        const heightPct = item.value > 0 ? `${scaled * 100}%` : '0%';
-        const barMinHeight = item.value > 0 ? minBarHeight : 0;
-        const delay = shouldAnimate && !didMountRef.current ? index * 0.05 : 0;
-        const transition = shouldAnimate
-          ? didMountRef.current
-            ? { type: 'spring' as const, stiffness: 260, damping: 30, mass: 0.9 }
-            : { type: 'spring' as const, stiffness: 220, damping: 26, mass: 0.9, delay }
-          : { duration: 0 };
-
-        return (
-          <div key={index} className="flex-1 h-full flex flex-col items-center">
-            <div className="w-full flex-1 flex items-end group">
-              <motion.div
-                initial={shouldAnimate ? { height: 0, opacity: 0 } : false}
-                animate={{ height: heightPct, opacity: 1 }}
-                transition={transition}
-                whileHover={!reduceMotion ? { scale: 1.05, filter: "brightness(1.2)" } : undefined}
-                className="w-full rounded-t-lg transition-all duration-200 cursor-pointer relative"
-                style={{
-                  background: `linear-gradient(180deg, ${item.color || '#6366f1'} 0%, rgba(0,0,0,0.12) 100%)`,
-                  minHeight: barMinHeight
-                }}
-              >
-                {/* Tooltip on hover */}
-                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                  {reduceMotion ? item.value : <AnimatedNumber value={item.value} duration={0.4} />}
-                </div>
-              </motion.div>
-            </div>
-            <motion.span 
-              initial={shouldAnimate ? { opacity: 0, y: 10 } : false}
-              animate={shouldAnimate ? { opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
-              transition={shouldAnimate ? { duration: 0.35, delay: index * 0.05 + 0.25, ease: 'easeOut' } : { duration: 0 }}
-              className="text-xs text-gray-500 mt-2 truncate w-full text-center"
-            >
-              {item.label}
-            </motion.span>
+    <div className={cn("chart-frame", className)} data-empty={isEmpty ? 'true' : 'false'}>
+      <div className="relative" style={{ height }}>
+        {showGrid && (
+          <div aria-hidden="true" className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            <div className="border-t border-border/15" />
+            <div className="border-t border-border/10" />
+            <div className="border-t border-border/15" />
           </div>
-        );
-      })}
-    </div>
-  );
-};
-
-interface DonutChartProps {
-  data: { label: string; value: number; color: string }[];
-  size?: number;
-  centerValue?: string;
-  centerLabel?: string;
-  animated?: boolean;
-}
-
-export const DonutChart: React.FC<DonutChartProps> = ({
-  data,
-  size = 140,
-  centerValue,
-  centerLabel,
-  animated = true,
-}) => {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  const strokeWidth = 20;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-
-  let accumulatedPercentage = 0;
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        {/* Background circle */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth={strokeWidth}
-        />
-        
-        {/* Data segments */}
-        {data.map((item, index) => {
-          const percentage = total > 0 ? (item.value / total) * 100 : 0;
-          const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
-          const strokeDashoffset = -((accumulatedPercentage / 100) * circumference);
-          
-          accumulatedPercentage += percentage;
-
-          return (
-            <motion.circle
-              key={index}
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={item.color}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              initial={animated ? { strokeDasharray: `0 ${circumference}` } : undefined}
-              animate={animated ? { strokeDasharray } : undefined}
-              transition={animated ? { duration: 1.5, delay: index * 0.2, ease: 'easeOut' } : undefined}
-              style={{
-                strokeDashoffset,
-                filter: `drop-shadow(0 0 6px ${item.color}40)`
-              }}
-            />
-          );
-        })}
-      </svg>
-      
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {centerValue && (
-          <motion.span 
-            initial={animated ? { opacity: 0, scale: 0.5 } : undefined}
-            animate={animated ? { opacity: 1, scale: 1 } : undefined}
-            transition={animated ? { duration: 0.5, delay: 0.5 } : undefined}
-            className="text-xl font-bold text-white"
-          >
-            {centerValue}
-          </motion.span>
         )}
-        {centerLabel && (
-          <motion.span 
-            initial={animated ? { opacity: 0 } : undefined}
-            animate={animated ? { opacity: 1 } : undefined}
-            transition={animated ? { duration: 0.5, delay: 0.7 } : undefined}
-            className="text-xs text-gray-400"
-          >
-            {centerLabel}
-          </motion.span>
+
+        {isEmpty && (
+          <div className="absolute inset-0 grid place-items-center pointer-events-none z-10">
+            <div className="text-center">
+              <div className="text-xs font-black tracking-[0.22em] uppercase text-muted">Sin datos</div>
+              <div className="mt-1 text-sm text-muted/80">Aún no hay actividad para mostrar</div>
+            </div>
+          </div>
         )}
+
+        <div className="relative z-10 flex items-end gap-1 h-full">
+          {data.map((item, i) => {
+            const raw = finiteNumber(item.value);
+            const ratio = clamp01(scaleFn(raw) / scaledMax);
+            const visibleRatio = raw > 0 ? Math.max(ratio, minScale) : 0;
+            const tone = toneFromColor(item.color);
+            const title = `${item.label}: ${raw}`;
+
+            return (
+              <div key={`${item.label}-${i}`} className="flex-1 flex items-end h-full">
+                {shouldAnimate ? (
+                  <motion.div
+                    className={cn("bar h-full transform-gpu", `bar--${tone}`)}
+                    style={item.color ? { background: item.color } : undefined}
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: visibleRatio }}
+                    transition={
+                      performanceMode
+                        ? { duration: 0.35, delay: 0, ease: 'easeOut' }
+                        : { duration: 0.8, delay: i * 0.05, ease: 'easeOut' }
+                    }
+                    title={title}
+                  />
+                ) : (
+                  <div
+                    className={cn("bar h-full transform-gpu", `bar--${tone}`)}
+                    style={{
+                      ...(item.color ? { background: item.color } : null),
+                      transform: `scaleY(${visibleRatio}) translateZ(0)`,
+                    }}
+                    title={title}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {data.length > 0 && (
+        <div className="mt-2 grid gap-1" style={labelGridStyle}>
+          {data.map((item, i) => (
+            <div key={`${item.label}-label-${i}`} className="text-[11px] text-muted truncate text-center">
+              {item.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
+/* =========================
+   SPARKLINE (SAFE)
+========================= */
 
 interface SparklineProps {
   data: number[];
   color?: string;
-  width?: number;
-  height?: number;
-  animated?: boolean;
 }
 
 export const Sparkline: React.FC<SparklineProps> = ({
   data,
-  color = '#6366f1',
-  width = 80,
-  height = 24,
-  animated = true,
+  color = 'rgb(var(--primary))',
 }) => {
   if (!data.length) return null;
 
@@ -268,170 +338,26 @@ export const Sparkline: React.FC<SparklineProps> = ({
   const min = Math.min(...data);
   const range = max - min || 1;
 
-  const points = data.map((value, index) => {
-    const x = (index / (data.length - 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;
-  }).join(' ');
+  const points = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * 80;
+      const y = 24 - ((v - min) / range) * 24;
+      return `${x},${y}`;
+    })
+    .join(' ');
 
   return (
-    <svg width={width} height={height} className="overflow-visible">
+    <svg width={80} height={24}>
       <motion.polyline
+        points={points}
         fill="none"
         stroke={color}
         strokeWidth={2}
         strokeLinecap="round"
-        strokeLinejoin="round"
-        points={points}
-        initial={animated ? { pathLength: 0, opacity: 0 } : undefined}
-        animate={animated ? { pathLength: 1, opacity: 1 } : undefined}
-        transition={animated ? { duration: 1.5, ease: "easeOut" } : undefined}
-        style={{ filter: `drop-shadow(0 0 4px ${color}60)` }}
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1.2, ease: 'easeOut' }}
       />
-      {/* Data points */}
-      {animated && data.map((value, index) => {
-        const x = (index / (data.length - 1)) * width;
-        const y = height - ((value - min) / range) * height;
-        return (
-          <motion.circle
-            key={index}
-            cx={x}
-            cy={y}
-            r={1.5}
-            fill={color}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3, delay: index * 0.1 + 0.5 }}
-          />
-        );
-      })}
     </svg>
   );
-};
-
-interface LineChartProps {
-  data: { label: string; value: number }[];
-  color?: string;
-  height?: number;
-  animated?: boolean;
-}
-
-export const LineChart: React.FC<LineChartProps> = ({
-  data,
-  color = '#6366f1',
-  height = 200,
-  animated = true,
-}) => {
-  if (!data.length) return null;
-
-  const maxValue = Math.max(...data.map(d => d.value), 1);
-  const minValue = Math.min(...data.map(d => d.value), 0);
-  const range = maxValue - minValue || 1;
-  const width = 300;
-
-  const points = data.map((item, index) => {
-    const x = (index / (data.length - 1)) * width;
-    const y = height - ((item.value - minValue) / range) * height;
-    return { x, y, value: item.value, label: item.label };
-  });
-
-  const pathData = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
-
-  return (
-    <div className="relative" style={{ width, height }}>
-      <svg width={width} height={height} className="overflow-visible">
-        {/* Grid lines */}
-        <defs>
-          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
-          </pattern>
-        </defs>
-        <rect width={width} height={height} fill="url(#grid)" />
-        
-        {/* Area under curve */}
-        <motion.path
-          d={`${pathData} L ${width},${height} L 0,${height} Z`}
-          fill={`url(#gradient-${color.replace('#', '')})`}
-          initial={animated ? { opacity: 0 } : undefined}
-          animate={animated ? { opacity: 0.2 } : undefined}
-          transition={animated ? { duration: 1, delay: 0.5 } : undefined}
-        />
-        
-        {/* Gradient definition */}
-        <defs>
-          <linearGradient id={`gradient-${color.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        
-        {/* Line */}
-        <motion.path
-          d={pathData}
-          fill="none"
-          stroke={color}
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          initial={animated ? { pathLength: 0 } : undefined}
-          animate={animated ? { pathLength: 1 } : undefined}
-          transition={animated ? { duration: 2, ease: "easeOut" } : undefined}
-          style={{ filter: `drop-shadow(0 0 8px ${color}60)` }}
-        />
-        
-        {/* Data points */}
-        {points.map((point, index) => (
-          <motion.g key={index}>
-            <motion.circle
-              cx={point.x}
-              cy={point.y}
-              r={4}
-              fill={color}
-              stroke="white"
-              strokeWidth={2}
-              initial={animated ? { scale: 0, opacity: 0 } : undefined}
-              animate={animated ? { scale: 1, opacity: 1 } : undefined}
-              transition={animated ? { duration: 0.3, delay: index * 0.1 + 1 } : undefined}
-              whileHover={{ scale: 1.5 }}
-              className="cursor-pointer"
-            />
-            {/* Tooltip */}
-            <motion.g
-              initial={{ opacity: 0 }}
-              whileHover={{ opacity: 1 }}
-              className="pointer-events-none"
-            >
-              <rect
-                x={point.x - 25}
-                y={point.y - 35}
-                width={50}
-                height={25}
-                rx={4}
-                fill="rgba(0,0,0,0.8)"
-              />
-              <text
-                x={point.x}
-                y={point.y - 20}
-                textAnchor="middle"
-                fill="white"
-                fontSize={12}
-              >
-                {point.value}
-              </text>
-            </motion.g>
-          </motion.g>
-        ))}
-      </svg>
-    </div>
-  );
-};
-
-interface AnimatedCounterProps {
-  value: number;
-  duration?: number;
-  className?: string;
-}
-
-export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, duration = 0.55, className = "" }) => {
-  return <AnimatedNumber value={value} duration={duration} className={className} />;
 };

@@ -14,8 +14,9 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useBotStatus, useBotGlobalState, useSystemStats } from '@/hooks/useRealTime';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketBotStatus, useSocketConnection } from '@/contexts/SocketContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoadingOverlay } from '@/contexts/LoadingOverlayContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -30,8 +31,10 @@ export default function BotStatusPage() {
   const { status, isConnected, isConnecting: botConnecting, refetch } = useBotStatus(3000);
   const { isOn, setGlobalState, refetch: refetchGlobal } = useBotGlobalState(5000);
   const { memoryUsage, cpuUsage, diskUsage, uptime } = useSystemStats(10000);
-  const { isConnected: isSocketConnected, botStatus: socketBotStatus } = useSocket();
+  const { isConnected: isSocketConnected } = useSocketConnection();
+  const socketBotStatus = useSocketBotStatus();
   const { user } = useAuth();
+  const { withLoading } = useLoadingOverlay();
 
   const connected = socketBotStatus?.connected ?? isConnected;
   const connecting = socketBotStatus?.connecting ?? botConnecting ?? isConnecting;
@@ -116,7 +119,7 @@ export default function BotStatusPage() {
       return;
     }
     try {
-      await api.disconnectMainBot();
+      await withLoading(() => api.disconnectMainBot(), { message: 'Desconectando bot...' });
       toast.success('Bot desconectado');
       refetch();
     } catch (error) {
@@ -130,7 +133,7 @@ export default function BotStatusPage() {
       return;
     }
     try {
-      await api.restartMainBot();
+      await withLoading(() => api.restartMainBot(), { message: 'Reiniciando bot...', details: 'Esto puede tardar unos segundos.' });
       toast.success('Bot reiniciado');
       refetch();
     } catch (error) {
@@ -144,7 +147,10 @@ export default function BotStatusPage() {
       return;
     }
     try {
-      await setGlobalState(!isOn);
+      await withLoading(() => setGlobalState(!isOn), {
+        message: !isOn ? 'Activando bot globalmente...' : 'Desactivando bot globalmente...',
+        details: 'Aplicando cambios en todos los grupos.',
+      });
       toast.success(isOn ? 'Bot desactivado globalmente' : 'Bot activado globalmente');
     } catch (error) {
       toast.error('Error al cambiar estado global');
@@ -186,7 +192,7 @@ export default function BotStatusPage() {
             <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5">
               <motion.div animate={connected ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
                 <ProgressRing progress={connected ? 100 : connecting ? 50 : 0} size={160} strokeWidth={12}
-                  color={connected ? '#10b981' : connecting ? '#f59e0b' : '#ef4444'}
+                  color={connected ? 'rgb(var(--success))' : connecting ? 'rgb(var(--warning))' : 'rgb(var(--danger))'}
                   label={connected ? 'Conectado' : connecting ? 'Conectando...' : 'Desconectado'} />
               </motion.div>
               <div className="mt-4 text-center">
@@ -232,7 +238,7 @@ export default function BotStatusPage() {
                 <Button variant="success" icon={<Power className="w-4 h-4" />} onClick={handleConnect} loading={isConnecting}>Conectar Bot</Button>
               )
             ) : (
-              <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+              <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
                 Solo admins/owner pueden controlar la conexi?n del bot.
               </p>
             )}
@@ -260,7 +266,7 @@ export default function BotStatusPage() {
                   className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md" />
               </button>
             ) : (
-              <p className="text-xs text-gray-500 [html.light_&]:text-gray-600">Control global solo para admins/owner.</p>
+              <p className="text-xs text-gray-500 [html[data-theme=light]_&]:text-gray-600">Control global solo para admins/owner.</p>
             )}
           </div>
           <div className="space-y-3">
@@ -326,7 +332,7 @@ export default function BotStatusPage() {
                     ) : (
                       <div className="text-center">
                         <QrCode className="w-12 h-12 text-gray-500 mx-auto mb-2" />
-                        <p className="text-gray-400 text-sm">Haz clic en "Generar QR" para generar el QR</p>
+                        <p className="text-gray-400 text-sm">Haz clic en &quot;Generar QR&quot; para generar el QR</p>
                       </div>
                     )}
                   </div>

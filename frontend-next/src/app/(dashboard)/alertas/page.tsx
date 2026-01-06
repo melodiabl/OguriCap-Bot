@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -82,7 +82,7 @@ export default function AlertasPage() {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [showCreateRule, setShowCreateRule] = useState(false);
 
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   useEffect(() => {
     loadAlerts();

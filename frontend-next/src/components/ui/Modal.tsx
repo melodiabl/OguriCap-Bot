@@ -19,7 +19,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+      'fixed inset-0 z-50 overlay-scrim',
       className
     )}
     {...props}
@@ -31,20 +31,20 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]',
-        'glass-card p-6 shadow-2xl',
-        'data-[state=open]:animate-scale-in',
-        className
-      )}
-      {...props}
-    >
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]',
+          'ultra-card p-6',
+          'data-[state=open]:animate-scale-in',
+          className
+        )}
+        {...props}
+      >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-2 text-muted hover:text-foreground hover:bg-card/40 transition-colors">
         <X className="h-4 w-4" />
         <span className="sr-only">Cerrar</span>
       </DialogPrimitive.Close>
@@ -69,7 +69,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-xl font-semibold text-white', className)}
+    className={cn('text-xl font-semibold text-foreground', className)}
     {...props}
   />
 ));
@@ -81,7 +81,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-gray-400', className)}
+    className={cn('text-sm text-muted', className)}
     {...props}
   />
 ));
@@ -98,37 +98,154 @@ interface ModalProps {
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
   const [mounted, setMounted] = React.useState(false);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => setMounted(true), []);
 
-  if (!isOpen || !mounted) return null;
+  // Lock body scroll while open (supports nested modals)
+  React.useEffect(() => {
+    if (!mounted) return;
+    const body = document.body;
+    const prevCount = Number(body.dataset.modalCount || '0') || 0;
+    if (isOpen) {
+      body.dataset.modalCount = String(prevCount + 1);
+      body.classList.add('modal-open');
+      return () => {
+        const nextCount = Math.max(0, (Number(body.dataset.modalCount || '1') || 1) - 1);
+        body.dataset.modalCount = String(nextCount);
+        if (nextCount === 0) {
+          body.classList.remove('modal-open');
+          delete body.dataset.modalCount;
+        }
+      };
+    }
+    return;
+  }, [isOpen, mounted]);
+
+  const getFocusable = React.useCallback(() => {
+    const root = contentRef.current;
+    if (!root) return [] as HTMLElement[];
+    const candidates = root.querySelectorAll<HTMLElement>(
+      [
+        'a[href]',
+        'button:not([disabled])',
+        'textarea:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(',')
+    );
+    return Array.from(candidates).filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const focusFirst = () => {
+      const root = contentRef.current;
+      if (!root) return;
+      const preferred = root.querySelector<HTMLElement>('[data-autofocus]');
+      if (preferred?.focus) return preferred.focus();
+      const focusables = getFocusable();
+      const target = focusables[0] ?? root;
+      target?.focus?.();
+    };
+    // Wait a tick so the portal content exists.
+    const t = window.setTimeout(focusFirst, 0);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable();
+      if (focusables.length === 0) {
+        e.preventDefault();
+        contentRef.current?.focus?.();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (e.shiftKey) {
+        if (!active || active === first || !contentRef.current?.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (!active || active === last || !contentRef.current?.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus?.();
+      previousFocusRef.current = null;
+    };
+  }, [getFocusable, isOpen, onClose]);
+
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
+      {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className={cn('glass-card p-6 w-full max-w-lg max-h-[90vh] overflow-auto', className)}
-          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] pointer-events-none"
+          role="presentation"
         >
-          {title && (
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white">{title}</h3>
-              <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-          {children}
+          {/* Scrim */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 overlay-scrim pointer-events-auto"
+            onClick={onClose}
+          />
+
+          {/* Centered content */}
+          <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className={cn('modal-content pointer-events-auto', className)}
+              onClick={(e) => e.stopPropagation()}
+              ref={contentRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={title ? titleId : undefined}
+            >
+              {title && (
+                <div className="flex items-center justify-between mb-6">
+                  <h3 id={titleId} className="text-xl font-semibold text-foreground">
+                    {title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="p-2 rounded-xl text-muted hover:text-foreground hover:bg-card/20 transition-colors focus-ring-animated"
+                  >
+                    <X className="w-5 h-5" />
+                    <span className="sr-only">Cerrar</span>
+                  </button>
+                </div>
+              )}
+              {children}
+            </motion.div>
+          </div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>,
     document.body
   );

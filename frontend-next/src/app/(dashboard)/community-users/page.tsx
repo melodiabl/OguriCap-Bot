@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, Search, Filter, MessageSquare, Activity,
@@ -50,26 +50,7 @@ export default function CommunityUsersPage() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [page, statusFilter, roleFilter]);
-
-  useEffect(() => {
-    const delayedSearch = setTimeout(() => {
-      if (page === 1) {
-        loadUsers();
-      } else {
-        setPage(1);
-      }
-    }, 500);
-    return () => clearTimeout(delayedSearch);
-  }, [searchTerm]);
-
-  const loadData = async () => {
-    await Promise.all([loadUsers(), loadStats()]);
-  };
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await api.getCommunityUsers(page, 20, searchTerm, statusFilter, roleFilter);
@@ -81,16 +62,35 @@ export default function CommunityUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, searchTerm, statusFilter, roleFilter]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await api.getCommunityStats();
       setStats(response);
     } catch (error) {
       console.error('Error loading community stats');
     }
-  };
+  }, []);
+
+  const loadData = useCallback(async () => {
+    await Promise.all([loadUsers(), loadStats()]);
+  }, [loadUsers, loadStats]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const delayedSearch = window.setTimeout(() => {
+      if (page === 1) {
+        loadUsers();
+      } else {
+        setPage(1);
+      }
+    }, 500);
+    return () => window.clearTimeout(delayedSearch);
+  }, [searchTerm, page, loadUsers]);
 
   const handleBanUser = async (jid: string, banned: boolean) => {
     try {

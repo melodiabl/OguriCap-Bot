@@ -18,8 +18,8 @@ export function useFlashTokens(options?: { ttlMs?: number }) {
       timeoutsRef.current[key] = window.setTimeout(() => {
         setTokens(prev => {
           if (!(key in prev)) return prev;
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { [key]: _removed, ...rest } = prev;
+          const rest = { ...prev };
+          delete rest[key];
           return rest;
         });
         delete timeoutsRef.current[key];
@@ -39,4 +39,3 @@ export function useFlashTokens(options?: { ttlMs?: number }) {
 
   return { tokens, trigger };
 }
-

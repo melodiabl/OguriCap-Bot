@@ -15,17 +15,16 @@ export function Reveal({ className, delay = 0, once = true, children, ...props }
   return (
     <motion.div
       className={cn(className)}
-      initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.985, filter: 'blur(10px)' }}
-      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
       viewport={reduceMotion ? undefined : { once, amount: 0.25 }}
       transition={
         reduceMotion
           ? { duration: 0.12 }
           : {
-              opacity: { duration: 0.2, ease: 'easeOut' },
-              filter: { duration: 0.25, ease: 'easeOut' },
-              y: { type: 'spring', stiffness: 380, damping: 34, mass: 0.9, delay },
-              scale: { type: 'spring', stiffness: 380, damping: 34, mass: 0.9, delay },
+              duration: 0.38,
+              ease: [0.16, 1, 0.3, 1],
+              delay,
             }
       }
       {...props}
@@ -34,4 +33,3 @@ export function Reveal({ className, delay = 0, once = true, children, ...props }
     </motion.div>
   );
 }
-

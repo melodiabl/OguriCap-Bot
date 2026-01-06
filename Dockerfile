@@ -2,13 +2,13 @@
 FROM node:20-alpine
 
 RUN apk add --no-cache \
-    git \
-    ffmpeg \
-    python3 \
-    make \
-    g++ \
-    wget \
-    curl
+  git \
+  ffmpeg \
+  python3 \
+  make \
+  g++ \
+  wget \
+  curl
 
 WORKDIR /app
 

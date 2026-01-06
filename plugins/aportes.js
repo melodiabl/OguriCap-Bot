@@ -31,38 +31,38 @@ const saveMedia = async (m, conn) => {
   // Intentar obtener el mensaje con multimedia
   const q = m.quoted ? m.quoted : m
   const msg = q.msg || q
-  
+
   // Verificar si hay multimedia en el mensaje (cualquier tipo)
   const hasMedia = msg.imageMessage || msg.videoMessage || msg.audioMessage || msg.documentMessage || msg.stickerMessage
   if (!hasMedia) return null
-  
+
   // Obtener el mimetype de cualquier tipo de mensaje multimedia
-  const mime = msg.imageMessage?.mimetype || 
-               msg.videoMessage?.mimetype || 
-               msg.audioMessage?.mimetype || 
-               msg.documentMessage?.mimetype ||
-               msg.stickerMessage?.mimetype || ''
-  
+  const mime = msg.imageMessage?.mimetype ||
+    msg.videoMessage?.mimetype ||
+    msg.audioMessage?.mimetype ||
+    msg.documentMessage?.mimetype ||
+    msg.stickerMessage?.mimetype || ''
+
   // Para stickers, convertir a imagen
   if (msg.stickerMessage) {
     try {
       const mediaBuffer = await conn.downloadMediaMessage(q)
       if (!mediaBuffer) return null
-      
+
       // Convertir sticker a imagen
       const { toImage } = await import('../lib/sticker.js')
       const imageBuffer = await toImage(mediaBuffer)
-      
+
       const targetDir = path.join(process.cwd(), 'tmp', 'aportes')
       fs.mkdirSync(targetDir, { recursive: true })
-      
+
       const filename = `aporte_${Date.now()}.png`
       const dest = path.join(targetDir, filename)
-      
+
       fs.writeFileSync(dest, imageBuffer)
-      
-      return { 
-        path: dest, 
+
+      return {
+        path: dest,
         mimetype: 'image/png',
         filename,
         size: imageBuffer.length
@@ -72,22 +72,22 @@ const saveMedia = async (m, conn) => {
       return null
     }
   }
-  
+
   if (!mime) return null
-  
+
   try {
     // Descargar el archivo
     const buffer = await conn.downloadMediaMessage(q)
     if (!buffer) return null
-    
+
     const targetDir = path.join(process.cwd(), 'tmp', 'aportes')
     fs.mkdirSync(targetDir, { recursive: true })
-    
+
     // Determinar extensión a partir del mimetype o usar extension original
-    const ext = mime.split('/')[1]?.split(';')[0] || 
-               q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
+    const ext = mime.split('/')[1]?.split(';')[0] ||
+      q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
     const originalFilename = q.message?.documentMessage?.fileName
-    
+
     let filename
     if (originalFilename) {
       // Usar nombre original si es seguro
@@ -95,14 +95,14 @@ const saveMedia = async (m, conn) => {
     } else {
       filename = `aporte_${Date.now()}.${ext}`
     }
-    
+
     const dest = path.join(targetDir, filename)
-    
+
     // Guardar archivo
     fs.writeFileSync(dest, buffer)
-    
-    return { 
-      path: dest, 
+
+    return {
+      path: dest,
       mimetype: mime,
       filename,
       size: buffer.length
@@ -147,7 +147,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
       try {
         const { emitAporteCreated } = await import('../lib/socket-io.js')
         emitAporteCreated(entry)
-      } catch {}
+      } catch { }
 
       let msg = '✅ Aporte registrado exitosamente'
       msg += `\n\n🆔 ID: #${entry.id}`

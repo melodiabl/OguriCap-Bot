@@ -15,7 +15,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Argumentos de build
-ARG NEXT_PUBLIC_API_URL=https://oguricap.ooguy.com
+ARG NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Copiar dependencias desde deps

@@ -183,7 +183,7 @@ export default function MaintenancePage() {
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-white/10">
             <p className="text-xs text-gray-500">
-              © 2025 Oguri Bot Panel - Sistema de Gestión Avanzado
+              © 2026 Oguri Bot Panel - Sistema de Gestión Avanzado
             </p>
           </div>
         </motion.div>

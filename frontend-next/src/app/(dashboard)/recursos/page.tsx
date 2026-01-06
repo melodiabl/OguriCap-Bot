@@ -29,7 +29,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { useSocket } from '@/contexts/SocketContext';
+import { Progress } from '@/components/ui/Progress';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -132,7 +133,7 @@ export default function RecursosPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(5000);
 
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   useEffect(() => {
     loadResourceStats();
@@ -415,12 +416,12 @@ export default function RecursosPage() {
                   <AnimatedNumber value={metrics.cpu.usage} decimals={1} />%
                 </span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${getUsageColor(metrics.cpu.usage, thresholds?.cpu)}`}
-                  style={{ width: `${Math.min(metrics.cpu.usage, 100)}%` }}
-                />
-              </div>
+              <Progress
+                value={Math.min(metrics.cpu.usage, 100)}
+                max={100}
+                className="h-2 bg-gray-700 rounded-full ring-0"
+                fillClassName={getUsageColor(metrics.cpu.usage, thresholds?.cpu)}
+              />
               <div className="text-xs text-gray-500">
                 {metrics.cpu.cores} núcleos • {metrics.cpu.model}
               </div>
@@ -456,12 +457,12 @@ export default function RecursosPage() {
                 <span className="text-gray-400">Usado</span>
                 <span className="text-white">{formatBytes(metrics.memory.used)}</span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${getUsageColor(metrics.memory.usage, thresholds?.memory)}`}
-                  style={{ width: `${Math.min(metrics.memory.usage, 100)}%` }}
-                />
-              </div>
+              <Progress
+                value={Math.min(metrics.memory.usage, 100)}
+                max={100}
+                className="h-2 bg-gray-700 rounded-full ring-0"
+                fillClassName={getUsageColor(metrics.memory.usage, thresholds?.memory)}
+              />
               <div className="text-xs text-gray-500">
                 {formatBytes(metrics.memory.free)} libre de {formatBytes(metrics.memory.total)}
               </div>
@@ -497,12 +498,12 @@ export default function RecursosPage() {
                 <span className="text-gray-400">Usado</span>
                 <span className="text-white">{metrics.disk.used}</span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${getUsageColor(metrics.disk.usage, thresholds?.disk)}`}
-                  style={{ width: `${Math.min(metrics.disk.usage, 100)}%` }}
-                />
-              </div>
+              <Progress
+                value={Math.min(metrics.disk.usage, 100)}
+                max={100}
+                className="h-2 bg-gray-700 rounded-full ring-0"
+                fillClassName={getUsageColor(metrics.disk.usage, thresholds?.disk)}
+              />
               <div className="text-xs text-gray-500">
                 {metrics.disk.available} disponible • {metrics.disk.filesystem}
               </div>

@@ -3,7 +3,7 @@
  */
 
 let handler = async (m, { args, usedPrefix, command, conn }) => {
-  const panelUrl = process.env.PANEL_URL || 'https://oguricap.ooguy.com'
+  const panelUrl = process.env.PANEL_URL || 'https://melodiaauris.qzz.io'
   
   switch (command) {
     case 'panel':

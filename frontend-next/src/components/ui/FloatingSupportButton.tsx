@@ -173,7 +173,7 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
         <Button variant="secondary" size="sm" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>
           Volver
         </Button>
-        <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+        <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
           {canManage ? 'Inbox de Soporte' : 'Chat con Soporte'}
         </p>
       </div>
@@ -197,7 +197,7 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
     return (
       <div className="space-y-4">
         {header}
-        <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">Cargando...</p>
+        <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">Cargando...</p>
       </div>
     );
   }
@@ -309,8 +309,8 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
                     <div key={m.id} className={`flex ${align}`}>
                       <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${bubble}`}>
                         <div className="flex items-center justify-between gap-3 mb-1">
-                          <p className="text-xs text-gray-400 [html.light_&]:text-gray-600">{senderLabel}</p>
-                          <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-600">{formatTime(m.created_at)}</p>
+                          <p className="text-xs text-gray-400 [html[data-theme=light]_&]:text-gray-600">{senderLabel}</p>
+                          <p className="text-[11px] text-gray-500 [html[data-theme=light]_&]:text-gray-600">{formatTime(m.created_at)}</p>
                         </div>
                         <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>
                       </div>
@@ -408,7 +408,7 @@ export const FloatingSupportButton: React.FC = () => {
           <SupportChatPanel onBack={() => setView('menu')} onClose={closeModal} />
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-gray-400 [html.light_&]:text-gray-600">
+            <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
               Abre un chat con soporte o contáctanos por WhatsApp/Email.
             </p>
 

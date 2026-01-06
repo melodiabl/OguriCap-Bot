@@ -10,6 +10,8 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Skeleton, SkeletonCircle } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useGroupsSmartRefresh } from '@/hooks/useSmartRefresh';
@@ -159,7 +161,7 @@ export default function GruposPage() {
 
       {/* Header */}
       <PageHeader
-        title="Gesti?n de Grupos"
+        title="Gestión de Grupos"
         description="Administra los grupos de WhatsApp conectados"
         icon={<MessageSquare className="w-6 h-6 text-primary-400" />}
         actions={
@@ -266,15 +268,45 @@ export default function GruposPage() {
         </div>
 
         {loading ? (
-          <div className="p-12 text-center">
-            <RefreshCw className="w-8 h-8 text-primary-400 animate-spin mx-auto mb-4" />
-            <p className="text-gray-400">Cargando grupos...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="glass-card p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Skeleton className="w-12 h-12 rounded-xl" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <Skeleton className="h-4 w-40 rounded" />
+                      <Skeleton className="h-3 w-52 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full rounded" />
+                  <Skeleton className="h-3 w-2/3 rounded" />
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                  <Skeleton className="h-4 w-24 rounded" />
+                  <div className="flex items-center gap-2">
+                    <SkeletonCircle className="h-9 w-9" />
+                    <SkeletonCircle className="h-9 w-9" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : groups.length === 0 ? (
-          <div className="p-12 text-center">
-            <MessageSquare className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">No hay grupos</h3>
-            <p className="text-gray-400">No se encontraron grupos con los filtros aplicados</p>
+          <div className="p-6">
+            <EmptyState
+              icon={<MessageSquare className="w-6 h-6 text-gray-400" />}
+              title="No hay grupos"
+              description="No se encontraron grupos con los filtros aplicados"
+              action={
+                <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={() => manualRefresh()}>
+                  Recargar
+                </Button>
+              }
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">

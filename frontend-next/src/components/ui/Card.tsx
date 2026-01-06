@@ -16,6 +16,12 @@ interface CardProps extends Omit<HTMLMotionProps<'div'>, 'ref'> {
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, animated = false, delay = 0, hover = true, glow = false, children, ...props }, ref) => {
     const reduceMotion = useReducedMotion();
+    const cardClassName = cn(
+      'ultra-card ultra-card--glow',
+      hover && 'ultra-card--interactive glass-hover hover-lift-soft',
+      glow && 'shadow-glow-lg',
+      className
+    );
     if (animated) {
       return (
         <motion.div
@@ -23,15 +29,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
           initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.95 }}
           whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, amount: 0.25 }}
-          whileHover={!reduceMotion && hover ? { 
-            y: -5, 
-            scale: 1.02,
-            boxShadow: glow 
-              ? "0 20px 40px rgba(99, 102, 241, 0.3)" 
-              : "0 20px 40px rgba(0,0,0,0.2)"
-          } : undefined}
           transition={{ duration: 0.3, delay, ease: "easeOut" }}
-          className={cn('glass-card', glow && 'shadow-glow', className)}
+          className={cardClassName}
           {...props}
         >
           {children}
@@ -40,15 +39,9 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     }
 
     return (
-      <motion.div
-        ref={ref}
-        whileHover={!reduceMotion && hover ? { y: -2, scale: 1.01 } : undefined}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
-        className={cn('glass-card', glow && 'shadow-glow', className)}
-        {...props}
-      >
+      <div ref={ref} className={cardClassName} {...(props as any)}>
         {children}
-      </motion.div>
+      </div>
     );
   }
 );
@@ -63,14 +56,14 @@ CardHeader.displayName = 'CardHeader';
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('text-xl font-semibold text-white [html.light_&]:text-gray-900', className)} {...props} />
+    <h3 ref={ref} className={cn('text-xl font-semibold text-foreground', className)} {...props} />
   )
 );
 CardTitle.displayName = 'CardTitle';
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('text-sm text-gray-400 [html.light_&]:text-gray-600', className)} {...props} />
+    <p ref={ref} className={cn('text-sm text-muted', className)} {...props} />
   )
 );
 CardDescription.displayName = 'CardDescription';
@@ -100,26 +93,27 @@ interface StatCardProps {
   loading?: boolean;
   trend?: number; // Percentage change
   animated?: boolean;
+  active?: boolean;
 }
 
 const colorClasses = {
-  primary: 'text-primary-400 bg-primary-500/20 border-primary-500/30',
-  success: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30',
-  warning: 'text-amber-400 bg-amber-500/20 border-amber-500/30',
-  danger: 'text-red-400 bg-red-500/20 border-red-500/30',
-  info: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30',
-  violet: 'text-violet-400 bg-violet-500/20 border-violet-500/30',
-  cyan: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30',
+  primary: 'text-primary bg-primary/15 ring-1 ring-primary/25',
+  success: 'text-success bg-success/15 ring-1 ring-success/25',
+  warning: 'text-warning bg-warning/15 ring-1 ring-warning/25',
+  danger: 'text-danger bg-danger/15 ring-1 ring-danger/25',
+  info: 'text-accent bg-accent/15 ring-1 ring-accent/25',
+  violet: 'text-secondary bg-secondary/15 ring-1 ring-secondary/25',
+  cyan: 'text-accent bg-accent/15 ring-1 ring-accent/25',
 };
 
-const gradientClasses = {
-  primary: 'from-blue-500/20 to-indigo-500/20 border-blue-500/30',
-  success: 'from-emerald-500/20 to-green-500/20 border-emerald-500/30',
-  warning: 'from-amber-500/20 to-orange-500/20 border-amber-500/30',
-  danger: 'from-red-500/20 to-pink-500/20 border-red-500/30',
-  info: 'from-cyan-500/20 to-blue-500/20 border-cyan-500/30',
-  violet: 'from-violet-500/20 to-purple-500/20 border-violet-500/30',
-  cyan: 'from-cyan-500/20 to-teal-500/20 border-cyan-500/30'
+const borderClasses: Record<NonNullable<StatCardProps['color']>, string> = {
+  primary: 'border-primary/25',
+  success: 'border-success/25',
+  warning: 'border-warning/25',
+  danger: 'border-danger/25',
+  info: 'border-accent/25',
+  violet: 'border-secondary/25',
+  cyan: 'border-accent/25',
 };
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -131,7 +125,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   delay = 0, 
   loading = false,
   trend,
-  animated = true
+  animated = true,
+  active = false,
 }) => {
   const reduceMotion = useReducedMotion();
   const shouldAnimate = animated && !reduceMotion;
@@ -154,11 +149,11 @@ export const StatCard: React.FC<StatCardProps> = ({
   if (loading) {
     return (
       <motion.div
-        className={`p-6 rounded-xl bg-gradient-to-br ${gradientClasses[color]} border backdrop-blur-sm`}
-        initial={!reduceMotion && animated ? { opacity: 0, y: 20 } : undefined}
-        whileInView={!reduceMotion && animated ? { opacity: 1, y: 0 } : undefined}
-        viewport={!reduceMotion && animated ? { once: true, amount: 0.35 } : undefined}
-        transition={!reduceMotion && animated ? { duration: 0.4, delay } : undefined}
+        className={cn('card-stat hover-lift-soft hover-glass-bright', borderClasses[color], active && 'animate-pulse-glow')}
+        initial={shouldAnimate ? { opacity: 0, y: 20 } : undefined}
+        whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+        viewport={shouldAnimate ? { once: true, amount: 0.35 } : undefined}
+        transition={shouldAnimate ? { duration: 0.4, delay } : undefined}
       >
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -175,47 +170,46 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <motion.div
       className={cn(
-        `p-6 rounded-xl bg-gradient-to-br ${gradientClasses[color]} border backdrop-blur-sm relative overflow-hidden group`,
-        flash && 'flash-update'
+        'card-stat group hover-lift-soft hover-glass-bright',
+        active && 'animate-pulse-glow',
+        borderClasses[color]
       )}
-      initial={!reduceMotion && animated ? { opacity: 0, y: 30, scale: 0.9 } : undefined}
-      whileInView={!reduceMotion && animated ? { opacity: 1, y: 0, scale: 1 } : undefined}
-      viewport={!reduceMotion && animated ? { once: true, amount: 0.35 } : undefined}
-      whileHover={!reduceMotion && animated ? { 
-        y: -8, 
-        scale: 1.02,
-        boxShadow: "0 20px 40px rgba(0,0,0,0.15)"
-      } : undefined}
-      transition={!reduceMotion && animated ? { duration: 0.4, delay, ease: "easeOut" } : undefined}
+      initial={shouldAnimate ? { opacity: 0, y: 26, scale: 0.98 } : undefined}
+      whileInView={shouldAnimate ? { opacity: 1, y: 0, scale: 1 } : undefined}
+      viewport={shouldAnimate ? { once: true, amount: 0.35 } : undefined}
+      transition={shouldAnimate ? { duration: 0.4, delay, ease: "easeOut" } : undefined}
     >
       {/* Background glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
-          <motion.h3 
-            className="text-sm font-medium text-gray-300"
-            initial={animated ? { opacity: 0, x: -10 } : undefined}
-            animate={animated ? { opacity: 1, x: 0 } : undefined}
-            transition={animated ? { duration: 0.3, delay: delay + 0.1 } : undefined}
+          <motion.h3
+            className="text-sm font-semibold text-foreground/70"
+            initial={shouldAnimate ? { opacity: 0, x: -10 } : undefined}
+            animate={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
+            transition={shouldAnimate ? { duration: 0.3, delay: delay + 0.1 } : undefined}
           >
             {title}
           </motion.h3>
           <motion.div 
             className={cn('p-3 rounded-xl', colorClasses[color])}
-            initial={animated ? { opacity: 0, scale: 0, rotate: -180 } : undefined}
-            animate={animated ? { opacity: 1, scale: 1, rotate: 0 } : undefined}
-            transition={animated ? { duration: 0.5, delay: delay + 0.2 } : undefined}
+            initial={shouldAnimate ? { opacity: 0, scale: 0.9, rotate: -10 } : undefined}
+            animate={shouldAnimate ? { opacity: 1, scale: 1, rotate: 0 } : undefined}
+            transition={shouldAnimate ? { duration: 0.35, delay: delay + 0.2, ease: 'easeOut' } : undefined}
           >
             {icon}
           </motion.div>
         </div>
         
-        <motion.div 
-          className="text-2xl font-bold text-white mb-1"
-          initial={animated ? { opacity: 0, scale: 0.5 } : undefined}
-          animate={animated ? { opacity: 1, scale: 1 } : undefined}
-          transition={animated ? { duration: 0.5, delay: delay + 0.3, type: "spring" } : undefined}
+        <motion.div
+          className={cn(
+            'text-2xl font-bold text-foreground mb-1 rounded-lg -mx-2 px-2',
+            flash && 'flash-update glow-on-update'
+          )}
+          initial={shouldAnimate ? { opacity: 0, y: 6 } : undefined}
+          animate={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+          transition={shouldAnimate ? { duration: 0.35, delay: delay + 0.25, ease: 'easeOut' } : undefined}
         >
           {typeof value === 'number' ? (
             <AnimatedNumber value={value} duration={0.6} />
@@ -226,28 +220,30 @@ export const StatCard: React.FC<StatCardProps> = ({
         
         <div className="flex items-center justify-between">
           {subtitle && (
-            <motion.p 
-              className="text-xs text-gray-400"
-              initial={animated ? { opacity: 0, y: 10 } : undefined}
-              animate={animated ? { opacity: 1, y: 0 } : undefined}
-              transition={animated ? { duration: 0.3, delay: delay + 0.4 } : undefined}
+            <motion.p
+              className="text-xs text-muted"
+              initial={shouldAnimate ? { opacity: 0, y: 8 } : undefined}
+              animate={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+              transition={shouldAnimate ? { duration: 0.3, delay: delay + 0.35 } : undefined}
             >
               {subtitle}
             </motion.p>
           )}
           
           {trend !== undefined && (
-            <motion.div 
-              className={`flex items-center text-xs ${
-                trend > 0 ? 'text-emerald-400' : trend < 0 ? 'text-red-400' : 'text-gray-400'
-              }`}
-              initial={animated ? { opacity: 0, x: 10 } : undefined}
-              animate={animated ? { opacity: 1, x: 0 } : undefined}
-              transition={animated ? { duration: 0.3, delay: delay + 0.5 } : undefined}
+            <motion.div
+              className={cn(
+                'flex items-center text-xs tabular-nums',
+                trend > 0 ? 'text-success' : trend < 0 ? 'text-danger' : 'text-muted'
+              )}
+              initial={shouldAnimate ? { opacity: 0, x: 8 } : undefined}
+              animate={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
+              transition={shouldAnimate ? { duration: 0.3, delay: delay + 0.45 } : undefined}
             >
-              <span className="mr-1">
-                {trend > 0 ? '↗' : trend < 0 ? '↘' : '→'}
+              <span className="mr-1 hidden">
+                {trend > 0 ? '▲' : trend < 0 ? '▼' : '•'}
               </span>
+              <span className="mr-0.5">{trend > 0 ? '+' : trend < 0 ? '-' : ''}</span>
               {Math.abs(trend)}%
             </motion.div>
           )}
@@ -269,7 +265,6 @@ interface GlowCardProps {
 export const GlowCard: React.FC<GlowCardProps> = ({ 
   children, 
   className = '', 
-  color = '#6366f1',
   animated = true,
   delay = 0
 }) => {
@@ -278,38 +273,16 @@ export const GlowCard: React.FC<GlowCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'p-6 rounded-xl bg-gray-800/50 backdrop-blur-sm border border-gray-700/50',
-        'relative overflow-hidden group cursor-pointer',
+        'card-glow',
         className
       )}
       initial={!reduceMotion && animated ? { opacity: 0, y: 20, scale: 0.95 } : undefined}
       whileInView={!reduceMotion && animated ? { opacity: 1, y: 0, scale: 1 } : undefined}
       viewport={!reduceMotion && animated ? { once: true, amount: 0.3 } : undefined}
-      whileHover={!reduceMotion && animated ? { 
-        scale: 1.02,
-        boxShadow: `0 20px 40px ${color}30`
-      } : undefined}
+      whileHover={!reduceMotion && animated ? { scale: 1.02 } : undefined}
       transition={!reduceMotion && animated ? { duration: 0.3, delay, ease: "easeOut" } : undefined}
     >
-      {/* Animated background gradient */}
-      <motion.div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100"
-        style={{
-          background: `linear-gradient(135deg, ${color}10, transparent)`
-        }}
-        transition={{ duration: 0.3 }}
-      />
-      
-      {/* Glow effect */}
-      <motion.div
-        className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 blur-sm"
-        style={{
-          background: `linear-gradient(135deg, ${color}20, transparent)`
-        }}
-        transition={{ duration: 0.3 }}
-      />
-      
-      <div className="relative z-10">
+      <div className="card-glow-inner">
         {children}
       </div>
     </motion.div>

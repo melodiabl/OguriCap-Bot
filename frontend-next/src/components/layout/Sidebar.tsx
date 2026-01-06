@@ -6,13 +6,15 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketBotStatus } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
-import { useBotStatus, useNotifications } from '@/hooks/useRealTime';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { StatusIndicator, RealTimeBadge } from '@/components/ui/StatusIndicator';
+import { useBotStatus } from '@/hooks/useRealTime';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useNavParticleBurst } from '@/components/ui/NavParticles';
 import {
   Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
   LogOut, Bell, FileText, BarChart3, Image, Zap, Globe,
@@ -37,7 +39,6 @@ const menuItems = [
   { path: '/recursos', icon: BarChart3, label: 'Recursos', color: 'success', page: 'recursos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración', color: 'cyan', page: 'configuracion' },
   { path: '/logs', icon: FileText, label: 'Logs & Sistema', color: 'danger', page: 'logs' },
-  { path: '/notificaciones', icon: Bell, label: 'Notificaciones', color: 'primary', page: 'notificaciones' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
   { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
 ];
@@ -57,13 +58,36 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+const SidebarNavLink: React.FC<{
+  href: string;
+  onClose: () => void;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ href, onClose, className, children }) => {
+  const { emit, layer } = useNavParticleBurst();
+  return (
+    <Link
+      href={href}
+      onClick={(e) => {
+        emit();
+        onClose();
+      }}
+      onPointerEnter={() => emit()}
+      className={cn('relative', className)}
+    >
+      {children}
+      {layer}
+    </Link>
+  );
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { hasPermission } = usePermissions();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
-  const { botStatus } = useSocket();
-  const { unreadCount } = useNotifications(30000);
+  const botStatus = useSocketBotStatus();
+  const { unreadCount } = useNotifications();
   const { isGloballyOn } = useBotGlobalState();
   const { dashboardStats, botStatus: globalBotStatus, refreshAll } = useGlobalUpdate();
 
@@ -78,13 +102,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Mobile overlay */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-          />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+            className="fixed inset-0 overlay-scrim z-40 lg:hidden"
+            />
         )}
       </AnimatePresence>
 
@@ -92,20 +116,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <aside
         className={cn(
           'fixed top-0 left-0 z-50 h-screen w-72',
-          'glass-dark border-r border-white/10',
+          'glass-dark border-r border-white/10 sidebar-chrome',
           'flex flex-col',
           'transform transition-transform duration-300 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0'
         )}
       >
+        <div className="relative z-10 flex flex-col h-full">
         {/* Logo */}
         <div className="p-6 border-b border-white/10">
           <Link href="/" className="flex items-center gap-3">
             <motion.div
               whileHover={{ rotate: 360 }}
               transition={{ duration: 0.5 }}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-glow"
+              className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 flex items-center justify-center shadow-glow-lg hover-lift-soft"
             >
               <Bot className="w-6 h-6 text-white" />
             </motion.div>
@@ -117,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Bot Status Mini */}
-        <div className="px-4 py-3 mx-4 mt-4 rounded-xl bg-white/5 border border-white/10">
+        <div className="mx-4 mt-4 rounded-xl glass hover-outline-gradient hover-glass-bright p-4">
           <div className="flex items-center justify-between mb-2">
             <StatusIndicator
               status={
@@ -127,7 +152,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               }
               size="sm"
             />
-            <RealTimeBadge isActive={isConnected && isGloballyOn} />
+            <StatusBadge
+              tone={!isGloballyOn ? 'neutral' : isConnected ? 'success' : isConnecting ? 'warning' : 'danger'}
+              pulse={isConnected && isGloballyOn}
+            >
+              {!isGloballyOn ? 'OFF' : isConnecting ? 'SYNC' : isConnected ? 'LIVE' : 'DOWN'}
+            </StatusBadge>
           </div>
           <div className="text-xs text-gray-400">
             {!isGloballyOn ? 'Bot Desactivado' : 
@@ -155,15 +185,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Link
+                  <SidebarNavLink
                     href={item.path}
-                    onClick={onClose}
+                    onClose={onClose}
                     className={cn(
-                      'flex items-center gap-3 px-4 py-3 rounded-xl',
-                      'transition-all duration-300 group relative',
-                      isActive
-                        ? 'bg-gradient-to-r from-primary-500/20 to-transparent border-l-4 border-primary-500 text-white shadow-inner-glow'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-white hover:translate-x-1'
+                      'group focus-ring-animated press-scale hover-outline-gradient',
+                      isActive ? 'sidebar-item-active' : 'sidebar-item'
                     )}
                   >
                     <div className={cn(
@@ -173,16 +200,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                       <Icon className="w-5 h-5" />
                     </div>
                     <span className="font-medium">{item.label}</span>
-                    
-                    {item.path === '/notificaciones' && unreadCount > 0 && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="ml-auto px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full"
-                      >
-                        {unreadCount}
-                      </motion.span>
-                    )}
 
                     {isActive && (
                       <motion.div
@@ -190,7 +207,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         className="absolute right-4 w-2 h-2 rounded-full bg-primary-500 shadow-glow"
                       />
                     )}
-                  </Link>
+                  </SidebarNavLink>
                 </motion.div>
               );
             })}
@@ -220,12 +237,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={logout}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors press-scale focus-ring-animated"
               title="Cerrar sesión"
             >
               <LogOut className="w-5 h-5" />
             </motion.button>
           </div>
+        </div>
         </div>
       </aside>
     </>

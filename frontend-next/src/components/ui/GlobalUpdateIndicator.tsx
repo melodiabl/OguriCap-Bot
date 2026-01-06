@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
   Wifi, WifiOff, CheckCircle, AlertCircle, Activity, 
   Zap, Radio, Signal, Loader2, Bot, Shield, 
@@ -9,14 +9,16 @@ import {
 } from 'lucide-react';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export const GlobalUpdateIndicator: React.FC = () => {
   const { isRefreshing, lastUpdate, dashboardStats } = useGlobalUpdate();
   const { isGloballyOn } = useBotGlobalState();
-  const { isConnected } = useSocket();
+  const { isConnected } = useSocketConnection();
+  const reduceMotion = useReducedMotion();
 
   const getSystemStatus = () => {
     if (!isGloballyOn) return 'critical';
@@ -71,6 +73,8 @@ export const GlobalUpdateIndicator: React.FC = () => {
   };
 
   const config = getStatusConfig();
+  const status = getSystemStatus();
+  const showPulse = !reduceMotion && (isRefreshing || status !== 'healthy');
 
   return (
     <motion.div
@@ -78,27 +82,26 @@ export const GlobalUpdateIndicator: React.FC = () => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className="fixed top-4 right-4 z-50"
     >
-      <motion.div
-        animate={{ 
-          boxShadow: isRefreshing ? config.pulse : 'none',
-        }}
-        transition={{ repeat: isRefreshing ? Infinity : 0, duration: 2 }}
-        className={`relative overflow-hidden rounded-2xl border backdrop-blur-xl ${config.bgColor}`}
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-2xl border backdrop-blur-xl',
+          config.bgColor,
+          isRefreshing && config.pulse
+        )}
       >
         {/* Gradient Background */}
         <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-5`} />
         
         {/* Animated Border */}
         <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-0 rounded-2xl"
-          style={{
-            background: `conic-gradient(from 0deg, transparent, ${config.textColor.replace('text-', 'rgb(')}, transparent)`,
-            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            maskComposite: 'xor',
-            padding: '1px'
-          }}
+          aria-hidden="true"
+          className={cn('conic-border', `conic-border--${status}`)}
+          animate={showPulse ? { rotate: 360 } : { rotate: 0 }}
+          transition={
+            showPulse
+              ? { duration: 8, repeat: Infinity, ease: 'linear' }
+              : { duration: 0.6, ease: 'easeOut' }
+          }
         />
         
         <div className="relative p-4 min-w-[280px]">
@@ -128,8 +131,8 @@ export const GlobalUpdateIndicator: React.FC = () => {
             </div>
             
             <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              animate={showPulse ? { scale: [1, 1.14, 1] } : { scale: 1 }}
+              transition={showPulse ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
               className={`${config.textColor}`}
             >
               {config.icon}
@@ -173,8 +176,8 @@ export const GlobalUpdateIndicator: React.FC = () => {
           <div className="flex items-center justify-between p-2 rounded-lg bg-white/5">
             <div className="flex items-center gap-2">
               <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                animate={showPulse ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+                transition={showPulse ? { duration: 1.35, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
               >
                 {isConnected ? (
                   <Signal className="w-4 h-4 text-emerald-400" />
@@ -216,20 +219,16 @@ export const GlobalUpdateIndicator: React.FC = () => {
           )}
 
           {/* Pulse Animation */}
-          <motion.div
-            animate={{
-              scale: [1, 1.05, 1],
-              opacity: [0.3, 0.6, 0.3]
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${config.color} pointer-events-none`}
-          />
+          {showPulse && (
+            <motion.div
+              aria-hidden="true"
+              animate={{ scale: [1, 1.045, 1], opacity: [0.22, 0.42, 0.22] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${config.color} pointer-events-none`}
+            />
+          )}
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 };
@@ -237,7 +236,7 @@ export const GlobalUpdateIndicator: React.FC = () => {
 export const MiniUpdateIndicator: React.FC = () => {
   const { isRefreshing } = useGlobalUpdate();
   const { isGloballyOn } = useBotGlobalState();
-  const { isConnected } = useSocket();
+  const { isConnected } = useSocketConnection();
 
   const getStatusConfig = () => {
     if (!isGloballyOn) return {

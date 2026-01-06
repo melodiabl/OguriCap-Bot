@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Image, Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon } from 'lucide-react';
+import { Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -44,9 +44,9 @@ export default function MultimediaPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
 
-  useEffect(() => { 
-    loadData(); 
-  }, [currentPage, typeFilter]);
+  useEffect(() => {
+    loadData();
+  }, [currentPage, typeFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps -- loadData is defined below
 
 
 
@@ -160,7 +160,7 @@ export default function MultimediaPage() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'image': return Image;
+      case 'image': return ImageIcon;
       case 'video': return Video;
       case 'audio': return Music;
       default: return File;
@@ -218,7 +218,7 @@ export default function MultimediaPage() {
           <StatCard title="Videos" value={stats?.videos || 0} icon={<Video className="w-6 h-6" />} color="violet" delay={0} animated={false} />
         </StaggerItem>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-          <StatCard title="Imágenes" value={stats?.images || 0} icon={<Image className="w-6 h-6" />} color="success" delay={0} animated={false} />
+          <StatCard title="Imágenes" value={stats?.images || 0} icon={<ImageIcon className="w-6 h-6" />} color="success" delay={0} animated={false} />
         </StaggerItem>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard title="Audio" value={stats?.audio || 0} icon={<Music className="w-6 h-6" />} color="warning" delay={0} animated={false} />
@@ -279,7 +279,7 @@ export default function MultimediaPage() {
                   <StaggerItem
                     key={item.id}
                     layout="position"
-                    exit={{ opacity: 0, y: -12, scale: 0.985, filter: 'blur(8px)' }}
+                    exit={{ opacity: 0, y: -12, scale: 0.99 }}
                     whileHover={{ y: -8, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
                   >
                     <Card hover={false} className="group overflow-hidden hover:border-pink-500/30 transition-all cursor-pointer">

@@ -40,4 +40,4 @@ frontend-next/.env.local
 # Storage y media
 storage/
 frontend-next/package-lock.json
-.env
+

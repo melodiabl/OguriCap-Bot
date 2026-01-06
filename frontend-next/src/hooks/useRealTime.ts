@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/services/api';
 import { DashboardStats, BotStatus } from '@/types';
-import { SOCKET_EVENTS, useSocket } from '@/contexts/SocketContext';
+import { SOCKET_EVENTS, useSocketBotStatus, useSocketConnection } from '@/contexts/SocketContext';
 
 export function useDashboardStats(_interval = 10000) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected } = useSocketConnection();
 
   const fetchStats = useCallback(async () => {
     try {
@@ -63,7 +63,8 @@ export function useBotStatus(_interval = 5000) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const socketCtx = useSocket();
+  const { isConnected: socketConnected } = useSocketConnection();
+  const socketBotStatus = useSocketBotStatus();
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -79,8 +80,8 @@ export function useBotStatus(_interval = 5000) {
   }, []);
 
   useEffect(() => {
-    if (socketCtx.botStatus) {
-      const data = socketCtx.botStatus as any;
+    if (socketBotStatus) {
+      const data = socketBotStatus as any;
       setStatus(data);
       setIsConnected(Boolean(data?.connected ?? data?.isConnected));
       setIsConnecting(Boolean(data?.connecting));
@@ -89,15 +90,15 @@ export function useBotStatus(_interval = 5000) {
     }
 
     fetchStatus();
-  }, [fetchStatus, socketCtx.botStatus]);
+  }, [fetchStatus, socketBotStatus]);
 
   useEffect(() => {
     const onFocus = () => {
-      if (!socketCtx.isConnected) fetchStatus();
+      if (!socketConnected) fetchStatus();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [fetchStatus, socketCtx.isConnected]);
+  }, [fetchStatus, socketConnected]);
 
   return { status, isConnected, isConnecting, isLoading, refetch: fetchStatus };
 }
@@ -108,7 +109,7 @@ export function useSystemStats(_interval = 10000) {
   const [diskUsage, setDiskUsage] = useState<{ percentage: number; totalGB: number; freeGB: number } | null>(null);
   const [uptime, setUptime] = useState(0);
   const [systemInfo, setSystemInfo] = useState<any>(null);
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   const fetchStats = useCallback(async () => {
     try {
@@ -179,14 +180,14 @@ export function useSystemStats(_interval = 10000) {
 export function useSubbotsStatus(_interval = 10000) {
   const [onlineCount, setOnlineCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   const fetchStatus = useCallback(async () => {
     try {
       const data = await api.getSubbotStatus();
       const subbots = data.subbots || [];
       setTotalCount(subbots.length);
-      setOnlineCount(subbots.filter((s: any) => s.connected || s.isConnected).length);
+      setOnlineCount(subbots.filter((s: any) => s?.isOnline || s?.connected || s?.isConnected).length);
     } catch (err) {
       // Silent fail
     }
@@ -255,7 +256,7 @@ export function useConnectionHealth() {
 export function useNotifications(_interval = 30000) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -302,7 +303,7 @@ export function useNotifications(_interval = 30000) {
 export function useRecentActivity(_interval = 15000) {
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -349,7 +350,7 @@ export function useRecentActivity(_interval = 15000) {
 export function useBotGlobalState(_interval = 30000) {
   const [isOn, setIsOn] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
 
   const fetchState = useCallback(async () => {
     try {
@@ -401,7 +402,8 @@ export function useBotGlobalState(_interval = 30000) {
 export function useQRCode(enabled: boolean, _interval = 3000) {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [available, setAvailable] = useState(false);
-  const { botStatus, socket } = useSocket();
+  const { socket } = useSocketConnection();
+  const botStatus = useSocketBotStatus();
 
   const fetchQR = useCallback(async () => {
     if (!enabled) return;

@@ -134,7 +134,7 @@ export function RouteProgressBar() {
       aria-hidden="true"
     >
       <motion.div
-        className="route-progress-bar"
+        className="route-progress-bar origin-left"
         initial={false}
         animate={{ scaleX: Math.max(0.02, progress / 100) }}
         transition={
@@ -142,7 +142,6 @@ export function RouteProgressBar() {
             ? { duration: 0.18, ease: 'easeOut' }
             : { type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }
         }
-        style={{ transformOrigin: '0% 50%' }}
       />
     </motion.div>
   );

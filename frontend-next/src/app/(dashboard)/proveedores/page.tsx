@@ -11,6 +11,8 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { SimpleSelect as Select } from '@/components/ui/Select';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
@@ -285,20 +287,44 @@ export default function ProveedoresPage() {
         </div>
 
         {loading ? (
-          <div className="p-8 text-center">
-            <RefreshCw className="w-8 h-8 text-purple-400 animate-spin mx-auto mb-4" />
-            <p className="text-gray-400">Cargando proveedores...</p>
+          <div className="p-6 space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-start justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <Skeleton className="h-4 w-56 rounded" />
+                  <Skeleton className="h-3 w-full rounded" />
+                  <div className="flex items-center gap-3 pt-1">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredProveedores.length === 0 ? (
-          <div className="p-8 text-center">
-            <Building2 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">No hay proveedores</h3>
-            <p className="text-gray-400 mb-4">No se encontraron proveedores con los filtros aplicados</p>
-            {proveedores.length === 0 && (
-              <Button onClick={() => setShowCreateModal(true)} variant="primary" icon={<Plus className="w-4 h-4" />}>
-                Crear Primer Proveedor
-              </Button>
-            )}
+          <div className="p-6">
+            <EmptyState
+              icon={<Building2 className="w-6 h-6 text-gray-400" />}
+              title="No hay proveedores"
+              description="No se encontraron proveedores con los filtros aplicados"
+              action={
+                proveedores.length === 0 ? (
+                  <Button onClick={() => setShowCreateModal(true)} variant="primary" icon={<Plus className="w-4 h-4" />}>
+                    Crear Primer Proveedor
+                  </Button>
+                ) : (
+                  <Button onClick={loadProveedores} variant="secondary" icon={<RefreshCw className="w-4 h-4" />}>
+                    Recargar
+                  </Button>
+                )
+              }
+            />
           </div>
         ) : (
           <div className="divide-y divide-white/5">

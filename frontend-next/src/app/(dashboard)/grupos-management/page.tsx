@@ -1,21 +1,26 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Users, Power, Bell, CheckCircle, XCircle, Eye, RefreshCw,
-  ToggleRight, AlertTriangle, X, Radio, PowerOff
+  ToggleRight, AlertTriangle, X
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
-import { useSocket } from '@/contexts/SocketContext';
+import { RealTimeBadge } from '@/components/ui/StatusIndicator';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
+import { useLoadingOverlay } from '@/contexts/LoadingOverlayContext';
+import { notify } from '@/lib/notify';
+import { cn } from '@/lib/utils';
 import api from '@/services/api';
 import { useGroups } from '@/contexts/GroupsContext';
-import toast from 'react-hot-toast';
 
 interface Group {
   id: number;
@@ -46,11 +51,12 @@ export default function GruposManagementPage() {
   const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
   const [notificationStats, setNotificationStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<'groups' | 'notifications'>('groups');
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedNotification, setSelectedNotification] = useState<GlobalNotification | null>(null);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [recentGroupJid, setRecentGroupJid] = useState<string | null>(null);
   
   // Usar el contexto global del bot
   const { isGloballyOn: globalBotState, setGlobalState } = useBotGlobalState();
@@ -59,25 +65,26 @@ export default function GruposManagementPage() {
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [isStartingUp, setIsStartingUp] = useState(false);
 
-  const { isConnected: isSocketConnected } = useSocket();
+  const { isConnected: isSocketConnected } = useSocketConnection();
+  const { withLoading } = useLoadingOverlay();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      await refreshGroups();
       // Solo cargar notificaciones, los grupos vienen del context
       const [notifRes, statsRes] = await Promise.all([
         api.getNotificaciones(1, 50).catch(() => ({ data: [] })),
         api.getNotificationStats().catch(() => ({ total: 0 }))
       ]);
-      setGroups(contextGroups); // Usar grupos del context
       setNotifications(notifRes.data || []);
       setNotificationStats(statsRes);
     } catch (error) {
-      toast.error('Error al cargar datos');
+      notify.error('Error al cargar datos');
     } finally {
       setIsLoading(false);
     }
-  }, [contextGroups]);
+  }, [refreshGroups]);
 
   useEffect(() => { 
     setGroups(contextGroups); // Actualizar cuando cambien los grupos del context
@@ -87,7 +94,7 @@ export default function GruposManagementPage() {
 
   const handleToggleGroup = async (group: Group) => {
     if (!globalBotState) {
-      toast.error('El bot está apagado globalmente');
+      notify.error('El bot está apagado globalmente');
       return;
     }
     
@@ -98,6 +105,9 @@ export default function GruposManagementPage() {
       setGroups(prev => prev.map(g => 
         g.wa_jid === group.wa_jid ? { ...g, bot_enabled: !isActive } : g
       ));
+      setRecentGroupJid(group.wa_jid);
+      window.setTimeout(() => setRecentGroupJid(null), 1200);
+      void refreshGroups();
       
       // Crear notificación automática
       await api.createNotification({
@@ -107,9 +117,9 @@ export default function GruposManagementPage() {
         category: 'bot'
       });
       
-      toast.success(`Bot ${isActive ? 'desactivado' : 'activado'} en ${group.nombre}`);
+      notify.success(`Bot ${isActive ? 'desactivado' : 'activado'} en ${group.nombre}`);
     } catch (error) {
-      toast.error('Error al cambiar estado');
+      notify.error('Error al cambiar estado');
     } finally {
       setTogglingGroup(null);
     }
@@ -118,21 +128,25 @@ export default function GruposManagementPage() {
   const handleShutdownGlobally = async () => {
     setIsShuttingDown(true);
     try {
-      await setGlobalState(false); // Usar el contexto
-      
-      // Crear notificación automática
-      await api.createNotification({
-        title: 'Bot Desactivado Globalmente',
-        message: 'El bot ha sido desactivado en todos los grupos por el administrador',
-        type: 'warning',
-        category: 'bot'
-      });
-      
-      toast.success('Bot desactivado globalmente');
+      await withLoading(
+        async () => {
+          await setGlobalState(false); // Usar el contexto
+          await api.createNotification({
+            title: 'Bot Desactivado Globalmente',
+            message: 'El bot ha sido desactivado en todos los grupos por el administrador',
+            type: 'warning',
+            category: 'bot',
+          });
+          await refreshGroups();
+        },
+        { message: 'Apagando bot global…', details: 'Aplicando cambios en todos los grupos.' }
+      );
+
+      notify.success('Bot desactivado globalmente');
       setIsShutdownModalOpen(false);
       fetchData();
     } catch (error) {
-      toast.error('Error al desactivar');
+      notify.error('Error al desactivar');
     } finally {
       setIsShuttingDown(false);
     }
@@ -141,20 +155,24 @@ export default function GruposManagementPage() {
   const handleStartupGlobally = async () => {
     setIsStartingUp(true);
     try {
-      await setGlobalState(true); // Usar el contexto
-      
-      // Crear notificación automática
-      await api.createNotification({
-        title: 'Bot Activado Globalmente',
-        message: 'El bot ha sido activado globalmente y está respondiendo en todos los grupos habilitados',
-        type: 'success',
-        category: 'bot'
-      });
-      
-      toast.success('Bot activado globalmente');
+      await withLoading(
+        async () => {
+          await setGlobalState(true); // Usar el contexto
+          await api.createNotification({
+            title: 'Bot Activado Globalmente',
+            message: 'El bot ha sido activado globalmente y está respondiendo en todos los grupos habilitados',
+            type: 'success',
+            category: 'bot',
+          });
+          await refreshGroups();
+        },
+        { message: 'Encendiendo bot global…', details: 'Inicializando conexiones.' }
+      );
+
+      notify.success('Bot activado globalmente');
       fetchData();
     } catch (error) {
-      toast.error('Error al activar');
+      notify.error('Error al activar');
     } finally {
       setIsStartingUp(false);
     }
@@ -178,16 +196,7 @@ export default function GruposManagementPage() {
         icon={<Users className="w-5 h-5 text-indigo-400" />}
         actions={
           <>
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-                isSocketConnected
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-              }`}
-            >
-              <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
-              {isSocketConnected ? 'Tiempo Real' : 'Sin conexión'}
-            </div>
+            <RealTimeBadge isActive={isSocketConnected} />
             <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={fetchData}>
               Actualizar
             </Button>
@@ -225,100 +234,106 @@ export default function GruposManagementPage() {
 
       {/* Tabs */}
       <Card animated delay={0.2} className="overflow-hidden">
-        <div className="border-b border-white/10">
-          <nav className="flex space-x-1 px-6">
-            {[{ id: 0, name: 'Grupos', icon: Users }, { id: 1, name: 'Notificaciones Globales', icon: Bell }].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-4 px-4 border-b-2 font-medium text-sm transition-all ${
-                  activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-400'
-                    : 'border-transparent text-gray-400 hover:text-white hover:border-white/20'
-                }`}
-              >
-                <tab.icon className="w-5 h-5" />
-                {tab.name}
-              </button>
-            ))}
-          </nav>
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <div className="px-6 pt-4">
+            <TabsList className="border-b-0">
+              <TabsTrigger value="groups" className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Grupos
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Notificaciones Globales
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <div className="p-6">
-          {/* Tab Grupos */}
-          {activeTab === 0 && (
-            <div className="space-y-4">
+          <div className="p-6">
+            <TabsContent value="groups" className="mt-0">
               {isLoading ? (
-                <div className="text-center py-8">
-                  <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-gray-400">Cargando grupos...</p>
+                <div className="space-y-3">
+                  <div className="skeleton h-10 w-1/3" />
+                  <div className="skeleton h-12 w-full" />
+                  <div className="skeleton h-12 w-full" />
+                  <div className="skeleton h-12 w-full" />
                 </div>
               ) : groups.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No hay grupos registrados</p>
-                </div>
+                <EmptyState
+                  icon={<Users className="w-6 h-6 text-gray-400" />}
+                  title="No hay grupos registrados"
+                  description="Sin datos para mostrar en gestión global."
+                />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="table-glass w-full">
                     <thead>
-                      <tr className="border-b border-white/10">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Grupo</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Estado Bot</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Última Actividad</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Acciones</th>
+                      <tr>
+                        <th>Grupo</th>
+                        <th>Estado Bot</th>
+                        <th>Última Actividad</th>
+                        <th className="text-right">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {groups.map((group, index) => {
-                        const isActive = group.bot_enabled;
+                        const isActive = !!group.bot_enabled;
+                        const isUpdating = togglingGroup === group.wa_jid;
                         return (
                           <motion.tr
                             key={group.wa_jid}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.03 }}
-                            className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                            className={cn(recentGroupJid === group.wa_jid && 'highlight-change')}
                           >
-                            <td className="py-4 px-4">
+                            <td>
                               <p className="font-semibold text-white">{group.nombre}</p>
-                              <p className="text-xs text-gray-500 truncate max-w-[200px]">{group.wa_jid}</p>
+                              <p className="text-xs text-gray-500 truncate max-w-[260px]">{group.wa_jid}</p>
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
-                                  isActive
-                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                    : 'bg-red-500/20 text-red-400 border-red-500/30'
-                                }`}>
-                                  {isActive ? 'Activo' : 'Inactivo'}
-                                </span>
-                              </div>
+                            <td>
+                              <span className={isActive ? 'badge-success' : 'badge-danger'}>
+                                {isActive ? 'Activo' : 'Inactivo'}
+                              </span>
                             </td>
-                            <td className="py-4 px-4">
+                            <td>
                               <span className="text-sm text-gray-400">
                                 {group.updated_at ? new Date(group.updated_at).toLocaleDateString() : 'N/A'}
                               </span>
                             </td>
-                            <td className="py-4 px-4">
+                            <td>
                               <div className="flex items-center justify-end gap-2">
                                 <button
+                                  type="button"
+                                  aria-label={isActive ? 'Desactivar bot en grupo' : 'Activar bot en grupo'}
+                                  aria-pressed={isActive}
                                   onClick={() => handleToggleGroup(group)}
-                                  disabled={togglingGroup === group.wa_jid}
-                                  className={`relative w-12 h-6 rounded-full transition-colors ${
-                                    isActive ? 'bg-emerald-500' : 'bg-gray-600'
-                                  } ${togglingGroup === group.wa_jid ? 'opacity-50' : ''}`}
+                                  disabled={isUpdating}
+                                  className={cn(
+                                    'relative w-12 h-6 rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10',
+                                    'press-scale focus-ring-animated',
+                                    isActive && 'bg-gradient-to-r from-accent-emerald to-accent-cyan border-transparent shadow-glow-emerald',
+                                    isUpdating && 'is-updating opacity-70'
+                                  )}
                                 >
-                                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                                    isActive ? 'left-7' : 'left-1'
-                                  }`} />
+                                  <span
+                                    aria-hidden="true"
+                                    className={cn(
+                                      'absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition-transform duration-300',
+                                      isActive && 'translate-x-6'
+                                    )}
+                                  />
                                 </button>
-                                <button
-                                  onClick={() => { setSelectedGroup(group); setIsGroupModalOpen(true); }}
-                                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                                >
-                                  <Eye className="w-4 h-4 text-gray-400" />
-                                </button>
+                                <Button
+                                  variant="secondary"
+                                  size="icon"
+                                  aria-label="Ver detalles del grupo"
+                                  icon={<Eye className="w-4 h-4" />}
+                                  onClick={() => {
+                                    setSelectedGroup(group);
+                                    setIsGroupModalOpen(true);
+                                  }}
+                                  className="hover-outline-gradient hover-glass-bright"
+                                />
                               </div>
                             </td>
                           </motion.tr>
@@ -328,27 +343,32 @@ export default function GruposManagementPage() {
                   </table>
                 </div>
               )}
-            </div>
-          )}
+            </TabsContent>
 
-          {/* Tab Notificaciones */}
-          {activeTab === 1 && (
-            <div className="space-y-4">
-              {notifications.length === 0 ? (
-                <div className="text-center py-8">
-                  <Bell className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No hay notificaciones globales</p>
+            <TabsContent value="notifications" className="mt-0">
+              {isLoading ? (
+                <div className="space-y-3">
+                  <div className="skeleton h-10 w-1/2" />
+                  <div className="skeleton h-12 w-full" />
+                  <div className="skeleton h-12 w-full" />
+                  <div className="skeleton h-12 w-full" />
                 </div>
+              ) : notifications.length === 0 ? (
+                <EmptyState
+                  icon={<Bell className="w-6 h-6 text-gray-400" />}
+                  title="No hay notificaciones globales"
+                  description="Cuando se envíen notificaciones, aparecerán aquí."
+                />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="table-glass w-full">
                     <thead>
-                      <tr className="border-b border-white/10">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Grupo</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Tipo</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Estado</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Fecha</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Acciones</th>
+                      <tr>
+                        <th>Grupo</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th className="text-right">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -358,39 +378,34 @@ export default function GruposManagementPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}
-                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
                         >
-                          <td className="py-4 px-4">
+                          <td>
                             <p className="font-semibold text-white">{notif.grupo_nombre || 'Global'}</p>
                           </td>
-                          <td className="py-4 px-4">
-                            <span className="px-2 py-1 text-xs font-medium text-indigo-400 bg-indigo-500/20 rounded-full border border-indigo-500/30">
-                              {notif.tipo || 'info'}
+                          <td>
+                            <span className="badge-info">{notif.tipo || 'info'}</span>
+                          </td>
+                          <td>
+                            <span className={notif.estado === 'enviado' ? 'badge-success' : 'badge-danger'}>
+                              {notif.estado === 'enviado' ? 'Enviado' : 'Error'}
                             </span>
                           </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              {notif.estado === 'enviado' ? (
-                                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-red-400" />
-                              )}
-                              <span className={notif.estado === 'enviado' ? 'text-emerald-400' : 'text-red-400'}>
-                                {notif.estado === 'enviado' ? 'Enviado' : 'Error'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
+                          <td>
                             <span className="text-sm text-gray-400">{formatDate(notif.fecha_envio)}</span>
                           </td>
-                          <td className="py-4 px-4">
+                          <td>
                             <div className="flex justify-end">
-                              <button
-                                onClick={() => { setSelectedNotification(notif); setIsNotificationModalOpen(true); }}
-                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                              >
-                                <Eye className="w-4 h-4 text-gray-400" />
-                              </button>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                aria-label="Ver detalles de la notificación"
+                                icon={<Eye className="w-4 h-4" />}
+                                onClick={() => {
+                                  setSelectedNotification(notif);
+                                  setIsNotificationModalOpen(true);
+                                }}
+                                className="hover-outline-gradient hover-glass-bright"
+                              />
                             </div>
                           </td>
                         </motion.tr>
@@ -399,9 +414,9 @@ export default function GruposManagementPage() {
                   </table>
                 </div>
               )}
-            </div>
-          )}
-        </div>
+            </TabsContent>
+          </div>
+        </Tabs>
       </Card>
 
       {/* Modal Grupo */}
@@ -480,7 +495,7 @@ export default function GruposManagementPage() {
             </div>
             <div className="p-3 bg-white/5 rounded-xl">
               <p className="text-sm text-gray-400">Mensaje</p>
-              <code className="block mt-2 p-3 bg-black/30 rounded-lg text-sm text-gray-300 whitespace-pre-wrap">
+              <code className="block mt-2 p-3 code-surface rounded-lg text-sm text-gray-300 whitespace-pre-wrap">
                 {selectedNotification.mensaje}
               </code>
             </div>
@@ -495,20 +510,21 @@ export default function GruposManagementPage() {
       </Modal>
 
       {/* Modal Shutdown */}
+      {/* Legacy shutdown modal (deprecated)
       <AnimatePresence>
         {isShutdownModalOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setIsShutdownModalOpen(false)}
+            className="modal-overlay"
+            onClick={() => (isShuttingDown ? null : setIsShutdownModalOpen(false))}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card p-6 w-full max-w-md"
+              className="modal-content max-w-md"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -539,6 +555,45 @@ export default function GruposManagementPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      */}
+
+      <Modal
+        isOpen={isShutdownModalOpen}
+        onClose={() => {
+          if (isShuttingDown) return;
+          setIsShutdownModalOpen(false);
+        }}
+        title="Confirmar Apagado Global"
+        className="max-w-md"
+      >
+        <div className="p-4 rounded-2xl bg-warning/10 border border-warning/20 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm text-warning font-semibold mb-1">¡Atención!</p>
+              <p className="text-sm text-warning/90">
+                Esta acción desactivará el bot en TODOS los grupos. Solo el administrador podrá reactivarlo.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-muted mb-6">¿Estás seguro de que quieres desactivar el bot globalmente?</p>
+
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setIsShutdownModalOpen(false)}
+            variant="secondary"
+            className="flex-1"
+            disabled={isShuttingDown}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={handleShutdownGlobally} variant="danger" className="flex-1" loading={isShuttingDown}>
+            Desactivar
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

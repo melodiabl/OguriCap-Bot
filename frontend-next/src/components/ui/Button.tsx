@@ -5,32 +5,28 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NavParticlesHost } from '@/components/ui/NavParticles';
 
 const buttonVariants = cva(
-  'btn-sheen relative overflow-hidden inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:pointer-events-none disabled:opacity-50',
+  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold tracking-wide transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--ring)/0.55)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg)/1)] disabled:pointer-events-none disabled:opacity-50 ring-1 ring-[rgb(var(--border)/0.35)] hover:ring-[rgb(var(--border)/0.6)] hover:-translate-y-0.5 active:translate-y-0',
   {
     variants: {
       variant: {
-        primary: 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-400 hover:to-primary-500 shadow-glow hover:shadow-glow-lg transform hover:scale-105 active:scale-95',
-        secondary: [
-          'bg-white/5 border border-white/20 text-white hover:bg-white/10 hover:border-primary-400/50',
-          '[html.light_&]:bg-gray-100/80 [html.light_&]:border-gray-300/50 [html.light_&]:text-gray-800',
-          '[html.light_&]:hover:bg-gray-200/80 [html.light_&]:hover:border-primary-400/50',
-          'transform hover:scale-105 active:scale-95'
-        ],
-        danger: 'bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-400 hover:to-rose-500 transform hover:scale-105 active:scale-95',
-        success: 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-400 hover:to-teal-500 transform hover:scale-105 active:scale-95',
+        primary: 'btn-primary',
+        secondary: 'btn-secondary',
+        danger: 'btn-danger',
+        success: 'btn-glow',
+        glow: 'btn-glow',
         ghost: [
-          'text-gray-400 hover:text-white hover:bg-white/5',
-          '[html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-100/50'
+          'px-4 py-2',
+          'text-muted hover:text-foreground hover:bg-card/40 hover:shadow-inner-glow',
         ],
-        glow: 'bg-gradient-to-r from-accent-cyan to-accent-emerald text-white shadow-glow-cyan hover:shadow-glow-lg transform hover:scale-105',
       },
       size: {
-        default: 'h-10 px-6 py-2',
-        sm: 'h-9 px-4 text-xs',
-        lg: 'h-12 px-8',
-        icon: 'h-10 w-10',
+        default: '',
+        sm: '!px-4 !py-2 text-xs',
+        lg: '!px-8 !py-4 text-base',
+        icon: '!p-2.5 h-11 w-11',
       },
     },
     defaultVariants: {
@@ -46,18 +42,31 @@ export interface ButtonProps
   asChild?: boolean;
   loading?: boolean;
   icon?: React.ReactNode;
+  navFx?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading, icon, children, disabled, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading, icon, navFx = false, children, disabled, ...props }, forwardedRef) => {
     const reduceMotion = useReducedMotion();
+    const isDisabled = !!disabled || !!loading;
+    const localRef = React.useRef<HTMLButtonElement | null>(null);
     return (
       <motion.button
         whileHover={reduceMotion ? undefined : { scale: disabled || loading ? 1 : 1.02 }}
         whileTap={reduceMotion ? undefined : { scale: disabled || loading ? 1 : 0.98 }}
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref as any}
-        disabled={disabled || loading}
+        className={cn(
+          buttonVariants({ variant, size }),
+          isDisabled && 'is-disabled',
+          loading && 'is-loading',
+          className
+        )}
+        ref={(node) => {
+          localRef.current = node;
+          if (!forwardedRef) return;
+          if (typeof forwardedRef === 'function') forwardedRef(node);
+          else (forwardedRef as React.MutableRefObject<HTMLButtonElement | null>).current = node;
+        }}
+        disabled={isDisabled}
         {...(props as any)}
       >
         {loading ? (
@@ -66,6 +75,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           icon
         ) : null}
         {children}
+        {navFx && !isDisabled ? <NavParticlesHost targetRef={localRef} /> : null}
       </motion.button>
     );
   }

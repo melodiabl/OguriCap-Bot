@@ -4,24 +4,29 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, MessageSquare, Package, ShoppingCart, Bot, Zap,
-  TrendingUp, Activity, Clock, CheckCircle, RefreshCw, Radio, Settings,
+  TrendingUp, Activity, Clock, CheckCircle, RefreshCw, Settings,
 } from 'lucide-react';
-import { Card, StatCard, GlowCard } from '@/components/ui/Card';
+import { StatCard, GlowCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { ActionButton } from '@/components/ui/ActionButton';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/Accordion';
 import { ProgressRing, BarChart, DonutChart } from '@/components/ui/Charts';
-import { RealTimeBadge } from '@/components/ui/StatusIndicator';
+import { RealTimeBadge, StatusIndicator } from '@/components/ui/StatusIndicator';
 import PerformanceIndicator from '@/components/ui/PerformanceIndicator';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DashboardCard } from '@/components/ui/DashboardCard';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useDashboardStats, useBotStatus, useSystemStats, useSubbotsStatus, useRecentActivity } from '@/hooks/useRealTime';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useSocket, SOCKET_EVENTS } from '@/contexts/SocketContext';
+import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
 import { formatUptime } from '@/lib/utils';
 import { Magnetic } from '@/components/ui/Magnetic';
+import { Progress } from '@/components/ui/Progress';
 
 export default function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats(10000);
@@ -30,7 +35,7 @@ export default function DashboardPage() {
   const { dashboardStats, botStatus: globalBotStatus, refreshAll } = useGlobalUpdate();
   const { memoryUsage, cpuUsage, diskUsage, uptime, systemInfo } = useSystemStats(8000);
   const { onlineCount, totalCount } = useSubbotsStatus(8000);
-  const { isConnected: isSocketConnected, socket } = useSocket();
+  const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { activities: recentActivity, isLoading: activitiesLoading } = useRecentActivity(15000);
 
   // Auto-refresh del dashboard - DISABLED to prevent resource exhaustion
@@ -90,23 +95,23 @@ export default function DashboardPage() {
     refetchBot();
   };
 
-  const getHourlyActivity = () => {
-    // Datos basados en estadísticas reales del backend
-    const activity = (currentStats as any)?.actividadPorHora;
+  const actividadPorHora = (currentStats as any)?.actividadPorHora;
+  const hourlyActivity = React.useMemo(() => {
+    const activity = actividadPorHora;
     if (Array.isArray(activity) && activity.length > 0) {
       return activity.map((item: any, i: number) => ({
         label: String(item?.label ?? `${(i * 2).toString().padStart(2, '0')}:00`),
         value: Number(item?.value) || 0,
-        color: String(item?.color || '#6366f1'),
+        color: String(item?.color || 'rgb(var(--primary))'),
       }));
     }
 
     return Array.from({ length: 12 }, (_, i) => ({
       label: `${(i * 2).toString().padStart(2, '0')}:00`,
       value: 0,
-      color: '#6366f1',
+      color: 'rgb(var(--primary))',
     }));
-  };
+  }, [actividadPorHora]);
 
   return (
     <div className="space-y-6">
@@ -117,44 +122,24 @@ export default function DashboardPage() {
         icon={<TrendingUp className="w-6 h-6 text-primary-400" />}
         actions={
           <>
-            <motion.button
+            <ActionButton
+              tone="glow"
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-500/20 hover:bg-primary-500/30 border border-primary-500/30 rounded-lg text-primary-400 transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.1 }}
+              icon={
+                <motion.div
+                  animate={{ rotate: statsLoading ? 360 : 0 }}
+                  transition={{ duration: 1, repeat: statsLoading ? Infinity : 0, ease: 'linear' }}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </motion.div>
+              }
             >
-              <motion.div
-                animate={{ rotate: statsLoading ? 360 : 0 }}
-                transition={{ duration: 1, repeat: statsLoading ? Infinity : 0, ease: "linear" }}
-              >
-                <RefreshCw className="w-4 h-4" />
-              </motion.div>
               Actualizar
-            </motion.button>
+            </ActionButton>
 
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-                isSocketConnected
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-              }`}
-            >
-              <motion.div
-                animate={
-                  isSocketConnected
-                    ? {
-                        scale: [1, 1.2, 1],
-                        opacity: [1, 0.7, 1],
-                      }
-                    : {}
-                }
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Radio className="w-3 h-3" />
-              </motion.div>
-              {isSocketConnected ? 'Tiempo Real Activo' : 'Sin conexi?n'}
-            </div>
+            <StatusBadge tone={isSocketConnected ? 'success' : 'danger'} pulse={isSocketConnected}>
+              {isSocketConnected ? 'Tiempo Real Activo' : 'Sin conexión'}
+            </StatusBadge>
             <RealTimeBadge isActive={isConnected && isGloballyOn} />
           </>
         }
@@ -237,37 +222,24 @@ export default function DashboardPage() {
               color="cyan"
               delay={0}
               loading={statsLoading}
+              active={onlineCount > 0}
               animated={true}
             />
           </Magnetic>
         </StaggerItem>
       </Stagger>
 
-      {/* Main Content Grid */}      {/* Main Content Grid */}
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Bot Status */}
-        <Card animated delay={0.5} className="p-6" hover={true} glow={isConnected && isGloballyOn}>
-          <div className="flex items-center justify-between mb-6">
-            <motion.h3 
-              className="text-lg font-semibold text-white"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.6 }}
-            >
-              Estado del Bot
-            </motion.h3>
-            <motion.div 
-              className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse shadow-glow-emerald' : 'bg-red-500'}`}
-              animate={isConnected ? { 
-                boxShadow: [
-                  "0 0 10px rgba(16, 185, 129, 0.5)",
-                  "0 0 20px rgba(16, 185, 129, 0.8)",
-                  "0 0 10px rgba(16, 185, 129, 0.5)"
-                ]
-              } : {}}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          </div>
+        <DashboardCard
+          title="Estado del Bot"
+          icon={<Bot className="w-5 h-5 text-primary-400" />}
+          actions={<StatusIndicator status={isConnecting ? 'connecting' : isConnected ? 'online' : 'offline'} showLabel={false} />}
+          delay={0.5}
+          hover={true}
+          glow={isConnected && isGloballyOn}
+        >
 
           <div className="flex items-center justify-center mb-6">
             <motion.div 
@@ -284,7 +256,7 @@ export default function DashboardPage() {
               <ProgressRing 
                 progress={isConnected && isGloballyOn ? 100 : 0} 
                 size={140} 
-                color={isConnected && isGloballyOn ? '#10b981' : '#ef4444'} 
+                color={isConnected && isGloballyOn ? 'rgb(var(--success))' : 'rgb(var(--danger))'} 
                 label={
                   !isGloballyOn ? 'Desactivado Globalmente' : 
                   isConnected ? 'Conectado' : 'Desconectado'
@@ -346,48 +318,30 @@ export default function DashboardPage() {
               </span>
             </motion.div>
           </motion.div>
-        </Card>
+        </DashboardCard>
 
         {/* Activity Chart */}
-        <Card animated delay={0.6} className="lg:col-span-2 p-6" hover={true}>
-          <div className="flex items-center justify-between mb-6">
-            <motion.h3 
-              className="text-lg font-semibold text-white"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.7 }}
-            >
-              Actividad de Hoy
-            </motion.h3>
-            <motion.div 
-              className="flex items-center gap-4 text-sm"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.8 }}
-            >
-              <div className="flex items-center gap-2">
-                <motion.div 
-                  className="w-3 h-3 rounded-full bg-primary-500"
-                  animate={{ 
-                    boxShadow: [
-                      "0 0 5px rgba(99, 102, 241, 0.5)",
-                      "0 0 15px rgba(99, 102, 241, 0.8)",
-                      "0 0 5px rgba(99, 102, 241, 0.5)"
-                    ]
-                  }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-                <span className="text-gray-400">Mensajes</span>
-              </div>
-            </motion.div>
-          </div>
+        <DashboardCard
+          title="Actividad de Hoy"
+          variant="chart"
+          className="lg:col-span-2"
+          delay={0.6}
+          hover={true}
+          loading={statsLoading}
+          actions={
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="w-3 h-3 rounded-full bg-primary-500" />
+              Mensajes
+            </div>
+          }
+        >
 
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.9 }}
           >
-            <BarChart data={getHourlyActivity()} height={180} animated={true} scale="sqrt" minBarHeight={3} />
+            <BarChart data={hourlyActivity} height={180} animated={true} scale="sqrt" minBarHeight={3} showGrid />
           </motion.div>
 
           <motion.div 
@@ -442,19 +396,23 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400 mt-1">Usuarios Activos</p>
             </motion.div>
           </motion.div>
-        </Card>
+        </DashboardCard>
       </div>
 
       {/* Second Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* System Resources */}
-        <Card animated delay={0.7} className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-6">Recursos del Sistema</h3>
+        <DashboardCard
+          title="Recursos del Sistema"
+          variant="chart"
+          delay={0.7}
+          icon={<Activity className="w-5 h-5 text-primary-400" />}
+        >
           
           <div className="flex items-center justify-center mb-6">
             <DonutChart
               data={[
-                { label: 'Usado', value: memoryUsage?.systemPercentage || 0, color: '#6366f1' },
+                { label: 'Usado', value: memoryUsage?.systemPercentage || 0, color: 'rgb(var(--primary))' },
                 { label: 'Libre', value: Math.max(0, 100 - (memoryUsage?.systemPercentage || 0)), color: 'rgba(255,255,255,0.1)' },
               ]}
               size={140}
@@ -469,34 +427,27 @@ export default function DashboardPage() {
                 <span className="text-gray-400">CPU</span>
                 <span className="text-white">{cpuUsage.toFixed(2)}%</span>
               </div>
-              <div className="progress-bar">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${cpuUsage}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
-              </div>
+              <Progress value={cpuUsage} max={100} fillClassName="bg-gradient-to-r from-cyan-400 via-primary-500 to-violet-500" />
             </div>
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Memoria</span>
                 <span className="text-white">{(memoryUsage?.systemPercentage ?? 0).toFixed(2)}%</span>
               </div>
-              <div className="progress-bar">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${memoryUsage?.systemPercentage || 0}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
-              </div>
+              <Progress value={memoryUsage?.systemPercentage ?? 0} max={100} fillClassName="bg-gradient-to-r from-primary-500 via-violet-500 to-cyan-400" />
             </div>
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Disco</span>
                 <span className="text-white">{(diskUsage?.percentage ?? 0).toFixed(2)}%</span>
               </div>
-              <div className="progress-bar">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${diskUsage?.percentage || 0}%` }} transition={{ duration: 1 }} className="progress-bar-fill" />
-              </div>
+              <Progress value={diskUsage?.percentage ?? 0} max={100} fillClassName="bg-gradient-to-r from-amber-400 via-rose-400 to-violet-500" />
             </div>
           </div>
-        </Card>
+        </DashboardCard>
 
         {/* Quick Stats */}
-        <Card animated delay={0.8} className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-6">Estadísticas Rápidas</h3>
+        <DashboardCard title="Estadísticas Rápidas" delay={0.8} loading={statsLoading} icon={<Zap className="w-5 h-5 text-cyan-400" />}>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
@@ -538,11 +489,10 @@ export default function DashboardPage() {
               <p className="text-xl font-bold text-white">{onlineCount}/{totalCount}</p>
             </div>
           </div>
-        </Card>
+        </DashboardCard>
 
         {/* Recent Activity */}
-        <Card animated delay={0.9} className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-6">Actividad Reciente</h3>
+        <DashboardCard title="Actividad Reciente" delay={0.9} icon={<Activity className="w-5 h-5 text-primary-400" />}>
           
           <div className="space-y-3">
             {activitiesLoading ? (
@@ -608,7 +558,7 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </Card>
+        </DashboardCard>
       </div>
 
       {/* Bottom Stats */}
@@ -663,85 +613,154 @@ export default function DashboardPage() {
       </div>
 
       {/* System Information */}
-      <Card animated delay={1.0} className="p-6">
-        <h3 className="text-lg font-semibold text-white mb-6">Información del Sistema</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-300">Procesador</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Uso CPU</span>
-                <span className="text-white font-mono">{cpuUsage.toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Núcleos</span>
-                <span className="text-white font-mono">{systemInfo?.cpu?.cores || '-'}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Modelo</span>
-                <span className="text-white font-mono text-xs truncate" title={systemInfo?.cpu?.model}>
-                  {systemInfo?.cpu?.model ? systemInfo.cpu.model.slice(0, 20) + '...' : '-'}
-                </span>
-              </div>
+      <DashboardCard
+        title="Información del Sistema"
+        delay={1.0}
+        loading={!systemInfo}
+        icon={<Settings className="w-5 h-5 text-primary-400" />}
+        actions={<Badge variant="info">Live</Badge>}
+      >
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="glass p-4 rounded-2xl hover-lift-soft">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-300">CPU</span>
+              <span className="badge-info">{cpuUsage.toFixed(0)}%</span>
+            </div>
+            <Progress
+              value={Math.min(100, Math.max(0, cpuUsage))}
+              max={100}
+              className="mt-3"
+              fillClassName="bg-gradient-to-r from-cyan-400 via-primary-500 to-violet-500"
+            />
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+              <span className="truncate">
+                {systemInfo?.cpu?.cores ? `${systemInfo.cpu.cores} núcleos` : '—'}
+              </span>
+              <span className="truncate max-w-[170px]" title={systemInfo?.cpu?.model}>
+                {systemInfo?.cpu?.model || '—'}
+              </span>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-300">Memoria RAM</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Uso</span>
-                <span className="text-white font-mono">{(memoryUsage?.systemPercentage ?? 0).toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Total</span>
-                <span className="text-white font-mono">{systemInfo?.memory?.totalGB || '-'} GB</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Libre</span>
-                <span className="text-white font-mono">{systemInfo?.memory?.freeGB || '-'} GB</span>
-              </div>
+          <div className="glass p-4 rounded-2xl hover-lift-soft">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-300">Memoria</span>
+              <span className="badge-primary">{(memoryUsage?.systemPercentage ?? 0).toFixed(0)}%</span>
+            </div>
+            <Progress
+              value={Math.min(100, Math.max(0, memoryUsage?.systemPercentage ?? 0))}
+              max={100}
+              className="mt-3"
+              fillClassName="bg-gradient-to-r from-primary-500 via-violet-500 to-cyan-400"
+            />
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+              <span className="truncate">Total: {systemInfo?.memory?.totalGB || '—'} GB</span>
+              <span className="truncate">Libre: {systemInfo?.memory?.freeGB || '—'} GB</span>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-300">Sistema</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Plataforma</span>
-                <span className="text-white font-mono">{systemInfo?.platform || '-'}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Arquitectura</span>
-                <span className="text-white font-mono">{systemInfo?.arch || '-'}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Node.js</span>
-                <span className="text-white font-mono">{systemInfo?.node || '-'}</span>
-              </div>
+          <div className="glass p-4 rounded-2xl hover-lift-soft">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-300">Disco</span>
+              <span className="badge-warning">{(diskUsage?.percentage ?? 0).toFixed(0)}%</span>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-300">Almacenamiento</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Uso</span>
-                <span className="text-white font-mono">{(diskUsage?.percentage ?? 0).toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Total</span>
-                <span className="text-white font-mono">{diskUsage?.totalGB || '-'} GB</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Libre</span>
-                <span className="text-white font-mono">{diskUsage?.freeGB || '-'} GB</span>
-              </div>
+            <Progress
+              value={Math.min(100, Math.max(0, diskUsage?.percentage ?? 0))}
+              max={100}
+              className="mt-3"
+              fillClassName="bg-gradient-to-r from-amber-400 via-rose-400 to-violet-500"
+            />
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+              <span className="truncate">Total: {diskUsage?.totalGB || '—'} GB</span>
+              <span className="truncate">Libre: {diskUsage?.freeGB || '—'} GB</span>
             </div>
           </div>
         </div>
-      </Card>
+
+        <Accordion type="single" defaultValue="details" className="mt-4">
+          <AccordionItem value="details">
+            <AccordionTrigger>Detalles del sistema</AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-300">Procesador</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Uso CPU</span>
+                      <span className="text-white font-mono">{cpuUsage.toFixed(2)}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Núcleos</span>
+                      <span className="text-white font-mono">{systemInfo?.cpu?.cores || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Modelo</span>
+                      <span className="text-white font-mono text-xs truncate" title={systemInfo?.cpu?.model}>
+                        {systemInfo?.cpu?.model ? systemInfo.cpu.model.slice(0, 20) + '...' : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-300">Memoria RAM</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Uso</span>
+                      <span className="text-white font-mono">{(memoryUsage?.systemPercentage ?? 0).toFixed(2)}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Total</span>
+                      <span className="text-white font-mono">{systemInfo?.memory?.totalGB || '-'} GB</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Libre</span>
+                      <span className="text-white font-mono">{systemInfo?.memory?.freeGB || '-'} GB</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-300">Sistema</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Plataforma</span>
+                      <span className="text-white font-mono">{systemInfo?.platform || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Arquitectura</span>
+                      <span className="text-white font-mono">{systemInfo?.arch || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Node.js</span>
+                      <span className="text-white font-mono">{systemInfo?.node || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-300">Almacenamiento</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Uso</span>
+                      <span className="text-white font-mono">{(diskUsage?.percentage ?? 0).toFixed(2)}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Total</span>
+                      <span className="text-white font-mono">{diskUsage?.totalGB || '-'} GB</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Libre</span>
+                      <span className="text-white font-mono">{diskUsage?.freeGB || '-'} GB</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </DashboardCard>
     </div>
   );
 }

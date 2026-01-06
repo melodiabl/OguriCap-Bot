@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '@/services/api';
-import { useSocket, SOCKET_EVENTS } from '@/contexts/SocketContext';
+import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
 
 interface Group {
   id: number;
@@ -30,7 +30,7 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected } = useSocketConnection();
 
   const refreshGroups = useCallback(async () => {
     try {

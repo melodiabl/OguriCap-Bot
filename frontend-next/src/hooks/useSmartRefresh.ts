@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSocket, SOCKET_EVENTS } from '@/contexts/SocketContext';
+import { SOCKET_EVENTS, useSocketConnection } from '@/contexts/SocketContext';
 
 interface SmartRefreshOptions {
   // Función que se ejecuta para refrescar los datos
@@ -25,7 +25,7 @@ export function useSmartRefresh({
 }: SmartRefreshOptions) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected } = useSocketConnection();
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Función de refresh con throttling

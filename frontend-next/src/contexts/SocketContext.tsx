@@ -64,12 +64,10 @@ interface SubbotEvent {
   timestamp: string;
 }
 
-interface SocketContextType {
+interface SocketConnectionContextType {
   socket: Socket | null;
   isConnected: boolean;
   connectionError: string | null;
-  botStatus: BotStatus | null;
-  lastSubbotEvent: SubbotEvent | null;
   subscribe: (channels: string[]) => void;
   unsubscribe: (channels: string[]) => void;
   requestBotStatus: () => void;
@@ -79,7 +77,9 @@ interface SocketContextType {
   off: (event: string, callback: (data: any) => void) => void;
 }
 
-const SocketContext = createContext<SocketContextType | undefined>(undefined);
+const SocketConnectionContext = createContext<SocketConnectionContextType | undefined>(undefined);
+const BotStatusContext = createContext<BotStatus | null | undefined>(undefined);
+const SubbotEventContext = createContext<SubbotEvent | null | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -186,20 +186,55 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     socket?.off(event, callback);
   }, [socket]);
 
+  const connectionValue = React.useMemo<SocketConnectionContextType>(() => ({
+    socket,
+    isConnected,
+    connectionError,
+    subscribe,
+    unsubscribe,
+    requestBotStatus,
+    requestSubbotStatus,
+    requestStats,
+    on,
+    off,
+  }), [socket, isConnected, connectionError, subscribe, unsubscribe, requestBotStatus, requestSubbotStatus, requestStats, on, off]);
+
   return (
-    <SocketContext.Provider
-      value={{
-        socket, isConnected, connectionError, botStatus, lastSubbotEvent,
-        subscribe, unsubscribe, requestBotStatus, requestSubbotStatus, requestStats, on, off,
-      }}
-    >
-      {children}
-    </SocketContext.Provider>
+    <SocketConnectionContext.Provider value={connectionValue}>
+      <BotStatusContext.Provider value={botStatus}>
+        <SubbotEventContext.Provider value={lastSubbotEvent}>
+          {children}
+        </SubbotEventContext.Provider>
+      </BotStatusContext.Provider>
+    </SocketConnectionContext.Provider>
   );
 };
 
-export const useSocket = () => {
-  const context = useContext(SocketContext);
-  if (!context) throw new Error('useSocket debe ser usado dentro de SocketProvider');
+export function useSocketConnection() {
+  const context = useContext(SocketConnectionContext);
+  if (!context) throw new Error('useSocketConnection debe ser usado dentro de SocketProvider');
   return context;
-};
+}
+
+export function useSocketBotStatus() {
+  const context = useContext(BotStatusContext);
+  if (context === undefined) throw new Error('useSocketBotStatus debe ser usado dentro de SocketProvider');
+  return context;
+}
+
+export function useLastSubbotEvent() {
+  const context = useContext(SubbotEventContext);
+  if (context === undefined) throw new Error('useLastSubbotEvent debe ser usado dentro de SocketProvider');
+  return context;
+}
+
+// Backwards-compatible aggregate hook (avoid in hot paths: subscribe to granular hooks instead).
+export function useSocket() {
+  const conn = useSocketConnection();
+  const botStatus = useSocketBotStatus();
+  const lastSubbotEvent = useLastSubbotEvent();
+  return React.useMemo(
+    () => ({ ...conn, botStatus, lastSubbotEvent }),
+    [conn, botStatus, lastSubbotEvent]
+  );
+}

@@ -27,7 +27,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import { useFlashTokens } from '@/hooks/useFlashTokens';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
@@ -71,7 +71,7 @@ export default function TareasPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showExecutions, setShowExecutions] = useState(false);
 
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
   const reduceMotion = useReducedMotion();
   const taskFlash = useFlashTokens({ ttlMs: 1200 });
   const executionFlash = useFlashTokens({ ttlMs: 1200 });

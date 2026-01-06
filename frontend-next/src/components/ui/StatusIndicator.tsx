@@ -12,14 +12,14 @@ interface StatusIndicatorProps {
 
 const sizeClasses = {
   sm: 'w-2 h-2',
-  md: 'w-3 h-3',
+  md: '',
   lg: 'w-4 h-4',
 };
 
 const statusClasses = {
-  online: 'bg-emerald-500 shadow-glow-emerald',
-  offline: 'bg-red-500',
-  connecting: 'bg-amber-500',
+  online: 'status-online',
+  offline: 'status-offline',
+  connecting: 'status-connecting',
 };
 
 const statusLabels = {
@@ -39,10 +39,9 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
         animate={status === 'online' || status === 'connecting' ? { scale: [1, 1.2, 1] } : {}}
         transition={{ repeat: Infinity, duration: 2 }}
         className={cn(
-          'rounded-full',
+          'status-dot',
           sizeClasses[size],
-          statusClasses[status],
-          (status === 'online' || status === 'connecting') && 'animate-pulse'
+          statusClasses[status]
         )}
       />
       {showLabel && (
@@ -66,16 +65,13 @@ interface RealTimeBadgeProps {
 
 export const RealTimeBadge: React.FC<RealTimeBadgeProps> = ({ isActive, latency }) => {
   return (
-    <div className={cn(
-      'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
-      isActive
-        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-        : 'bg-red-500/20 text-red-400 border border-red-500/30'
-    )}>
-      <div className={cn(
-        'w-2 h-2 rounded-full',
-        isActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
-      )} />
+    <div
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border',
+        isActive ? 'realtime-indicator text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+      )}
+    >
+      <div className={cn('w-2 h-2 rounded-full', isActive ? 'realtime-dot' : 'bg-red-500')} />
       <span>{isActive ? 'En vivo' : 'Offline'}</span>
       {latency !== undefined && latency > 0 && (
         <span className="text-gray-500">{latency}ms</span>

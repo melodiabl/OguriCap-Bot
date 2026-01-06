@@ -6,9 +6,52 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SocketProvider } from '@/contexts/SocketContext';
 import { PreferencesProvider } from '@/contexts/PreferencesContext';
-import { NotificationEffectsListener } from '@/components/effects/NotificationEffectsListener';
-import { useState } from 'react';
+import { LoadingOverlayProvider } from '@/contexts/LoadingOverlayContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
+import { usePathname } from 'next/navigation';
+import { getPageKeyFromPathname } from '@/lib/pageTheme';
+import { DevicePerformanceProvider, useDevicePerformance } from '@/contexts/DevicePerformanceContext';
+import dynamic from 'next/dynamic';
+
+const NotificationEffectsListener = dynamic(
+  () => import('@/components/effects/NotificationEffectsListener').then((m) => m.NotificationEffectsListener),
+  { ssr: false }
+);
+
+function PageThemeSync() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const page = getPageKeyFromPathname(pathname);
+    document.documentElement.dataset.page = page;
+    document.body.dataset.page = page;
+  }, [pathname]);
+
+  return null;
+}
+
+function MotionMode({ children }: { children: React.ReactNode }) {
+  const { performanceMode } = useDevicePerformance();
+  return (
+    <MotionConfig
+      reducedMotion="user"
+      transition={
+        performanceMode
+          ? { duration: 0.18, ease: 'easeOut' }
+          : { type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }
+      }
+    >
+      {children}
+    </MotionConfig>
+  );
+}
+
+function EffectsGate() {
+  const { performanceMode } = useDevicePerformance();
+  return performanceMode ? null : <NotificationEffectsListener />;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -22,41 +65,34 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }));
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem enableColorScheme>
       <QueryClientProvider client={queryClient}>
-        <MotionConfig
-          reducedMotion="user"
-          transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
-        >
-          <AuthProvider>
-            <SocketProvider>
-              <PreferencesProvider>
-                <NotificationEffectsListener />
-                {children}
-                <Toaster
-                  position="top-right"
-                  toastOptions={{
-                    duration: 4000,
-                    style: {
-                      background: 'rgba(30, 41, 59, 0.95)',
-                      color: '#fff',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '12px',
-                      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                    },
-                    success: {
-                      iconTheme: { primary: '#10b981', secondary: '#fff' },
-                    },
-                    error: {
-                      iconTheme: { primary: '#ef4444', secondary: '#fff' },
-                    },
-                  }}
-                />
-              </PreferencesProvider>
-            </SocketProvider>
-          </AuthProvider>
-        </MotionConfig>
+        <PageThemeSync />
+        <DevicePerformanceProvider>
+          <MotionMode>
+            <AuthProvider>
+              <SocketProvider>
+                <PreferencesProvider>
+                  <NotificationProvider>
+                    <LoadingOverlayProvider>
+                      <EffectsGate />
+                      {children}
+                  <Toaster
+                    position="top-right"
+                    toastOptions={{
+                        duration: 4000,
+                        className: 'toast-custom',
+                        success: { className: 'toast-custom toast-success' },
+                        error: { className: 'toast-custom toast-error' },
+                      }}
+                    />
+                    </LoadingOverlayProvider>
+                  </NotificationProvider>
+                </PreferencesProvider>
+              </SocketProvider>
+            </AuthProvider>
+          </MotionMode>
+        </DevicePerformanceProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

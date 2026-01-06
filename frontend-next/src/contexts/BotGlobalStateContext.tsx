@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useSocket } from './SocketContext';
+import { useSocketConnection } from './SocketContext';
 import api from '@/services/api';
 
 interface BotGlobalStateContextType {
@@ -16,7 +16,7 @@ const BotGlobalStateContext = createContext<BotGlobalStateContextType | undefine
 export const BotGlobalStateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isGloballyOn, setIsGloballyOn] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected } = useSocketConnection();
 
   // Función para obtener el estado actual del servidor
   const refreshGlobalState = async () => {

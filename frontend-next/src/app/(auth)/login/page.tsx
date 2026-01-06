@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -8,7 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { ForgotPasswordModal } from '@/components/ForgotPasswordModal';
 import { Bot, Eye, EyeOff, Lock, User, Sparkles, Zap, Shield, Crown, UserCheck, Users, Wrench, AlertTriangle } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
+import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
+import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -19,53 +21,80 @@ export default function LoginPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean; role?: boolean }>({});
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
+  const { performanceMode } = useDevicePerformance();
 
-  const roles = [
-    { 
-      value: 'owner', 
-      label: 'Owner', 
-      icon: Crown, 
-      color: 'text-violet-400',
-      bgColor: 'bg-violet-500/20',
-      borderColor: 'border-violet-500/30',
-      description: 'Acceso completo al sistema'
-    },
-    { 
-      value: 'admin', 
-      label: 'Administrador', 
-      icon: Shield, 
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/20',
-      borderColor: 'border-red-500/30',
-      description: 'Gestión avanzada del bot'
-    },
-    { 
-      value: 'moderador', 
-      label: 'Moderador', 
-      icon: UserCheck, 
-      color: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/20',
-      borderColor: 'border-cyan-500/30',
-      description: 'Moderación de contenido'
-    },
-    { 
-      value: 'usuario', 
-      label: 'Usuario', 
-      icon: Users, 
-      color: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/20',
-      borderColor: 'border-emerald-500/30',
-      description: 'Acceso básico al panel'
+  const roles = useMemo(
+    () =>
+      [
+        {
+          value: 'owner',
+          label: 'Owner',
+          icon: Crown,
+          tone: 'secondary',
+          description: 'Acceso completo al sistema',
+        },
+        {
+          value: 'admin',
+          label: 'Administrador',
+          icon: Shield,
+          tone: 'danger',
+          description: 'Gestión avanzada del bot',
+        },
+        {
+          value: 'moderador',
+          label: 'Moderador',
+          icon: UserCheck,
+          tone: 'accent',
+          description: 'Moderación de contenido',
+        },
+        {
+          value: 'usuario',
+          label: 'Usuario',
+          icon: Users,
+          tone: 'success',
+          description: 'Acceso básico al panel',
+        },
+      ] as const,
+    []
+  );
+
+  const roleToneClasses = useMemo(() => {
+    return {
+      owner: { icon: 'text-secondary', bg: 'bg-secondary/12', border: 'border-secondary/25' },
+      admin: { icon: 'text-danger', bg: 'bg-danger/12', border: 'border-danger/25' },
+      moderador: { icon: 'text-accent', bg: 'bg-accent/12', border: 'border-accent/25' },
+      usuario: { icon: 'text-success', bg: 'bg-success/12', border: 'border-success/25' },
+    } as const;
+  }, []);
+
+  const checkMaintenanceStatus = useCallback(async () => {
+    try {
+      setIsCheckingMaintenance(true);
+      const response = await fetch('/api/health');
+      const data = await response.json();
+
+      if (data.maintenanceMode) {
+        setIsMaintenanceMode(true);
+        notify.warning('El sistema está en modo de mantenimiento');
+      } else {
+        setIsMaintenanceMode(false);
+      }
+    } catch (error) {
+      console.error('Error checking maintenance status:', error);
+      setIsMaintenanceMode(false);
+    } finally {
+      setIsCheckingMaintenance(false);
     }
-  ];
+  }, []);
 
   // Verificar modo de mantenimiento al cargar la página
   useEffect(() => {
     checkMaintenanceStatus();
-  }, []);
+  }, [checkMaintenanceStatus]);
 
   // Si ya hay sesión (por token en cookie/localStorage), no mostrar login
   useEffect(() => {
@@ -86,69 +115,55 @@ export default function LoginPage() {
       const role = params.get('role');
       if (registered === '1') {
         const roleText = role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Usuario';
-        toast.success(`Tu rol es ${roleText}. Iniciá sesión para continuar.`);
+        notify.success(`Tu rol es ${roleText}. Iniciá sesión para continuar.`);
 
         params.delete('registered');
         params.delete('role');
         const qs = params.toString();
         router.replace(qs ? `/login?${qs}` : '/login');
       }
-    } catch {}
+    } catch { }
   }, [username, router]);
 
-  const checkMaintenanceStatus = async () => {
-    try {
-      setIsCheckingMaintenance(true);
-      const response = await fetch('/api/health');
-      const data = await response.json();
-      
-      if (data.maintenanceMode) {
-        setIsMaintenanceMode(true);
-        toast.error('El sistema está en modo de mantenimiento');
-      } else {
-        setIsMaintenanceMode(false);
-      }
-    } catch (error) {
-      console.error('Error checking maintenance status:', error);
-      // Si hay error al verificar, asumir que no está en mantenimiento
-      setIsMaintenanceMode(false);
-    } finally {
-      setIsCheckingMaintenance(false);
-    }
-  };
+  // checkMaintenanceStatus declared above (useCallback)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Verificar modo de mantenimiento antes de proceder
     if (isMaintenanceMode) {
-      toast.error('El sistema está en modo de mantenimiento. Solo los administradores pueden acceder.');
+      notify.warning('El sistema está en modo de mantenimiento. Solo los administradores pueden acceder.');
       return;
     }
-    
+
     // Validaciones mejoradas
     if (!username.trim()) {
-      toast.error('El nombre de usuario es requerido');
+      setFieldErrors({ username: true });
+      notify.error('El nombre de usuario es requerido');
       return;
     }
 
     if (username.trim().length < 3) {
-      toast.error('El usuario debe tener al menos 3 caracteres');
+      setFieldErrors({ username: true });
+      notify.error('El usuario debe tener al menos 3 caracteres');
       return;
     }
 
     if (!password.trim()) {
-      toast.error('La contraseña es requerida');
+      setFieldErrors({ password: true });
+      notify.error('La contraseña es requerida');
       return;
     }
 
     if (password.length < 4) {
-      toast.error('La contraseña debe tener al menos 4 caracteres');
+      setFieldErrors({ password: true });
+      notify.error('La contraseña debe tener al menos 4 caracteres');
       return;
     }
 
     if (!selectedRole) {
-      toast.error('Debes seleccionar un rol para continuar');
+      setFieldErrors({ role: true });
+      notify.error('Debes seleccionar un rol para continuar');
       return;
     }
 
@@ -156,14 +171,14 @@ export default function LoginPage() {
     try {
       await login(username.trim(), password, selectedRole);
       const selectedRoleData = roles.find(r => r.value === selectedRole);
-      toast.success(`¡Bienvenido como ${selectedRoleData?.label}!`);
+      notify.success(`¡Bienvenido como ${selectedRoleData?.label}!`);
       router.push('/');
     } catch (error: any) {
       console.error('Login error:', error);
-      
+
       // Manejo de errores mejorado
       let errorMessage = 'Error al iniciar sesión';
-      
+
       if (error?.message) {
         errorMessage = error.message;
       } else if (error?.response?.data?.error) {
@@ -183,28 +198,31 @@ export default function LoginPage() {
       } else if (error?.response?.status >= 500) {
         errorMessage = 'Error del servidor. Inténtalo más tarde';
       }
-      
-      toast.error(errorMessage);
+
+      notify.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const features = [
-    { icon: Zap, text: 'Gestión de SubBots', color: 'text-amber-400' },
-    { icon: Shield, text: 'Control Total', color: 'text-emerald-400' },
-    { icon: Sparkles, text: 'Tiempo Real', color: 'text-cyan-400' },
-  ];
+  const features = useMemo(
+    () => [
+      { icon: Zap, text: 'Gestión de SubBots', tone: 'warning' as const },
+      { icon: Shield, text: 'Control Total', tone: 'success' as const },
+      { icon: Sparkles, text: 'Tiempo Real', tone: 'accent' as const },
+    ],
+    []
+  );
 
   // Mostrar pantalla de carga mientras se verifica el mantenimiento
   if (isCheckingMaintenance) {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-glow mb-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
             <Bot className="w-8 h-8 text-white animate-pulse" />
           </div>
-          <p className="text-gray-400">Verificando estado del sistema...</p>
+          <p className="text-muted">Verificando estado del sistema...</p>
         </div>
       </div>
     );
@@ -223,73 +241,81 @@ export default function LoginPage() {
             <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-glow mb-6">
               <Wrench className="w-10 h-10 text-white" />
             </div>
-            
-            <h1 className="text-2xl font-bold text-white mb-4">
+
+            <h1 className="text-2xl font-bold text-foreground mb-4">
               Sistema en Mantenimiento
             </h1>
-            
-            <div className="flex items-center justify-center gap-2 mb-4 text-orange-400">
+
+            <div className="flex items-center justify-center gap-2 mb-4 text-warning">
               <AlertTriangle className="w-5 h-5" />
               <span className="text-sm font-medium">Acceso Temporalmente Restringido</span>
             </div>
-            
-            <p className="text-gray-400 mb-6 leading-relaxed">
-              El sistema está temporalmente fuera de servicio por mantenimiento programado. 
+
+            <p className="text-muted mb-6 leading-relaxed">
+              El sistema está temporalmente fuera de servicio por mantenimiento programado.
               Solo los administradores pueden acceder durante este período.
             </p>
-            
+
             <div className="space-y-3">
-              <Button 
+              <Button
                 onClick={checkMaintenanceStatus}
-                variant="primary" 
+                variant="primary"
                 className="w-full"
                 loading={isCheckingMaintenance}
               >
                 Verificar Estado
               </Button>
-              
-              <p className="text-xs text-gray-500">
+
+              <p className="text-xs text-muted/80">
                 Si eres administrador y necesitas acceso urgente, contacta al equipo técnico.
               </p>
             </div>
           </div>
-          
+
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="text-center text-sm text-gray-500 mt-6"
+            className="text-center text-sm text-muted/80 mt-6"
           >
-            © 2025 Oguri Bot. Todos los derechos reservados.
+            © 2026 Oguri Bot. Todos los derechos reservados.
           </motion.p>
         </motion.div>
       </div>
     );
   }
 
+  const enableBgMotion = !reduceMotion && !performanceMode;
+
   return (
-    <div className="min-h-screen mesh-bg flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen mesh-bg flex items-center lg:items-stretch justify-center p-4 lg:p-10 relative overflow-hidden">
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={reduceMotion ? { opacity: 1 } : { x: [0, 100, 0], y: [0, -50, 0] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 20, ease: 'linear' }}
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl"
+          animate={enableBgMotion ? { x: [0, 100, 0], y: [0, -50, 0] } : { opacity: 1 }}
+          transition={enableBgMotion ? { repeat: Infinity, duration: 20, ease: 'linear' } : { duration: 0.12 }}
+          className={cn(
+            "absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full",
+            performanceMode ? "blur-2xl opacity-40" : "blur-3xl"
+          )}
         />
         <motion.div
-          animate={reduceMotion ? { opacity: 1 } : { x: [0, -100, 0], y: [0, 50, 0] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 25, ease: 'linear' }}
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl"
+          animate={enableBgMotion ? { x: [0, -100, 0], y: [0, 50, 0] } : { opacity: 1 }}
+          transition={enableBgMotion ? { repeat: Infinity, duration: 25, ease: 'linear' } : { duration: 0.12 }}
+          className={cn(
+            "absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/20 rounded-full",
+            performanceMode ? "blur-2xl opacity-35" : "blur-3xl"
+          )}
         />
       </div>
 
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 relative z-10">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-10 lg:gap-12 relative z-10 lg:min-h-[calc(100vh-5rem)]">
         {/* Left side - Branding */}
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="hidden lg:flex flex-col justify-center"
+          className="hidden lg:flex flex-col items-start pt-24 pb-12"
         >
           <motion.div
             initial={{ scale: 0 }}
@@ -297,13 +323,13 @@ export default function LoginPage() {
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
             className="mb-8"
           >
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-glow mb-6">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6">
               <Bot className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-5xl font-bold mb-4">
               <span className="gradient-text-animated">Oguri Bot</span>
             </h1>
-            <p className="text-xl text-gray-400">Panel de Control Avanzado</p>
+            <p className="text-xl text-muted">Panel de Control Avanzado</p>
           </motion.div>
 
           <motion.div
@@ -318,12 +344,19 @@ export default function LoginPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 + index * 0.1 }}
-                className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"
+                className="flex items-center gap-4 p-4 rounded-2xl bg-card/20 border border-border/20 backdrop-blur-sm hover-glass-bright"
               >
-                <div className={`p-2 rounded-lg bg-white/10 ${feature.color}`}>
+                <div
+                  className={cn(
+                    'p-2 rounded-xl border',
+                    feature.tone === 'warning' && 'bg-warning/10 border-warning/20 text-warning',
+                    feature.tone === 'success' && 'bg-success/10 border-success/20 text-success',
+                    feature.tone === 'accent' && 'bg-accent/10 border-accent/20 text-accent'
+                  )}
+                >
                   <feature.icon className="w-5 h-5" />
                 </div>
-                <span className="text-gray-300">{feature.text}</span>
+                <span className="text-foreground/85">{feature.text}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -334,19 +367,19 @@ export default function LoginPage() {
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="flex items-center justify-center"
+          className="flex items-center justify-center py-6 sm:py-8 lg:py-0"
         >
           <div className="w-full max-w-md">
             {/* Mobile logo */}
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="lg:hidden text-center mb-8"
+              className="lg:hidden text-center mb-5 [@media(max-height:740px)]:mb-3"
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-glow mb-4">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
                 <Bot className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold gradient-text">Oguri Bot</h1>
+              <h1 className="text-3xl font-black gradient-text-animated">Oguri Bot</h1>
             </motion.div>
 
             {/* Login card */}
@@ -354,45 +387,53 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="glass-card p-8"
+              className="glass-card p-6 sm:p-7 [@media(max-height:740px)]:p-5"
             >
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-white mb-2">Bienvenido</h2>
-                <p className="text-gray-400">Inicia sesión para continuar</p>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-black tracking-tight mb-1">
+                  <span className="gradient-text-animated">Bienvenido</span>
+                </h2>
+                <p className="text-sm text-muted">Inicia sesión para continuar</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Usuario</label>
+                  <label className="block text-xs font-semibold text-muted mb-1.5">Usuario</label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                     <input
                       type="text"
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: false }));
+                      }}
                       placeholder="Ingresa tu usuario"
-                      className="input-glass pl-12"
+                      className={cn('input-glass !py-2.5 pl-12', fieldErrors.username && 'is-error')}
                       autoComplete="username"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Contraseña</label>
+                  <label className="block text-xs font-semibold text-muted mb-1.5">Contraseña</label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: false }));
+                      }}
                       placeholder="Ingresa tu contraseña"
-                      className="input-glass pl-12 pr-12"
+                      className={cn('input-glass !py-2.5 pl-12 pr-12', fieldErrors.password && 'is-error')}
                       autoComplete="current-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -400,39 +441,50 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-3">
-                    Rol de Acceso <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-muted mb-2">
+                    Rol de Acceso <span className="text-danger">*</span>
                   </label>
-                  {!selectedRole && (
-                    <p className="text-xs text-amber-400 mb-3 flex items-center gap-1">
-                      <span>⚠️</span> Selecciona el rol con el que deseas acceder
+                  {(!selectedRole || fieldErrors.role) && (
+                    <p
+                      className={cn(
+                        'text-xs mb-3 flex items-center gap-1',
+                        fieldErrors.role ? 'text-danger' : 'text-warning'
+                      )}
+                    >
+                      <span aria-hidden="true">⚠</span> Selecciona el rol con el que deseas acceder
                     </p>
                   )}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {roles.map((role) => {
                       const IconComponent = role.icon;
                       const isSelected = selectedRole === role.value;
+                      const tone = roleToneClasses[role.value as keyof typeof roleToneClasses];
                       
                       return (
                         <motion.button
                           key={role.value}
                           type="button"
-                          onClick={() => setSelectedRole(role.value)}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className={`p-3 rounded-xl border-2 transition-all duration-200 text-left ${
-                            isSelected 
-                              ? `${role.bgColor} ${role.borderColor} shadow-lg` 
-                              : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
-                          }`}
+                          onClick={() => {
+                            setSelectedRole(role.value);
+                            if (fieldErrors.role) setFieldErrors((prev) => ({ ...prev, role: false }));
+                          }}
+                          whileHover={performanceMode ? undefined : { scale: 1.02 }}
+                          whileTap={{ scale: 0.985 }}
+                          className={cn(
+                            'p-2.5 rounded-2xl border transition-all duration-200 text-left hover-outline-gradient press-scale',
+                            isSelected
+                              ? `${tone.bg} ${tone.border} shadow-[0_18px_60px_rgb(var(--shadow-rgb)_/_0.28)]`
+                              : 'bg-card/15 border-border/20 hover:bg-card/25 hover:border-border/35',
+                            !selectedRole && fieldErrors.role && 'shake-on-error'
+                          )}
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <IconComponent className={`w-4 h-4 ${isSelected ? role.color : 'text-gray-400'}`} />
-                            <span className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                            <IconComponent className={cn('w-4 h-4', isSelected ? tone.icon : 'text-muted')} />
+                            <span className={cn('font-semibold text-sm', isSelected ? 'text-foreground' : 'text-foreground/85')}>
                               {role.label}
                             </span>
                           </div>
-                          <p className={`text-xs ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>
+                          <p className={cn('text-xs leading-snug hidden sm:block', isSelected ? 'text-muted' : 'text-muted/80')}>
                             {role.description}
                           </p>
                         </motion.button>
@@ -440,72 +492,72 @@ export default function LoginPage() {
                     })}
                   </div>
                   {selectedRole && (
-                    <motion.p 
+                    <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-xs text-emerald-400 mt-2 flex items-center gap-1"
+                      className="text-xs text-success mt-2 flex items-center gap-1"
                     >
-                      <span>✓</span> Accederás como {roles.find(r => r.value === selectedRole)?.label}
+                      <span aria-hidden="true">✓</span> Accederás como {roles.find(r => r.value === selectedRole)?.label}
                     </motion.p>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2 text-gray-400 cursor-pointer">
+                  <label className="flex items-center gap-2 text-muted cursor-pointer">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded border-gray-600 bg-white/5 text-primary-500 focus:ring-primary-500"
+                      className="w-4 h-4 rounded border-border/40 bg-card/20 text-primary focus:ring-2 focus:ring-primary/35"
                     />
                     Recordarme
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowForgotPassword(true)}
-                    className="text-primary-400 hover:text-primary-300 transition-colors"
+                    className="text-primary hover:text-primary/80 transition-colors"
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  variant="primary" 
+                <Button
+                  type="submit"
+                  variant="primary"
                   className={`w-full ${!selectedRole ? 'opacity-75 cursor-not-allowed' : ''}`}
                   loading={isLoading}
                   disabled={!selectedRole || isLoading}
                 >
                   {!selectedRole ? 'Selecciona un rol para continuar' : 'Iniciar Sesión'}
                 </Button>
-              </form>
 
-              <div className="mt-6 pt-6 border-t border-white/10">
-                <div className="text-center text-sm text-gray-400">
-                  ¿No tenés cuenta?
-                </div>
-                <Link
-                  href="/register"
-                  className="mt-2 block w-full text-center text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.12 }}
+                  className="pt-1 text-center text-xs text-muted"
                 >
-                  Registrarte
-                </Link>
-              </div>
+                  ¿No tenés cuenta?{' '}
+                  <Link href="/register" className="text-primary hover:text-primary/80 transition-colors">
+                    Registrarte
+                  </Link>
+                </motion.div>
+              </form>
             </motion.div>
 
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="text-center text-sm text-gray-500 mt-6"
+              className="text-center text-xs text-muted/70 mt-4 [@media(max-height:740px)]:hidden"
             >
-              © 2025 Oguri Bot. Todos los derechos reservados.
+              © 2026 Oguri Bot. Todos los derechos reservados.
             </motion.p>
           </div>
         </motion.div>
       </div>
 
-      <ForgotPasswordModal 
-        isOpen={showForgotPassword} 
-        onClose={() => setShowForgotPassword(false)} 
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
       />
     </div>
   );

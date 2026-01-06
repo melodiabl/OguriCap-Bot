@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useSocket, SOCKET_EVENTS } from '@/contexts/SocketContext';
+import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
 import { usePreferences } from '@/contexts/PreferencesContext';
 
 function isImportantNotification(n: any) {
@@ -38,7 +38,7 @@ function playBeep(ctx: AudioContext) {
 }
 
 export function NotificationEffectsListener() {
-  const { socket } = useSocket();
+  const { socket } = useSocketConnection();
   const { preferences } = usePreferences();
   const audioCtxRef = useRef<AudioContext | null>(null);
   const hasUserInteractedRef = useRef(false);
@@ -109,4 +109,3 @@ export function NotificationEffectsListener() {
 
   return null;
 }
-

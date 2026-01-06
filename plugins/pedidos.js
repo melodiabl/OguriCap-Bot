@@ -229,38 +229,38 @@ const saveMedia = async (m, conn) => {
   // Intentar obtener el mensaje con multimedia
   const q = m.quoted ? m.quoted : m
   const msg = q.msg || q
-  
+
   // Verificar si hay multimedia en el mensaje (cualquier tipo)
   const hasMedia = msg.imageMessage || msg.videoMessage || msg.audioMessage || msg.documentMessage || msg.stickerMessage
   if (!hasMedia) return null
-  
+
   // Obtener el mimetype de cualquier tipo de mensaje multimedia
-  const mime = msg.imageMessage?.mimetype || 
-               msg.videoMessage?.mimetype || 
-               msg.audioMessage?.mimetype || 
-               msg.documentMessage?.mimetype ||
-               msg.stickerMessage?.mimetype || ''
-  
+  const mime = msg.imageMessage?.mimetype ||
+    msg.videoMessage?.mimetype ||
+    msg.audioMessage?.mimetype ||
+    msg.documentMessage?.mimetype ||
+    msg.stickerMessage?.mimetype || ''
+
   // Para stickers, convertir a imagen
   if (msg.stickerMessage) {
     try {
       const mediaBuffer = await conn.downloadMediaMessage(q)
       if (!mediaBuffer) return null
-      
+
       // Convertir sticker a imagen
       const { toImage } = await import('../lib/sticker.js')
       const imageBuffer = await toImage(mediaBuffer)
-      
+
       const targetDir = path.join(process.cwd(), 'tmp', 'pedidos')
       fs.mkdirSync(targetDir, { recursive: true })
-      
+
       const filename = `pedido_${Date.now()}.png`
       const dest = path.join(targetDir, filename)
-      
+
       fs.writeFileSync(dest, imageBuffer)
-      
-      return { 
-        path: dest, 
+
+      return {
+        path: dest,
         mimetype: 'image/png',
         filename,
         size: imageBuffer.length
@@ -270,22 +270,22 @@ const saveMedia = async (m, conn) => {
       return null
     }
   }
-  
+
   if (!mime) return null
-  
+
   try {
     // Descargar el archivo
     const buffer = await conn.downloadMediaMessage(q)
     if (!buffer) return null
-    
+
     const targetDir = path.join(process.cwd(), 'tmp', 'pedidos')
     fs.mkdirSync(targetDir, { recursive: true })
-    
+
     // Determinar extensión a partir del mimetype o usar extension original
-    const ext = mime.split('/')[1]?.split(';')[0] || 
-               q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
+    const ext = mime.split('/')[1]?.split(';')[0] ||
+      q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
     const originalFilename = q.message?.documentMessage?.fileName
-    
+
     let filename
     if (originalFilename) {
       // Usar nombre original si es seguro
@@ -293,14 +293,14 @@ const saveMedia = async (m, conn) => {
     } else {
       filename = `pedido_${Date.now()}.${ext}`
     }
-    
+
     const dest = path.join(targetDir, filename)
-    
+
     // Guardar archivo
     fs.writeFileSync(dest, buffer)
-    
-    return { 
-      path: dest, 
+
+    return {
+      path: dest,
       mimetype: mime,
       filename,
       size: buffer.length
@@ -322,7 +322,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
     case 'pedir': {
       const raw = (args || []).join(' ').trim()
       const media = await saveMedia(m, conn)
-      
+
       if (!raw && !media) {
         return m.reply(`📦 *Crear un pedido*
 
@@ -367,13 +367,13 @@ Prioridades: alta, media, baja`)
       }
 
       panel.pedidos[id] = pedido
-      if (global.db?.write) await global.db.write().catch(() => {})
+      if (global.db?.write) await global.db.write().catch(() => { })
 
       // Emitir evento Socket.IO si está disponible
       try {
         const { emitPedidoCreated } = await import('../lib/socket-io.js')
         emitPedidoCreated(pedido)
-      } catch {}
+      } catch { }
 
       // Auto-procesar pedido en grupos proveedor si está activado en el proveedor
       let autoSearchText = ''
@@ -392,14 +392,14 @@ Prioridades: alta, media, baja`)
             note: hasMatches ? 'matches_found' : 'no_matches',
           }
           panel.pedidos[id] = pedido
-          if (global.db?.write) await global.db.write().catch(() => {})
+          if (global.db?.write) await global.db.write().catch(() => { })
           try {
             const { emitPedidoUpdated } = await import('../lib/socket-io.js')
             emitPedidoUpdated(pedido)
-          } catch {}
+          } catch { }
           autoSearchText = formatSearchResults(pedido, query, results, usedPrefix, m.chat)
         }
-      } catch {}
+      } catch { }
 
       let msg = `✅ *Pedido creado exitosamente*
 
@@ -417,7 +417,7 @@ ${prioridadEmoji[prioridad]} Prioridad: ${prioridad}`
         msg += `\n\nℹ️ Para que el bot lo busque en la biblioteca, crea el pedido en el *grupo proveedor* o un admin lo procesa desde el panel.`
         msg += `\nUsa ${usedPrefix}verpedido ${id} para ver detalles`
       }
-      
+
       return m.reply(msg)
     }
 
@@ -514,7 +514,7 @@ ${msg}
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
-      } catch {}
+      } catch { }
 
       return m.reply(`✅ ¡Voto registrado!\n\n📦 Pedido #${id}: ${pedido.titulo}\n🗳️ Votos totales: ${pedido.votos}`)
     }
@@ -543,7 +543,7 @@ ${msg}
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
-      } catch {}
+      } catch { }
 
       return m.reply(`✅ Pedido #${id} cancelado`)
     }
@@ -579,7 +579,7 @@ ${msg}
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
-      } catch {}
+      } catch { }
 
       return m.reply(`✅ Pedido #${id} actualizado a: ${estadoEmoji[nuevoEstado]} ${nuevoEstado}`)
     }
@@ -608,11 +608,11 @@ ${msg}
         note: hasMatches ? 'matches_found' : 'no_matches',
       }
       panel.pedidos[id] = pedido
-      if (global.db?.write) await global.db.write().catch(() => {})
+      if (global.db?.write) await global.db.write().catch(() => { })
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
-      } catch {}
+      } catch { }
 
       return m.reply(formatSearchResults(pedido, query, results, usedPrefix, targetGroup))
     }

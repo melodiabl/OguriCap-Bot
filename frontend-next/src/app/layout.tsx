@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { RouteProgress } from '@/components/ui/RouteProgress';
@@ -19,6 +20,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], display: 'swap', variable: '--font-mono' });
+
 export default function RootLayout({
   children,
 }: {
@@ -32,9 +36,11 @@ export default function RootLayout({
             __html: `
               try {
                 const theme = localStorage.getItem('theme') || 'dark';
-                document.documentElement.classList.add(theme);
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.style.colorScheme = theme;
               } catch (e) {
-                document.documentElement.classList.add('dark');
+                document.documentElement.dataset.theme = 'dark';
+                document.documentElement.style.colorScheme = 'dark';
               }
             `,
           }}
@@ -44,12 +50,9 @@ export default function RootLayout({
         <link rel="icon" href="/bot-icon.svg?v=2" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#10b981" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+        <meta name="theme-color" content="rgb(99 102 241)" />
       </head>
-      <body className="font-sans antialiased">
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>
           <Suspense fallback={null}>
             <RouteProgress />

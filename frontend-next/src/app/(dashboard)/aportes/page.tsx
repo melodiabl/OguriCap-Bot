@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Search, RefreshCw, CheckCircle, XCircle, Clock, Eye, ThumbsUp, ThumbsDown,
-  FileText, Image, Video, Music, Radio, Plus, Upload, File, Trash2,
+  FileText, Image as ImageIcon, Video, Music, Radio, Plus, Upload, File, Trash2,
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAportesSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
@@ -39,7 +39,7 @@ export default function AportesPage() {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isConnected: isSocketConnected } = useSocket();
+  const { isConnected: isSocketConnected } = useSocketConnection();
   const [deleteTarget, setDeleteTarget] = useState<Aporte | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -140,7 +140,7 @@ export default function AportesPage() {
 
   const getTipoIcon = (tipo: string) => {
     const icons: Record<string, React.ReactNode> = {
-      imagen: <Image className="w-4 h-4" />,
+      imagen: <ImageIcon className="w-4 h-4" />,
       video: <Video className="w-4 h-4" />,
       audio: <Music className="w-4 h-4" />,
       documento: <FileText className="w-4 h-4" />,
@@ -195,7 +195,7 @@ export default function AportesPage() {
   const removeFile = (index: number) => setSelectedFiles(prev => prev.filter((_, i) => i !== index));
 
   const getFileIcon = (file: File) => {
-    if (file.type.startsWith('image/')) return <Image className="w-4 h-4" />;
+    if (file.type.startsWith('image/')) return <ImageIcon className="w-4 h-4" />;
     if (file.type.startsWith('video/')) return <Video className="w-4 h-4" />;
     if (file.type.startsWith('audio/')) return <Music className="w-4 h-4" />;
     return <FileText className="w-4 h-4" />;
