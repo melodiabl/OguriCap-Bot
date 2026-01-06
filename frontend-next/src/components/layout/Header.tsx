@@ -8,7 +8,7 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-import { Bell, Search, Moon, Sun, RefreshCw, Menu, X } from 'lucide-react';
+import { Bell, Search, Moon, Sun, RefreshCw, Menu, X, Volume2, VolumeX, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
@@ -45,8 +45,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const { theme, setTheme } = useTheme();
   const { isConnected: isSocketConnected } = useSocketConnection();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
-  const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
+  const { unreadCount, isOpen, setIsOpen, toggleOpen, notifications } = useNotifications();
   const reduceMotion = useReducedMotion();
+  const [preferences, setPreferences] = React.useState({ soundEnabled: true, hapticsEnabled: true });
+
+  const togglePreference = (key: 'soundEnabled'|'hapticsEnabled') => {
+    setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const currentPage = menuItems.find(item => item.path === pathname);
   const isConnected = pollingConnected;
@@ -195,7 +200,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                   <div className="p-3 border-t border-white/10">
                     <button
                       onClick={() => {
-                        setShowNotifications(false);
+                        setIsOpen(false);
                         router.push('/notificaciones');
                       }}
                       className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
