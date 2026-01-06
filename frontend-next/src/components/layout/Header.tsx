@@ -64,8 +64,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
         top: rect.bottom + 8,
         right: window.innerWidth - rect.right
       };
-      console.log('Dropdown position:', position);
-      console.log('isOpen:', isOpen);
       setDropdownPosition(position);
     }
   }, [isOpen]);
@@ -193,7 +191,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                         top: `${dropdownPosition.top}px`,
                         right: `${dropdownPosition.right}px`,
                       }}
-                      className="w-96 bg-red-500 backdrop-blur-xl border-4 border-yellow-400 rounded-xl shadow-2xl z-[9999]"
+                      className="w-96 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[9999]"
                     >
                       <div className="p-4 border-b border-white/10 flex items-center justify-between">
                         <h3 className="font-semibold text-white">Notificaciones</h3>
