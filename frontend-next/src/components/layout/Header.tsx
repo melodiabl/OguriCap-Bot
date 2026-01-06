@@ -127,7 +127,82 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                       : undefined
                   }
                 >
-                  <Bell className="w-5 h-5" />
+                  <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                    <h3 className="font-semibold text-white">Notificaciones</h3>
+                    {unreadCount > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
+                        {unreadCount} nuevas
+                      </span>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications && notifications.length > 0 ? (
+                      notifications.slice(0, 5).map((notif: any, index: number) => (
+                        <motion.div
+                          key={notif.id || index}
+                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                          transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
+                          className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.leida ? 'bg-primary-500/5' : ''
+                            }`}
+                        >
+                          <p className="text-sm text-white font-medium truncate">
+                            {notif.titulo || notif.title || 'Notificación'}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate mt-1">
+                            {notif.mensaje || notif.message || ''}
+                          </p>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center text-gray-400">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No hay notificaciones</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Efectos</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePreference('soundEnabled');
+                        }}
+                        title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
+                        className={`p-2 rounded-lg border transition-colors ${preferences.soundEnabled
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                          }`}
+                      >
+                        {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePreference('hapticsEnabled');
+                        }}
+                        title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
+                        className={`p-2 rounded-lg border transition-colors ${preferences.hapticsEnabled
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                          }`}
+                      >
+                        <Smartphone className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-3 border-t border-white/10">
+                    <button
+                      onClick={() => {
+                        setShowNotifications(false);
+                        router.push('/notificaciones');
+                      }}
+                      className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
+                    >
+                      Ver todas las notificaciones
+                    </button>
+                  </div>
                 </motion.div>
                 {unreadCount > 0 && (
                   <motion.span
