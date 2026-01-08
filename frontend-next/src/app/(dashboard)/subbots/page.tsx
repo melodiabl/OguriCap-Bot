@@ -57,6 +57,7 @@ export default function SubbotsPage() {
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
   const { user } = useAuth();
+  const phoneInputRef = React.useRef<HTMLInputElement>(null);
   const canDeleteSubbots = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
   const isUsuario = !!user && String(user.rol || '').toLowerCase() === 'usuario';
 
@@ -161,7 +162,7 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket, loadSubbots]);
+  }, [socket]); // Eliminamos loadSubbots para evitar ciclos innecesarios
 
   const normalizeSubbot = (raw: any): Subbot => {
     const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
@@ -538,9 +539,21 @@ export default function SubbotsPage() {
         </p>
         <div className="mb-4">
           <label className="text-sm text-gray-400 mb-1 block">Número de WhatsApp</label>
-          <input type="tel" placeholder="Ejemplo: 595974154768" value={phoneNumber}
+          <input 
+            ref={phoneInputRef}
+            type="tel" 
+            placeholder="Ejemplo: 595974154768" 
+            value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
-            className="input-glass w-full" />
+            onBlur={() => {
+              // Pequeño truco para mantener el foco si el modal sigue abierto y el blur fue por un re-render
+              if (showPhoneModal && !document.activeElement?.closest('.modal-content')) {
+                setTimeout(() => phoneInputRef.current?.focus(), 10);
+              }
+            }}
+            data-autofocus
+            className="input-glass w-full" 
+          />
         </div>
         {isSocketConnected && (
           <p className="text-sm text-emerald-400 mb-4 flex items-center gap-2">
