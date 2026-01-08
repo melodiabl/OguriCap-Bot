@@ -53,6 +53,7 @@ export default function SubbotsPage() {
   const [showPairingModal, setShowPairingModal] = useState(false);
   const [currentPairingCode, setCurrentPairingCode] = useState<string | null>(null);
   const [currentPairingSubbot, setCurrentPairingSubbot] = useState<string | null>(null);
+  const [pendingPairingSubbotCode, setPendingPairingSubbotCode] = useState<string | null>(null);
 
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
@@ -123,6 +124,16 @@ export default function SubbotsPage() {
     };
 
     const handlePairingCode = (data: { subbotCode: string; pairingCode: string }) => {
+      const isForPending = !!pendingPairingSubbotCode && pendingPairingSubbotCode === data.subbotCode;
+      const shouldInterruptPhoneModal = !showPhoneModal || isForPending;
+
+      if (!shouldInterruptPhoneModal) {
+        // Evitar perder foco/valor del input mientras se escribe (pairing de otros subbots).
+        loadSubbots();
+        return;
+      }
+
+      setPendingPairingSubbotCode(null);
       setCurrentPairingCode(data.pairingCode);
       setCurrentPairingSubbot(data.subbotCode);
       setShowPairingModal(true);
@@ -131,6 +142,11 @@ export default function SubbotsPage() {
     };
 
     const handleQRCode = async (data: { subbotCode: string; qr: string }) => {
+      // No interrumpir la captura del número para CODE subbot.
+      if (showPhoneModal) {
+        loadSubbots();
+        return;
+      }
       try {
         const qrDataURL = await QRCode.toDataURL(data.qr, { width: 256, margin: 2 });
         setQrImage(qrDataURL);
@@ -158,7 +174,7 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket, subbots, loadSubbots]);
+  }, [socket, subbots, loadSubbots, pendingPairingSubbotCode, showPhoneModal]);
 
   const normalizeSubbot = (raw: any): Subbot => {
     const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
@@ -214,6 +230,7 @@ export default function SubbotsPage() {
     try {
       setActionLoading('qr');
       setError(null);
+      setPendingPairingSubbotCode(null);
       const response = await api.createSubbot(1, 'qr');
       if (response) {
         const newSubbot = normalizeSubbot(response);
@@ -243,12 +260,14 @@ export default function SubbotsPage() {
         const newSubbot = normalizeSubbot(response);
         setSubbots(prev => [newSubbot, ...prev]);
         if (response.pairingCode || response.pairing_code) {
+          setPendingPairingSubbotCode(null);
           setCurrentPairingCode(response.pairingCode || response.pairing_code);
           setCurrentPairingSubbot(newSubbot.code);
           setShowPairingModal(true);
           setShowPhoneModal(false);
           toast.success('Código de pairing generado');
         } else {
+          setPendingPairingSubbotCode(newSubbot.code);
           setSuccess('Subbot CODE creado - Esperando código de pairing...');
           toast.success('Subbot creado. El código de pairing aparecerá automáticamente.');
         }
@@ -425,7 +444,7 @@ export default function SubbotsPage() {
             <Button onClick={createQRSubbot} loading={actionLoading === 'qr'} variant="primary" icon={<QrCode className="w-5 h-5" />}>
               Crear QR Subbot
             </Button>
-            <Button onClick={() => setShowPhoneModal(true)} loading={actionLoading === 'code'} variant="success" icon={<Key className="w-5 h-5" />}>
+            <Button onClick={() => { setPendingPairingSubbotCode(null); setShowPhoneModal(true); }} loading={actionLoading === 'code'} variant="success" icon={<Key className="w-5 h-5" />}>
               Crear CODE Subbot
             </Button>
           </div>
@@ -537,7 +556,8 @@ export default function SubbotsPage() {
           <label className="text-sm text-gray-400 mb-1 block">Número de WhatsApp</label>
           <input type="tel" placeholder="Ejemplo: 595974154768" value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
-            className="input-glass w-full" />
+            className="input-glass w-full"
+            data-autofocus />
         </div>
         {isSocketConnected && (
           <p className="text-sm text-emerald-400 mb-4 flex items-center gap-2">
