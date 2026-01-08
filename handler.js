@@ -84,7 +84,12 @@ if (!("sBye" in chat)) chat.sBye = ""
 if (!("detect" in chat)) chat.detect = true
 if (!("primaryBot" in chat)) chat.primaryBot = null
 if (!("modoadmin" in chat)) chat.modoadmin = false
-if (!("antiLink" in chat)) chat.antiLink = true
+// Compatibilidad: algunas versiones guardaron "antilink" (minúsculas)
+if (!("antiLink" in chat)) {
+  if ("antilink" in chat) chat.antiLink = Boolean(chat.antilink)
+  else chat.antiLink = true
+}
+if (!("antilink" in chat)) chat.antilink = Boolean(chat.antiLink)
 if (!("nsfw" in chat)) chat.nsfw = false
 if (!("economy" in chat)) chat.economy = true;
 if (!("gacha" in chat)) chat.gacha = true
@@ -98,6 +103,7 @@ detect: true,
 primaryBot: null,
 modoadmin: false,
 antiLink: true,
+antilink: true,
 nsfw: false,
 economy: true,
 gacha: true

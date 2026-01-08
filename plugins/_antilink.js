@@ -5,6 +5,7 @@ export async function before(m, { conn, isAdmin, isBotAdmin, isROwner, participa
 if (!m.isGroup) return
 if (!m || !m.text) return
 const chat = global?.db?.data?.chats[m.chat]
+const antiLinkEnabled = Boolean(chat?.antiLink ?? chat?.antilink)
 const isGroupLink = linkRegex.test(m.text)
 const isChannelLink = /whatsapp\.com\/channel\//i.test(m.text)
 const hasAllowedLink = allowedLinks.some(link => m.text.includes(link))
@@ -14,7 +15,7 @@ if (isBotAdmin) {
 const linkThisGroup = `https://chat.whatsapp.com/${await conn.groupInviteCode(m.chat)}`
 if (isGroupLink && m.text.includes(linkThisGroup)) return !0
 }
-if (chat.antilink && isGroupLink && !isAdmin && !isROwner && isBotAdmin && m.key.participant !== conn.user.jid) {
+if (antiLinkEnabled && isGroupLink && !isAdmin && !isROwner && isBotAdmin && m.key.participant !== conn.user.jid) {
 await conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.key.participant }})
 await conn.reply(m.chat, `> ꕥ Se ha eliminado a *${global.db.data.users[m.key.participant].name || 'Usuario'}* del grupo por \`Anti-Link\`, no permitimos enlaces de *${isChannelLink ? 'canales' : 'otros grupos'}*.`, null)
 await conn.groupParticipantsUpdate(m.chat, [m.key.participant], 'remove')
