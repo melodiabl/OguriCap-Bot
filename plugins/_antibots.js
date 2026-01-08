@@ -23,86 +23,129 @@ let handler = async (m, { conn, args, usedPrefix, command, isBotAdmin, isAdmin, 
 }
 
 handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
-  // Validaciones iniciales para no gastar recursos
+  // Validaciones iniciales
   if (!m.isGroup) return
   if (m.fromMe) return
   if (!m.chat || !m.chat.endsWith('@g.us')) return
-  
-  // Verificar que exista la estructura de datos
   if (!global.db?.data?.chats) return
   
   let chat = global.db.data.chats[m.chat]
   if (!chat?.antiBot) return
   
-  // Si el que envió el mensaje es Admin o Owner, NO hacer nada
+  // Si el que envió el mensaje es Admin o Owner del bot, NO hacer nada
   if (isAdmin || isOwner) return
   
   try {
-    // Detección de mensajes de Bots
-    // BAE5, 3EB0, B24E, WA son prefijos comunes de IDs de bots en Baileys
+    // ===== DETECCIÓN MEJORADA DE BOTS =====
     let isBotMessage = false
     
+    // 1. Verificar por ID del mensaje (método más confiable)
     if (m.id) {
-      isBotMessage = m.id.startsWith('BAE5') || 
-                     m.id.startsWith('3EB0') || 
-                     m.id.startsWith('B24E') || 
-                     m.id.startsWith('WA')
+      const botPrefixes = ['BAE5', '3EB0', 'B24E', 'WA', 'BAES', '3BE0', 'EA']
+      isBotMessage = botPrefixes.some(prefix => m.id.startsWith(prefix))
     }
     
-    // También verificar si tiene la propiedad isBaileys
-    if (m.isBaileys) isBotMessage = true
+    // 2. Verificar por la propiedad isBaileys
+    if (m.isBaileys === true) isBotMessage = true
     
+    // 3. MÉTODO CRÍTICO: Verificar si el sender termina con "@lid" o contiene ":lid@"
+    // Esto detecta bots de WhatsApp que usan "lid" (Linked Device ID)
+    if (m.sender) {
+      if (m.sender.includes(':lid@') || m.sender.endsWith('@lid')) {
+        isBotMessage = true
+      }
+    }
+    
+    // 4. Verificar en el key del mensaje
+    if (m.key?.id) {
+      const botPrefixes = ['BAE5', '3EB0', 'B24E', 'WA', 'BAES']
+      if (botPrefixes.some(prefix => m.key.id.startsWith(prefix))) {
+        isBotMessage = true
+      }
+    }
+    
+    // 5. Verificar si el remoteJid del key contiene indicadores de bot
+    if (m.key?.remoteJid && m.key.remoteJid.includes(':lid@')) {
+      isBotMessage = true
+    }
+    
+    // Si no detectamos que es un bot, salir
     if (!isBotMessage) return
     
-    // Verificar si es un SubBot oficial conectado a este sistema
+    console.log(`[ANTIBOT] Bot detectado: ${m.sender}`)
+    console.log(`[ANTIBOT] ID del mensaje: ${m.id}`)
+    console.log(`[ANTIBOT] Key:`, m.key)
+    
+    // ===== VERIFICACIÓN DE SUBBOTS AUTORIZADOS =====
     let isSubBot = false
     
     // Verificar contra el bot principal
     if (conn.user?.jid && m.sender) {
       isSubBot = areJidsSameUser(conn.user.jid, m.sender)
+      if (isSubBot) {
+        console.log(`[ANTIBOT] Es el bot principal, permitido`)
+        return
+      }
     }
     
     // Verificar contra SubBots conectados
     if (!isSubBot && global.conns && Array.isArray(global.conns)) {
-      isSubBot = global.conns.some(sock => {
-        if (!sock?.user?.jid) return false
-        return areJidsSameUser(sock.user.jid, m.sender)
-      })
+      for (let sock of global.conns) {
+        if (!sock?.user?.jid) continue
+        
+        if (areJidsSameUser(sock.user.jid, m.sender)) {
+          isSubBot = true
+          console.log(`[ANTIBOT] Es un SubBot autorizado, permitido`)
+          break
+        }
+      }
     }
     
-    // Si es un bot no autorizado, proceder con la eliminación
+    // ===== ELIMINACIÓN DE BOT NO AUTORIZADO =====
     if (!isSubBot) {
+      console.log(`[ANTIBOT] Bot NO autorizado, procediendo a eliminar`)
+      
       if (isBotAdmin) {
         // Delay para asegurar que Baileys procese correctamente
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        await new Promise(resolve => setTimeout(resolve, 2000))
         
-        // Intentar eliminar el mensaje
+        // Primero notificar
+        await conn.reply(m.chat, `🤖 *Bot No Autorizado Detectado*\n\n👤 Usuario: @${m.sender.split('@')[0]}\n⚠️ Los bots externos no están permitidos.\n🗑️ Procediendo a eliminar...`, null, {
+          mentions: [m.sender]
+        })
+        
+        // Pequeño delay adicional
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Eliminar el mensaje
         try {
           await conn.sendMessage(m.chat, { delete: m.key })
+          console.log(`[ANTIBOT] Mensaje eliminado`)
         } catch (e) {
-          console.log('Error al eliminar mensaje del bot:', e)
+          console.log('[ANTIBOT] Error al eliminar mensaje:', e.message)
         }
         
-        // Intentar eliminar al bot del grupo
+        // Eliminar al bot del grupo
         try {
           await conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
+          console.log(`[ANTIBOT] Bot eliminado del grupo exitosamente`)
           
-          // Notificación opcional de eliminación
-          await conn.reply(m.chat, `🤖 *Bot Detectado y Eliminado*\n\n👤 Usuario: @${m.sender.split('@')[0]}\n⚠️ Los bots no autorizados no están permitidos en este grupo.`, null, {
+          await conn.reply(m.chat, `✅ *Bot Eliminado*\n\n👤 @${m.sender.split('@')[0]} fue removido del grupo.`, null, {
             mentions: [m.sender]
           })
         } catch (e) {
-          console.log('Error al eliminar bot del grupo:', e)
-          await conn.reply(m.chat, '⚠️ Detecté un bot no autorizado pero no pude eliminarlo. Verifica mis permisos de admin.', m)
+          console.log('[ANTIBOT] Error al eliminar bot del grupo:', e.message)
+          await conn.reply(m.chat, `⚠️ No pude eliminar al bot. Error: ${e.message}`, m)
         }
       } else {
-        // El bot no es admin, solo notificar (opcional, comentado por defecto)
-        // await conn.reply(m.chat, '⚠️ Detecté un bot no autorizado pero necesito ser admin para eliminarlo.', m)
+        console.log(`[ANTIBOT] Bot detectado pero no tengo permisos de admin`)
+        await conn.reply(m.chat, `⚠️ *Bot No Autorizado Detectado*\n\n👤 @${m.sender.split('@')[0]}\n\n❌ Necesito permisos de administrador para eliminarlo.`, null, {
+          mentions: [m.sender]
+        })
       }
     }
   } catch (error) {
-    console.error('Error en handler.before de antibot:', error)
-    // No hacer nada más para evitar crashes
+    console.error('[ANTIBOT] Error en handler.before:', error)
   }
 }
 
