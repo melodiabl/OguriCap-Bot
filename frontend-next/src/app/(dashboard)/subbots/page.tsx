@@ -134,11 +134,14 @@ export default function SubbotsPage() {
       try {
         const qrDataURL = await QRCode.toDataURL(data.qr, { width: 256, margin: 2 });
         setQrImage(qrDataURL);
-        const subbot = subbots.find(s => s.code === data.subbotCode);
-        if (subbot) {
-          setSelectedSubbot(subbot);
-          setShowQR(true);
-        }
+        setSubbots(prev => {
+          const subbot = prev.find(s => s.code === data.subbotCode);
+          if (subbot) {
+            setSelectedSubbot(subbot);
+            setShowQR(true);
+          }
+          return prev;
+        });
       } catch (err) {
         console.error('Error generando QR:', err);
       }
@@ -158,7 +161,7 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket, subbots, loadSubbots]);
+  }, [socket, loadSubbots]);
 
   const normalizeSubbot = (raw: any): Subbot => {
     const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
