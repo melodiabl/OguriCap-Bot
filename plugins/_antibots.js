@@ -6,7 +6,7 @@ let handler = async (m, { conn, args, usedPrefix, command, isBotAdmin, isAdmin, 
   let chat = global.db.data.chats[m.chat]
   
   if (!args[0]) {
-    return conn.reply(m.chat, `*🤖 Active o Desactive el Anti-Bots*\n\nUse:\n${usedPrefix + command} on\n${usedPrefix + command} off`, m)
+    return conn.reply(m.chat, `*🤖 Active o Desactive el Anti-Bots*\n\nUse:\n${usedPrefix + command} on\n${usedPrefix + command} off\n\nEstado actual: ${chat.antiBot ? '✅ Activado' : '❌ Desactivado'}`, m)
   }
   
   if (args[0] === 'on') {
@@ -22,8 +22,7 @@ let handler = async (m, { conn, args, usedPrefix, command, isBotAdmin, isAdmin, 
   }
 }
 
-// Este handler.all se ejecuta ANTES que el handler.js principal
-handler.all = async function (m, { conn }) {
+handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin }) {
   // Validaciones iniciales
   if (!m.isGroup) return
   if (m.fromMe) return
@@ -33,20 +32,23 @@ handler.all = async function (m, { conn }) {
   let chat = global.db.data.chats[m.chat]
   if (!chat?.antiBot) return
   
+  // Si el que envió es admin del grupo u owner del bot, permitir
+  if (isAdmin || isOwner) return
+  
   try {
     // ===== DETECCIÓN MEJORADA DE BOTS =====
     let isBotMessage = false
     
-    // 1. Verificar por ID del mensaje (método más confiable)
+    // 1. Verificar por ID del mensaje
     if (m.id) {
-      const botPrefixes = ['BAE5', '3EB0', 'B24E', 'WA', 'BAES', '3BE0', 'EA']
+      const botPrefixes = ['BAE5', '3EB0', 'B24E', 'WA', 'BAES', '3BE0', 'EA', 'NJX']
       isBotMessage = botPrefixes.some(prefix => m.id.startsWith(prefix))
     }
     
     // 2. Verificar por la propiedad isBaileys
     if (m.isBaileys === true) isBotMessage = true
     
-    // 3. MÉTODO CRÍTICO: Verificar si el sender termina con "@lid" o contiene ":lid@"
+    // 3. MÉTODO CRÍTICO: Verificar si el sender contiene ":lid@" o termina con "@lid"
     if (m.sender) {
       if (m.sender.includes(':lid@') || m.sender.endsWith('@lid')) {
         isBotMessage = true
@@ -55,7 +57,7 @@ handler.all = async function (m, { conn }) {
     
     // 4. Verificar en el key del mensaje
     if (m.key?.id) {
-      const botPrefixes = ['BAE5', '3EB0', 'B24E', 'WA', 'BAES']
+      const botPrefixes = ['BAE5', '3EB0', 'B24E', 'WA', 'BAES', 'NJX']
       if (botPrefixes.some(prefix => m.key.id.startsWith(prefix))) {
         isBotMessage = true
       }
@@ -66,41 +68,22 @@ handler.all = async function (m, { conn }) {
       isBotMessage = true
     }
     
+    // 6. Verificar si el mensaje tiene el tipo que usan los bots
+    if (m.key?.fromMe === false && m.key?.id?.length === 16 && m.key?.id?.startsWith('BAE5')) {
+      isBotMessage = true
+    }
+    
     // Si no detectamos que es un bot, salir
     if (!isBotMessage) return
     
-    console.log(`[ANTIBOT] Bot detectado: ${m.sender}`)
-    console.log(`[ANTIBOT] ID del mensaje: ${m.id}`)
-    console.log(`[ANTIBOT] isBaileys: ${m.isBaileys}`)
-    
-    // ===== VERIFICACIÓN DE ADMINS Y OWNERS =====
-    // Obtener metadata del grupo solo si es necesario
-    let isAdmin = false
-    let isOwner = false
-    let isBotAdmin = false
-    
-    try {
-      const groupMetadata = await conn.groupMetadata(m.chat).catch(() => null)
-      if (groupMetadata?.participants) {
-        const userInGroup = groupMetadata.participants.find(p => p.id === m.sender || p.jid === m.sender)
-        const botInGroup = groupMetadata.participants.find(p => p.id === conn.user.jid || p.jid === conn.user.jid)
-        
-        isAdmin = userInGroup?.admin === 'admin' || userInGroup?.admin === 'superadmin'
-        isBotAdmin = botInGroup?.admin === 'admin' || botInGroup?.admin === 'superadmin'
-      }
-    } catch (e) {
-      console.log('[ANTIBOT] Error al obtener metadata del grupo:', e.message)
-    }
-    
-    // Verificar si es owner del bot
-    const owners = [...global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')]
-    isOwner = owners.includes(m.sender) || m.sender === conn.user.jid
-    
-    // Si el que envió el mensaje es Admin del grupo u Owner del bot, NO hacer nada
-    if (isAdmin || isOwner) {
-      console.log(`[ANTIBOT] Es admin/owner, permitido`)
-      return
-    }
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
+    console.log(`[ANTIBOT] 🤖 Bot detectado!`)
+    console.log(`[ANTIBOT] 👤 Sender: ${m.sender}`)
+    console.log(`[ANTIBOT] 🆔 ID: ${m.id}`)
+    console.log(`[ANTIBOT] 🔑 Key ID: ${m.key?.id}`)
+    console.log(`[ANTIBOT] 📱 isBaileys: ${m.isBaileys}`)
+    console.log(`[ANTIBOT] 💬 Texto: ${m.text?.substring(0, 50) || 'N/A'}`)
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     
     // ===== VERIFICACIÓN DE SUBBOTS AUTORIZADOS =====
     let isSubBot = false
@@ -109,69 +92,90 @@ handler.all = async function (m, { conn }) {
     if (conn.user?.jid && m.sender) {
       isSubBot = areJidsSameUser(conn.user.jid, m.sender)
       if (isSubBot) {
-        console.log(`[ANTIBOT] Es el bot principal, permitido`)
+        console.log(`[ANTIBOT] ✅ Es el bot principal, permitido`)
         return
       }
     }
     
-    // Verificar contra SubBots conectados
+    // Verificar contra SubBots conectados en global.conns
     if (!isSubBot && global.conns && Array.isArray(global.conns)) {
       for (let sock of global.conns) {
         if (!sock?.user?.jid) continue
         
         if (areJidsSameUser(sock.user.jid, m.sender)) {
           isSubBot = true
-          console.log(`[ANTIBOT] Es un SubBot autorizado, permitido`)
-          break
+          console.log(`[ANTIBOT] ✅ Es un SubBot autorizado (${sock.user.name || 'Sin nombre'})`)
+          return
         }
       }
     }
     
     // ===== ELIMINACIÓN DE BOT NO AUTORIZADO =====
     if (!isSubBot) {
-      console.log(`[ANTIBOT] Bot NO autorizado, procediendo a eliminar`)
+      console.log(`[ANTIBOT] ⚠️ Bot NO autorizado detectado!`)
+      console.log(`[ANTIBOT] 🔍 Bot Admin: ${isBotAdmin}`)
       
       if (isBotAdmin) {
-        // Primero notificar
-        await conn.reply(m.chat, `🤖 *Bot No Autorizado Detectado*\n\n👤 Usuario: @${m.sender.split('@')[0]}\n⚠️ Los bots externos no están permitidos.\n🗑️ Procediendo a eliminar...`, null, {
-          mentions: [m.sender]
-        })
+        // Notificar detección
+        try {
+          await conn.sendMessage(m.chat, {
+            text: `🤖 *Bot No Autorizado Detectado*\n\n👤 Usuario: @${m.sender.split('@')[0]}\n⚠️ Los bots externos no están permitidos en este grupo.\n\n🗑️ Eliminando en 3 segundos...`,
+            mentions: [m.sender]
+          })
+        } catch (e) {
+          console.log('[ANTIBOT] Error al enviar notificación:', e.message)
+        }
         
-        // Delay para asegurar que Baileys procese correctamente
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Delay para que se vea la notificación
+        await new Promise(resolve => setTimeout(resolve, 3000))
         
-        // Eliminar el mensaje
+        // Intentar eliminar el mensaje del bot
         try {
           await conn.sendMessage(m.chat, { delete: m.key })
-          console.log(`[ANTIBOT] Mensaje eliminado`)
+          console.log(`[ANTIBOT] ✅ Mensaje eliminado`)
         } catch (e) {
-          console.log('[ANTIBOT] Error al eliminar mensaje:', e.message)
+          console.log('[ANTIBOT] ⚠️ No se pudo eliminar el mensaje:', e.message)
         }
         
         // Pequeño delay adicional
         await new Promise(resolve => setTimeout(resolve, 1000))
         
-        // Eliminar al bot del grupo
+        // Intentar eliminar al bot del grupo
         try {
-          await conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
-          console.log(`[ANTIBOT] Bot eliminado del grupo exitosamente`)
+          const result = await conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
+          console.log(`[ANTIBOT] ✅ Bot eliminado del grupo`)
+          console.log(`[ANTIBOT] Resultado:`, result)
           
-          await conn.reply(m.chat, `✅ *Bot Eliminado*\n\n👤 @${m.sender.split('@')[0]} fue removido del grupo.`, null, {
+          // Confirmar eliminación
+          await conn.sendMessage(m.chat, {
+            text: `✅ *Bot Eliminado Exitosamente*\n\n👤 Usuario removido: @${m.sender.split('@')[0]}\n🛡️ El grupo está protegido contra bots no autorizados.`,
             mentions: [m.sender]
           })
         } catch (e) {
-          console.log('[ANTIBOT] Error al eliminar bot del grupo:', e.message)
-          await conn.reply(m.chat, `⚠️ No pude eliminar al bot. Error: ${e.message}`, m)
+          console.log('[ANTIBOT] ❌ Error al eliminar bot del grupo:', e.message)
+          console.log('[ANTIBOT] Error completo:', e)
+          
+          await conn.sendMessage(m.chat, {
+            text: `⚠️ *Error al Eliminar Bot*\n\n👤 @${m.sender.split('@')[0]}\n❌ Error: ${e.message}\n\n💡 Verifica que el bot tenga permisos de administrador correctos.`,
+            mentions: [m.sender]
+          })
         }
       } else {
-        console.log(`[ANTIBOT] Bot detectado pero no tengo permisos de admin`)
-        await conn.reply(m.chat, `⚠️ *Bot No Autorizado Detectado*\n\n👤 @${m.sender.split('@')[0]}\n\n❌ Necesito permisos de administrador para eliminarlo.`, null, {
-          mentions: [m.sender]
-        })
+        console.log(`[ANTIBOT] ❌ No tengo permisos de admin para eliminar`)
+        
+        try {
+          await conn.sendMessage(m.chat, {
+            text: `⚠️ *Bot No Autorizado Detectado*\n\n👤 @${m.sender.split('@')[0]}\n\n❌ No puedo eliminarlo porque necesito ser administrador del grupo.\n\n💡 Hazme administrador para que pueda proteger el grupo.`,
+            mentions: [m.sender]
+          })
+        } catch (e) {
+          console.log('[ANTIBOT] Error al enviar mensaje de falta de permisos:', e.message)
+        }
       }
     }
   } catch (error) {
-    console.error('[ANTIBOT] Error en handler.all:', error)
+    console.error('[ANTIBOT] ❌ Error crítico en handler.before:', error)
+    console.error('[ANTIBOT] Stack:', error.stack)
   }
 }
 
@@ -179,6 +183,5 @@ handler.help = ['antibot']
 handler.tags = ['group']
 handler.command = ['antibot', 'antibots']
 handler.admin = true
-handler.botAdmin = true
 
 export default handler
