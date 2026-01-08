@@ -22,7 +22,8 @@ let handler = async (m, { conn, args, usedPrefix, command, isBotAdmin, isAdmin, 
   }
 }
 
-handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
+// Este handler.all se ejecuta ANTES que el handler.js principal
+handler.all = async function (m, { conn }) {
   // Validaciones iniciales
   if (!m.isGroup) return
   if (m.fromMe) return
@@ -31,9 +32,6 @@ handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
   
   let chat = global.db.data.chats[m.chat]
   if (!chat?.antiBot) return
-  
-  // Si el que envió el mensaje es Admin o Owner del bot, NO hacer nada
-  if (isAdmin || isOwner) return
   
   try {
     // ===== DETECCIÓN MEJORADA DE BOTS =====
@@ -49,7 +47,6 @@ handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
     if (m.isBaileys === true) isBotMessage = true
     
     // 3. MÉTODO CRÍTICO: Verificar si el sender termina con "@lid" o contiene ":lid@"
-    // Esto detecta bots de WhatsApp que usan "lid" (Linked Device ID)
     if (m.sender) {
       if (m.sender.includes(':lid@') || m.sender.endsWith('@lid')) {
         isBotMessage = true
@@ -74,7 +71,36 @@ handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
     
     console.log(`[ANTIBOT] Bot detectado: ${m.sender}`)
     console.log(`[ANTIBOT] ID del mensaje: ${m.id}`)
-    console.log(`[ANTIBOT] Key:`, m.key)
+    console.log(`[ANTIBOT] isBaileys: ${m.isBaileys}`)
+    
+    // ===== VERIFICACIÓN DE ADMINS Y OWNERS =====
+    // Obtener metadata del grupo solo si es necesario
+    let isAdmin = false
+    let isOwner = false
+    let isBotAdmin = false
+    
+    try {
+      const groupMetadata = await conn.groupMetadata(m.chat).catch(() => null)
+      if (groupMetadata?.participants) {
+        const userInGroup = groupMetadata.participants.find(p => p.id === m.sender || p.jid === m.sender)
+        const botInGroup = groupMetadata.participants.find(p => p.id === conn.user.jid || p.jid === conn.user.jid)
+        
+        isAdmin = userInGroup?.admin === 'admin' || userInGroup?.admin === 'superadmin'
+        isBotAdmin = botInGroup?.admin === 'admin' || botInGroup?.admin === 'superadmin'
+      }
+    } catch (e) {
+      console.log('[ANTIBOT] Error al obtener metadata del grupo:', e.message)
+    }
+    
+    // Verificar si es owner del bot
+    const owners = [...global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')]
+    isOwner = owners.includes(m.sender) || m.sender === conn.user.jid
+    
+    // Si el que envió el mensaje es Admin del grupo u Owner del bot, NO hacer nada
+    if (isAdmin || isOwner) {
+      console.log(`[ANTIBOT] Es admin/owner, permitido`)
+      return
+    }
     
     // ===== VERIFICACIÓN DE SUBBOTS AUTORIZADOS =====
     let isSubBot = false
@@ -106,16 +132,13 @@ handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
       console.log(`[ANTIBOT] Bot NO autorizado, procediendo a eliminar`)
       
       if (isBotAdmin) {
-        // Delay para asegurar que Baileys procese correctamente
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        
         // Primero notificar
         await conn.reply(m.chat, `🤖 *Bot No Autorizado Detectado*\n\n👤 Usuario: @${m.sender.split('@')[0]}\n⚠️ Los bots externos no están permitidos.\n🗑️ Procediendo a eliminar...`, null, {
           mentions: [m.sender]
         })
         
-        // Pequeño delay adicional
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Delay para asegurar que Baileys procese correctamente
+        await new Promise(resolve => setTimeout(resolve, 2000))
         
         // Eliminar el mensaje
         try {
@@ -124,6 +147,9 @@ handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
         } catch (e) {
           console.log('[ANTIBOT] Error al eliminar mensaje:', e.message)
         }
+        
+        // Pequeño delay adicional
+        await new Promise(resolve => setTimeout(resolve, 1000))
         
         // Eliminar al bot del grupo
         try {
@@ -145,7 +171,7 @@ handler.before = async function (m, { conn, isBotAdmin, isOwner, isAdmin }) {
       }
     }
   } catch (error) {
-    console.error('[ANTIBOT] Error en handler.before:', error)
+    console.error('[ANTIBOT] Error en handler.all:', error)
   }
 }
 
