@@ -128,6 +128,8 @@ export default function SubbotsPage() {
       setCurrentPairingSubbot(data.subbotCode);
       setShowPairingModal(true);
       setShowPhoneModal(false);
+      // Usamos la versión funcional de setSubbots para no depender de la variable subbots
+      setSubbots(prev => prev); 
       loadSubbots();
     };
 
@@ -141,7 +143,7 @@ export default function SubbotsPage() {
             setSelectedSubbot(subbot);
             setShowQR(true);
           }
-          return prev;
+          return [...prev]; // Retornamos una nueva referencia para forzar actualización visual
         });
       } catch (err) {
         console.error('Error generando QR:', err);
@@ -162,7 +164,7 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket]); // Eliminamos loadSubbots para evitar ciclos innecesarios
+  }, [socket, loadSubbots]); // Re-añadimos loadSubbots ya que es un useCallback estable
 
   const normalizeSubbot = (raw: any): Subbot => {
     const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
@@ -545,9 +547,13 @@ export default function SubbotsPage() {
             placeholder="Ejemplo: 595974154768" 
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
-            onBlur={() => {
-              // Pequeño truco para mantener el foco si el modal sigue abierto y el blur fue por un re-render
-              if (showPhoneModal && !document.activeElement?.closest('.modal-content')) {
+            onBlur={(e) => {
+              // Si el foco se va a otro elemento dentro del mismo modal, no hacemos nada
+              if (e.relatedTarget && e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) {
+                return;
+              }
+              // Si el foco se pierde por un re-render (document.activeElement es el body o null)
+              if (showPhoneModal && (!document.activeElement || document.activeElement === document.body)) {
                 setTimeout(() => phoneInputRef.current?.focus(), 10);
               }
             }}
