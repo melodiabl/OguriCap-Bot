@@ -326,9 +326,9 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
         try {
           console.log(chalk.cyan('[ ✿ ] Solicitando código de emparejamiento...'))
           
-          // Generar código aleatorio
+          // Usar código fijo del socket (sin pasar segundo parámetro, usa el default)
           let codeBot = await conn.requestPairingCode(addNumber)
-          console.log(chalk.cyan('[ ✿ ] Generando código aleatorio'))
+          console.log(chalk.cyan('[ ✿ ] Usando código fijo del socket'))
           
           // Formatear el código si es necesario
           if (typeof codeBot === 'string' && codeBot.length > 4) {
