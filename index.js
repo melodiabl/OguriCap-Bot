@@ -326,17 +326,9 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
         try {
           console.log(chalk.cyan('[ ✿ ] Solicitando código de emparejamiento...'))
           
-          // Usar código fijo del panel si está configurado
-          let codeBot
-          const panelConfig = global.db?.data?.panel?.whatsapp
-          if (panelConfig?.pairingCode && panelConfig.pairingCode !== 'null') {
-            // Usar código fijo del panel - pasar como segundo parámetro
-            codeBot = await conn.requestPairingCode(addNumber, panelConfig.pairingCode)
-            console.log(chalk.cyan('[ ✿ ] Usando código fijo del panel'))
-          } else {
-            // Generar código aleatorio como fallback
-            codeBot = await conn.requestPairingCode(addNumber)
-          }
+          // Usar código fijo del socket (sin pasar segundo parámetro, usa el default)
+          let codeBot = await conn.requestPairingCode(addNumber)
+          console.log(chalk.cyan('[ ✿ ] Usando código fijo del socket'))
           
           // Formatear el código si es necesario
           if (typeof codeBot === 'string' && codeBot.length > 4) {
