@@ -5,18 +5,18 @@ let handler = async (m, { conn, args, usedPrefix, command, isBotAdmin, isAdmin, 
     
     let chat = global.db.data.chats[m.chat]
     
-    if (!args[0]) return conn.reply(m.chat, *Active o Desactive el Anti-Bots*\n\nUse:\n${usedPrefix + command} on\n${usedPrefix + command} off, m)
+    if (!args[0]) return conn.reply(m.chat, `*Active o Desactive el Anti-Bots*\n\nUse:\n${usedPrefix + command} on\n${usedPrefix + command} off`, m)
     
     if (args[0] === 'on') {
         if (chat.antiBot) return conn.reply(m.chat, 'El Anti-Bots ya estaba activo.', m)
         chat.antiBot = true
-        await conn.reply(m.chat, '✅ Anti-Bots Activado\n\nEl bot eliminará automáticamente a otros bots que no sean Sub-Bots verificados de este sistema.\n⚠️ Nota: El Bot necesita ser Admin para eliminar intrusos.', m)
+        await conn.reply(m.chat, '✅ *Anti-Bots Activado*\n\nEl bot eliminará automáticamente a otros bots que no sean Sub-Bots verificados de este sistema.\n⚠️ *Nota:* El Bot necesita ser Admin para eliminar intrusos.', m)
     } else if (args[0] === 'off') {
         if (!chat.antiBot) return conn.reply(m.chat, 'El Anti-Bots ya estaba desactivado.', m)
         chat.antiBot = false
-        await conn.reply(m.chat, '❌ Anti-Bots Desactivado', m)
+        await conn.reply(m.chat, '❌ *Anti-Bots Desactivado*', m)
     } else {
-        await conn.reply(m.chat, Opción no válida. Use ${usedPrefix + command} on/off, m)
+        await conn.reply(m.chat, `Opción no válida. Use ${usedPrefix + command} on/off`, m)
     }
 }
 
