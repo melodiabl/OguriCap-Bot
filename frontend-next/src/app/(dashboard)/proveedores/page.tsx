@@ -58,6 +58,7 @@ export default function ProveedoresPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProveedor, setNewProveedor] = useState<Partial<Proveedor>>({});
+  const [showAdvancedCreate, setShowAdvancedCreate] = useState(false);
 
   useEffect(() => {
     loadProveedores();
@@ -117,19 +118,24 @@ export default function ProveedoresPage() {
   };
 
   const createProveedor = async () => {
-    if (!newProveedor.nombre?.trim()) { setError('El nombre es requerido'); return; }
     if (!newProveedor.jid?.trim() || newProveedor.jid === 'none') { setError('Debe seleccionar un grupo'); return; }
     if (!newProveedor.tipo?.trim() || newProveedor.tipo === 'none') { setError('El tipo es requerido'); return; }
 
     try {
+      const group = availableGroups.find((g) => (g?.jid || g?.wa_jid || g?.id) === newProveedor.jid) || null;
+      const fallbackNombre = (group?.nombre || group?.name || '').trim();
+      const nombre = (newProveedor.nombre || fallbackNombre || newProveedor.jid || '').trim();
+      if (!nombre) { setError('El nombre es requerido'); return; }
       const data = await api.createProveedor({
         ...newProveedor,
+        nombre,
         estado: 'activo'
       } as any);
       setProveedores(prev => [data, ...prev]);
       setSuccess('Proveedor creado correctamente');
       setShowCreateModal(false);
       setNewProveedor({});
+      setShowAdvancedCreate(false);
       toast.success('Proveedor creado');
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Error al crear proveedor');
@@ -439,11 +445,9 @@ export default function ProveedoresPage() {
       {/* Create Modal */}
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nuevo Proveedor">
         <div className="space-y-4">
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block">Nombre *</label>
-            <input type="text" value={newProveedor.nombre || ''} onChange={(e) => setNewProveedor(p => ({ ...p, nombre: e.target.value }))}
-              className="input-glass w-full" placeholder="Nombre del proveedor" />
-          </div>
+          <p className="text-xs text-gray-500">
+            El proveedor se asocia al grupo. El nombre se toma automáticamente del grupo (podés editarlo en opciones avanzadas).
+          </p>
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-sm text-gray-400">Grupo de WhatsApp *</label>
@@ -465,12 +469,21 @@ export default function ProveedoresPage() {
             ) : (
               <Select 
                 value={newProveedor.jid || 'none'} 
-                onChange={(v) => setNewProveedor(p => ({ ...p, jid: v === 'none' ? '' : v }))} 
+                onChange={(v) => {
+                  const jid = v === 'none' ? '' : v
+                  const group = availableGroups.find((g) => (g?.jid || g?.wa_jid || g?.id) === jid) || null
+                  const groupName = String(group?.nombre || group?.name || '').trim()
+                  setNewProveedor((p) => {
+                    const next: any = { ...p, jid }
+                    if (!p?.nombre && groupName) next.nombre = groupName
+                    return next
+                  })
+                }} 
                 options={[
                   { value: 'none', label: 'Seleccionar grupo' },
                   ...availableGroups.map(group => ({
                     value: group.jid || group.id,
-                    label: `${group.nombre || group.name || 'Grupo sin nombre'} (${group.participantes || 0} miembros)`
+                    label: `${group.nombre || group.name || 'Grupo sin nombre'} (${group.participantes ?? group.participants ?? group.size ?? 0} miembros)`
                   }))
                 ]} 
               />
@@ -499,16 +512,49 @@ export default function ProveedoresPage() {
               { value: 'general', label: 'General' }
             ]} />
           </div>
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block">Descripción</label>
-            <textarea value={newProveedor.descripcion || ''} onChange={(e) => setNewProveedor(p => ({ ...p, descripcion: e.target.value }))}
-              className="input-glass w-full" rows={3} placeholder="Descripción del proveedor" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block">Contacto</label>
-            <input type="text" value={newProveedor.contacto || ''} onChange={(e) => setNewProveedor(p => ({ ...p, contacto: e.target.value }))}
-              className="input-glass w-full" placeholder="Nombre de contacto" />
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvancedCreate((v) => !v)}
+            className="text-xs text-gray-400 hover:text-white transition-colors underline"
+          >
+            {showAdvancedCreate ? 'Ocultar opciones avanzadas' : 'Mostrar opciones avanzadas'}
+          </button>
+
+          {showAdvancedCreate && (
+            <>
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">Nombre (opcional)</label>
+                <input
+                  type="text"
+                  value={newProveedor.nombre || ''}
+                  onChange={(e) => setNewProveedor(p => ({ ...p, nombre: e.target.value }))}
+                  className="input-glass w-full"
+                  placeholder="Si lo dejás vacío, usa el nombre del grupo"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">Descripción</label>
+                <textarea
+                  value={newProveedor.descripcion || ''}
+                  onChange={(e) => setNewProveedor(p => ({ ...p, descripcion: e.target.value }))}
+                  className="input-glass w-full"
+                  rows={3}
+                  placeholder="Descripción del proveedor"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">Contacto</label>
+                <input
+                  type="text"
+                  value={newProveedor.contacto || ''}
+                  onChange={(e) => setNewProveedor(p => ({ ...p, contacto: e.target.value }))}
+                  className="input-glass w-full"
+                  placeholder="Nombre de contacto"
+                />
+              </div>
+            </>
+          )}
           <div className="flex gap-3 pt-4">
             <Button onClick={() => setShowCreateModal(false)} variant="secondary" className="flex-1">Cancelar</Button>
             <Button onClick={createProveedor} variant="primary" className="flex-1">Crear Proveedor</Button>
