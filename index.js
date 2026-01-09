@@ -368,7 +368,13 @@ conn.logger.info(`[ ✿ ] H E C H O\n`)
 
 if (!opts['test']) {
   if (global.db) setInterval(async () => {
-    if (global.db.data) await global.db.write()
+    if (global.db.data) {
+      try {
+        await global.db.write()
+      } catch (err) {
+        console.error('[DB] write failed:', err?.message || err)
+      }
+    }
     if (opts['autocleartmp'] && (global.support || {}).find) {
       const tmp = [os.tmpdir(), 'tmp', `${global.jadi}`]
       tmp.forEach((filename) => cp.spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))

@@ -75,9 +75,8 @@ const formatPedido = (pedido, index) => {
     `   📝 ${pedido.descripcion || 'Sin descripción'}`,
     `   👤 Usuario: ${pedido.usuario || '-'}`,
     `   📅 Fecha: ${formatDate(pedido.fecha_creacion)}`,
-    `   🗳️ Votos: ${pedido.votos || 0}`
+    `   👍 Votos: ${pedido.votos || 0}`
   ]
-  if (pedido.archivo) lines.push(`   📎 Adjunto: ${pedido.archivoNombre || 'archivo'}`)
   return lines.join('\n')
 }
 
@@ -112,6 +111,18 @@ const getPanelUrl = () => {
   return String(raw || '').trim().replace(/\/+$/, '')
 }
 
+const resolveProveedorJid = (panel, raw) => {
+  const v = String(raw || '').trim()
+  if (!v) return null
+  const asNum = Number(v)
+  if (Number.isFinite(asNum)) {
+    const found = Object.values(panel?.proveedores || {}).find((p) => Number(p?.id) === asNum) || null
+    return found?.jid || null
+  }
+  const byJid = panel?.proveedores?.[v] || null
+  return byJid?.jid || v
+}
+
 const scoreLibraryItem = (item, query) => {
   const itemTitle = normalizeText(item?.title || '')
   const queryTitle = normalizeText(query?.title || '')
@@ -142,211 +153,112 @@ const scoreLibraryItem = (item, query) => {
 
 const searchProviderLibrary = async (panel, proveedorJid, pedido, limit = 5) => {
   const list = Object.values(panel.contentLibrary || {}).filter((it) => String(it?.proveedorJid || '') === String(proveedorJid || ''))
+  const proveedor = panel?.proveedores?.[proveedorJid] || { jid: proveedorJid }
+
   const classified = await classifyProviderLibraryContent({
-    filename: pedido?.titulo || '',
-    caption: pedido?.descripcion || '',
-    provider: { jid: proveedorJid, tipo: panel?.proveedores?.[proveedorJid]?.tipo || '' },
-  })
+    filename: String(pedido?.titulo || ''),
+    caption: String(pedido?.descripcion || pedido?.contenido_solicitado || ''),
+    provider: { jid: proveedorJid, tipo: proveedor?.tipo || '' },
+  }).catch(() => null)
 
   const query = {
-    title: classified?.title || pedido?.titulo || '',
+    title: String(classified?.title || pedido?.titulo || '').trim(),
+    descripcion: String(pedido?.descripcion || pedido?.contenido_solicitado || '').trim(),
+    category: String(classified?.category || '').trim(),
     chapter: typeof classified?.chapter !== 'undefined' ? classified.chapter : null,
-    category: classified?.category || null,
-    tags: classified?.tags || [],
-    descripcion: pedido?.descripcion || '',
+    tags: Array.isArray(classified?.tags) ? classified.tags : [],
+    provider: { jid: proveedorJid, nombre: proveedor?.nombre || '', tipo: proveedor?.tipo || '' },
   }
 
-  const scored = list.map((it) => ({
-    it,
-    score: scoreLibraryItem(it, query),
-  }))
+  const scored = list
+    .map((it) => ({ it, score: scoreLibraryItem(it, query) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
 
-  scored.sort((a, b) => b.score - a.score)
-  const top = scored.filter((x) => x.score >= 18).slice(0, limit)
-  return { query, results: top }
+  return { query, results: scored }
 }
 
 const formatSearchResults = (pedido, query, results, usedPrefix, proveedorJid) => {
-  const panelUrl = getPanelUrl()
   const lines = []
-  lines.push(`🔎 *Resultados para Pedido #${pedido.id}*`)
-  lines.push(`📝 *Búsqueda:* ${query?.title || pedido.titulo}${query?.chapter ? ` (Cap ${query.chapter})` : ''}`)
+  lines.push('🔎 *Búsqueda en biblioteca*')
+  lines.push(`📝 Pedido: *${pedido?.titulo || ''}*`)
+  if (query?.title && query.title !== pedido?.titulo) lines.push(`🧠 Interpretado: *${query.title}*`)
+  if (query?.category) lines.push(`🏷️ Categoría: *${query.category}*`)
+  if (query?.chapter != null) lines.push(`📄 Capítulo: *${query.chapter}*`)
+  lines.push('')
+
   if (!results.length) {
-    lines.push('')
-    lines.push('❌ No encontré coincidencias en la biblioteca de este proveedor.')
-    lines.push(`📌 Esto significa que *aún no está en el almacenamiento* (biblioteca).`)
-    if (panelUrl && proveedorJid) {
-      lines.push(`🌐 Biblioteca: ${panelUrl}/proveedores/${encodeURIComponent(String(proveedorJid))}`)
-    }
-    lines.push(`👑 Un admin/owner/mod puede subir el contenido y luego volver a intentar:`)
-    lines.push(`   ${usedPrefix}procesarpedido ${pedido.id}`)
-    lines.push(`💡 Tip: incluye capítulo (ej: "Jinx cap 10") o agrega más detalle en la descripción.`)
+    lines.push('❌ No encontré coincidencias en la biblioteca del proveedor.')
+    const panelUrl = getPanelUrl()
+    if (panelUrl && proveedorJid) lines.push(`🌐 Proveedor: ${panelUrl}/proveedores/${encodeURIComponent(String(proveedorJid))}`)
     return lines.join('\n')
   }
 
+  lines.push('✅ Coincidencias:')
+  results.forEach((r, idx) => {
+    const it = r.it || {}
+    const title = it.title || it.originalName || `Archivo #${it.id || '?'}`
+    const score = Math.round(r.score)
+    lines.push(`${idx + 1}. ${title} (score ${score})`)
+  })
   lines.push('')
-  lines.push(`✅ Encontré *${results.length}* coincidencia(s):`)
-  lines.push('')
-
-  for (let i = 0; i < results.length; i++) {
-    const item = results[i].it
-    const title = item?.title || item?.originalName || 'Sin título'
-    const chapter = item?.chapter ? ` · Cap ${item.chapter}` : ''
-    const cat = String(item?.category || 'other').toUpperCase()
-    const fmt = String(item?.format || 'file').toUpperCase()
-    const score = Math.round(results[i].score)
-    lines.push(`${i + 1}. ${title}${chapter} · ${cat} · ${fmt} · score ${score}`)
-    lines.push(`   🆔 ${item.id}`)
-    if (panelUrl && item?.url) lines.push(`   🔗 ${panelUrl}${item.url}`)
-  }
-
-  lines.push('')
-  lines.push(`📥 Para enviar un archivo: ${usedPrefix}enviarlib <id>`)
+  lines.push(`📥 Para enviar: ${usedPrefix}enviarlib <id>`)
   return lines.join('\n')
 }
 
 const trySendLibraryItem = async (m, conn, item) => {
-  const filePath = item?.file_path
-  if (!filePath || !fs.existsSync(filePath)) return { ok: false, reason: 'Archivo no encontrado en disco' }
-
-  const libraryRoot = path.resolve(path.join(process.cwd(), 'storage', 'library')).toLowerCase()
-  const resolved = path.resolve(filePath).toLowerCase()
-  if (!resolved.startsWith(libraryRoot)) return { ok: false, reason: 'Ruta inválida' }
-
-  const maxMb = Number(process.env.PANEL_LIBRARY_SEND_MAX_MB || 20)
-  const maxBytes = Math.max(1, Math.min(500, maxMb)) * 1024 * 1024
-  const stat = fs.statSync(filePath)
-  if (!stat.isFile()) return { ok: false, reason: 'No es un archivo' }
-  if (stat.size > maxBytes) return { ok: false, reason: `Archivo muy grande (${Math.round(stat.size / 1024 / 1024)}MB)` }
-
-  const filename = item?.originalName || item?.filename || `archivo_${item?.id || Date.now()}`
-  const caption = `📚 ${item?.title || filename}${item?.chapter ? ` · Cap ${item.chapter}` : ''}\n🆔 ${item?.id}`
-  await conn.sendFile(m.chat, filePath, filename, caption, m, null, { asDocument: true })
-  return { ok: true }
-}
-
-const saveMedia = async (m, conn) => {
-  // Intentar obtener el mensaje con multimedia
-  const q = m.quoted ? m.quoted : m
-  const msg = q.msg || q
-
-  // Verificar si hay multimedia en el mensaje (cualquier tipo)
-  const hasMedia = msg.imageMessage || msg.videoMessage || msg.audioMessage || msg.documentMessage || msg.stickerMessage
-  if (!hasMedia) return null
-
-  // Obtener el mimetype de cualquier tipo de mensaje multimedia
-  const mime = msg.imageMessage?.mimetype ||
-    msg.videoMessage?.mimetype ||
-    msg.audioMessage?.mimetype ||
-    msg.documentMessage?.mimetype ||
-    msg.stickerMessage?.mimetype || ''
-
-  // Para stickers, convertir a imagen
-  if (msg.stickerMessage) {
-    try {
-      const mediaBuffer = await conn.downloadMediaMessage(q)
-      if (!mediaBuffer) return null
-
-      // Convertir sticker a imagen
-      const { toImage } = await import('../lib/sticker.js')
-      const imageBuffer = await toImage(mediaBuffer)
-
-      const targetDir = path.join(process.cwd(), 'tmp', 'pedidos')
-      fs.mkdirSync(targetDir, { recursive: true })
-
-      const filename = `pedido_${Date.now()}.png`
-      const dest = path.join(targetDir, filename)
-
-      fs.writeFileSync(dest, imageBuffer)
-
-      return {
-        path: dest,
-        mimetype: 'image/png',
-        filename,
-        size: imageBuffer.length
-      }
-    } catch (error) {
-      console.error('Error convirtiendo sticker:', error)
-      return null
-    }
-  }
-
-  if (!mime) return null
-
   try {
-    // Descargar el archivo
-    const buffer = await conn.downloadMediaMessage(q)
-    if (!buffer) return null
+    const filePath = item?.file_path
+    if (!filePath || !fs.existsSync(filePath)) return { ok: false, reason: 'Archivo no encontrado en disco' }
+    const stat = fs.statSync(filePath)
+    if (!stat.isFile()) return { ok: false, reason: 'No es un archivo' }
 
-    const targetDir = path.join(process.cwd(), 'tmp', 'pedidos')
-    fs.mkdirSync(targetDir, { recursive: true })
-
-    // Determinar extensión a partir del mimetype o usar extension original
-    const ext = mime.split('/')[1]?.split(';')[0] ||
-      q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
-    const originalFilename = q.message?.documentMessage?.fileName
-
-    let filename
-    if (originalFilename) {
-      // Usar nombre original si es seguro
-      filename = originalFilename.replace(/[^a-zA-Z0-9.-]/g, '_')
-    } else {
-      filename = `pedido_${Date.now()}.${ext}`
+    const maxBytes = Number(process.env.WA_SEND_MAX_BYTES || 45 * 1024 * 1024)
+    if (Number.isFinite(maxBytes) && stat.size > maxBytes) {
+      return { ok: false, reason: `Archivo muy grande (${Math.round(stat.size / 1024 / 1024)}MB)` }
     }
 
-    const dest = path.join(targetDir, filename)
-
-    // Guardar archivo
-    fs.writeFileSync(dest, buffer)
-
-    return {
-      path: dest,
-      mimetype: mime,
-      filename,
-      size: buffer.length
-    }
-  } catch (error) {
-    console.error('Error guardando multimedia:', error)
-    return null
+    const filename = item?.originalName || item?.filename || path.basename(filePath)
+    const caption = `${item?.title || filename}`.trim()
+    await conn.sendFile(m.chat, filePath, filename, caption, m, null, { asDocument: true })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, reason: err?.message || 'Error enviando archivo' }
   }
 }
 
-let handler = async (m, { args, usedPrefix, command, conn }) => {
+let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) => {
   ensureStore()
   const panel = global.db.data.panel
 
   if (shouldSkipDuplicateCommand(m, command)) return null
 
+  const isBotOwner = Boolean(isOwner) || global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
+
   switch (command) {
     case 'pedido':
     case 'pedir': {
       const raw = (args || []).join(' ').trim()
-      const media = await saveMedia(m, conn)
-
-      if (!raw && !media) {
-        return m.reply(`📦 *Crear un pedido*
-
-Uso: ${usedPrefix}${command} <título> | <descripción> | <prioridad>
-
-Ejemplo:
-${usedPrefix}${command} Manhwa Solo Leveling | Capítulos 1-50 | alta
-
-También puedes adjuntar una imagen/video/documento
-
-Prioridades: alta, media, baja`)
+      if (!raw) {
+        return m.reply(
+          `📝 *Crear un pedido*\n\n` +
+          `Uso: ${usedPrefix}${command} <título> | <descripción> | <prioridad>\n` +
+          `Ejemplo: ${usedPrefix}${command} Solo Leveling | Capítulos 1-50 | alta\n\n` +
+          `Prioridades: alta, media, baja`
+        )
       }
 
       const parts = raw.split('|').map(s => s.trim())
-      const titulo = parts[0] || (media ? 'Pedido con archivo adjunto' : '')
+      const titulo = parts[0] || ''
       const descripcion = parts[1] || ''
       const prioridad = ['alta', 'media', 'baja'].includes(parts[2]?.toLowerCase()) ? parts[2].toLowerCase() : 'media'
 
-      if (!titulo) {
-        return m.reply(`❌ Debes especificar un título para el pedido`)
-      }
+      if (!titulo) return m.reply('❌ Debes especificar un título para el pedido')
 
       const id = nextId()
       const now = new Date().toISOString()
+      const proveedorJid = (m.isGroup && panel?.proveedores?.[m.chat]) ? m.chat : null
+
       const pedido = {
         id,
         titulo,
@@ -357,25 +269,22 @@ Prioridades: alta, media, baja`)
         usuario: m.sender,
         grupo_id: m.isGroup ? m.chat : null,
         grupo_nombre: m.isGroup ? (await conn.groupMetadata(m.chat).catch(() => ({}))).subject || '' : '',
+        proveedor_jid: proveedorJid,
         votos: 0,
         votantes: [],
         fecha_creacion: now,
         fecha_actualizacion: now,
-        archivo: media?.path || null,
-        archivoMime: media?.mimetype || null,
-        archivoNombre: media?.filename || null
       }
 
       panel.pedidos[id] = pedido
       if (global.db?.write) await global.db.write().catch(() => { })
 
-      // Emitir evento Socket.IO si está disponible
       try {
         const { emitPedidoCreated } = await import('../lib/socket-io.js')
         emitPedidoCreated(pedido)
       } catch { }
 
-      // Auto-procesar pedido en grupos proveedor si está activado en el proveedor
+      // Auto-procesar si este grupo es proveedor y lo tiene activado
       let autoSearchText = ''
       try {
         const proveedor = panel?.proveedores?.[m.chat] || null
@@ -401,24 +310,42 @@ Prioridades: alta, media, baja`)
         }
       } catch { }
 
-      let msg = `✅ *Pedido creado exitosamente*
-
-📦 ID: #${id}
-📝 Título: ${titulo}
-📋 Descripción: ${descripcion || 'Sin descripción'}
-${prioridadEmoji[prioridad]} Prioridad: ${prioridad}`
-      if (media) msg += `\n📎 Archivo: ${media.filename}`
+      let msg =
+        `✅ *Pedido creado*\n\n` +
+        `🆔 ID: #${id}\n` +
+        `📝 Título: ${titulo}\n` +
+        `📄 Descripción: ${descripcion || 'Sin descripción'}\n` +
+        `${prioridadEmoji[prioridad]} Prioridad: ${prioridad}\n`
 
       if (autoSearchText) {
-        msg += `\n\n${autoSearchText}`
-      } else if (m.isGroup && panel?.proveedores?.[m.chat]) {
-        msg += `\n\n💡 Para buscar en la biblioteca: ${usedPrefix}procesarpedido ${id}`
-      } else {
-        msg += `\n\nℹ️ Para que el bot lo busque en la biblioteca, crea el pedido en el *grupo proveedor* o un admin lo procesa desde el panel.`
-        msg += `\nUsa ${usedPrefix}verpedido ${id} para ver detalles`
+        msg += `\n${autoSearchText}`
+        return m.reply(msg.trim())
       }
 
-      return m.reply(msg)
+      if (proveedorJid) {
+        msg += `\n🔎 Para buscar en la biblioteca: ${usedPrefix}procesarpedido ${id}`
+        return m.reply(msg.trim())
+      }
+
+      const proveedores = Object.values(panel?.proveedores || {})
+      if (!proveedores.length) {
+        msg += `\nℹ️ No hay *proveedores* configurados. Un admin debe registrarlo en el panel para poder buscar en biblioteca.`
+        msg += `\nUsa ${usedPrefix}verpedido ${id} para ver detalles`
+        return m.reply(msg.trim())
+      }
+
+      if (proveedores.length === 1 && proveedores[0]?.jid) {
+        msg += `\n🔎 Un admin puede procesarlo con: ${usedPrefix}procesarpedido ${id} ${proveedores[0].jid}`
+        msg += `\nUsa ${usedPrefix}verpedido ${id} para ver detalles`
+        return m.reply(msg.trim())
+      }
+
+      const items = proveedores.slice(0, 6).map((p) => `- ${p?.nombre || p?.jid || 'Proveedor'} (id: ${p?.id ?? 'N/A'})`).join('\n')
+      msg += `\n🔎 Un admin puede procesarlo con:`
+      msg += `\n${usedPrefix}procesarpedido ${id} <idProveedor>`
+      msg += `\n\nProveedores:\n${items}`
+      msg += `\nUsa ${usedPrefix}verpedido ${id} para ver detalles`
+      return m.reply(msg.trim())
     }
 
     case 'pedidos':
@@ -431,16 +358,9 @@ ${prioridadEmoji[prioridad]} Prioridad: ${prioridad}`
         })
         .slice(0, 15)
 
-      if (!pedidos.length) {
-        return m.reply(`📦 No hay pedidos registrados.\n\nUsa ${usedPrefix}pedido para crear uno.`)
-      }
-
+      if (!pedidos.length) return m.reply(`📝 No hay pedidos registrados.\n\nUsa ${usedPrefix}pedido para crear uno.`)
       const msg = pedidos.map((p, i) => formatPedido(p, i + 1)).join('\n\n')
-      return m.reply(`📦 *Lista de Pedidos*
-
-${msg}
-
-💡 Usa ${usedPrefix}votarpedido <id> para votar`)
+      return m.reply(`📋 *Lista de Pedidos*\n\n${msg}\n\n👍 Usa ${usedPrefix}votarpedido <id> para votar`)
     }
 
     case 'mispedidos': {
@@ -449,37 +369,33 @@ ${msg}
         .sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion))
         .slice(0, 10)
 
-      if (!pedidos.length) {
-        return m.reply(`📦 No tienes pedidos registrados.\n\nUsa ${usedPrefix}pedido para crear uno.`)
-      }
-
+      if (!pedidos.length) return m.reply(`📝 No tienes pedidos registrados.\n\nUsa ${usedPrefix}pedido para crear uno.`)
       const msg = pedidos.map((p, i) => formatPedido(p, i + 1)).join('\n\n')
-      return m.reply(`📦 *Mis Pedidos*\n\n${msg}`)
+      return m.reply(`📋 *Mis Pedidos*\n\n${msg}`)
     }
 
     case 'verpedido': {
       const id = parseInt(args[0])
-      if (!id) {
-        return m.reply(`Uso: ${usedPrefix}verpedido <id>`)
-      }
+      if (!id) return m.reply(`Uso: ${usedPrefix}verpedido <id>`)
 
       const pedido = panel.pedidos[id]
-      if (!pedido) {
-        return m.reply(`❌ Pedido #${id} no encontrado`)
-      }
+      if (!pedido) return m.reply(`❌ Pedido #${id} no encontrado`)
+
+      const proveedor = pedido?.proveedor_jid ? (panel?.proveedores?.[pedido.proveedor_jid] || null) : null
+      const proveedorTxt = proveedor ? (proveedor.nombre || proveedor.jid) : (pedido?.proveedor_jid || '')
 
       const msg = [
-        `📦 *Pedido #${id}*`,
+        `🧾 *Pedido #${id}*`,
         ``,
         `📝 *Título:* ${pedido.titulo}`,
-        `📋 *Descripción:* ${pedido.descripcion || 'Sin descripción'}`,
+        `📄 *Descripción:* ${pedido.descripcion || 'Sin descripción'}`,
         `${prioridadEmoji[pedido.prioridad]} *Prioridad:* ${pedido.prioridad}`,
         `${estadoEmoji[pedido.estado]} *Estado:* ${pedido.estado}`,
         `👤 *Solicitante:* @${pedido.usuario?.split('@')[0] || 'desconocido'}`,
         `📅 *Fecha:* ${formatDate(pedido.fecha_creacion)}`,
-        `🗳️ *Votos:* ${pedido.votos || 0}`,
+        `👍 *Votos:* ${pedido.votos || 0}`,
         pedido.grupo_nombre ? `👥 *Grupo:* ${pedido.grupo_nombre}` : '',
-        pedido.archivo ? `📎 *Adjunto:* ${pedido.archivoNombre || 'archivo guardado'}` : ''
+        proveedorTxt ? `🏷️ *Proveedor:* ${proveedorTxt}` : ''
       ].filter(Boolean).join('\n')
 
       return conn.reply(m.chat, msg, m, { mentions: [pedido.usuario] })
@@ -488,58 +404,43 @@ ${msg}
     case 'votarpedido':
     case 'votepedido': {
       const id = parseInt(args[0])
-      if (!id) {
-        return m.reply(`Uso: ${usedPrefix}votarpedido <id>`)
-      }
+      if (!id) return m.reply(`Uso: ${usedPrefix}votarpedido <id>`)
 
       const pedido = panel.pedidos[id]
-      if (!pedido) {
-        return m.reply(`❌ Pedido #${id} no encontrado`)
-      }
-
-      if (pedido.estado === 'completado' || pedido.estado === 'cancelado') {
-        return m.reply(`❌ No puedes votar por un pedido ${pedido.estado}`)
-      }
+      if (!pedido) return m.reply(`❌ Pedido #${id} no encontrado`)
+      if (pedido.estado === 'completado' || pedido.estado === 'cancelado') return m.reply(`❌ No puedes votar por un pedido ${pedido.estado}`)
 
       pedido.votantes = pedido.votantes || []
-      if (pedido.votantes.includes(m.sender)) {
-        return m.reply(`❌ Ya votaste por este pedido`)
-      }
+      if (pedido.votantes.includes(m.sender)) return m.reply('❌ Ya votaste por este pedido')
 
       pedido.votantes.push(m.sender)
       pedido.votos = (pedido.votos || 0) + 1
       pedido.fecha_actualizacion = new Date().toISOString()
+      if (global.db?.write) await global.db.write().catch(() => { })
 
-      // Emitir evento Socket.IO
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
       } catch { }
 
-      return m.reply(`✅ ¡Voto registrado!\n\n📦 Pedido #${id}: ${pedido.titulo}\n🗳️ Votos totales: ${pedido.votos}`)
+      return m.reply(`✅ ¡Voto registrado!\n\n🧾 Pedido #${id}: ${pedido.titulo}\n👍 Votos totales: ${pedido.votos}`)
     }
 
     case 'cancelarpedido': {
       const id = parseInt(args[0])
-      if (!id) {
-        return m.reply(`Uso: ${usedPrefix}cancelarpedido <id>`)
-      }
+      if (!id) return m.reply(`Uso: ${usedPrefix}cancelarpedido <id>`)
 
       const pedido = panel.pedidos[id]
-      if (!pedido) {
-        return m.reply(`❌ Pedido #${id} no encontrado`)
-      }
+      if (!pedido) return m.reply(`❌ Pedido #${id} no encontrado`)
 
-      // Solo el creador o owner puede cancelar
-      const isOwner = global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
-      if (pedido.usuario !== m.sender && !isOwner) {
-        return m.reply(`❌ Solo el creador del pedido o un administrador puede cancelarlo`)
+      if (pedido.usuario !== m.sender && !isBotOwner) {
+        return m.reply('❌ Solo el creador del pedido o el owner puede cancelarlo')
       }
 
       pedido.estado = 'cancelado'
       pedido.fecha_actualizacion = new Date().toISOString()
+      if (global.db?.write) await global.db.write().catch(() => { })
 
-      // Emitir evento Socket.IO
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
@@ -551,31 +452,21 @@ ${msg}
     case 'estadopedido': {
       const id = parseInt(args[0])
       const nuevoEstado = args[1]?.toLowerCase()
-
-      if (!id || !nuevoEstado) {
-        return m.reply(`Uso: ${usedPrefix}estadopedido <id> <estado>\n\nEstados: pendiente, en_proceso, completado, cancelado`)
-      }
+      if (!id || !nuevoEstado) return m.reply(`Uso: ${usedPrefix}estadopedido <id> <estado>\n\nEstados: pendiente, en_proceso, completado, cancelado`)
 
       const estadosValidos = ['pendiente', 'en_proceso', 'completado', 'cancelado']
-      if (!estadosValidos.includes(nuevoEstado)) {
-        return m.reply(`❌ Estado inválido. Usa: ${estadosValidos.join(', ')}`)
-      }
+      if (!estadosValidos.includes(nuevoEstado)) return m.reply(`❌ Estado inválido. Usa: ${estadosValidos.join(', ')}`)
 
       const pedido = panel.pedidos[id]
-      if (!pedido) {
-        return m.reply(`❌ Pedido #${id} no encontrado`)
-      }
+      if (!pedido) return m.reply(`❌ Pedido #${id} no encontrado`)
 
-      // Solo owner puede cambiar estado
-      const isOwner = global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
-      if (!isOwner) {
-        return m.reply(`❌ Solo los administradores pueden cambiar el estado de los pedidos`)
-      }
+      const canModerate = isBotOwner || (m.isGroup && isAdmin && String(m.chat) === String(pedido.grupo_id || ''))
+      if (!canModerate) return m.reply('❌ Solo el owner o admins del grupo pueden cambiar el estado')
 
       pedido.estado = nuevoEstado
       pedido.fecha_actualizacion = new Date().toISOString()
+      if (global.db?.write) await global.db.write().catch(() => { })
 
-      // Emitir evento Socket.IO
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
@@ -587,20 +478,41 @@ ${msg}
     case 'procesarpedido':
     case 'buscarpedido': {
       const id = parseInt(args[0])
-      if (!id) return m.reply(`Uso: ${usedPrefix}${command} <id>`)
+      if (!id) return m.reply(`Uso: ${usedPrefix}${command} <id> [idProveedor|jidProveedor]`)
+
       const pedido = panel.pedidos[id]
       if (!pedido) return m.reply(`❌ Pedido #${id} no encontrado`)
 
-      const targetGroup = pedido.grupo_id || (m.isGroup ? m.chat : null)
-      if (!targetGroup || !String(targetGroup).endsWith('@g.us')) return m.reply('❌ Este pedido no tiene grupo asociado')
+      const canProcess = isBotOwner || (m.isGroup && isAdmin)
+      if (!canProcess) return m.reply('❌ Solo admins pueden procesar pedidos')
 
-      const proveedor = panel?.proveedores?.[targetGroup] || null
-      if (!proveedor) return m.reply('❌ El grupo asociado no está marcado como proveedor')
+      const providerArg = resolveProveedorJid(panel, args[1])
+      let targetProviderJid =
+        providerArg ||
+        pedido.proveedor_jid ||
+        ((m.isGroup && panel?.proveedores?.[m.chat]) ? m.chat : null)
 
-      const { query, results } = await searchProviderLibrary(panel, targetGroup, pedido, 5)
+      if (!targetProviderJid) {
+        const proveedores = Object.values(panel?.proveedores || {})
+        if (!proveedores.length) return m.reply('❌ No hay proveedores configurados. Configura uno en el panel primero.')
+        if (proveedores.length === 1 && proveedores[0]?.jid) targetProviderJid = proveedores[0].jid
+        else {
+          const items = proveedores.slice(0, 10).map((p) => `- ${p?.nombre || p?.jid || 'Proveedor'} (id: ${p?.id ?? 'N/A'})`).join('\n')
+          return m.reply(
+            `❌ Este pedido no tiene proveedor asignado.\n\n` +
+            `Usa:\n${usedPrefix}${command} ${id} <idProveedor>\n\nProveedores:\n${items}`
+          )
+        }
+      }
+
+      const proveedor = panel?.proveedores?.[targetProviderJid] || null
+      if (!proveedor) return m.reply('❌ El proveedor indicado no existe o no está configurado en el panel')
+
+      const { query, results } = await searchProviderLibrary(panel, targetProviderJid, pedido, 5)
       const hasMatches = results.length > 0
       pedido.estado = hasMatches ? 'en_proceso' : 'pendiente'
       pedido.fecha_actualizacion = new Date().toISOString()
+      pedido.proveedor_jid = targetProviderJid
       pedido.bot = {
         processedAt: new Date().toISOString(),
         query,
@@ -609,12 +521,13 @@ ${msg}
       }
       panel.pedidos[id] = pedido
       if (global.db?.write) await global.db.write().catch(() => { })
+
       try {
         const { emitPedidoUpdated } = await import('../lib/socket-io.js')
         emitPedidoUpdated(pedido)
       } catch { }
 
-      return m.reply(formatSearchResults(pedido, query, results, usedPrefix, targetGroup))
+      return m.reply(formatSearchResults(pedido, query, results, usedPrefix, targetProviderJid))
     }
 
     case 'enviarlib': {
@@ -623,9 +536,7 @@ ${msg}
       const item = panel?.contentLibrary?.[libId] || null
       if (!item) return m.reply(`❌ Archivo #${libId} no encontrado en biblioteca`)
 
-      // Seguridad: solo permitir enviar archivos si viene del mismo proveedor (en grupos) o si el usuario es owner
-      const isOwner = global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
-      if (m.isGroup && !isOwner && String(item?.proveedorJid || '') !== String(m.chat || '')) {
+      if (m.isGroup && !isBotOwner && String(item?.proveedorJid || '') !== String(m.chat || '')) {
         return m.reply('❌ Este archivo pertenece a otro proveedor')
       }
 

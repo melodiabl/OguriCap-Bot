@@ -1,12 +1,33 @@
 import fs from 'fs'
 import path from 'path'
 
+const MEDIA_TYPE_MAP = {
+  imageMessage: 'image',
+  videoMessage: 'video',
+  audioMessage: 'audio',
+  documentMessage: 'document',
+  stickerMessage: 'sticker',
+}
+
+const sanitizeFilename = (input) =>
+  String(input || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, '_')
+    .slice(0, 140)
+
 const ensureStore = () => {
   if (!global.db.data.aportes) global.db.data.aportes = []
   if (!global.db.data.aportesCounter) {
     const lastId = global.db.data.aportes.reduce((max, item) => Math.max(max, item.id || 0), 0)
     global.db.data.aportesCounter = lastId + 1
   }
+}
+
+const ensureMediaDir = () => {
+  const dir = path.join(process.cwd(), 'storage', 'media', 'aportes')
+  fs.mkdirSync(dir, { recursive: true })
+  return dir
 }
 
 const formatDate = (value) => {
@@ -20,92 +41,70 @@ const formatEntry = (entry, index, showUser) => {
     `${index}. ${entry.contenido || '-'}`,
     `  tipo: ${entry.tipo || 'extra'}`,
     `  estado: ${entry.estado || 'pendiente'}`,
-    `  fecha: ${formatDate(entry.fecha)}`
+    `  fecha: ${formatDate(entry.fecha)}`,
   ]
   if (showUser) lines.splice(3, 0, `  usuario: ${entry.usuario || '-'}`)
   if (entry.archivo) lines.push(`  archivo: ${entry.archivo}`)
   return lines.join('\n')
 }
 
-const saveMedia = async (m, conn) => {
-  // Intentar obtener el mensaje con multimedia
-  const q = m.quoted ? m.quoted : m
-  const msg = q.msg || q
+const detectMedia = (m) => {
+  try {
+    const q = m?.quoted ? m.quoted : m
+    const mediaMessage = q?.mediaMessage && typeof q.mediaMessage === 'object' ? q.mediaMessage : null
+    if (!mediaMessage) return null
 
-  // Verificar si hay multimedia en el mensaje (cualquier tipo)
-  const hasMedia = msg.imageMessage || msg.videoMessage || msg.audioMessage || msg.documentMessage || msg.stickerMessage
-  if (!hasMedia) return null
+    const key = Object.keys(mediaMessage)[0]
+    const kind = MEDIA_TYPE_MAP[key]
+    const content = mediaMessage[key]
+    if (!kind || !content) return null
 
-  // Obtener el mimetype de cualquier tipo de mensaje multimedia
-  const mime = msg.imageMessage?.mimetype ||
-    msg.videoMessage?.mimetype ||
-    msg.audioMessage?.mimetype ||
-    msg.documentMessage?.mimetype ||
-    msg.stickerMessage?.mimetype || ''
+    const mimetype = content?.mimetype || ''
+    const fileName = content?.fileName || content?.file_name || null
 
-  // Para stickers, convertir a imagen
-  if (msg.stickerMessage) {
-    try {
-      const mediaBuffer = await conn.downloadMediaMessage(q)
-      if (!mediaBuffer) return null
-
-      // Convertir sticker a imagen
-      const { toImage } = await import('../lib/sticker.js')
-      const imageBuffer = await toImage(mediaBuffer)
-
-      const targetDir = path.join(process.cwd(), 'tmp', 'aportes')
-      fs.mkdirSync(targetDir, { recursive: true })
-
-      const filename = `aporte_${Date.now()}.png`
-      const dest = path.join(targetDir, filename)
-
-      fs.writeFileSync(dest, imageBuffer)
-
-      return {
-        path: dest,
-        mimetype: 'image/png',
-        filename,
-        size: imageBuffer.length
-      }
-    } catch (error) {
-      console.error('Error convirtiendo sticker:', error)
-      return null
-    }
+    return { kind, key, content, mimetype, fileName }
+  } catch {
+    return null
   }
+}
 
-  if (!mime) return null
+const saveMedia = async (m, conn) => {
+  const media = detectMedia(m)
+  if (!media) return null
 
   try {
-    // Descargar el archivo
-    const buffer = await conn.downloadMediaMessage(q)
-    if (!buffer) return null
+    const rawBuffer = await conn.downloadM(media.content, media.kind)
+    if (!rawBuffer || !Buffer.isBuffer(rawBuffer) || rawBuffer.length === 0) return null
 
-    const targetDir = path.join(process.cwd(), 'tmp', 'aportes')
-    fs.mkdirSync(targetDir, { recursive: true })
+    let buffer = rawBuffer
+    let mimetype = media.mimetype
+    let filenameBase = sanitizeFilename(media.fileName) || `aporte_${Date.now()}`
+    let ext =
+      mimetype?.split('/')[1]?.split(';')[0] ||
+      (media.fileName ? String(media.fileName).split('.').pop() : null) ||
+      (media.kind === 'image' ? 'jpg' : media.kind === 'video' ? 'mp4' : media.kind === 'audio' ? 'mp3' : 'bin')
 
-    // Determinar extensión a partir del mimetype o usar extension original
-    const ext = mime.split('/')[1]?.split(';')[0] ||
-      q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
-    const originalFilename = q.message?.documentMessage?.fileName
-
-    let filename
-    if (originalFilename) {
-      // Usar nombre original si es seguro
-      filename = originalFilename.replace(/[^a-zA-Z0-9.-]/g, '_')
-    } else {
-      filename = `aporte_${Date.now()}.${ext}`
+    if (media.kind === 'sticker') {
+      const { toImage } = await import('../lib/sticker.js')
+      buffer = await toImage(rawBuffer)
+      mimetype = 'image/png'
+      ext = 'png'
+      filenameBase = filenameBase.replace(/\.(webp|png|jpg|jpeg)$/i, '') || `aporte_${Date.now()}`
     }
 
-    const dest = path.join(targetDir, filename)
+    ext = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'bin'
+    const filename = `${filenameBase}.${ext}`
 
-    // Guardar archivo
+    const targetDir = ensureMediaDir()
+    const dest = path.join(targetDir, filename)
     fs.writeFileSync(dest, buffer)
 
     return {
-      path: dest,
-      mimetype: mime,
+      path: path.relative(process.cwd(), dest),
+      url: `/media/aportes/${encodeURIComponent(filename)}`,
+      mimetype,
       filename,
-      size: buffer.length
+      size: buffer.length,
     }
   } catch (error) {
     console.error('Error guardando multimedia:', error)
@@ -137,11 +136,13 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
         tipo,
         fecha: new Date().toISOString(),
         estado: 'pendiente',
-        archivo: media?.path || null,
+        archivo: media?.url || null,
+        archivoPath: media?.path || null,
         archivoMime: media?.mimetype || null,
         archivoNombre: media?.filename || null
       }
       data.aportes.push(entry)
+      if (global.db?.write) await global.db.write().catch(() => { })
 
       // Emitir evento Socket.IO
       try {
@@ -152,7 +153,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
       let msg = '✅ Aporte registrado exitosamente'
       msg += `\n\n🆔 ID: #${entry.id}`
       msg += `\n📝 Contenido: ${entry.contenido}`
-      msg += `\n📂 Tipo: ${entry.tipo}`
+      msg += `\n🏷️ Tipo: ${entry.tipo}`
       if (entry.archivo) msg += `\n📎 Archivo: ${entry.archivoNombre || 'adjunto guardado'}`
       return m.reply(msg)
     }
