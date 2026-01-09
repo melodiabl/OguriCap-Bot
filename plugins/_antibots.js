@@ -1,108 +1,171 @@
 import { areJidsSameUser } from '@whiskeysockets/baileys'
 
-let handler = async (m, { conn, args, usedPrefix, command }) => {
-  if (!m.isGroup) return
+let handler = async (m, { conn, args, usedPrefix, command, isAdmin, isOwner }) => {
+  if (!m.isGroup) {
+    return conn.reply(m.chat, '⚠️ Este comando solo se puede usar en grupos.', m)
+  }
 
-  const chat = global.db.data.chats[m.chat]
+  let chat = global.db.data.chats[m.chat]
+  if (!chat) return
 
   if (!args[0]) {
     return conn.reply(
       m.chat,
-      `🤖 *Anti-Bots*\n\n${usedPrefix + command} on\n${usedPrefix + command} off\n\nEstado: ${chat.antiBot ? '✅ Activado' : '❌ Desactivado'}`,
+      `🤖 *Anti-Bots*\n\n` +
+      `Uso:\n` +
+      `${usedPrefix + command} on\n` +
+      `${usedPrefix + command} off\n\n` +
+      `Estado actual: ${chat.antiBot ? '✅ Activado' : '❌ Desactivado'}`,
       m
     )
   }
 
   if (args[0] === 'on') {
+    if (chat.antiBot) return conn.reply(m.chat, '✅ El Anti-Bots ya estaba activado.', m)
     chat.antiBot = true
-    return conn.reply(m.chat, '✅ Anti-Bots activado', m)
+    return conn.reply(
+      m.chat,
+      '🛡️ *Anti-Bots activado*\n\n' +
+      '• Se permitirán sub-bots del sistema\n' +
+      '• Se bloquearán bots externos\n\n' +
+      '⚠️ El bot debe ser admin.',
+      m
+    )
   }
 
   if (args[0] === 'off') {
+    if (!chat.antiBot) return conn.reply(m.chat, '❌ El Anti-Bots ya estaba desactivado.', m)
     chat.antiBot = false
-    return conn.reply(m.chat, '❌ Anti-Bots desactivado', m)
+    return conn.reply(m.chat, '❌ *Anti-Bots desactivado*', m)
   }
+
+  return conn.reply(m.chat, `Uso correcto: ${usedPrefix + command} on | off`, m)
 }
 
-handler.before = async function (m, { conn, isBotAdmin, isAdmin, isOwner, participants }) {
-  if (!m.isGroup) return
-  if (m.fromMe) return
-  if (!m.chat?.endsWith('@g.us')) return
-
-  const chat = global.db.data.chats[m.chat]
-  if (!chat?.antiBot) return
-
-  // ───── NORMALIZAR SENDER (@lid → @s.whatsapp.net)
-  const normalizeJid = (jid) => {
-    if (!jid?.endsWith('@lid')) return jid
-    const p = participants?.find(x => x.lid === jid)
-    return p?.jid || jid
-  }
-
-  const sender = normalizeJid(m.sender)
-
-  // ───── DETECCIÓN POR ID (TU MÉTODO)
-  const id = m.key?.id || m.id || ''
-  const isBotMessage =
-    id.startsWith('BAE5') ||
-    id.startsWith('3EB0') ||
-    id.startsWith('B24E') ||
-    id.startsWith('WA') ||
-    m.isBaileys === true
-
-  if (!isBotMessage) return
-
-  // ───── EXCEPCIONES
-  if (isAdmin || isOwner) return
-
-  // Bot principal
-  if (areJidsSameUser(conn.user.jid, sender)) return true
-
-  // Subbots conectados
-  if (global.conns?.some(sock =>
-    sock?.user?.jid && areJidsSameUser(sock.user.jid, sender)
-  )) return true
-
-  // Padres de SubBots (subbot creado por WhatsApp desde este sistema)
-  if (global.conns?.some(sock =>
-    sock?.parentJid && areJidsSameUser(sock.parentJid, sender)
-  )) return true
-
-  // Subbots registrados en panel (offline)
-  const panelSubs = global?.db?.data?.panel?.subbots
-  if (panelSubs) {
-    for (const sb of Object.values(panelSubs)) {
-      const num = sb?.numero ?? sb?.phoneNumber ?? sb?.phone_number
-      if (!num) continue
-      const jid = `${String(num).replace(/\D/g, '')}@s.whatsapp.net`
-      if (areJidsSameUser(jid, sender)) return true
-    }
-  }
-
-  // Si no pudimos resolver @lid a JID real, evitamos expulsar por falso positivo
-  if (typeof sender === 'string' && sender.endsWith('@lid')) return true
-
-  // ───── ACCIÓN
-  if (!isBotAdmin) return true
-
+handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, participants }) {
   try {
-    await conn.sendMessage(m.chat, { delete: m.key })
-    await new Promise(r => setTimeout(r, 500))
-    await conn.groupParticipantsUpdate(m.chat, [sender], 'remove')
-  } catch (e) {
-    console.log('[ANTIBOT] Error:', e.message)
-  }
+    // ───────── VALIDACIONES BÁSICAS ─────────
+    if (!m.isGroup) return
+    if (m.fromMe) return
+    if (!m.chat.endsWith('@g.us')) return
 
-  // Marcar como procesado para que el handler general no ejecute otros plugins
-  return true
+    let chat = global.db.data.chats[m.chat]
+    if (!chat?.antiBot) return
+
+    // Admin / owner no se tocan
+    if (isAdmin || isOwner) return
+
+    // ───────── DETECCIÓN DE MENSAJE BOT ─────────
+    let isBotMessage = false
+
+    if (m.isBaileys) isBotMessage = true
+    if (typeof m.id === 'string' && (
+      m.id.startsWith('BAE5') ||
+      m.id.startsWith('B24E') ||
+      m.id.startsWith('3EB0') ||
+      m.id.startsWith('WA')
+    )) {
+      isBotMessage = true
+    }
+
+    if (!isBotMessage) return
+
+    // ───────── NORMALIZAR JID (LID → JID) ─────────
+    const normalizeJid = (jid) => {
+      if (!jid || typeof jid !== 'string') return jid
+      if (!jid.endsWith('@lid')) return jid
+      try {
+        const list = participants || conn?.chats?.[m.chat]?.metadata?.participants
+        const found = list?.find(p => p?.lid === jid)
+        return found?.jid || jid
+      } catch {
+        return jid
+      }
+    }
+
+    const senderJid = normalizeJid(m.sender)
+    const selfJid = conn?.user?.jid
+
+    // ───────── PERMITIR BOT PADRE ─────────
+    if (selfJid && areJidsSameUser(selfJid, senderJid)) return
+
+    // ───────── PERMITIR SUBBOTS CONECTADOS ─────────
+    if (Array.isArray(global.conns)) {
+      for (const sock of global.conns) {
+        if (!sock?.user?.jid) continue
+
+        // subbot directo
+        if (areJidsSameUser(sock.user.jid, senderJid)) return
+
+        // relación padre → hijo
+        if (sock.isSubBot && sock.parentJid) {
+          if (areJidsSameUser(sock.parentJid, senderJid)) return
+        }
+      }
+    }
+
+    // ───────── PERMITIR SUBBOTS REGISTRADOS EN PANEL ─────────
+    try {
+      const panelSubbots = global.db?.data?.panel?.subbots
+      if (panelSubbots && typeof panelSubbots === 'object') {
+        for (const sb of Object.values(panelSubbots)) {
+          if (!sb?.numero) continue
+          const jid = `${String(sb.numero).replace(/\D/g, '')}@s.whatsapp.net`
+          if (areJidsSameUser(jid, senderJid)) return
+        }
+      }
+    } catch { }
+
+    // ───────── SI LLEGA ACÁ = BOT EXTERNO ─────────
+    if (!isBotAdmin) {
+      await conn.sendMessage(m.chat, {
+        text:
+          `⚠️ *Bot externo detectado*\n\n` +
+          `👤 @${senderJid.split('@')[0]}\n\n` +
+          `❌ No puedo eliminarlo porque no soy administrador.`,
+        mentions: [senderJid]
+      })
+      return
+    }
+
+    // Aviso
+    await conn.sendMessage(m.chat, {
+      text:
+        `🤖 *Bot NO autorizado detectado*\n\n` +
+        `👤 @${senderJid.split('@')[0]}\n` +
+        `🛡️ Eliminando...`,
+      mentions: [senderJid]
+    })
+
+    // Pequeño delay
+    await new Promise(r => setTimeout(r, 2000))
+
+    // Borrar mensaje
+    try {
+      await conn.sendMessage(m.chat, {
+        delete: {
+          remoteJid: m.chat,
+          fromMe: false,
+          id: m.key.id,
+          participant: senderJid
+        }
+      })
+    } catch { }
+
+    // Sacar del grupo
+    await conn.groupParticipantsUpdate(m.chat, [senderJid], 'remove')
+
+  } catch (err) {
+    console.error('[ANTIBOT] Error:', err)
+  }
 }
 
 handler.help = ['antibot']
 handler.tags = ['group']
 handler.command = ['antibot', 'antibots']
 handler.admin = true
-handler.botAdmin = true
 
 export default handler
+
 
 
