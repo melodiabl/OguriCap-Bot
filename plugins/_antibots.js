@@ -1,8 +1,8 @@
 import { areJidsSameUser } from '@whiskeysockets/baileys'
 
-let handler = async (m, { conn, args, usedPrefix, command, isAdmin, isOwner }) => {
+let handler = async (m, { conn, args, usedPrefix, command }) => {
   if (!m.isGroup) {
-    return conn.reply(m.chat, '⚠️ Este comando solo se puede usar en grupos.', m)
+    return conn.reply(m.chat, '⚠️ Este comando solo se puede usar en *grupos*.', m)
   }
 
   let chat = global.db.data.chats[m.chat]
@@ -13,33 +13,41 @@ let handler = async (m, { conn, args, usedPrefix, command, isAdmin, isOwner }) =
       m.chat,
       `🤖 *Anti-Bots*\n\n` +
       `Uso:\n` +
-      `${usedPrefix + command} on\n` +
-      `${usedPrefix + command} off\n\n` +
-      `Estado actual: ${chat.antiBot ? '✅ Activado' : '❌ Desactivado'}`,
+      `➤ *${usedPrefix + command} on*\n` +
+      `➤ *${usedPrefix + command} off*\n\n` +
+      `Estado actual: ${chat.antiBot ? '🟢 *Activado*' : '🔴 *Desactivado*'}`,
       m
     )
   }
 
   if (args[0] === 'on') {
-    if (chat.antiBot) return conn.reply(m.chat, '✅ El Anti-Bots ya estaba activado.', m)
+    if (chat.antiBot) {
+      return conn.reply(m.chat, '🟢 *Anti-Bots ya está activado.*', m)
+    }
     chat.antiBot = true
     return conn.reply(
       m.chat,
-      '🛡️ *Anti-Bots activado*\n\n' +
-      '• Se permitirán sub-bots del sistema\n' +
-      '• Se bloquearán bots externos\n\n' +
-      '⚠️ El bot debe ser admin.',
+      `🛡️ *Anti-Bots activado*\n\n` +
+      `• Sub-bots del sistema permitidos\n` +
+      `• Bots externos bloqueados\n\n` +
+      `_Protección automática habilitada en este grupo._`,
       m
     )
   }
 
   if (args[0] === 'off') {
-    if (!chat.antiBot) return conn.reply(m.chat, '❌ El Anti-Bots ya estaba desactivado.', m)
+    if (!chat.antiBot) {
+      return conn.reply(m.chat, '🔴 *Anti-Bots ya estaba desactivado.*', m)
+    }
     chat.antiBot = false
-    return conn.reply(m.chat, '❌ *Anti-Bots desactivado*', m)
+    return conn.reply(
+      m.chat,
+      `🔓 *Anti-Bots desactivado*`,
+      m
+    )
   }
 
-  return conn.reply(m.chat, `Uso correcto: ${usedPrefix + command} on | off`, m)
+  return conn.reply(m.chat, `Uso correcto: *${usedPrefix + command} on* | *off*`, m)
 }
 
 handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, participants }) {
@@ -52,7 +60,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     let chat = global.db.data.chats[m.chat]
     if (!chat?.antiBot) return
 
-    // Admin / owner no se tocan
+    // Admin humano / owner no se tocan
     if (isAdmin || isOwner) return
 
     // ───────── DETECCIÓN DE MENSAJE BOT ─────────
@@ -104,7 +112,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
       }
     }
 
-    // ───────── PERMITIR SUBBOTS REGISTRADOS EN PANEL ─────────
+    // ───────── PERMITIR SUBBOTS DEL PANEL ─────────
     try {
       const panelSubbots = global.db?.data?.panel?.subbots
       if (panelSubbots && typeof panelSubbots === 'object') {
@@ -116,31 +124,34 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
       }
     } catch { }
 
-    // ───────── SI LLEGA ACÁ = BOT EXTERNO ─────────
+    // ───────── BOT EXTERNO DETECTADO ─────────
+
+    // ❌ NO soy admin → AVISO ÚNICO
     if (!isBotAdmin) {
       await conn.sendMessage(m.chat, {
         text:
-          `⚠️ *Bot externo detectado*\n\n` +
-          `👤 @${senderJid.split('@')[0]}\n\n` +
-          `❌ No puedo eliminarlo porque no soy administrador.`,
+          `🤖 *Bot externo detectado*\n\n` +
+          `> Usuario: @${senderJid.split('@')[0]}\n` +
+          `> Estado: _No tengo permisos para eliminarlo_\n\n` +
+          `_Otórgame administrador para activar la protección._`,
         mentions: [senderJid]
       })
       return
     }
 
-    // Aviso
+    // ✅ Soy admin → ACTUAR
     await conn.sendMessage(m.chat, {
       text:
-        `🤖 *Bot NO autorizado detectado*\n\n` +
-        `👤 @${senderJid.split('@')[0]}\n` +
-        `🛡️ Eliminando...`,
+        `🤖 *Bot externo detectado*\n\n` +
+        `> Usuario: @${senderJid.split('@')[0]}\n` +
+        `> Acción: *Eliminado automáticamente*\n\n` +
+        `_Protección activa_`,
       mentions: [senderJid]
     })
 
-    // Pequeño delay
-    await new Promise(r => setTimeout(r, 2000))
+    await new Promise(r => setTimeout(r, 1500))
 
-    // Borrar mensaje
+    // borrar mensaje
     try {
       await conn.sendMessage(m.chat, {
         delete: {
@@ -152,7 +163,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
       })
     } catch { }
 
-    // Sacar del grupo
+    // expulsar bot
     await conn.groupParticipantsUpdate(m.chat, [senderJid], 'remove')
 
   } catch (err) {
@@ -166,6 +177,7 @@ handler.command = ['antibot', 'antibots']
 handler.admin = true
 
 export default handler
+
 
 
 
