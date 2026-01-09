@@ -12,6 +12,26 @@ const clampInt = (value, { min, max, fallback }) => {
   return Math.min(Math.max(Math.floor(n), min), max)
 }
 
+const normalizeSeason = (value) => {
+  const raw = safeString(value).trim()
+  if (!raw) return null
+  const m = raw.match(/(\d{1,2})/)
+  if (!m) return null
+  const n = Number(m[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  return String(n)
+}
+
+const normalizeChapter = (value) => {
+  const raw = safeString(value).trim()
+  if (!raw) return null
+  const m = raw.match(/(\d{1,4})/)
+  if (!m) return null
+  const n = Number(m[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  return String(n)
+}
+
 const truncateText = (v, max = 140) => {
   const s = waSafeInline(v)
   if (s.length <= max) return s
@@ -129,6 +149,50 @@ const getPanelUrl = () => {
   return String(raw || '').trim().replace(/\/+$/, '')
 }
 
+const aiClassifyWithTimeout = async ({ filename, caption, provider }) => {
+  const timeoutMs = clampInt(process.env.PEDIDOS_AI_TIMEOUT_MS || process.env.APORTES_AI_TIMEOUT_MS, { min: 800, max: 20000, fallback: 6000 })
+  try {
+    const result = await Promise.race([
+      classifyProviderLibraryContent({ filename, caption, provider }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), timeoutMs)),
+    ])
+    return result || null
+  } catch {
+    return null
+  }
+}
+
+const aiEnhancePedido = async ({ titulo, descripcion, proveedor } = {}) => {
+  const filename = safeString(titulo || '').trim()
+  const caption = safeString(descripcion || '').trim()
+  const provider = proveedor && typeof proveedor === 'object' ? proveedor : { tipo: '' }
+
+  const result = await aiClassifyWithTimeout({ filename, caption, provider })
+  if (!result) return null
+
+  const title = safeString(result?.title || '').trim()
+  const category = safeString(result?.category || '').trim()
+  const chapter = typeof result?.chapter !== 'undefined' ? result.chapter : null
+  const season = typeof result?.season !== 'undefined' ? result.season : null
+  const tags = Array.isArray(result?.tags) ? result.tags.map((t) => safeString(t).trim()).filter(Boolean).slice(0, 12) : []
+  const confidence = typeof result?.confidence === 'number' ? result.confidence : null
+
+  return {
+    title,
+    category,
+    chapter,
+    season,
+    tags,
+    ai: {
+      source: safeString(result?.source || 'heuristic'),
+      model: safeString(result?.model || 'none'),
+      provider: safeString(result?.provider || 'local'),
+      confidence,
+      updatedAt: new Date().toISOString(),
+    },
+  }
+}
+
 const resolveProveedorJid = (panel, raw) => {
   const v = String(raw || '').trim()
   if (!v) return null
@@ -162,6 +226,10 @@ const scoreLibraryItem = (item, query) => {
   const iChapter = item?.chapter ? String(item.chapter) : null
   if (qChapter && iChapter && qChapter === iChapter) score += 30
 
+  const qSeason = query?.season ? String(query.season) : null
+  const iSeason = item?.season ? String(item.season) : null
+  if (qSeason && iSeason && qSeason === iSeason) score += 18
+
   const qCat = query?.category ? String(query.category).toLowerCase() : null
   const iCat = item?.category ? String(item.category).toLowerCase() : null
   if (qCat && iCat && qCat === iCat) score += 10
@@ -173,17 +241,18 @@ const searchProviderLibrary = async (panel, proveedorJid, pedido, limit = 5) => 
   const list = Object.values(panel.contentLibrary || {}).filter((it) => String(it?.proveedorJid || '') === String(proveedorJid || ''))
   const proveedor = panel?.proveedores?.[proveedorJid] || { jid: proveedorJid }
 
-  const classified = await classifyProviderLibraryContent({
+  const classified = await aiClassifyWithTimeout({
     filename: String(pedido?.titulo || ''),
     caption: String(pedido?.descripcion || pedido?.contenido_solicitado || ''),
     provider: { jid: proveedorJid, tipo: proveedor?.tipo || '' },
-  }).catch(() => null)
+  })
 
   const query = {
     title: String(classified?.title || pedido?.titulo || '').trim(),
     descripcion: String(pedido?.descripcion || pedido?.contenido_solicitado || '').trim(),
     category: String(classified?.category || '').trim(),
     chapter: typeof classified?.chapter !== 'undefined' ? classified.chapter : null,
+    season: typeof classified?.season !== 'undefined' ? classified.season : null,
     tags: Array.isArray(classified?.tags) ? classified.tags : [],
     provider: { jid: proveedorJid, nombre: proveedor?.nombre || '', tipo: proveedor?.tipo || '' },
   }
@@ -236,6 +305,7 @@ const buildLibraryListRows = (results, usedPrefix) => {
     const score = Math.max(0, Math.min(100, Math.round(Number(r?.score) || 0)))
     const title = truncateText(it?.title || it?.originalName || `Archivo #${id}`, 44)
     const descParts = []
+    if (it?.season != null && String(it.season).trim()) descParts.push(`Temp: ${waSafeInline(it.season)}`)
     if (it?.chapter != null && String(it.chapter).trim()) descParts.push(`Cap: ${waSafeInline(it.chapter)}`)
     if (it?.category) descParts.push(waSafeInline(it.category))
     descParts.push(`Score: ${score}`)
@@ -256,6 +326,7 @@ const buildLibraryRowsFromItems = (items, usedPrefix) => {
     if (!Number.isFinite(id) || id <= 0) continue
     const title = truncateText(it?.title || it?.originalName || `Archivo #${id}`, 44)
     const descParts = []
+    if (it?.season != null && String(it.season).trim()) descParts.push(`Temp: ${waSafeInline(it.season)}`)
     if (it?.chapter != null && String(it.chapter).trim()) descParts.push(`Cap: ${waSafeInline(it.chapter)}`)
     if (it?.category) descParts.push(waSafeInline(it.category))
     rows.push({
@@ -278,6 +349,8 @@ const buildAportesListRows = (matches, usedPrefix) => {
     const title = truncateText(a?.titulo || a?.contenido || `Aporte #${id}`, 44)
     const descParts = []
     if (a?.tipo) descParts.push(waSafeInline(a.tipo))
+    if (a?.temporada != null && String(a.temporada).trim()) descParts.push(`Temp: ${waSafeInline(a.temporada)}`)
+    if (a?.capitulo != null && String(a.capitulo).trim()) descParts.push(`Cap: ${waSafeInline(a.capitulo)}`)
     if (a?.estado) descParts.push(waSafeInline(a.estado))
     descParts.push(`Score: ${score}`)
     rows.push({
@@ -298,6 +371,8 @@ const buildAporteRowsFromItems = (aportes, usedPrefix) => {
     const title = truncateText(a?.titulo || a?.contenido || `Aporte #${id}`, 44)
     const descParts = []
     if (a?.tipo) descParts.push(waSafeInline(a.tipo))
+    if (a?.temporada != null && String(a.temporada).trim()) descParts.push(`Temp: ${waSafeInline(a.temporada)}`)
+    if (a?.capitulo != null && String(a.capitulo).trim()) descParts.push(`Cap: ${waSafeInline(a.capitulo)}`)
     if (a?.estado) descParts.push(waSafeInline(a.estado))
     const fecha = formatDate(a?.fecha || a?.fecha_creacion || a?.created_at)
     if (fecha && fecha !== '-') descParts.push(fecha)
@@ -305,6 +380,41 @@ const buildAporteRowsFromItems = (aportes, usedPrefix) => {
       title: waSafeInline(title),
       description: truncateText(descParts.filter(Boolean).join(' · '), 60),
       rowId: `${usedPrefix}infoaporte ${id}`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const isAporteVisibleToUser = (aporte, { m, isBotOwner, isAdmin } = {}) => {
+  if (!aporte) return false
+  if (isBotOwner) return true
+
+  const isCreator = String(aporte?.usuario || '') === String(m?.sender || '')
+  if (isCreator) return true
+
+  if (isAporteApproved(aporte)) return true
+
+  const sameGroup = !aporte?.grupo || !m?.isGroup || String(aporte.grupo) === String(m?.chat || '')
+  if (m?.isGroup && isAdmin && sameGroup) return true
+
+  return false
+}
+
+const buildProviderSelectRows = (panel, usedPrefix, pedidoId) => {
+  const proveedores = Object.values(panel?.proveedores || {}).filter((p) => p && (p.jid || p.id))
+  const rows = []
+  for (const p of proveedores) {
+    const provKey = typeof p?.id !== 'undefined' && p?.id !== null ? String(p.id) : safeString(p?.jid || '').trim()
+    if (!provKey) continue
+    const title = waSafeInline(p?.nombre || p?.jid || `Proveedor ${provKey}`) || `Proveedor ${provKey}`
+    const descParts = []
+    if (p?.tipo) descParts.push(waSafeInline(p.tipo))
+    if (p?.jid) descParts.push(waSafeInline(p.jid))
+    rows.push({
+      title,
+      description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+      rowId: `${usedPrefix}procesarpedido ${pedidoId} ${provKey}`,
     })
     if (rows.length >= 10) break
   }
@@ -328,7 +438,7 @@ const isAporteApproved = (aporte) => {
   return estado === 'aprobado' || estado === 'approved'
 }
 
-const scoreAporte = (aporte, queryTokensSet) => {
+const scoreAporte = (aporte, queryTokensSet, pedidoMeta = null) => {
   const title = safeString(aporte?.titulo || '')
   const body = safeString(aporte?.contenido || '')
   const tags = Array.isArray(aporte?.tags) ? aporte.tags.join(' ') : ''
@@ -347,6 +457,14 @@ const scoreAporte = (aporte, queryTokensSet) => {
 
   if (isAporteApproved(aporte)) score += 8
   if (aporte?.archivoPath || aporte?.archivo) score += 6
+
+  const qSeason = pedidoMeta?.temporada != null ? String(pedidoMeta.temporada).trim() : ''
+  const iSeason = aporte?.temporada != null ? String(aporte.temporada).trim() : ''
+  if (qSeason && iSeason && qSeason === iSeason) score += 14
+
+  const qChapter = pedidoMeta?.capitulo != null ? String(pedidoMeta.capitulo).trim() : ''
+  const iChapter = aporte?.capitulo != null ? String(aporte.capitulo).trim() : ''
+  if (qChapter && iChapter && qChapter === iChapter) score += 18
 
   return score
 }
@@ -375,7 +493,7 @@ const searchAportesForPedido = (
         (allowPendingGroupJid && String(aporte?.grupo || '') === String(allowPendingGroupJid))
       if (!allowPending) continue
     }
-    const score = scoreAporte(aporte, qTokens)
+    const score = scoreAporte(aporte, qTokens, pedido)
     if (score <= 0) continue
     scored.push({ aporte, score })
   }
@@ -500,10 +618,28 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         grupo_id: m.isGroup ? m.chat : null,
         grupo_nombre: m.isGroup ? (await conn.groupMetadata(m.chat).catch(() => ({}))).subject || '' : '',
         proveedor_jid: proveedorJid,
+        tags: [],
+        categoria: null,
+        capitulo: null,
+        temporada: null,
+        ai: null,
         votos: 0,
         votantes: [],
         fecha_creacion: now,
         fecha_actualizacion: now,
+      }
+
+      const aiEnhanced = await aiEnhancePedido({
+        titulo,
+        descripcion,
+        proveedor: proveedorJid ? { jid: proveedorJid, tipo: safeString(panel?.proveedores?.[proveedorJid]?.tipo || '') } : { tipo: '' },
+      })
+      if (aiEnhanced) {
+        pedido.ai = aiEnhanced.ai || null
+        if (aiEnhanced.tags?.length) pedido.tags = aiEnhanced.tags
+        if (aiEnhanced.category) pedido.categoria = aiEnhanced.category
+        if (aiEnhanced.chapter != null) pedido.capitulo = aiEnhanced.chapter
+        if (aiEnhanced.season != null) pedido.temporada = aiEnhanced.season
       }
 
       panel.pedidos[id] = pedido
@@ -514,29 +650,75 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         emitPedidoCreated(pedido)
       } catch { }
 
-      const lines = []
-      lines.push('✅ *Pedido creado*')
-      lines.push('')
-      lines.push(`> *ID:* \`\`\`#${id}\`\`\``)
-      lines.push(`> *Título:* ${waSafeInline(titulo)}`)
-      lines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
-      lines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
-      if (descripcion) lines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
-
-      if (proveedorJid) {
-        lines.push('')
-        lines.push(`🔎 *Buscar en biblioteca:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
-      } else {
-        lines.push('')
-        lines.push('🛡️ _Este pedido no está asociado a un proveedor._')
-        lines.push(`> *Admin:* \`\`\`${usedPrefix}procesarpedido ${id} <idProveedor|jidProveedor>\`\`\``)
-      }
-
       const aporteMatches = searchAportesForPedido(pedido, {
         limit: 5,
         allowPendingUserJid: m.sender,
         allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (m.isGroup ? m.chat : null) : null,
       })
+
+      let libraryResults = []
+      let libraryQuery = null
+      if (proveedorJid) {
+        try {
+          const res = await searchProviderLibrary(panel, proveedorJid, pedido, 5)
+          libraryQuery = res?.query || null
+          libraryResults = Array.isArray(res?.results) ? res.results : []
+        } catch { }
+      }
+
+      const libRows = buildLibraryListRows(libraryResults, usedPrefix)
+      const aporteRows = buildAportesListRows(aporteMatches, usedPrefix)
+      const provRows = !proveedorJid ? buildProviderSelectRows(panel, usedPrefix, id) : []
+
+      const sections = []
+      if (libRows.length) sections.push({ title: '📚 Biblioteca', rows: libRows })
+      if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
+      if (provRows.length) sections.push({ title: '📦 Elegir proveedor', rows: provRows })
+
+      const actionRows = [
+        { title: '👁️ Ver pedido', description: 'Ver detalles del pedido', rowId: `${usedPrefix}verpedido ${id}` },
+        { title: '🗳️ Votar', description: 'Sumar 1 voto al pedido', rowId: `${usedPrefix}votarpedido ${id}` },
+        { title: '📌 Buscar aportes', description: 'Ver aportes sugeridos', rowId: `${usedPrefix}buscaraporte ${id}` },
+      ]
+      if (proveedorJid) actionRows.push({ title: '🔎 Buscar en biblioteca', description: 'Procesar pedido en biblioteca', rowId: `${usedPrefix}procesarpedido ${id}` })
+      if (actionRows.length) sections.push({ title: 'Acciones', rows: actionRows.slice(0, 10) })
+
+      const bodyLines = []
+      bodyLines.push('✅ *Pedido creado*')
+      bodyLines.push(`> *ID:* \`\`\`#${id}\`\`\``)
+      bodyLines.push(`> *Título:* ${waSafeInline(titulo)}`)
+      bodyLines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
+      bodyLines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
+      if (descripcion) bodyLines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
+      if (aiEnhanced?.title && aiEnhanced.title && normalizeText(aiEnhanced.title) !== normalizeText(titulo)) {
+        bodyLines.push(`> *IA:* _${waSafeInline(aiEnhanced.title)}_`)
+      }
+      const cat = waSafeInline(aiEnhanced?.category || pedido?.categoria || '')
+      if (cat) bodyLines.push(`> *Categoría:* _${cat}_`)
+      const chap = aiEnhanced?.chapter != null ? aiEnhanced.chapter : pedido?.capitulo
+      if (chap != null && String(chap).trim()) bodyLines.push(`> *Capítulo:* _${waSafeInline(chap)}_`)
+      const season = aiEnhanced?.season != null ? aiEnhanced.season : pedido?.temporada
+      if (season != null && String(season).trim()) bodyLines.push(`> *Temporada:* _${waSafeInline(season)}_`)
+      if (!proveedorJid) bodyLines.push('> 🛡️ _Selecciona un proveedor para buscar en biblioteca._')
+      else if (!libRows.length) bodyLines.push('> 🔎 _Sin coincidencias en biblioteca (por ahora)._')
+      else if (libraryQuery?.title && normalizeText(libraryQuery.title) !== normalizeText(titulo)) bodyLines.push(`> 🔎 *Interpretado:* _${waSafeInline(libraryQuery.title)}_`)
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: 'Pedido',
+        text: bodyLines.join('\n'),
+        sections,
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push(...bodyLines)
+      if (proveedorJid) {
+        lines.push('')
+        lines.push(`🔎 *Buscar en biblioteca:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
+      } else {
+        lines.push('')
+        lines.push(`📦 *Proveedores:* \`\`\`${usedPrefix}procesarpedido ${id} <idProveedor|jidProveedor>\`\`\``)
+      }
       if (aporteMatches.length) {
         lines.push('')
         lines.push(formatAportesMatches(pedido, aporteMatches, usedPrefix))
@@ -544,7 +726,6 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         lines.push('')
         lines.push(`📌 *Aportes:* \`\`\`${usedPrefix}buscaraporte ${id}\`\`\``)
       }
-
       return m.reply(lines.join('\n'))
     }
 
@@ -749,8 +930,10 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const pedido = panel.pedidos[id]
       if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${id} no encontrado._`)
 
-      const canProcess = isBotOwner || (m.isGroup && isAdmin)
-      if (!canProcess) return m.reply('❌ *No permitido*\n\n> _Solo admins pueden procesar pedidos._')
+      const isPedidoCreator = String(pedido?.usuario || '') === String(m.sender || '')
+      const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m.chat || '')
+      const canProcess = isBotOwner || (m.isGroup && isAdmin) || (isPedidoCreator && sameChat)
+      if (!canProcess) return m.reply('❌ *No permitido*\n\n> _Solo admins/owner o el creador del pedido pueden procesarlo._')
 
       const providerArg = resolveProveedorJid(panel, args[1])
       let targetProviderJid =
@@ -850,6 +1033,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const lines = []
       lines.push(`📚 *Biblioteca* \`\`\`#${libId}\`\`\``)
       if (item?.title) lines.push(`> *Título:* ${waSafeInline(item.title)}`)
+      if (item?.season != null && String(item.season).trim()) lines.push(`> *Temporada:* _${waSafeInline(item.season)}_`)
       if (item?.chapter != null && String(item.chapter).trim()) lines.push(`> *Capítulo:* _${waSafeInline(item.chapter)}_`)
       if (item?.category) lines.push(`> *Categoría:* _${waSafeInline(item.category)}_`)
       if (proveedorTxt) lines.push(`> *Proveedor:* _${proveedorTxt}_`)
@@ -971,10 +1155,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const aporte = aportes.find((a) => Number(a?.id) === aporteId) || null
       if (!aporte) return m.reply(`❌ *Error*\n\n> _Aporte #${aporteId} no encontrado._`)
 
-      const isCreator = String(aporte?.usuario || '') === String(m.sender || '')
-      const isApproved = isAporteApproved(aporte)
-      const sameGroup = !aporte?.grupo || !m.isGroup || String(aporte.grupo) === String(m.chat)
-      const canView = isBotOwner || isCreator || isApproved || (m.isGroup && isAdmin && sameGroup)
+      const canView = isAporteVisibleToUser(aporte, { m, isBotOwner, isAdmin })
       if (!canView) return m.reply('❌ *No permitido*\n\n> _No tienes acceso a este aporte._')
 
       const tags = Array.isArray(aporte?.tags) ? aporte.tags.map((t) => waSafeInline(t)).filter(Boolean).slice(0, 12) : []
@@ -983,6 +1164,8 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       lines.push(`📌 *Aporte* \`\`\`#${aporteId}\`\`\``)
       if (aporte?.titulo) lines.push(`> *Título:* ${waSafeInline(aporte.titulo)}`)
       if (aporte?.tipo) lines.push(`> *Tipo:* _${waSafeInline(aporte.tipo)}_`)
+      if (aporte?.temporada != null && String(aporte.temporada).trim()) lines.push(`> *Temporada:* _${waSafeInline(aporte.temporada)}_`)
+      if (aporte?.capitulo != null && String(aporte.capitulo).trim()) lines.push(`> *Capítulo:* _${waSafeInline(aporte.capitulo)}_`)
       if (aporte?.estado) lines.push(`> *Estado:* _${waSafeInline(aporte.estado)}_`)
       if (fecha && fecha !== '-') lines.push(`> *Fecha:* _${fecha}_`)
       if (aporte?.usuario) lines.push(`> *Usuario:* @${safeString(aporte.usuario).split('@')[0]}`)
@@ -994,7 +1177,15 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const actionRows = [
         { title: '📎 Enviar archivo', description: 'Enviar el adjunto (si existe)', rowId: `${usedPrefix}enviaraporte ${aporteId}` },
         { title: '👤 Más del usuario', description: 'Ver más aportes de este usuario', rowId: `${usedPrefix}aportesde ${aporteId}` },
+        { title: '📚 Temporadas del título', description: 'Ver todas las temporadas de este título', rowId: `${usedPrefix}aportestemporadas ${aporteId}` },
       ]
+      if (aporte?.temporada != null && String(aporte.temporada).trim()) {
+        actionRows.push({
+          title: '📖 Capítulos de esta temporada',
+          description: 'Ver capítulos dentro de la temporada',
+          rowId: `${usedPrefix}aportescaps ${aporteId} ${normalizeSeason(aporte.temporada) || '0'}`,
+        })
+      }
 
       const ok = await trySendInteractiveList(m, conn, {
         title: '📌 Opciones',
@@ -1006,6 +1197,8 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       lines.push('')
       lines.push(`> \`\`\`${usedPrefix}enviaraporte ${aporteId}\`\`\``)
       lines.push(`> \`\`\`${usedPrefix}aportesde ${aporteId}\`\`\``)
+      lines.push(`> \`\`\`${usedPrefix}aportestemporadas ${aporteId}\`\`\``)
+      if (aporte?.temporada != null && String(aporte.temporada).trim()) lines.push(`> \`\`\`${usedPrefix}aportescaps ${aporteId} ${normalizeSeason(aporte.temporada) || '0'}\`\`\``)
       return m.reply(lines.join('\n'))
     }
 
@@ -1055,6 +1248,141 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       return m.reply(lines.join('\n'))
     }
 
+    case 'aportestemporadas': {
+      const aporteId = parseInt(args[0])
+      if (!aporteId) return m.reply(`📚 *Temporadas*\n\n> \`\`\`${usedPrefix}aportestemporadas <idAporte>\`\`\``)
+
+      const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+      const base = aportes.find((a) => Number(a?.id) === aporteId) || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Aporte #${aporteId} no encontrado._`)
+      if (!isAporteVisibleToUser(base, { m, isBotOwner, isAdmin })) return m.reply('❌ *No permitido*\n\n> _No tienes acceso a este aporte._')
+
+      const titleKey = normalizeText(base?.titulo || '')
+      if (!titleKey) return m.reply('❌ *Error*\n\n> _Este aporte no tiene título para agrupar._')
+
+      const sameTitle = aportes
+        .filter((a) => normalizeText(a?.titulo || '') === titleKey)
+        .filter((a) => isAporteVisibleToUser(a, { m, isBotOwner, isAdmin }))
+        .filter((a) => {
+          if (!m.isGroup) return true
+          if (isBotOwner || isAdmin) return true
+          return !a?.grupo || String(a.grupo) === String(m.chat)
+        })
+
+      const grouped = new Map()
+      for (const a of sameTitle) {
+        const season = normalizeSeason(a?.temporada) || '0'
+        const entry = grouped.get(season) || { season, aportes: [] }
+        entry.aportes.push(a)
+        grouped.set(season, entry)
+      }
+
+      const seasons = [...grouped.values()].sort((a, b) => Number(a.season) - Number(b.season))
+      if (!seasons.length) return m.reply('📚 *Temporadas*\n\n🛡️ _No hay aportes para mostrar._')
+
+      const rows = seasons.slice(0, 10).map((g) => {
+        const seasonLabel = g.season === '0' ? 'Sin temporada' : `Temporada ${String(g.season).padStart(2, '0')}`
+        const chapterNums = g.aportes.map((x) => normalizeChapter(x?.capitulo)).filter(Boolean).map(Number).filter((n) => Number.isFinite(n))
+        chapterNums.sort((x, y) => x - y)
+        const capTxt = chapterNums.length
+          ? `Caps: ${chapterNums[0]}-${chapterNums[chapterNums.length - 1]} (${chapterNums.length})`
+          : `Aportes: ${g.aportes.length}`
+        return {
+          title: seasonLabel,
+          description: truncateText(capTxt, 60),
+          rowId: `${usedPrefix}aportescaps ${aporteId} ${g.season}`,
+        }
+      })
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📚 Temporadas',
+        text: `*Título:* ${waSafeInline(base.titulo)}\n> _Selecciona una temporada para ver capítulos._`,
+        sections: [{ title: 'Temporadas', rows }],
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push('📚 *Temporadas*')
+      lines.push(`> *Título:* ${waSafeInline(base.titulo)}`)
+      lines.push('')
+      for (const r of rows) lines.push(`> ${r.title} — _${r.description}_`)
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}aportescaps ${aporteId} <temporada>\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
+    case 'aportescaps': {
+      const aporteId = parseInt(args[0])
+      const seasonArg = safeString(args[1] || '').trim()
+      if (!aporteId) return m.reply(`📖 *Capítulos*\n\n> \`\`\`${usedPrefix}aportescaps <idAporte> <temporada>\`\`\``)
+
+      const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+      const base = aportes.find((a) => Number(a?.id) === aporteId) || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Aporte #${aporteId} no encontrado._`)
+      if (!isAporteVisibleToUser(base, { m, isBotOwner, isAdmin })) return m.reply('❌ *No permitido*\n\n> _No tienes acceso a este aporte._')
+
+      const titleKey = normalizeText(base?.titulo || '')
+      if (!titleKey) return m.reply('❌ *Error*\n\n> _Este aporte no tiene título para agrupar._')
+
+      const season = normalizeSeason(seasonArg) || (seasonArg === '0' ? '0' : normalizeSeason(base?.temporada) || '0')
+
+      const list = aportes
+        .filter((a) => normalizeText(a?.titulo || '') === titleKey)
+        .filter((a) => (normalizeSeason(a?.temporada) || '0') === String(season))
+        .filter((a) => isAporteVisibleToUser(a, { m, isBotOwner, isAdmin }))
+        .filter((a) => {
+          if (!m.isGroup) return true
+          if (isBotOwner || isAdmin) return true
+          return !a?.grupo || String(a.grupo) === String(m.chat)
+        })
+        .sort((a, b) => {
+          const ac = normalizeChapter(a?.capitulo)
+          const bc = normalizeChapter(b?.capitulo)
+          if (ac && bc) return Number(ac) - Number(bc)
+          if (ac && !bc) return -1
+          if (!ac && bc) return 1
+          return String(a?.fecha || a?.fecha_creacion || a?.created_at || '').localeCompare(String(b?.fecha || b?.fecha_creacion || b?.created_at || ''))
+        })
+
+      if (!list.length) {
+        const seasonLabel = season === '0' ? 'Sin temporada' : `Temporada ${String(season).padStart(2, '0')}`
+        return m.reply(`📖 *Capítulos*\n\n> *Título:* ${waSafeInline(base.titulo)}\n> *Temporada:* _${seasonLabel}_\n\n🛡️ _No hay capítulos para mostrar._`)
+      }
+
+      const rows = list.slice(0, 10).map((a) => {
+        const cap = normalizeChapter(a?.capitulo)
+        const capLabel = cap ? `Capítulo ${String(cap).padStart(4, '0')}` : `Aporte #${a.id}`
+        const descParts = []
+        if (a?.archivoNombre) descParts.push(waSafeInline(a.archivoNombre))
+        if (a?.estado) descParts.push(waSafeInline(a.estado))
+        const fecha = formatDate(a?.fecha || a?.fecha_creacion || a?.created_at)
+        if (fecha && fecha !== '-') descParts.push(fecha)
+        return {
+          title: capLabel,
+          description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+          rowId: `${usedPrefix}infoaporte ${a.id}`,
+        }
+      })
+
+      const seasonLabel = season === '0' ? 'Sin temporada' : `Temporada ${String(season).padStart(2, '0')}`
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📖 Capítulos',
+        text: `*Título:* ${waSafeInline(base.titulo)}\n> *Temporada:* _${seasonLabel}_\n> _Selecciona un capítulo._`,
+        sections: [{ title: 'Capítulos', rows }],
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push('📖 *Capítulos*')
+      lines.push(`> *Título:* ${waSafeInline(base.titulo)}`)
+      lines.push(`> *Temporada:* _${seasonLabel}_`)
+      lines.push('')
+      for (const r of rows) lines.push(`> ${r.title} — _${r.description}_`)
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}infoaporte <idAporte>\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
     case 'enviarlib': {
       const libId = parseInt(args[0])
       if (!libId) return m.reply(`📥 *Enviar archivo de biblioteca*\n\n> \`\`\`${usedPrefix}enviarlib <id>\`\`\``)
@@ -1095,6 +1423,8 @@ handler.help = [
   'enviarlib',
   'buscaraporte',
   'infoaporte',
+  'aportestemporadas',
+  'aportescaps',
   'aportesde',
   'enviaraporte',
 ]
@@ -1118,6 +1448,8 @@ handler.command = [
   'enviarlib',
   'buscaraporte',
   'infoaporte',
+  'aportestemporadas',
+  'aportescaps',
   'aportesde',
   'enviaraporte',
 ]
