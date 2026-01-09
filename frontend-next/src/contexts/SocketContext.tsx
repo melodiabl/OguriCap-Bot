@@ -29,6 +29,7 @@ export const SOCKET_EVENTS = {
   NOTIFICATION: 'notification',
   SYSTEM_STATS: 'system:stats',
   LOG_ENTRY: 'log:entry',
+  TERMINAL_LINE: 'terminal:line',
 } as const;
 
 interface BotStatus {

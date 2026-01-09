@@ -547,6 +547,19 @@ class ApiService {
     return response.data;
   }
 
+  // Terminal (stdout/stderr)
+  async getTerminal(params: { limit?: number } = {}) {
+    const qp = new URLSearchParams();
+    qp.append('limit', String(params.limit || 200));
+    const response = await this.api.get(`/api/terminal?${qp}`);
+    return response.data;
+  }
+
+  async clearTerminal() {
+    const response = await this.api.post('/api/terminal/clear');
+    return response.data;
+  }
+
   // Notificaciones
   async getNotificaciones(page = 1, limit = 20, filters?: { search?: string; type?: string; category?: string; read?: string }) {
     const params = new URLSearchParams();
