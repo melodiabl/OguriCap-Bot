@@ -225,6 +225,104 @@ const formatSearchResults = (pedido, query, results, usedPrefix, proveedorJid) =
   return lines.join('\n')
 }
 
+const connCanSendList = (conn) => typeof conn?.sendList === 'function'
+
+const buildLibraryListRows = (results, usedPrefix) => {
+  const rows = []
+  for (const r of results || []) {
+    const it = r?.it || {}
+    const id = Number(it?.id)
+    if (!Number.isFinite(id) || id <= 0) continue
+    const score = Math.max(0, Math.min(100, Math.round(Number(r?.score) || 0)))
+    const title = truncateText(it?.title || it?.originalName || `Archivo #${id}`, 44)
+    const descParts = []
+    if (it?.chapter != null && String(it.chapter).trim()) descParts.push(`Cap: ${waSafeInline(it.chapter)}`)
+    if (it?.category) descParts.push(waSafeInline(it.category))
+    descParts.push(`Score: ${score}`)
+    rows.push({
+      title: waSafeInline(title),
+      description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+      rowId: `${usedPrefix}infolib ${id}`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const buildLibraryRowsFromItems = (items, usedPrefix) => {
+  const rows = []
+  for (const it of items || []) {
+    const id = Number(it?.id)
+    if (!Number.isFinite(id) || id <= 0) continue
+    const title = truncateText(it?.title || it?.originalName || `Archivo #${id}`, 44)
+    const descParts = []
+    if (it?.chapter != null && String(it.chapter).trim()) descParts.push(`Cap: ${waSafeInline(it.chapter)}`)
+    if (it?.category) descParts.push(waSafeInline(it.category))
+    rows.push({
+      title: waSafeInline(title),
+      description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+      rowId: `${usedPrefix}infolib ${id}`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const buildAportesListRows = (matches, usedPrefix) => {
+  const rows = []
+  for (const m of matches || []) {
+    const a = m?.aporte || {}
+    const id = Number(a?.id)
+    if (!Number.isFinite(id) || id <= 0) continue
+    const score = Math.max(0, Math.min(100, Math.round(Number(m?.score) || 0)))
+    const title = truncateText(a?.titulo || a?.contenido || `Aporte #${id}`, 44)
+    const descParts = []
+    if (a?.tipo) descParts.push(waSafeInline(a.tipo))
+    if (a?.estado) descParts.push(waSafeInline(a.estado))
+    descParts.push(`Score: ${score}`)
+    rows.push({
+      title: waSafeInline(title),
+      description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+      rowId: `${usedPrefix}infoaporte ${id}`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const buildAporteRowsFromItems = (aportes, usedPrefix) => {
+  const rows = []
+  for (const a of aportes || []) {
+    const id = Number(a?.id)
+    if (!Number.isFinite(id) || id <= 0) continue
+    const title = truncateText(a?.titulo || a?.contenido || `Aporte #${id}`, 44)
+    const descParts = []
+    if (a?.tipo) descParts.push(waSafeInline(a.tipo))
+    if (a?.estado) descParts.push(waSafeInline(a.estado))
+    const fecha = formatDate(a?.fecha || a?.fecha_creacion || a?.created_at)
+    if (fecha && fecha !== '-') descParts.push(fecha)
+    rows.push({
+      title: waSafeInline(title),
+      description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+      rowId: `${usedPrefix}infoaporte ${id}`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
+  if (!connCanSendList(conn)) return false
+  if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
+  try {
+    await conn.sendList(m.chat, title, text, 'Ver opciones', sections, m)
+    return true
+  } catch (err) {
+    console.error('sendList failed:', err)
+    return false
+  }
+}
+
 const isAporteApproved = (aporte) => {
   const estado = safeString(aporte?.estado || '').toLowerCase().trim()
   return estado === 'aprobado' || estado === 'approved'
@@ -253,7 +351,15 @@ const scoreAporte = (aporte, queryTokensSet) => {
   return score
 }
 
-const searchAportesForPedido = (pedido, { limit = 5, includePending = false } = {}) => {
+const searchAportesForPedido = (
+  pedido,
+  {
+    limit = 5,
+    includePending = false,
+    allowPendingUserJid = null,
+    allowPendingGroupJid = null,
+  } = {}
+) => {
   const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
   const queryText = `${pedido?.titulo || ''} ${pedido?.descripcion || ''} ${(pedido?.tags || []).join(' ')}`
   const qTokens = new Set(tokenize(queryText))
@@ -262,7 +368,13 @@ const searchAportesForPedido = (pedido, { limit = 5, includePending = false } = 
   const scored = []
   for (const aporte of aportes) {
     if (!aporte) continue
-    if (!includePending && !isAporteApproved(aporte)) continue
+    if (!isAporteApproved(aporte)) {
+      const allowPending =
+        includePending ||
+        (allowPendingUserJid && String(aporte?.usuario || '') === String(allowPendingUserJid)) ||
+        (allowPendingGroupJid && String(aporte?.grupo || '') === String(allowPendingGroupJid))
+      if (!allowPending) continue
+    }
     const score = scoreAporte(aporte, qTokens)
     if (score <= 0) continue
     scored.push({ aporte, score })
@@ -278,7 +390,7 @@ const formatAportesMatches = (pedido, matches, usedPrefix) => {
 
   if (!matches.length) {
     lines.push('')
-    lines.push('🛡️ _No hay aportes que coincidan (o no están aprobados)._')
+    lines.push('🛡️ _No hay aportes que coincidan._')
     return lines.join('\n')
   }
 
@@ -420,6 +532,19 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         lines.push(`> *Admin:* \`\`\`${usedPrefix}procesarpedido ${id} <idProveedor|jidProveedor>\`\`\``)
       }
 
+      const aporteMatches = searchAportesForPedido(pedido, {
+        limit: 5,
+        allowPendingUserJid: m.sender,
+        allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (m.isGroup ? m.chat : null) : null,
+      })
+      if (aporteMatches.length) {
+        lines.push('')
+        lines.push(formatAportesMatches(pedido, aporteMatches, usedPrefix))
+      } else {
+        lines.push('')
+        lines.push(`📌 *Aportes:* \`\`\`${usedPrefix}buscaraporte ${id}\`\`\``)
+      }
+
       return m.reply(lines.join('\n'))
     }
 
@@ -557,7 +682,20 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
 
       const canSeeAll = isBotOwner || (m.isGroup && isAdmin)
-      const matches = searchAportesForPedido(pedido, { limit: 5, includePending: canSeeAll })
+      const matches = searchAportesForPedido(pedido, {
+        limit: 5,
+        includePending: canSeeAll,
+        allowPendingUserJid: m.sender,
+        allowPendingGroupJid: canSeeAll ? (m.isGroup ? m.chat : null) : null,
+      })
+      const rows = buildAportesListRows(matches, usedPrefix)
+      const sections = rows.length ? [{ title: '📌 Aportes', rows }] : []
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📌 Aportes sugeridos',
+        text: `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un aporte para ver más info o enviarlo._`,
+        sections,
+      })
+      if (ok) return null
       return m.reply(formatAportesMatches(pedido, matches, usedPrefix))
     }
 
@@ -656,14 +794,265 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         emitPedidoUpdated(pedido)
       } catch { }
 
-      let msg = formatSearchResults(pedido, query, results, usedPrefix, targetProviderJid)
+      const aporteMatches = searchAportesForPedido(pedido, {
+        limit: 5,
+        includePending: isBotOwner || (m.isGroup && isAdmin),
+        allowPendingUserJid: pedido?.usuario || null,
+        allowPendingGroupJid: pedido?.grupo_id || null,
+      })
 
-      if (!results.length) {
-        const matches = searchAportesForPedido(pedido, { limit: 5, includePending: isBotOwner || (m.isGroup && isAdmin) })
-        msg = `${msg}\n\n${formatAportesMatches(pedido, matches, usedPrefix)}`
+      const libRows = buildLibraryListRows(results, usedPrefix)
+      const aporteRows = buildAportesListRows(aporteMatches, usedPrefix)
+      const sections = []
+      if (libRows.length) sections.push({ title: '📚 Biblioteca', rows: libRows })
+      if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
+
+      const proveedorTxt = waSafeInline(proveedor?.nombre || proveedor?.jid || targetProviderJid || '')
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '🔎 Coincidencias',
+        text:
+          `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n` +
+          (proveedorTxt ? `> *Proveedor:* _${proveedorTxt}_\n` : '') +
+          `> _Selecciona una opción para ver más info._`,
+        sections,
+      })
+      if (ok) return null
+
+      let msg = formatSearchResults(pedido, query, results, usedPrefix, targetProviderJid)
+      if (aporteMatches.length) msg = `${msg}\n\n${formatAportesMatches(pedido, aporteMatches, usedPrefix)}`
+      return m.reply(msg)
+    }
+
+    case 'infolib': {
+      const libId = parseInt(args[0])
+      if (!libId) return m.reply(`📚 *Info de biblioteca*\n\n> \`\`\`${usedPrefix}infolib <id>\`\`\``)
+
+      const item = panel?.contentLibrary?.[libId] || null
+      if (!item) return m.reply(`❌ *Error*\n\n> _Archivo #${libId} no encontrado en biblioteca._`)
+
+      if (m.isGroup && !isBotOwner && String(item?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
       }
 
-      return m.reply(msg)
+      const proveedor = item?.proveedorJid ? (panel?.proveedores?.[item.proveedorJid] || null) : null
+      const proveedorTxt = waSafeInline(proveedor?.nombre || proveedor?.jid || item?.proveedorJid || '')
+      const tags = Array.isArray(item?.tags) ? item.tags.map((t) => waSafeInline(t)).filter(Boolean).slice(0, 12) : []
+
+      let sizeTxt = ''
+      try {
+        const fp = item?.file_path
+        if (fp && fs.existsSync(fp)) {
+          const st = fs.statSync(fp)
+          if (st.isFile()) sizeTxt = `${Math.round(st.size / 1024 / 1024)}MB`
+        }
+      } catch { }
+
+      const lines = []
+      lines.push(`📚 *Biblioteca* \`\`\`#${libId}\`\`\``)
+      if (item?.title) lines.push(`> *Título:* ${waSafeInline(item.title)}`)
+      if (item?.chapter != null && String(item.chapter).trim()) lines.push(`> *Capítulo:* _${waSafeInline(item.chapter)}_`)
+      if (item?.category) lines.push(`> *Categoría:* _${waSafeInline(item.category)}_`)
+      if (proveedorTxt) lines.push(`> *Proveedor:* _${proveedorTxt}_`)
+      if (tags.length) lines.push(`> *Tags:* _${waSafeInline(tags.join(', '))}_`)
+      if (item?.originalName) lines.push(`> *Archivo:* _${waSafeInline(item.originalName)}_`)
+      if (sizeTxt) lines.push(`> *Tamaño:* _${sizeTxt}_`)
+
+      const actionRows = [
+        { title: '📥 Enviar archivo', description: 'Enviar el archivo por WhatsApp', rowId: `${usedPrefix}enviarlib ${libId}` },
+        { title: '🔎 Más por título', description: 'Buscar más coincidencias del título', rowId: `${usedPrefix}libtitulo ${libId}` },
+      ]
+      if (item?.proveedorJid) {
+        actionRows.splice(1, 0, { title: '📚 Más del proveedor', description: 'Ver más archivos del proveedor', rowId: `${usedPrefix}libproveedor ${item.proveedorJid}` })
+      }
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📚 Opciones',
+        text: lines.join('\n'),
+        sections: [{ title: 'Acciones', rows: actionRows.slice(0, 10) }],
+      })
+      if (ok) return null
+
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}enviarlib ${libId}\`\`\``)
+      if (item?.proveedorJid) lines.push(`> \`\`\`${usedPrefix}libproveedor ${item.proveedorJid}\`\`\``)
+      lines.push(`> \`\`\`${usedPrefix}libtitulo ${libId}\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
+    case 'libproveedor': {
+      const proveedorJid = resolveProveedorJid(panel, args[0]) || safeString(args[0]).trim()
+      if (!proveedorJid) return m.reply(`📚 *Biblioteca por proveedor*\n\n> \`\`\`${usedPrefix}libproveedor <idProveedor|jidProveedor>\`\`\``)
+
+      if (m.isGroup && !isBotOwner && String(proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este proveedor no corresponde a este grupo._')
+      }
+
+      const proveedor = panel?.proveedores?.[proveedorJid] || null
+      const proveedorTxt = waSafeInline(proveedor?.nombre || proveedor?.jid || proveedorJid || '')
+      const items = Object.values(panel?.contentLibrary || {})
+        .filter((it) => String(it?.proveedorJid || '') === String(proveedorJid || ''))
+        .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
+
+      const rows = buildLibraryRowsFromItems(items, usedPrefix)
+      const sections = rows.length ? [{ title: '📚 Biblioteca', rows }] : []
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📚 Biblioteca',
+        text: `*Proveedor:* _${proveedorTxt}_\n> _Selecciona un archivo para ver más info._`,
+        sections,
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push('📚 *Biblioteca*')
+      lines.push(`> *Proveedor:* _${proveedorTxt}_`)
+      if (!items.length) {
+        lines.push('')
+        lines.push('🛡️ _No hay archivos en este proveedor._')
+        return m.reply(lines.join('\n'))
+      }
+      lines.push('')
+      for (const it of items.slice(0, 10)) {
+        lines.push(`> \`\`\`#${it.id}\`\`\` ${waSafeInline(it.title || it.originalName || `Archivo #${it.id}`)}`)
+      }
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}infolib <id>\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
+    case 'libtitulo': {
+      const libId = parseInt(args[0])
+      if (!libId) return m.reply(`🔎 *Buscar por título*\n\n> \`\`\`${usedPrefix}libtitulo <idBiblioteca>\`\`\``)
+
+      const base = panel?.contentLibrary?.[libId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${libId} no encontrado en biblioteca._`)
+
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const providerJid = base?.proveedorJid || null
+      const baseTitle = safeString(base?.title || base?.originalName || '').trim()
+      const norm = normalizeText(baseTitle)
+      if (!norm) return m.reply('❌ *Error*\n\n> _No pude inferir el título para buscar._')
+
+      const items = Object.values(panel?.contentLibrary || {})
+        .filter((it) => Number(it?.id || 0) !== libId)
+        .filter((it) => (providerJid ? String(it?.proveedorJid || '') === String(providerJid) : true))
+        .filter((it) => normalizeText(it?.title || it?.originalName || '').includes(norm))
+        .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
+
+      const rows = buildLibraryRowsFromItems(items, usedPrefix)
+      const sections = rows.length ? [{ title: '🔎 Coincidencias', rows }] : []
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '🔎 Por título',
+        text: `*Título:* ${waSafeInline(baseTitle)}\n> _Selecciona un archivo para ver más info._`,
+        sections,
+      })
+      if (ok) return null
+
+      if (!items.length) return m.reply(`🔎 *Por título*\n\n> *Título:* ${waSafeInline(baseTitle)}\n\n🛡️ _No encontré más coincidencias._`)
+      const lines = []
+      lines.push('🔎 *Por título*')
+      lines.push(`> *Título:* ${waSafeInline(baseTitle)}`)
+      lines.push('')
+      for (const it of items.slice(0, 10)) {
+        lines.push(`> \`\`\`#${it.id}\`\`\` ${waSafeInline(it.title || it.originalName || `Archivo #${it.id}`)}`)
+      }
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}infolib <id>\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
+    case 'infoaporte': {
+      const aporteId = parseInt(args[0])
+      if (!aporteId) return m.reply(`📌 *Info de aporte*\n\n> \`\`\`${usedPrefix}infoaporte <idAporte>\`\`\``)
+
+      const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+      const aporte = aportes.find((a) => Number(a?.id) === aporteId) || null
+      if (!aporte) return m.reply(`❌ *Error*\n\n> _Aporte #${aporteId} no encontrado._`)
+
+      const isCreator = String(aporte?.usuario || '') === String(m.sender || '')
+      const isApproved = isAporteApproved(aporte)
+      const sameGroup = !aporte?.grupo || !m.isGroup || String(aporte.grupo) === String(m.chat)
+      const canView = isBotOwner || isCreator || isApproved || (m.isGroup && isAdmin && sameGroup)
+      if (!canView) return m.reply('❌ *No permitido*\n\n> _No tienes acceso a este aporte._')
+
+      const tags = Array.isArray(aporte?.tags) ? aporte.tags.map((t) => waSafeInline(t)).filter(Boolean).slice(0, 12) : []
+      const fecha = formatDate(aporte?.fecha || aporte?.fecha_creacion || aporte?.created_at)
+      const lines = []
+      lines.push(`📌 *Aporte* \`\`\`#${aporteId}\`\`\``)
+      if (aporte?.titulo) lines.push(`> *Título:* ${waSafeInline(aporte.titulo)}`)
+      if (aporte?.tipo) lines.push(`> *Tipo:* _${waSafeInline(aporte.tipo)}_`)
+      if (aporte?.estado) lines.push(`> *Estado:* _${waSafeInline(aporte.estado)}_`)
+      if (fecha && fecha !== '-') lines.push(`> *Fecha:* _${fecha}_`)
+      if (aporte?.usuario) lines.push(`> *Usuario:* @${safeString(aporte.usuario).split('@')[0]}`)
+      if (aporte?.categoria) lines.push(`> *Categoría:* _${waSafeInline(aporte.categoria)}_`)
+      if (tags.length) lines.push(`> *Tags:* _${waSafeInline(tags.join(', '))}_`)
+      if (aporte?.contenido) lines.push(`> *Contenido:* ${truncateText(aporte.contenido, 220)}`)
+      if (aporte?.archivoNombre) lines.push(`> *Archivo:* _${waSafeInline(aporte.archivoNombre)}_`)
+
+      const actionRows = [
+        { title: '📎 Enviar archivo', description: 'Enviar el adjunto (si existe)', rowId: `${usedPrefix}enviaraporte ${aporteId}` },
+        { title: '👤 Más del usuario', description: 'Ver más aportes de este usuario', rowId: `${usedPrefix}aportesde ${aporteId}` },
+      ]
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📌 Opciones',
+        text: lines.join('\n'),
+        sections: [{ title: 'Acciones', rows: actionRows.slice(0, 10) }],
+      })
+      if (ok) return null
+
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}enviaraporte ${aporteId}\`\`\``)
+      lines.push(`> \`\`\`${usedPrefix}aportesde ${aporteId}\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
+    case 'aportesde': {
+      const aporteId = parseInt(args[0])
+      if (!aporteId) return m.reply(`👤 *Aportes de usuario*\n\n> \`\`\`${usedPrefix}aportesde <idAporte>\`\`\``)
+
+      const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+      const base = aportes.find((a) => Number(a?.id) === aporteId) || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Aporte #${aporteId} no encontrado._`)
+
+      const usuario = safeString(base?.usuario || '').trim()
+      if (!usuario) return m.reply('❌ *Error*\n\n> _Este aporte no tiene usuario._')
+
+      const isSelf = String(usuario) === String(m.sender || '')
+      const canSeeAll = isBotOwner || isSelf || (m.isGroup && isAdmin)
+
+      const list = aportes
+        .filter((a) => String(a?.usuario || '') === String(usuario))
+        .filter((a) => (canSeeAll ? true : isAporteApproved(a)))
+        .filter((a) => {
+          if (!m.isGroup) return true
+          if (canSeeAll) return true
+          return !a?.grupo || String(a.grupo) === String(m.chat)
+        })
+        .sort((a, b) => String(b?.fecha || b?.fecha_creacion || b?.created_at || '').localeCompare(String(a?.fecha || a?.fecha_creacion || a?.created_at || '')))
+
+      const rows = buildAporteRowsFromItems(list, usedPrefix)
+      const sections = rows.length ? [{ title: '📌 Aportes', rows }] : []
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '👤 Aportes',
+        text: `*Usuario:* @${safeString(usuario).split('@')[0]}\n> _Selecciona un aporte para ver más info._`,
+        sections,
+      })
+      if (ok) return null
+
+      if (!list.length) return m.reply(`👤 *Aportes*\n\n> *Usuario:* @${safeString(usuario).split('@')[0]}\n\n🛡️ _No hay aportes para mostrar._`)
+      const lines = []
+      lines.push('👤 *Aportes*')
+      lines.push(`> *Usuario:* @${safeString(usuario).split('@')[0]}`)
+      lines.push('')
+      for (const a of list.slice(0, 10)) {
+        lines.push(`> \`\`\`#${a.id}\`\`\` ${truncateText(a.titulo || a.contenido || `Aporte #${a.id}`, 46)}`)
+      }
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}infoaporte <idAporte>\`\`\``)
+      return m.reply(lines.join('\n'))
     }
 
     case 'enviarlib': {
@@ -691,7 +1080,24 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
   }
 }
 
-handler.help = ['pedido', 'pedidos', 'mispedidos', 'verpedido', 'votarpedido', 'cancelarpedido', 'estadopedido', 'procesarpedido', 'enviarlib', 'buscaraporte', 'enviaraporte']
+handler.help = [
+  'pedido',
+  'pedidos',
+  'mispedidos',
+  'verpedido',
+  'votarpedido',
+  'cancelarpedido',
+  'estadopedido',
+  'procesarpedido',
+  'infolib',
+  'libproveedor',
+  'libtitulo',
+  'enviarlib',
+  'buscaraporte',
+  'infoaporte',
+  'aportesde',
+  'enviaraporte',
+]
 handler.tags = ['tools']
 handler.command = [
   'pedido',
@@ -706,8 +1112,13 @@ handler.command = [
   'estadopedido',
   'procesarpedido',
   'buscarpedido',
+  'infolib',
+  'libproveedor',
+  'libtitulo',
   'enviarlib',
   'buscaraporte',
+  'infoaporte',
+  'aportesde',
   'enviaraporte',
 ]
 
