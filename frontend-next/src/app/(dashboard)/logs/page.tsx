@@ -33,7 +33,8 @@ import {
   Shield,
   TrendingUp,
   Zap,
-  Bell
+  Bell,
+  Terminal as TerminalIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -51,6 +52,7 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
 import { notify } from '@/lib/notify';
+import { TerminalLogViewer } from '@/components/logs/TerminalLogViewer';
 
 interface LogEntry {
   timestamp: string;
@@ -146,7 +148,7 @@ export default function LogsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'logs' | 'system'>('logs');
+  const [activeTab, setActiveTab] = useState<'logs' | 'system' | 'terminal'>('logs');
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
@@ -613,11 +615,10 @@ export default function LogsPage() {
 
             <Button
               onClick={() => {
-                if (activeTab === 'logs') {
+                if (activeTab === 'system') loadSystemData();
+                else {
                   loadLogs();
                   loadStats();
-                } else {
-                  loadSystemData();
                 }
               }}
               variant="secondary"
@@ -641,6 +642,10 @@ export default function LogsPage() {
             <TabsTrigger value="system" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
               Monitoreo del Sistema
+            </TabsTrigger>
+            <TabsTrigger value="terminal" className="flex items-center gap-2">
+              <TerminalIcon className="w-4 h-4" />
+              Terminal
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -977,6 +982,13 @@ export default function LogsPage() {
               </AnimatePresence>
             </motion.div>
           </div>
+        </>
+      )}
+
+      {/* Terminal Tab */}
+      {activeTab === 'terminal' && (
+        <>
+          <TerminalLogViewer />
         </>
       )}
 

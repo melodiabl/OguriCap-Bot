@@ -1,0 +1,217 @@
+'use client';
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Terminal as XTerm } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
+import api from '@/services/api';
+
+type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace' | string;
+
+interface LogEntry {
+  timestamp?: string;
+  level?: LogLevel;
+  category?: string;
+  message?: string;
+  data?: any;
+}
+
+function safeString(v: any) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  return String(v);
+}
+
+function toIso(ts: any) {
+  const raw = safeString(ts).trim();
+  if (!raw) return new Date().toISOString();
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return new Date().toISOString();
+  return d.toISOString();
+}
+
+function formatLine(log: LogEntry) {
+  const ts = toIso(log.timestamp).replace('T', ' ').replace('Z', '');
+  const level = safeString(log.level || 'info').toLowerCase();
+  const category = safeString(log.category || 'system');
+  const message = safeString(log.message || '').replace(/\s+/g, ' ').trim();
+  const data =
+    log.data && typeof log.data === 'object'
+      ? safeString(JSON.stringify(log.data)).slice(0, 800)
+      : safeString(log.data || '').slice(0, 800);
+  const tail = data ? ` | ${data}` : '';
+  return `${ts} [${level}] (${category}) ${message}${tail}`;
+}
+
+function levelColor(level: string) {
+  switch (level) {
+    case 'error':
+      return '\x1b[31m';
+    case 'warn':
+    case 'warning':
+      return '\x1b[33m';
+    case 'debug':
+      return '\x1b[35m';
+    case 'trace':
+      return '\x1b[90m';
+    case 'info':
+    default:
+      return '\x1b[36m';
+  }
+}
+
+export function TerminalLogViewer() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const xtermRef = useRef<XTerm | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const { socket, isConnected } = useSocketConnection();
+
+  const [paused, setPaused] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const pendingRef = useRef<string[]>([]);
+
+  const writeLine = useCallback((line: string, level: string) => {
+    const term = xtermRef.current;
+    if (!term) return;
+    const color = levelColor(level);
+    term.writeln(`${color}${line}\x1b[0m`);
+  }, []);
+
+  const flushPending = useCallback(() => {
+    if (paused) return;
+    const pending = pendingRef.current;
+    if (!pending.length) return;
+    pendingRef.current = [];
+    for (const raw of pending) {
+      writeLine(raw, 'info');
+    }
+  }, [paused, writeLine]);
+
+  const handleLog = useCallback(
+    (raw: any) => {
+      const log: LogEntry = raw || {};
+      const level = safeString(log.level || 'info').toLowerCase();
+      const line = formatLine(log);
+      if (paused) {
+        pendingRef.current.push(line);
+        if (pendingRef.current.length > 500) pendingRef.current.shift();
+        return;
+      }
+      writeLine(line, level);
+    },
+    [paused, writeLine]
+  );
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const term = new XTerm({
+      convertEol: true,
+      cursorBlink: false,
+      fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      fontSize: 12,
+      scrollback: 3000,
+      theme: {
+        background: '#070b16',
+        foreground: '#e5e7eb',
+        cursor: '#a78bfa',
+        selectionBackground: '#334155',
+      },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(containerRef.current);
+    fit.fit();
+
+    xtermRef.current = term;
+    fitRef.current = fit;
+
+    const onResize = () => fit.fit();
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      try {
+        term.dispose();
+      } catch {}
+      xtermRef.current = null;
+      fitRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on(SOCKET_EVENTS.LOG_ENTRY, handleLog);
+    return () => {
+      socket.off(SOCKET_EVENTS.LOG_ENTRY, handleLog);
+    };
+  }, [socket, handleLog]);
+
+  const loadRecent = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getLogs({ page: 1, limit: 200 });
+      const list = Array.isArray(data?.logs) ? data.logs : Array.isArray(data?.data) ? data.data : [];
+      xtermRef.current?.writeln('\x1b[90m--- últimos 200 logs ---\x1b[0m');
+      for (const item of list) {
+        handleLog(item);
+      }
+      xtermRef.current?.writeln('\x1b[90m--- fin ---\x1b[0m');
+    } catch {
+      xtermRef.current?.writeln('\x1b[31mError cargando logs.\x1b[0m');
+    } finally {
+      setLoading(false);
+    }
+  }, [handleLog]);
+
+  const clear = useCallback(() => {
+    pendingRef.current = [];
+    xtermRef.current?.clear();
+    xtermRef.current?.writeln('\x1b[90m(clear)\x1b[0m');
+  }, []);
+
+  const connectionBadge = useMemo(() => {
+    return isConnected ? (
+      <Badge variant="success">Socket conectado</Badge>
+    ) : (
+      <Badge variant="danger">Socket desconectado</Badge>
+    );
+  }, [isConnected]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {connectionBadge}
+          {paused ? <Badge variant="warning">Pausado</Badge> : <Badge variant="info">En vivo</Badge>}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={loadRecent} disabled={loading}>
+            {loading ? 'Cargando…' : 'Cargar últimos 200'}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPaused((p) => {
+                const next = !p;
+                if (!next) setTimeout(flushPending, 0);
+                return next;
+              });
+            }}
+          >
+            {paused ? 'Reanudar' : 'Pausar'}
+          </Button>
+          <Button variant="danger" onClick={clear}>
+            Limpiar
+          </Button>
+        </div>
+      </div>
+
+      <div className="glass-card p-0 overflow-hidden border border-white/10">
+        <div ref={containerRef} className="h-[520px] w-full bg-[#070b16]" />
+      </div>
+    </div>
+  );
+}

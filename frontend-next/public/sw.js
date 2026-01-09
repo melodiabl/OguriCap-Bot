@@ -33,8 +33,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || 'Oguri Bot';
+  const rawBody = data.body || data.message || 'Nueva notificación';
+  const body = String(rawBody || '').length > 180
+    ? `${String(rawBody).slice(0, 179).trimEnd()}…`
+    : String(rawBody || '');
   const options = {
-    body: data.body || data.message || 'Nueva notificación',
+    body,
     icon: data.icon || '/bot-icon.svg',
     badge: '/bot-icon.svg',
     tag: data.tag || `notification-${Date.now()}`,

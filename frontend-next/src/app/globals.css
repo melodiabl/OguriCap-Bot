@@ -2392,6 +2392,35 @@ html[data-page="bot"] .glass-card::after {
   border-left-color: rgb(var(--accent) / 0.9);
 }
 
+.toast-content {
+  @apply w-full text-left bg-transparent border-0 p-0;
+}
+
+.toast-text {
+  @apply flex flex-col gap-1 min-w-0;
+}
+
+.toast-title {
+  @apply font-semibold text-white leading-snug truncate;
+}
+
+.toast-message {
+  @apply text-sm text-gray-200 leading-snug;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.toast-meta {
+  @apply text-[11px] text-gray-400 uppercase tracking-wide;
+}
+
+.toast-custom {
+  max-width: min(520px, 92vw);
+}
+
 /* Ripple effect */
 .ripple {
   position: relative;

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import '@xterm/xterm/css/xterm.css';
 import { Providers } from './providers';
 import { RouteProgress } from '@/components/ui/RouteProgress';
 

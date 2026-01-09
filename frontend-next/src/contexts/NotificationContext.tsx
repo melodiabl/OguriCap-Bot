@@ -59,6 +59,48 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
+function clampNotificationText(input: string, max = 220) {
+  const s = String(input || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  if (s.length <= max) return s;
+  return `${s.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+function formatNotificationTitle(notification: Notification) {
+  return clampNotificationText(notification.titulo || 'Notificación', 80) || 'Notificación';
+}
+
+function formatNotificationBody(notification: Notification) {
+  return clampNotificationText(notification.mensaje || '', 180);
+}
+
+function NotificationToastContent({
+  notification,
+  onClick,
+}: {
+  notification: Notification;
+  onClick?: () => void;
+}) {
+  const title = formatNotificationTitle(notification);
+  const body = formatNotificationBody(notification);
+  const meta = clampNotificationText(notification.categoria || 'general', 36);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="toast-content"
+      aria-label="Abrir notificación"
+    >
+      <div className="toast-text">
+        <div className="toast-title">{title}</div>
+        {body ? <div className="toast-message">{body}</div> : null}
+        <div className="toast-meta">{meta}</div>
+      </div>
+    </button>
+  );
+}
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -194,23 +236,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // Show toast if enabled
       if (settings.enabled) {
+        const toastClass =
+          notification.tipo === 'error'
+            ? 'toast-custom toast-error'
+            : notification.tipo === 'success'
+              ? 'toast-custom toast-success'
+              : notification.tipo === 'warning'
+                ? 'toast-custom toast-warning'
+                : 'toast-custom toast-info';
+
         const toastOptions: any = {
-          duration: 5000,
+          duration: notification.tipo === 'error' ? 7000 : 5000,
           icon: getNotificationIcon(notification.tipo),
+          className: toastClass,
         };
 
-        if (notification.tipo === 'error') {
-          toast.error(notification.titulo || notification.mensaje, toastOptions);
-        } else if (notification.tipo === 'success') {
-          toast.success(notification.titulo || notification.mensaje, toastOptions);
-        } else if (notification.tipo === 'warning') {
-          toast(notification.titulo || notification.mensaje, {
-            ...toastOptions,
-            icon: '⚠️',
-          });
-        } else {
-          toast(notification.titulo || notification.mensaje, toastOptions);
-        }
+        const onClick = () => {
+          const url = notification?.data?.url;
+          if (typeof url === 'string' && url.startsWith('/')) {
+            router.push(url);
+            return;
+          }
+          toggleOpen();
+        };
+
+        const content = <NotificationToastContent notification={notification} onClick={onClick} />;
+
+        if (notification.tipo === 'error') toast.error(content, toastOptions);
+        else if (notification.tipo === 'success') toast.success(content, toastOptions);
+        else toast(content, toastOptions);
       }
 
       // Play sound if enabled
@@ -234,11 +288,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // Show browser notification if push enabled
       if (settings.push && 'Notification' in window && Notification.permission === 'granted') {
         try {
-          new Notification(notification.titulo || 'Oguri Bot', {
-            body: notification.mensaje,
+          const title = formatNotificationTitle(notification);
+          const body = formatNotificationBody(notification);
+          new Notification(title, {
+            body,
             icon: '/bot-icon.svg',
             tag: `notification-${notification.id}`,
             requireInteraction: notification.tipo === 'error',
+            data: { url: notification?.data?.url || '/' },
           });
         } catch {
         }
@@ -252,7 +309,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
       socket.off('notification:created', handleNotification);
     };
-  }, [socket, shouldShowNotification, settings, preferences]);
+  }, [socket, shouldShowNotification, settings, preferences, router, toggleOpen]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {
@@ -336,11 +393,11 @@ export function useNotifications() {
 
 function getNotificationIcon(tipo: string): string {
   const icons: Record<string, string> = {
-    info: 'ℹ️',
-    success: '✅',
-    warning: '⚠️',
-    error: '❌',
-    system: '🔔',
+    info: '\u2139\uFE0F',
+    success: '\u2705',
+    warning: '\u26A0\uFE0F',
+    error: '\u274C',
+    system: '\uD83D\uDEE1\uFE0F',
   };
-  return icons[tipo] || '🔔';
+  return icons[tipo] || '\u2139\uFE0F';
 }
