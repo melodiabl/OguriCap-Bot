@@ -329,9 +329,15 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
           // Usar código fijo del panel si está configurado
           let codeBot
           const panelConfig = global.db?.data?.panel?.whatsapp
-          if (panelConfig?.pairingCode && panelConfig.pairingCode !== 'null') {
+          const configuredKeyRaw = panelConfig?.pairKey || panelConfig?.pairingKey || panelConfig?.customPairKey || null
+          const legacyKeyRaw = panelConfig?.pairingCode || null
+          const legacyLooksCustom = typeof legacyKeyRaw === 'string' && /[A-Z]/i.test(legacyKeyRaw)
+          const effectivePairKeyRaw = configuredKeyRaw || (legacyLooksCustom ? legacyKeyRaw : null)
+          const effectivePairKey = effectivePairKeyRaw ? String(effectivePairKeyRaw).toUpperCase().replace(/[^A-Z0-9]/g, '') : null
+
+          if (effectivePairKey && effectivePairKey !== 'NULL') {
             // Usar código fijo del panel - pasar como segundo parámetro
-            codeBot = await conn.requestPairingCode(addNumber, panelConfig.pairingCode)
+            codeBot = await conn.requestPairingCode(addNumber)
             console.log(chalk.cyan('[ ✿ ] Usando código fijo del panel'))
           } else {
             // Generar código aleatorio como fallback

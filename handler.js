@@ -212,10 +212,10 @@ export async function handler(chatUpdate) {
       }, time)
     }
 
-    if (m.isBaileys) return
-    global.panelApiLastSeen = new Date().toISOString()
-    m.exp += Math.ceil(Math.random() * 10)
-    let usedPrefix
+global.panelApiLastSeen = new Date().toISOString()
+m.exp += Math.ceil(Math.random() * 10)
+let usedPrefix
+const isBaileysMessage = m.isBaileys === true
 
     // Optimized: Single groupMetadata call with caching
     let groupMetadata = {}
@@ -242,12 +242,15 @@ export async function handler(chatUpdate) {
     }
 
     const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), "./plugins")
-    for (const name in global.plugins) {
-      const plugin = global.plugins[name]
-      if (!plugin) continue
-      if (plugin.disabled) continue
-      const __filename = join(___dirname, name)
-      if (typeof plugin.all === "function") {
+for (const name in global.plugins) {
+const plugin = global.plugins[name]
+if (!plugin) continue
+if (plugin.disabled) continue
+// Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
+// pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
+if (isBaileysMessage && name !== '_antibots.js') continue
+const __filename = join(___dirname, name)
+if (typeof plugin.all === "function") {
         try {
           await plugin.all.call(this, m, {
             chatUpdate,
