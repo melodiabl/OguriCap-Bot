@@ -597,7 +597,7 @@ class ApiService {
     const response = await this.api.post(`/api/chat/sessions/${sessionId}/messages`, {
       message: data.message,
       model: data.model || 'gpt-3.5-turbo'
-    });
+    }, { timeout: 45000 });
     return response.data;
   }
 

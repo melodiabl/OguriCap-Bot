@@ -2369,7 +2369,7 @@ html[data-page="bot"] .glass-card::after {
 
 /* Toast notifications */
 .toast-custom {
-  @apply glass-card px-6 py-4 flex items-center gap-4 border-l-4 animate-slide-in-right;
+  @apply glass-card px-6 py-4 flex items-center gap-4 border-l-4 animate-slide-in-right text-foreground;
 }
 
 .toast-success {
@@ -2401,11 +2401,11 @@ html[data-page="bot"] .glass-card::after {
 }
 
 .toast-title {
-  @apply font-semibold text-white leading-snug truncate;
+  @apply font-semibold text-foreground leading-snug truncate;
 }
 
 .toast-message {
-  @apply text-sm text-gray-200 leading-snug;
+  @apply text-sm text-foreground/80 leading-snug;
   word-break: break-word;
   overflow: hidden;
   display: -webkit-box;
@@ -2414,7 +2414,7 @@ html[data-page="bot"] .glass-card::after {
 }
 
 .toast-meta {
-  @apply text-[11px] text-gray-400 uppercase tracking-wide;
+  @apply text-[11px] text-muted uppercase tracking-wide;
 }
 
 .toast-custom {
