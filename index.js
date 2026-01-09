@@ -230,7 +230,7 @@ if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.j
   }
 }
 
-console.info = () => {}
+
 
 // ============================================
 // OPCIONES DE CONEXIÓN - OPTIMIZADAS
@@ -503,9 +503,9 @@ function installPanelConsoleCapture() {
     return false
   }
 
-  const capture = (method, nivel, callOriginal) => (...args) => {
+  const capture = (method, nivel) => (...args) => {
     try {
-      if (callOriginal && typeof original[method] === 'function') original[method](...args)
+      if (typeof original[method] === 'function') original[method](...args)
       if (shouldDrop()) return
 
       pushPanelLog({
@@ -516,17 +516,16 @@ function installPanelConsoleCapture() {
       })
     } catch {
       try {
-        if (callOriginal && typeof original[method] === 'function') original[method](...args)
+        if (typeof original[method] === 'function') original[method](...args)
       } catch {}
     }
   }
 
-  console.log = capture('log', 'info', true)
-  console.warn = capture('warn', 'warn', true)
-  console.error = capture('error', 'error', true)
-  // Mantener console.info silenciado en la terminal, pero capturado para el panel
-  console.info = capture('info', 'info', false)
-  console.debug = capture('debug', 'debug', false)
+  console.log = capture('log', 'info')
+  console.warn = capture('warn', 'warn')
+  console.error = capture('error', 'error')
+  console.info = capture('info', 'info')
+  console.debug = capture('debug', 'debug')
 }
 
 installPanelConsoleCapture()
