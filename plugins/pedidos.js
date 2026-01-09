@@ -425,10 +425,31 @@ const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
   if (!connCanSendList(conn)) return false
   if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
   try {
-    await conn.sendList(m.chat, title, text, 'Ver opciones', sections, m)
+    const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+    await Promise.race([
+      conn.sendList(m.chat, title, text, 'Ver opciones', sections, m),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('sendList timeout')), timeoutMs)),
+    ])
     return true
   } catch (err) {
     console.error('sendList failed:', err)
+    return false
+  }
+}
+
+const trySendTemplateResponse = async (m, conn, { text, footer, buttons }) => {
+  try {
+    if (typeof conn?.sendHydrated !== 'function') return false
+    const safeButtons = Array.isArray(buttons) ? buttons.filter((b) => Array.isArray(b) && b[0] && b[1]).slice(0, 3) : []
+    if (!safeButtons.length) return false
+    const timeoutMs = clampInt(process.env.WA_TEMPLATE_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+    await Promise.race([
+      conn.sendHydrated(m.chat, String(text || ''), String(footer || ''), null, null, null, null, null, safeButtons, m),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('sendHydrated timeout')), timeoutMs)),
+    ])
+    return true
+  } catch (err) {
+    console.error('sendHydrated failed:', err)
     return false
   }
 }
@@ -629,17 +650,21 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         fecha_actualizacion: now,
       }
 
-      const aiEnhanced = await aiEnhancePedido({
-        titulo,
-        descripcion,
-        proveedor: proveedorJid ? { jid: proveedorJid, tipo: safeString(panel?.proveedores?.[proveedorJid]?.tipo || '') } : { tipo: '' },
-      })
-      if (aiEnhanced) {
-        pedido.ai = aiEnhanced.ai || null
-        if (aiEnhanced.tags?.length) pedido.tags = aiEnhanced.tags
-        if (aiEnhanced.category) pedido.categoria = aiEnhanced.category
-        if (aiEnhanced.chapter != null) pedido.capitulo = aiEnhanced.chapter
-        if (aiEnhanced.season != null) pedido.temporada = aiEnhanced.season
+      try {
+        const aiEnhanced = await aiEnhancePedido({
+          titulo,
+          descripcion,
+          proveedor: proveedorJid ? { jid: proveedorJid, tipo: safeString(panel?.proveedores?.[proveedorJid]?.tipo || '') } : { tipo: '' },
+        })
+        if (aiEnhanced) {
+          pedido.ai = aiEnhanced.ai || null
+          if (aiEnhanced.tags?.length) pedido.tags = aiEnhanced.tags
+          if (aiEnhanced.category) pedido.categoria = aiEnhanced.category
+          if (aiEnhanced.chapter != null) pedido.capitulo = aiEnhanced.chapter
+          if (aiEnhanced.season != null) pedido.temporada = aiEnhanced.season
+        }
+      } catch (e) {
+        console.error('aiEnhancePedido failed:', e)
       }
 
       panel.pedidos[id] = pedido
@@ -703,12 +728,30 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       else if (!libRows.length) bodyLines.push('> 🔎 _Sin coincidencias en biblioteca (por ahora)._')
       else if (libraryQuery?.title && normalizeText(libraryQuery.title) !== normalizeText(titulo)) bodyLines.push(`> 🔎 *Interpretado:* _${waSafeInline(libraryQuery.title)}_`)
 
+      if (m.fromMe || process.env.WA_PREFER_TEMPLATE === '1') {
+        const templateButtons = [
+          ['👁️ Ver pedido', `${usedPrefix}verpedido ${id}`],
+          ['📌 Aportes', `${usedPrefix}buscaraporte ${id}`],
+          [proveedorJid ? '🔎 Biblioteca' : '📦 Elegir proveedor', `${usedPrefix}procesarpedido ${id}`],
+        ]
+        await trySendTemplateResponse(m, conn, {
+          text: bodyLines.join('\n'),
+          footer: '🛡️ Oguri Bot',
+          buttons: templateButtons,
+        })
+        await m.reply(`✅ Pedido #${id} creado.\n\nUsa:\n${usedPrefix}verpedido ${id}`)
+        if (m.fromMe || process.env.WA_PREFER_TEMPLATE === '1') return null
+      }
+
       const ok = await trySendInteractiveList(m, conn, {
         title: 'Pedido',
         text: bodyLines.join('\n'),
         sections,
       })
-      if (ok) return null
+      if (ok) {
+        await m.reply(`✅ Pedido #${id} creado.\n\nSi no te aparece el menú, usa:\n${usedPrefix}verpedido ${id}`)
+        return null
+      }
 
       const lines = []
       lines.push(...bodyLines)
