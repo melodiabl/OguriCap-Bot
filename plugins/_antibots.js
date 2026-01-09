@@ -56,24 +56,34 @@ handler.before = async function (m, { conn, isBotAdmin, isAdmin, isOwner, partic
   if (isAdmin || isOwner) return
 
   // Bot principal
-  if (areJidsSameUser(conn.user.jid, sender)) return
+  if (areJidsSameUser(conn.user.jid, sender)) return true
 
   // Subbots conectados
   if (global.conns?.some(sock =>
     sock?.user?.jid && areJidsSameUser(sock.user.jid, sender)
-  )) return
+  )) return true
+
+  // Padres de SubBots (subbot creado por WhatsApp desde este sistema)
+  if (global.conns?.some(sock =>
+    sock?.parentJid && areJidsSameUser(sock.parentJid, sender)
+  )) return true
 
   // Subbots registrados en panel (offline)
   const panelSubs = global?.db?.data?.panel?.subbots
   if (panelSubs) {
     for (const sb of Object.values(panelSubs)) {
-      const jid = `${String(sb.numero).replace(/\D/g, '')}@s.whatsapp.net`
-      if (areJidsSameUser(jid, sender)) return
+      const num = sb?.numero ?? sb?.phoneNumber ?? sb?.phone_number
+      if (!num) continue
+      const jid = `${String(num).replace(/\D/g, '')}@s.whatsapp.net`
+      if (areJidsSameUser(jid, sender)) return true
     }
   }
 
+  // Si no pudimos resolver @lid a JID real, evitamos expulsar por falso positivo
+  if (typeof sender === 'string' && sender.endsWith('@lid')) return true
+
   // ───── ACCIÓN
-  if (!isBotAdmin) return
+  if (!isBotAdmin) return true
 
   try {
     await conn.sendMessage(m.chat, { delete: m.key })
@@ -82,6 +92,9 @@ handler.before = async function (m, { conn, isBotAdmin, isAdmin, isOwner, partic
   } catch (e) {
     console.log('[ANTIBOT] Error:', e.message)
   }
+
+  // Marcar como procesado para que el handler general no ejecute otros plugins
+  return true
 }
 
 handler.help = ['antibot']
@@ -91,4 +104,5 @@ handler.admin = true
 handler.botAdmin = true
 
 export default handler
+
 
