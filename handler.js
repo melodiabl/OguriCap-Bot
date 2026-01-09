@@ -84,6 +84,7 @@ export async function handler(chatUpdate) {
         if (!("detect" in chat)) chat.detect = true
         if (!("primaryBot" in chat)) chat.primaryBot = null
         if (!("modoadmin" in chat)) chat.modoadmin = false
+        if (!("antiBot" in chat)) chat.antiBot = false
         // Compatibilidad: algunas versiones guardaron "antilink" (minúsculas)
         if (!("antiLink" in chat)) {
           if ("antilink" in chat) chat.antiLink = Boolean(chat.antilink)
@@ -102,6 +103,7 @@ export async function handler(chatUpdate) {
         detect: true,
         primaryBot: null,
         modoadmin: false,
+        antiBot: false,
         antiLink: true,
         antilink: true,
         nsfw: false,
@@ -212,10 +214,10 @@ export async function handler(chatUpdate) {
       }, time)
     }
 
-global.panelApiLastSeen = new Date().toISOString()
-m.exp += Math.ceil(Math.random() * 10)
-let usedPrefix
-const isBaileysMessage = m.isBaileys === true
+    global.panelApiLastSeen = new Date().toISOString()
+    m.exp += Math.ceil(Math.random() * 10)
+    let usedPrefix
+    const isBaileysMessage = m.isBaileys === true
 
     // Optimized: Single groupMetadata call with caching
     let groupMetadata = {}
@@ -242,15 +244,21 @@ const isBaileysMessage = m.isBaileys === true
     }
 
     const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), "./plugins")
-for (const name in global.plugins) {
-const plugin = global.plugins[name]
-if (!plugin) continue
-if (plugin.disabled) continue
-// Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
-// pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
-if (isBaileysMessage && name !== '_antibots.js') continue
-const __filename = join(___dirname, name)
-if (typeof plugin.all === "function") {
+
+    // Variable para controlar si el antibot procesó el mensaje
+    let antibotProcessed = false
+
+    for (const name in global.plugins) {
+      const plugin = global.plugins[name]
+      if (!plugin) continue
+      if (plugin.disabled) continue
+
+      // Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
+      // pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
+      if (isBaileysMessage && name !== '_antibots.js') continue
+
+      const __filename = join(___dirname, name)
+      if (typeof plugin.all === "function") {
         try {
           await plugin.all.call(this, m, {
             chatUpdate,
@@ -279,29 +287,42 @@ if (typeof plugin.all === "function") {
           }) : typeof pluginPrefix === "string" ?
             [[new RegExp(strRegex(pluginPrefix)).exec(m.text), new RegExp(strRegex(pluginPrefix))]] :
             [[[], new RegExp]]).find(prefix => prefix[1])
+
+      // EJECUTAR plugin.before (aquí se ejecuta el antibot)
       if (typeof plugin.before === "function") {
-        if (await plugin.before.call(this, m, {
-          match,
-          conn: this,
-          participants,
-          groupMetadata,
-          userGroup,
-          botGroup,
-          isROwner,
-          isOwner,
-          isRAdmin,
-          isAdmin,
-          isBotAdmin,
-          isPrems,
-          chatUpdate,
-          __dirname: ___dirname,
-          __filename,
-          user,
-          chat,
-          settings
-        }))
-          continue
+        try {
+          const beforeResult = await plugin.before.call(this, m, {
+            match,
+            conn: this,
+            participants,
+            groupMetadata,
+            userGroup,
+            botGroup,
+            isROwner,
+            isOwner,
+            isRAdmin,
+            isAdmin,
+            isBotAdmin,
+            isPrems,
+            chatUpdate,
+            __dirname: ___dirname,
+            __filename,
+            user,
+            chat,
+            settings
+          })
+
+          // Si el antibot procesó el mensaje, marcar y continuar
+          if (name === '_antibots.js' && beforeResult) {
+            antibotProcessed = true
+          }
+
+          if (beforeResult) continue
+        } catch (err) {
+          console.error(err)
+        }
       }
+
       if (typeof plugin !== "function") {
         continue
       }
@@ -323,7 +344,22 @@ if (typeof plugin.all === "function") {
         global.comando = command
 
         if (!isOwners && settings.self) return
-        if ((m.id.startsWith("NJX-") || (m.id.startsWith("BAE5") && m.id.length === 16) || (m.id.startsWith("B24E") && m.id.length === 20))) return
+
+        // MOVIDO: Ahora solo bloquea después de que el antibot haya tenido oportunidad de procesar
+        // Si el antibot ya procesó este mensaje (lo detectó y eliminó), no ejecutar comandos
+        if (antibotProcessed) {
+          console.log('[HANDLER] Mensaje procesado por antibot, ignorando comandos')
+          return
+        }
+
+        // Bloquear comandos de mensajes con IDs de bots conocidos
+        // PERO solo si el antibot NO está activo en este chat
+        if (!chat?.antiBot) {
+          if ((m.id.startsWith("NJX-") || (m.id.startsWith("BAE5") && m.id.length === 16) || (m.id.startsWith("B24E") && m.id.length === 20))) {
+            console.log('[HANDLER] Mensaje de bot detectado (antibot desactivado), ignorando')
+            return
+          }
+        }
 
         if (global.db.data.chats[m.chat].primaryBot && global.db.data.chats[m.chat].primaryBot !== this.user.jid) {
           const primaryBotConn = global.conns.find(conn => conn.user.jid === global.db.data.chats[m.chat].primaryBot && conn.ws.socket && conn.ws.socket.readyState !== ws.CLOSED)
