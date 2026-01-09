@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Terminal as XTerm } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import type { Terminal as XTermTerminal } from '@xterm/xterm';
+import type { FitAddon as FitAddonType } from '@xterm/addon-fit';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
@@ -64,12 +64,13 @@ function levelColor(level: string) {
 
 export function TerminalLogViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const xtermRef = useRef<XTerm | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
+  const xtermRef = useRef<XTermTerminal | null>(null);
+  const fitRef = useRef<FitAddonType | null>(null);
   const { socket, isConnected } = useSocketConnection();
 
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const pendingRef = useRef<string[]>([]);
 
   const writeLine = useCallback((line: string, level: string) => {
@@ -107,34 +108,61 @@ export function TerminalLogViewer() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const term = new XTerm({
-      convertEol: true,
-      cursorBlink: false,
-      fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      fontSize: 12,
-      scrollback: 3000,
-      theme: {
-        background: '#070b16',
-        foreground: '#e5e7eb',
-        cursor: '#a78bfa',
-        selectionBackground: '#334155',
-      },
+    let disposed = false;
+    let onResize: (() => void) | null = null;
+
+    (async () => {
+      setInitError(null);
+      const [{ Terminal }, { FitAddon }] = await Promise.all([
+        import('@xterm/xterm'),
+        import('@xterm/addon-fit'),
+      ]);
+
+      if (disposed) return;
+      if (!Terminal || !FitAddon) throw new Error('xterm no se pudo inicializar');
+
+      const term = new Terminal({
+        convertEol: true,
+        cursorBlink: false,
+        fontFamily:
+          'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        fontSize: 12,
+        scrollback: 3000,
+        theme: {
+          background: '#070b16',
+          foreground: '#e5e7eb',
+          cursor: '#a78bfa',
+          selectionBackground: '#334155',
+        },
+      });
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+
+      if (!containerRef.current) throw new Error('Contenedor no disponible');
+      term.open(containerRef.current);
+      fit.fit();
+
+      xtermRef.current = term as any;
+      fitRef.current = fit as any;
+
+      onResize = () => {
+        try {
+          fit.fit();
+        } catch {}
+      };
+      window.addEventListener('resize', onResize);
+
+      term.writeln('\x1b[90m(terminal listo)\x1b[0m');
+    })().catch((err) => {
+      console.error('xterm init failed:', err);
+      setInitError(err?.message || 'Error inicializando terminal');
     });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(containerRef.current);
-    fit.fit();
-
-    xtermRef.current = term;
-    fitRef.current = fit;
-
-    const onResize = () => fit.fit();
-    window.addEventListener('resize', onResize);
 
     return () => {
-      window.removeEventListener('resize', onResize);
+      disposed = true;
+      if (onResize) window.removeEventListener('resize', onResize);
       try {
-        term.dispose();
+        xtermRef.current?.dispose();
       } catch {}
       xtermRef.current = null;
       fitRef.current = null;
@@ -210,7 +238,13 @@ export function TerminalLogViewer() {
       </div>
 
       <div className="glass-card p-0 overflow-hidden border border-white/10">
-        <div ref={containerRef} className="h-[520px] w-full bg-[#070b16]" />
+        {initError ? (
+          <div className="p-4 text-sm text-red-200">
+            Error inicializando terminal: {initError}
+          </div>
+        ) : (
+          <div ref={containerRef} className="h-[520px] w-full bg-[#070b16]" />
+        )}
       </div>
     </div>
   );
