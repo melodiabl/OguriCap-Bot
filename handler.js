@@ -29,38 +29,6 @@ export async function handler(chatUpdate) {
     m = smsg(this, m) || m
     if (!m) return
     m.exp = 0
-
-    // Compatibilidad LID: algunos usuarios llegan como `@lid` (en especial en grupos).
-    // Esto rompe permisos/lookup de usuario y hace que "el remitente" no pueda usar botones/comandos.
-    try {
-      const rawSender = typeof m.sender === 'string' ? m.sender : ''
-      if (
-        rawSender &&
-        rawSender.endsWith('@lid') &&
-        m.isGroup &&
-        typeof String.prototype.resolveLidToRealJid === 'function'
-      ) {
-        const resolved = await String.prototype.resolveLidToRealJid.call(rawSender, m.chat, this, 1, 2000)
-        if (typeof resolved === 'string' && resolved && !resolved.endsWith('@lid')) {
-          Object.defineProperty(m, 'sender', {
-            value: resolved,
-            writable: true,
-            enumerable: true,
-            configurable: true,
-          })
-          try {
-            if (m?.key && typeof m.key === 'object') {
-              if (typeof m.key.participant === 'string' && m.key.participant.endsWith('@lid')) {
-                m.key.participant = resolved
-              }
-              if (typeof m.key.remoteJid === 'string' && m.key.remoteJid.endsWith('@lid')) {
-                m.key.remoteJid = resolved
-              }
-            }
-          } catch { }
-        }
-      }
-    } catch { }
     try {
       let user = global.db.data.users[m.sender]
       if (typeof user !== "object") global.db.data.users[m.sender] = {}
@@ -250,21 +218,13 @@ export async function handler(chatUpdate) {
     m.exp += Math.ceil(Math.random() * 10)
     let usedPrefix
     const isBaileysMessage = m.isBaileys === true
-    const isInteractiveReply = (() => {
-      try {
-        const t = String(m?.mtype || '').trim()
-        if (!t) return false
-        return [
-          'buttonsResponseMessage',
-          'listResponseMessage',
-          'templateButtonReplyMessage',
-          'interactiveResponseMessage',
-          'nativeFlowResponseMessage',
-        ].includes(t)
-      } catch {
-        return false
-      }
-    })()
+    const msgType = String(m?.mtype || m?.type || (m?.message && typeof m.message === 'object' ? Object.keys(m.message)[0] : '') || '')
+    const isInteractiveReply =
+      msgType === 'templateButtonReplyMessage' ||
+      msgType === 'buttonsResponseMessage' ||
+      msgType === 'listResponseMessage' ||
+      msgType === 'interactiveResponseMessage' ||
+      msgType === 'nativeFlowResponseMessage'
 
     // Optimized: Single groupMetadata call with caching
     let groupMetadata = {}
@@ -302,14 +262,7 @@ export async function handler(chatUpdate) {
 
       // Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
       // pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
-      // Excepción: si el mensaje es `fromMe` y es una respuesta interactiva (click de botón/lista),
-      // o si `fromMe` envía un comando con prefijo, permitir procesarlo para que el remitente
-      // (mismo número del bot) pueda usar interactivos/comandos sin romper el antibot.
-      const allowFromMe =
-        m.fromMe &&
-        (isInteractiveReply || (typeof m.text === 'string' && m.text && global.prefix?.test?.(m.text)))
-
-      if (isBaileysMessage && name !== '_antibots.js' && !allowFromMe) continue
+      if (isBaileysMessage && name !== '_antibots.js' && !isInteractiveReply) continue
 
       const __filename = join(___dirname, name)
       if (typeof plugin.all === "function") {
@@ -408,7 +361,7 @@ export async function handler(chatUpdate) {
 
         // Bloquear comandos de mensajes con IDs de bots conocidos
         // PERO solo si el antibot NO está activo en este chat
-        if (!chat?.antiBot) {
+        if (!chat?.antiBot && !isInteractiveReply) {
           if ((m.id.startsWith("NJX-") || (m.id.startsWith("BAE5") && m.id.length === 16) || (m.id.startsWith("B24E") && m.id.length === 20))) {
             console.log('[HANDLER] Mensaje de bot detectado (antibot desactivado), ignorando')
             return
