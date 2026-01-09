@@ -29,6 +29,28 @@ export async function handler(chatUpdate) {
     m = smsg(this, m) || m
     if (!m) return
     m.exp = 0
+
+    // Compatibilidad LID: algunos usuarios llegan como `@lid` (en especial en grupos).
+    // Esto rompe permisos/lookup de usuario y hace que "el remitente" no pueda usar botones/comandos.
+    try {
+      const rawSender = typeof m.sender === 'string' ? m.sender : ''
+      if (
+        rawSender &&
+        rawSender.endsWith('@lid') &&
+        m.isGroup &&
+        typeof String.prototype.resolveLidToRealJid === 'function'
+      ) {
+        const resolved = await String.prototype.resolveLidToRealJid.call(rawSender, m.chat, this, 1, 2000)
+        if (typeof resolved === 'string' && resolved && !resolved.endsWith('@lid')) {
+          Object.defineProperty(m, 'sender', {
+            value: resolved,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          })
+        }
+      }
+    } catch { }
     try {
       let user = global.db.data.users[m.sender]
       if (typeof user !== "object") global.db.data.users[m.sender] = {}
