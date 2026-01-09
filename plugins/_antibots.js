@@ -40,8 +40,9 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     let isBotMessage = false
     const isLikelyBotMessageId = (messageId) => {
       if (typeof messageId !== 'string' || !messageId) return false
-      if (messageId.startsWith('BAE5') && messageId.length === 16) return true
-      if (messageId.startsWith('B24E') && messageId.length === 20) return true
+      // Algunos forks generan longitudes distintas; confiar en el prefijo.
+      if (messageId.startsWith('BAE5')) return true
+      if (messageId.startsWith('B24E')) return true
       if (/^SUKI[A-F0-9]+$/.test(messageId)) return true
       if (/^MYSTIC[A-F0-9]+$/.test(messageId)) return true
       return [
@@ -67,7 +68,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     if (!isBotMessage && isLikelyBotMessageId(m.key?.id)) isBotMessage = true
     
     // 6. Verificar si el mensaje tiene el tipo que usan los bots
-    if (m.key?.fromMe === false && m.key?.id?.length === 16 && m.key?.id?.startsWith('BAE5')) {
+    if (m.key?.fromMe === false && m.key?.id?.startsWith('BAE5')) {
       isBotMessage = true
     }
     
