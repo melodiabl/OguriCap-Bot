@@ -226,6 +226,21 @@ export async function handler(chatUpdate) {
       msgType === 'interactiveResponseMessage' ||
       msgType === 'nativeFlowResponseMessage'
 
+    if (process.env.DEBUG_INTERACTIVE === '1' && isInteractiveReply) {
+      try {
+        const keys = m?.msg && typeof m.msg === 'object' ? Object.keys(m.msg) : []
+        console.log('[INTERACTIVE]', {
+          id: m?.id,
+          fromMe: Boolean(m?.fromMe),
+          sender: m?.sender,
+          chat: m?.chat,
+          msgType,
+          text: m?.text,
+          msgKeys: keys,
+        })
+      } catch { }
+    }
+
     // Optimized: Single groupMetadata call with caching
     let groupMetadata = {}
     let participants = []
