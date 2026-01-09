@@ -40,11 +40,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
       return conn.reply(m.chat, '🔴 *Anti-Bots ya estaba desactivado.*', m)
     }
     chat.antiBot = false
-    return conn.reply(
-      m.chat,
-      `🔓 *Anti-Bots desactivado*`,
-      m
-    )
+    return conn.reply(m.chat, `🔓 *Anti-Bots desactivado*`, m)
   }
 
   return conn.reply(m.chat, `Uso correcto: *${usedPrefix + command} on* | *off*`, m)
@@ -94,25 +90,23 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     const senderJid = normalizeJid(m.sender)
     const selfJid = conn?.user?.jid
 
-    // ───────── PERMITIR BOT PADRE ─────────
+    // ───────── PERMITIR AL BOT MISMO ─────────
     if (selfJid && areJidsSameUser(selfJid, senderJid)) return
+
+    // ───────── FIX CRÍTICO: PERMITIR BOT PADRE ─────────
+    if (conn?.isSubBot && conn?.parentJid) {
+      if (areJidsSameUser(conn.parentJid, senderJid)) return
+    }
 
     // ───────── PERMITIR SUBBOTS CONECTADOS ─────────
     if (Array.isArray(global.conns)) {
       for (const sock of global.conns) {
         if (!sock?.user?.jid) continue
-
-        // subbot directo
         if (areJidsSameUser(sock.user.jid, senderJid)) return
-
-        // relación padre → hijo
-        if (sock.isSubBot && sock.parentJid) {
-          if (areJidsSameUser(sock.parentJid, senderJid)) return
-        }
       }
     }
 
-    // ───────── PERMITIR SUBBOTS DEL PANEL ─────────
+    // ───────── PERMITIR SUBBOTS REGISTRADOS EN PANEL ─────────
     try {
       const panelSubbots = global.db?.data?.panel?.subbots
       if (panelSubbots && typeof panelSubbots === 'object') {
@@ -122,7 +116,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
           if (areJidsSameUser(jid, senderJid)) return
         }
       }
-    } catch { }
+    } catch {}
 
     // ───────── BOT EXTERNO DETECTADO ─────────
 
@@ -161,7 +155,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
           participant: senderJid
         }
       })
-    } catch { }
+    } catch {}
 
     // expulsar bot
     await conn.groupParticipantsUpdate(m.chat, [senderJid], 'remove')
@@ -177,7 +171,3 @@ handler.command = ['antibot', 'antibots']
 handler.admin = true
 
 export default handler
-
-
-
-
