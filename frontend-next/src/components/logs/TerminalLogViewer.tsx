@@ -74,13 +74,12 @@ export function TerminalLogViewer() {
     (raw: any) => {
       const item: TerminalLine = raw || {};
       const stream = safeString(item.stream || 'stdout').toLowerCase();
-      const ts = toIso(item.timestamp).replace('T', ' ').replace('Z', '');
       const line = safeString(item.line ?? '').replace(/\r?\n/g, '');
       if (!line) return;
 
       const hasAnsi = /\x1b\[[0-9;]*m/.test(line);
       const prefixed = stream === 'stderr' && !hasAnsi ? `\x1b[31m${line}\x1b[0m` : line;
-      const out = hasAnsi ? prefixed : `${ts} ${prefixed}`;
+      const out = prefixed;
 
       if (paused) {
         pendingRef.current.push(out);
@@ -259,4 +258,3 @@ export function TerminalLogViewer() {
     </div>
   );
 }
-
