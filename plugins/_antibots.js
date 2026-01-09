@@ -160,7 +160,7 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
   }
 }
 
-handler.help = ['antibot']
+handler.help = ['antibots']
 handler.tags = ['group']
 handler.command = ['antibot', 'antibots']
 handler.admin = true
