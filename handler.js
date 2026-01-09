@@ -250,6 +250,21 @@ export async function handler(chatUpdate) {
     m.exp += Math.ceil(Math.random() * 10)
     let usedPrefix
     const isBaileysMessage = m.isBaileys === true
+    const isInteractiveReply = (() => {
+      try {
+        const t = String(m?.mtype || '').trim()
+        if (!t) return false
+        return [
+          'buttonsResponseMessage',
+          'listResponseMessage',
+          'templateButtonReplyMessage',
+          'interactiveResponseMessage',
+          'nativeFlowResponseMessage',
+        ].includes(t)
+      } catch {
+        return false
+      }
+    })()
 
     // Optimized: Single groupMetadata call with caching
     let groupMetadata = {}
@@ -287,7 +302,14 @@ export async function handler(chatUpdate) {
 
       // Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
       // pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
-      if (isBaileysMessage && name !== '_antibots.js') continue
+      // Excepción: si el mensaje es `fromMe` y es una respuesta interactiva (click de botón/lista),
+      // o si `fromMe` envía un comando con prefijo, permitir procesarlo para que el remitente
+      // (mismo número del bot) pueda usar interactivos/comandos sin romper el antibot.
+      const allowFromMe =
+        m.fromMe &&
+        (isInteractiveReply || (typeof m.text === 'string' && m.text && global.prefix?.test?.(m.text)))
+
+      if (isBaileysMessage && name !== '_antibots.js' && !allowFromMe) continue
 
       const __filename = join(___dirname, name)
       if (typeof plugin.all === "function") {
