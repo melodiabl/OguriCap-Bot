@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Terminal as XTermTerminal } from '@xterm/xterm';
-import type { FitAddon as FitAddonType } from '@xterm/addon-fit';
+import type { Terminal as XTermTerminal } from 'xterm';
+import type { FitAddon as FitAddonType } from 'xterm-addon-fit';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
@@ -18,10 +18,10 @@ interface LogEntry {
   data?: any;
 }
 
-function safeString(v: any) {
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  return String(v);
+function safeString(value: any) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  return String(value);
 }
 
 function toIso(ts: any) {
@@ -73,12 +73,28 @@ export function TerminalLogViewer() {
   const [initError, setInitError] = useState<string | null>(null);
   const pendingRef = useRef<string[]>([]);
 
-  const writeLine = useCallback((line: string, level: string) => {
-    const term = xtermRef.current;
-    if (!term) return;
-    const color = levelColor(level);
-    term.writeln(`${color}${line}\x1b[0m`);
+  const fallbackLinesRef = useRef<string[]>([]);
+  const [fallbackTick, setFallbackTick] = useState(0);
+
+  const pushFallbackLine = useCallback((line: string) => {
+    const buf = fallbackLinesRef.current;
+    buf.push(line);
+    if (buf.length > 2000) buf.splice(0, buf.length - 2000);
+    setFallbackTick((n) => (n + 1) % 1_000_000);
   }, []);
+
+  const writeLine = useCallback(
+    (line: string, level: string) => {
+      const term = xtermRef.current;
+      if (!term) {
+        pushFallbackLine(line);
+        return;
+      }
+      const color = levelColor(level);
+      term.writeln(`${color}${line}\x1b[0m`);
+    },
+    [pushFallbackLine]
+  );
 
   const flushPending = useCallback(() => {
     if (paused) return;
@@ -114,8 +130,8 @@ export function TerminalLogViewer() {
     (async () => {
       setInitError(null);
       const [{ Terminal }, { FitAddon }] = await Promise.all([
-        import('@xterm/xterm'),
-        import('@xterm/addon-fit'),
+        import('xterm'),
+        import('xterm-addon-fit'),
       ]);
 
       if (disposed) return;
@@ -153,6 +169,16 @@ export function TerminalLogViewer() {
       window.addEventListener('resize', onResize);
 
       term.writeln('\x1b[90m(terminal listo)\x1b[0m');
+
+      const buffered = fallbackLinesRef.current;
+      if (buffered.length) {
+        term.writeln('\x1b[90m(reproduciendo logs en cola…)\x1b[0m');
+        for (const line of buffered) {
+          term.writeln(`\x1b[36m${line}\x1b[0m`);
+        }
+        fallbackLinesRef.current = [];
+        setFallbackTick((n) => (n + 1) % 1_000_000);
+      }
     })().catch((err) => {
       console.error('xterm init failed:', err);
       setInitError(err?.message || 'Error inicializando terminal');
@@ -182,23 +208,27 @@ export function TerminalLogViewer() {
     try {
       const data = await api.getLogs({ page: 1, limit: 200 });
       const list = Array.isArray(data?.logs) ? data.logs : Array.isArray(data?.data) ? data.data : [];
-      xtermRef.current?.writeln('\x1b[90m--- últimos 200 logs ---\x1b[0m');
+      writeLine('--- últimos 200 logs ---', 'trace');
       for (const item of list) {
         handleLog(item);
       }
-      xtermRef.current?.writeln('\x1b[90m--- fin ---\x1b[0m');
+      writeLine('--- fin ---', 'trace');
     } catch {
-      xtermRef.current?.writeln('\x1b[31mError cargando logs.\x1b[0m');
+      writeLine('Error cargando logs.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [handleLog]);
+  }, [handleLog, writeLine]);
 
   const clear = useCallback(() => {
     pendingRef.current = [];
-    xtermRef.current?.clear();
-    xtermRef.current?.writeln('\x1b[90m(clear)\x1b[0m');
-  }, []);
+    try {
+      xtermRef.current?.clear();
+    } catch {}
+    fallbackLinesRef.current = [];
+    setFallbackTick((n) => (n + 1) % 1_000_000);
+    writeLine('(clear)', 'trace');
+  }, [writeLine]);
 
   const connectionBadge = useMemo(() => {
     return isConnected ? (
@@ -240,12 +270,22 @@ export function TerminalLogViewer() {
       <div className="glass-card p-0 overflow-hidden border border-white/10">
         {initError ? (
           <div className="p-4 text-sm text-red-200">
-            Error inicializando terminal: {initError}
+            <div className="font-semibold">Error inicializando terminal</div>
+            <div className="mt-1">{initError}</div>
+            <div className="mt-3 rounded-md bg-black/30 p-3 text-xs text-white/80">
+              <div className="mb-2 font-semibold text-white/90">Salida (modo simple)</div>
+              <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words font-mono">
+                {fallbackLinesRef.current.join('\n')}
+              </pre>
+            </div>
           </div>
         ) : (
           <div ref={containerRef} className="h-[520px] w-full bg-[#070b16]" />
         )}
       </div>
+
+      {/* re-render trigger for the simple fallback */}
+      <span className="hidden">{fallbackTick}</span>
     </div>
   );
 }
