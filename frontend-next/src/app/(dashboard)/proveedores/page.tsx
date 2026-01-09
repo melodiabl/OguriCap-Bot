@@ -95,14 +95,22 @@ export default function ProveedoresPage() {
     }
   };
 
-  const loadAvailableGroups = async () => {
+  const loadAvailableGroups = async (opts?: { sync?: boolean }) => {
     try {
       setLoadingGroups(true);
+      if (opts?.sync) {
+        try {
+          await api.syncWhatsAppGroups();
+        } catch (err) {
+          console.error('Error syncing WhatsApp groups', err);
+        }
+      }
       const data = await api.getAvailableGrupos();
       const groups = Array.isArray(data) ? data : (data?.grupos || []);
       setAvailableGroups(groups);
     } catch (err) {
-      console.error('Error loading available groups');
+      console.error('Error loading available groups', err);
+      toast.error('No pude cargar la lista de grupos (revisá sesión/token del panel).');
     } finally {
       setLoadingGroups(false);
     }
@@ -440,7 +448,7 @@ export default function ProveedoresPage() {
             <div className="flex items-center justify-between mb-1">
               <label className="text-sm text-gray-400">Grupo de WhatsApp *</label>
               <button 
-                onClick={loadAvailableGroups}
+                onClick={() => loadAvailableGroups({ sync: true })}
                 disabled={loadingGroups}
                 className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
                 title="Refrescar lista de grupos"
@@ -468,7 +476,16 @@ export default function ProveedoresPage() {
               />
             )}
             {availableGroups.length === 0 && !loadingGroups && (
-              <p className="text-xs text-gray-500 mt-1">No hay grupos disponibles. Asegúrate de que el bot esté conectado a grupos.</p>
+              <div className="text-xs text-gray-500 mt-2 space-y-2">
+                <p>No hay grupos disponibles. Asegúrate de que el bot esté conectado a grupos.</p>
+                <button
+                  type="button"
+                  onClick={() => loadAvailableGroups({ sync: true })}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors underline"
+                >
+                  Sincronizar grupos ahora
+                </button>
+              </div>
             )}
           </div>
           <div>
