@@ -48,6 +48,16 @@ export async function handler(chatUpdate) {
             enumerable: true,
             configurable: true,
           })
+          try {
+            if (m?.key && typeof m.key === 'object') {
+              if (typeof m.key.participant === 'string' && m.key.participant.endsWith('@lid')) {
+                m.key.participant = resolved
+              }
+              if (typeof m.key.remoteJid === 'string' && m.key.remoteJid.endsWith('@lid')) {
+                m.key.remoteJid = resolved
+              }
+            }
+          } catch { }
         }
       }
     } catch { }
