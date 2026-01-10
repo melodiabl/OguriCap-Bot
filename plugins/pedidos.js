@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { classifyProviderLibraryContent } from '../lib/provider-content-classifier.js'
-import { generatePedidoSummaryPdf } from '../lib/pedido-pdf.js'
+import { generatePedidoPDF } from '../lib/pedido-pdf.js'
 
 const safeString = (v) => (v == null ? '' : typeof v === 'string' ? v : String(v))
 
@@ -31,6 +31,197 @@ const normalizeChapter = (value) => {
   const n = Number(m[1])
   if (!Number.isFinite(n) || n <= 0) return null
   return String(n)
+}
+
+const parsePedido = (rawInput) => {
+  const raw = safeString(rawInput).trim()
+  if (!raw) return { ok: false, error: 'Pedido vacío' }
+
+  const parts = raw.split('|').map((s) => safeString(s).trim()).filter(Boolean)
+  const hasPipes = raw.includes('|') && parts.length >= 2
+
+  let title = hasPipes ? (parts[0] || '') : raw
+  let season = null
+  let chapterFrom = null
+  let chapterTo = null
+  let prioridad = null
+  const extra = []
+
+  const parseSeasonFromText = (text) => {
+    const t = safeString(text)
+    const m = t.match(/\b(?:temporada|temp(?:orada)?|season|s|t)\s*0*(\d{1,2})\b/i)
+    return m ? normalizeSeason(m[1]) : null
+  }
+
+  const parseChaptersFromText = (text) => {
+    const t = safeString(text)
+    const range = t.match(/\b(?:cap(?:itulo)?s?|ch(?:apter)?s?)\s*0*(\d{1,4})\s*(?:-|–|a)\s*0*(\d{1,4})\b/i)
+    if (range) {
+      const a = normalizeChapter(range[1])
+      const b = normalizeChapter(range[2])
+      if (a && b) return { from: a, to: b }
+    }
+    const single = t.match(/\b(?:cap(?:itulo)?|ch(?:apter)?|cap|ch)\s*0*(\d{1,4})\b/i)
+    if (single) {
+      const n = normalizeChapter(single[1])
+      if (n) return { from: n, to: n }
+    }
+    return null
+  }
+
+  const parsePriority = (text) => {
+    const v = safeString(text).toLowerCase().trim()
+    if (v === 'alta' || v === 'media' || v === 'baja') return v
+    return null
+  }
+
+  if (hasPipes) {
+    const rest = parts.slice(1)
+    for (const seg of rest) {
+      const p = parsePriority(seg)
+      if (p) {
+        prioridad = p
+        continue
+      }
+      const s = parseSeasonFromText(seg)
+      if (s) season = s
+      const ch = parseChaptersFromText(seg)
+      if (ch) {
+        chapterFrom = ch.from
+        chapterTo = ch.to
+      }
+      if (!s && !ch) extra.push(seg)
+    }
+  } else {
+    const s = parseSeasonFromText(raw)
+    if (s) season = s
+    const ch = parseChaptersFromText(raw)
+    if (ch) {
+      chapterFrom = ch.from
+      chapterTo = ch.to
+      // intentar recortar el título removiendo la parte del capítulo/temporada
+      title = raw
+        .replace(/\b(?:temporada|temp(?:orada)?|season|s|t)\s*0*\d{1,2}\b/gi, ' ')
+        .replace(/\b(?:cap(?:itulo)?s?|ch(?:apter)?s?|cap|ch)\b[^0-9]*(\d{1,4})(\s*(?:-|–|a)\s*\d{1,4})?/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    }
+  }
+
+  title = safeString(title).trim()
+  if (!title) return { ok: false, error: 'Falta el título' }
+  if (!chapterFrom) {
+    return {
+      ok: false,
+      error:
+        'El capítulo es obligatorio.\n\n' +
+        `Ejemplos:\n` +
+        `- Solo Leveling | Capítulo 1\n` +
+        `- Solo Leveling | Capítulos 1-50\n` +
+        `- Attack on Titan | Temporada 2 | Capítulo 3`,
+    }
+  }
+
+  const fromN = Number(chapterFrom)
+  const toN = Number(chapterTo || chapterFrom)
+  if (Number.isFinite(fromN) && Number.isFinite(toN) && toN < fromN) {
+    chapterFrom = String(toN)
+    chapterTo = String(fromN)
+  }
+
+  const descripcion = extra.length ? extra.join(' | ').trim() : ''
+  return {
+    ok: true,
+    title,
+    season,
+    chapterFrom,
+    chapterTo: chapterTo || chapterFrom,
+    isRange: String(chapterTo || chapterFrom) !== String(chapterFrom),
+    prioridad,
+    descripcion,
+  }
+}
+
+const extractLibChapterRange = (item) => {
+  const text = `${safeString(item?.title || '')} ${safeString(item?.originalName || '')}`.trim()
+  const m = text.match(/\b(\d{1,4})\s*[-–]\s*(\d{1,4})\b/)
+  if (!m) return null
+  const a = normalizeChapter(m[1])
+  const b = normalizeChapter(m[2])
+  if (!a || !b) return null
+  const fromN = Number(a), toN = Number(b)
+  if (!Number.isFinite(fromN) || !Number.isFinite(toN)) return null
+  return fromN <= toN ? { from: a, to: b } : { from: b, to: a }
+}
+
+const searchExactMatch = ({ panel, proveedorJid, pedidoParsed, limit = 10, allowGlobal = false } = {}) => {
+  const list = Object.values(panel?.contentLibrary || {})
+    .filter((it) => it && it.id)
+    .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
+
+  const qTitleNorm = normalizeText(pedidoParsed?.title || '')
+  const qSeason = pedidoParsed?.season ? String(pedidoParsed.season) : null
+  const qFrom = Number(pedidoParsed?.chapterFrom)
+  const qTo = Number(pedidoParsed?.chapterTo ?? pedidoParsed?.chapterFrom)
+  const isRange = Boolean(pedidoParsed?.isRange)
+
+  const out = []
+  for (const it of list) {
+    const itTitle = safeString(it?.title || it?.originalName || '')
+    const itNorm = normalizeText(itTitle)
+    if (!itNorm) continue
+
+    const exactTitle = itNorm === qTitleNorm
+    const looseTitle = exactTitle || (qTitleNorm && (itNorm.includes(qTitleNorm) || qTitleNorm.includes(itNorm)))
+    if (!looseTitle) continue
+
+    const itSeason = it?.season != null ? normalizeSeason(it.season) : normalizeSeason(itTitle)
+    if (qSeason && String(itSeason || '') !== String(qSeason)) continue
+
+    const itChapter = it?.chapter != null ? normalizeChapter(it.chapter) : normalizeChapter(itTitle)
+    const itRange = extractLibChapterRange(it)
+
+    let chapterOk = false
+    let score = 0
+    if (!isRange) {
+      const q = String(pedidoParsed.chapterFrom)
+      if (itChapter && String(itChapter) === q) {
+        chapterOk = true
+        score = exactTitle ? 100 : 86
+      } else if (itRange && Number(q) >= Number(itRange.from) && Number(q) <= Number(itRange.to)) {
+        chapterOk = true
+        score = exactTitle ? 96 : 82
+      }
+    } else {
+      if (itRange) {
+        const fromOk = Number(itRange.from) <= qFrom
+        const toOk = Number(itRange.to) >= qTo
+        if (fromOk && toOk) {
+          chapterOk = true
+          score = exactTitle ? 100 : 88
+        }
+      } else if (itChapter) {
+        const n = Number(itChapter)
+        if (Number.isFinite(n) && n >= qFrom && n <= qTo) {
+          chapterOk = true
+          score = exactTitle ? 92 : 78
+        }
+      }
+    }
+
+    if (!chapterOk) continue
+    if (!allowGlobal && !proveedorJid && it?.proveedorJid) {
+      // si no hay proveedor asignado, no mezclar bibliotecas de otros proveedores en grupos
+      // (en privados se permite el caller decidir allowGlobal)
+    }
+
+    // bonus por temporada si aplica
+    if (qSeason && itSeason && String(itSeason) === String(qSeason)) score += 4
+    out.push({ it, score })
+  }
+
+  out.sort((a, b) => b.score - a.score)
+  return out.slice(0, limit)
 }
 
 const truncateText = (v, max = 140) => {
@@ -107,6 +298,10 @@ const estadoEmoji = {
 }
 
 const formatPedido = (pedido, index) => {
+  const capFrom = safeString(pedido?.capitulo_desde || pedido?.capitulo || '').trim()
+  const capTo = safeString(pedido?.capitulo_hasta || '').trim()
+  const capTxt = capFrom ? (capTo && capTo !== capFrom ? `${capFrom}-${capTo}` : capFrom) : ''
+  const tempTxt = safeString(pedido?.temporada || '').trim()
   const lines = [
     `${index}. ${waSafeInline(pedido?.titulo || 'Sin título')}`,
     `   ${prioridadEmoji[pedido?.prioridad] || '⚪'} Prioridad: ${waSafeInline(pedido?.prioridad || 'media')}`,
@@ -512,9 +707,15 @@ const scoreAporte = (aporte, queryTokensSet, pedidoMeta = null) => {
   const iSeason = aporte?.temporada != null ? String(aporte.temporada).trim() : ''
   if (qSeason && iSeason && qSeason === iSeason) score += 14
 
-  const qChapter = pedidoMeta?.capitulo != null ? String(pedidoMeta.capitulo).trim() : ''
+  const qFrom = pedidoMeta?.capitulo_desde != null ? String(pedidoMeta.capitulo_desde).trim() : (pedidoMeta?.capitulo != null ? String(pedidoMeta.capitulo).trim() : '')
+  const qTo = pedidoMeta?.capitulo_hasta != null ? String(pedidoMeta.capitulo_hasta).trim() : qFrom
   const iChapter = aporte?.capitulo != null ? String(aporte.capitulo).trim() : ''
-  if (qChapter && iChapter && qChapter === iChapter) score += 18
+  if (qFrom && iChapter) {
+    const qf = Number(normalizeChapter(qFrom) || '')
+    const qt = Number(normalizeChapter(qTo) || '')
+    const ic = Number(normalizeChapter(iChapter) || '')
+    if (Number.isFinite(qf) && Number.isFinite(qt) && Number.isFinite(ic) && ic >= Math.min(qf, qt) && ic <= Math.max(qf, qt)) score += 18
+  }
 
   return score
 }
@@ -549,6 +750,53 @@ const searchAportesForPedido = (
   }
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, limit)
+}
+
+const searchExactMatchAportes = (pedidoParsed, { limit = 10, allowPendingUserJid = null, allowPendingGroupJid = null, includePending = false } = {}) => {
+  const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+  const qTitleNorm = normalizeText(pedidoParsed?.title || '')
+  const qSeason = pedidoParsed?.season ? String(pedidoParsed.season) : null
+  const qFrom = Number(pedidoParsed?.chapterFrom)
+  const qTo = Number(pedidoParsed?.chapterTo ?? pedidoParsed?.chapterFrom)
+  const isRange = Boolean(pedidoParsed?.isRange)
+
+  const out = []
+  for (const aporte of aportes) {
+    if (!aporte) continue
+    if (!isAporteApproved(aporte)) {
+      const allowPending =
+        includePending ||
+        (allowPendingUserJid && String(aporte?.usuario || '') === String(allowPendingUserJid)) ||
+        (allowPendingGroupJid && String(aporte?.grupo || '') === String(allowPendingGroupJid))
+      if (!allowPending) continue
+    }
+
+    const aTitleNorm = normalizeText(aporte?.titulo || '')
+    if (!aTitleNorm || !qTitleNorm) continue
+    const exactTitle = aTitleNorm === qTitleNorm
+    const looseTitle = exactTitle || aTitleNorm.includes(qTitleNorm) || qTitleNorm.includes(aTitleNorm)
+    if (!looseTitle) continue
+
+    const aSeason = normalizeSeason(aporte?.temporada)
+    if (qSeason && String(aSeason || '') !== String(qSeason)) continue
+
+    const aChapter = normalizeChapter(aporte?.capitulo)
+    if (!aChapter) continue
+    const n = Number(aChapter)
+    if (!Number.isFinite(n)) continue
+    if (!isRange) {
+      if (String(aChapter) !== String(pedidoParsed.chapterFrom)) continue
+    } else {
+      if (!(n >= qFrom && n <= qTo)) continue
+    }
+
+    let score = exactTitle ? 100 : 86
+    if (qSeason && aSeason && String(aSeason) === String(qSeason)) score += 4
+    out.push({ aporte, score })
+  }
+
+  out.sort((a, b) => b.score - a.score)
+  return out.slice(0, limit)
 }
 
 const formatAportesMatches = (pedido, matches, usedPrefix) => {
@@ -782,7 +1030,7 @@ const processPedidoSelection = async (
 
   let pdfFile = null
   try {
-    pdfFile = await generatePedidoSummaryPdf({ pedido, selected })
+    pdfFile = await generatePedidoPDF({ pedido, selected })
     const caption =
       `📄 *Resumen del pedido* \`\`\`#${pid}\`\`\`\n` +
       `> *Título:* ${waSafeInline(pedido?.titulo || '')}\n` +
@@ -795,6 +1043,51 @@ const processPedidoSelection = async (
 
   await finalizePedidoAsCompleted(panel, pedido, { selected, pdfFile })
   return { ok: true, selected }
+}
+
+const processPedidoAuto = async ({ panel, pedido, parsed, proveedorJid, m, conn, usedPrefix, isAdmin, isBotOwner } = {}) => {
+  const allowGlobal = !m?.isGroup || isBotOwner
+  const libraryResults = proveedorJid
+    ? searchExactMatch({ panel, proveedorJid, pedidoParsed: parsed, limit: 10 })
+    : allowGlobal
+      ? searchExactMatch({ panel, proveedorJid: null, pedidoParsed: parsed, limit: 10, allowGlobal: true })
+      : []
+
+  const exactAporteMatches = searchExactMatchAportes(parsed, {
+    limit: 10,
+    allowPendingUserJid: m?.sender || null,
+    allowPendingGroupJid: isBotOwner || (m?.isGroup && isAdmin) ? (m?.isGroup ? m?.chat : null) : null,
+  })
+
+  const totalMatches = (libraryResults?.length || 0) + (exactAporteMatches?.length || 0)
+  if (totalMatches !== 1) {
+    return { mode: 'choose', libraryResults, exactAporteMatches }
+  }
+
+  const firstLib = libraryResults?.[0]?.it || null
+  const firstAporte = exactAporteMatches?.[0]?.aporte || null
+  const selection =
+    firstLib && Number(firstLib?.id) > 0
+      ? { source: 'lib', itemId: Number(firstLib.id), score: Number(libraryResults?.[0]?.score) || null }
+      : firstAporte && Number(firstAporte?.id) > 0
+        ? { source: 'aporte', itemId: Number(firstAporte.id), score: Number(exactAporteMatches?.[0]?.score) || null }
+        : null
+
+  if (!selection) return { mode: 'choose', libraryResults, exactAporteMatches }
+
+  const processed = await processPedidoSelection(panel, {
+    pedidoId: pedido?.id,
+    source: selection.source,
+    itemId: selection.itemId,
+    score: selection.score,
+    m,
+    conn,
+    usedPrefix,
+    isAdmin,
+    isBotOwner,
+  })
+  if (!processed.ok) return { mode: 'error', error: processed.error || 'No se pudo procesar automáticamente' }
+  return { mode: 'auto', selected: processed.selected }
 }
 
 let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) => {
@@ -811,19 +1104,23 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const raw = (args || []).join(' ').trim()
       if (!raw) {
         return m.reply(
-          `📝 *Crear un pedido*\n\n` +
-          `> *Uso:* \`\`\`${usedPrefix}${command} <título> | <descripción> | <prioridad>\`\`\`\n` +
-          `> *Ejemplo:* \`\`\`${usedPrefix}${command} Solo Leveling | Capítulos 1-50 | alta\`\`\`\n\n` +
-          `🛡️ _Prioridades: alta, media, baja_`
+          `📝 *Crear un pedido (estructurado)*\n\n` +
+          `> *Uso:* \`\`\`${usedPrefix}${command} <título> | Capítulo <n>\`\`\`\n` +
+          `> *Rango:* \`\`\`${usedPrefix}${command} <título> | Capítulos <n>-<m>\`\`\`\n` +
+          `> *Con temporada:* \`\`\`${usedPrefix}${command} <título> | Temporada <t> | Capítulo <n>\`\`\`\n\n` +
+          `🛡️ _El capítulo es obligatorio._`
         )
       }
 
-      const parts = raw.split('|').map(s => s.trim())
-      const titulo = parts[0] || ''
-      const descripcion = parts[1] || ''
-      const prioridad = ['alta', 'media', 'baja'].includes(parts[2]?.toLowerCase()) ? parts[2].toLowerCase() : 'media'
+      const parsed = parsePedido(raw)
+      if (!parsed.ok) return m.reply(`❌ *Pedido inválido*\n\n> _${safeString(parsed.error)}_`)
 
-      if (!titulo) return m.reply('❌ *Error*\n\n> _Debes especificar un título._')
+      const titulo = parsed.title
+      const descripcion = parsed.descripcion || ''
+      const prioridad = parsed.prioridad || 'media'
+      const temporada = parsed.season
+      const capDesde = parsed.chapterFrom
+      const capHasta = parsed.chapterTo
 
       const id = nextPedidoId()
       const now = new Date().toISOString()
@@ -842,8 +1139,10 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         proveedor_jid: proveedorJid,
         tags: [],
         categoria: null,
-        capitulo: null,
-        temporada: null,
+        capitulo: capDesde,
+        capitulo_desde: capDesde,
+        capitulo_hasta: capHasta,
+        temporada,
         ai: null,
         votos: 0,
         votantes: [],
@@ -877,66 +1176,36 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         emitPedidoCreated(pedido)
       } catch { }
 
-      const aporteMatches = searchAportesForPedido(pedido, {
-        limit: 5,
-        allowPendingUserJid: m.sender,
-        allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (m.isGroup ? m.chat : null) : null,
+      const auto = await processPedidoAuto({
+        panel,
+        pedido,
+        parsed,
+        proveedorJid,
+        m,
+        conn,
+        usedPrefix,
+        isAdmin,
+        isBotOwner,
       })
 
-      let libraryResults = []
-      let libraryQuery = null
-      if (proveedorJid) {
-        try {
-          const res = await searchProviderLibrary(panel, proveedorJid, pedido, 5)
-          libraryQuery = res?.query || null
-          libraryResults = Array.isArray(res?.results) ? res.results : []
-        } catch { }
-      } else if (!m.isGroup || isBotOwner) {
-        try {
-          const res = await searchGlobalLibrary(panel, pedido, 5)
-          libraryQuery = res?.query || null
-          libraryResults = Array.isArray(res?.results) ? res.results : []
-        } catch { }
+      if (auto.mode === 'auto') {
+        await m.reply(
+          `✅ *Pedido completado automáticamente*\n\n` +
+          `> *ID:* \`\`\`#${id}\`\`\`\n` +
+          `> *Resultado:* _${waSafeInline(auto?.selected?.title || '')}_`
+        )
+        return null
       }
+      if (auto.mode === 'error') {
+        await m.reply(`⚠️ *No pude procesar automáticamente*\n\n> *Motivo:* _${waSafeInline(auto.error || 'Error desconocido')}_`)
+      }
+
+      const libraryResults = Array.isArray(auto?.libraryResults) ? auto.libraryResults : []
+      const exactAporteMatches = Array.isArray(auto?.exactAporteMatches) ? auto.exactAporteMatches : []
 
       const libRows = buildLibrarySelectRowsForPedido(libraryResults, usedPrefix, id)
-      const aporteRows = buildAporteSelectRowsForPedido(aporteMatches, usedPrefix, id)
+      const aporteRows = buildAporteSelectRowsForPedido(exactAporteMatches, usedPrefix, id)
       const provRows = !proveedorJid ? buildProviderSelectRows(panel, usedPrefix, id) : []
-
-      const totalMatches = (libraryResults?.length || 0) + (aporteMatches?.length || 0)
-      if (totalMatches === 1) {
-        const firstLib = libraryResults?.[0]?.it || null
-        const firstAporte = aporteMatches?.[0]?.aporte || null
-        const selection =
-          firstLib && Number(firstLib?.id) > 0
-            ? { source: 'lib', itemId: Number(firstLib.id), score: Number(libraryResults?.[0]?.score) || null }
-            : firstAporte && Number(firstAporte?.id) > 0
-              ? { source: 'aporte', itemId: Number(firstAporte.id), score: Number(aporteMatches?.[0]?.score) || null }
-              : null
-
-        if (selection) {
-          const processed = await processPedidoSelection(panel, {
-            pedidoId: id,
-            source: selection.source,
-            itemId: selection.itemId,
-            score: selection.score,
-            m,
-            conn,
-            usedPrefix,
-            isAdmin,
-            isBotOwner,
-          })
-          if (processed.ok) {
-            await m.reply(
-              `✅ *Pedido completado automáticamente*\n\n` +
-              `> *ID:* \`\`\`#${id}\`\`\`\n` +
-              `> *Resultado:* _${waSafeInline(processed?.selected?.title || '')}_`
-            )
-            return null
-          }
-          await m.reply(`⚠️ *No pude procesar automáticamente*\n\n> *Motivo:* _${waSafeInline(processed.error || 'Error desconocido')}_`)
-        }
-      }
 
       const sections = []
       if (libRows.length) sections.push({ title: '📚 Biblioteca', rows: libRows })
@@ -958,19 +1227,18 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       bodyLines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
       bodyLines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
       if (descripcion) bodyLines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
+      bodyLines.push(`> *Capítulo(s):* _${waSafeInline(parsed.isRange ? `${parsed.chapterFrom}-${parsed.chapterTo}` : parsed.chapterFrom)}_`)
+      if (parsed.season) bodyLines.push(`> *Temporada:* _${waSafeInline(parsed.season)}_`)
       if (aiEnhanced?.title && aiEnhanced.title && normalizeText(aiEnhanced.title) !== normalizeText(titulo)) {
         bodyLines.push(`> *IA:* _${waSafeInline(aiEnhanced.title)}_`)
       }
       const cat = waSafeInline(aiEnhanced?.category || pedido?.categoria || '')
       if (cat) bodyLines.push(`> *Categoría:* _${cat}_`)
-      const chap = aiEnhanced?.chapter != null ? aiEnhanced.chapter : pedido?.capitulo
-      if (chap != null && String(chap).trim()) bodyLines.push(`> *Capítulo:* _${waSafeInline(chap)}_`)
-      const season = aiEnhanced?.season != null ? aiEnhanced.season : pedido?.temporada
-      if (season != null && String(season).trim()) bodyLines.push(`> *Temporada:* _${waSafeInline(season)}_`)
+      // No sobreescribir capítulo/temporada estructurados con IA: solo metadata arriba
       if (!proveedorJid && m.isGroup) bodyLines.push('> 🛡️ _Selecciona un proveedor para buscar en biblioteca._')
       else if (!libRows.length && !aporteRows.length) bodyLines.push('> 🔎 _Sin coincidencias (por ahora)._')
       else bodyLines.push('> ✅ _Encontré coincidencias: elige una para enviarla._')
-      if (libraryQuery?.title && normalizeText(libraryQuery.title) !== normalizeText(titulo)) bodyLines.push(`> 🔎 *Interpretado:* _${waSafeInline(libraryQuery.title)}_`)
+      if (aiEnhanced?.title && normalizeText(aiEnhanced.title) !== normalizeText(titulo)) bodyLines.push(`> 🔎 *Interpretado:* _${waSafeInline(aiEnhanced.title)}_`)
 
       if (m.fromMe) {
         const templateButtons = [
