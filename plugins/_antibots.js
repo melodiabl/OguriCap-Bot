@@ -1,5 +1,19 @@
 import { areJidsSameUser } from '@whiskeysockets/baileys'
 
+// Global bot hierarchy initializer
+function ensureBotHierarchy(parentJid = null) {
+  try {
+    global.botHierarchy ||= { parent: null, subbots: [] }
+    if (parentJid && typeof parentJid === 'string') global.botHierarchy.parent = parentJid
+    const h = global.botHierarchy
+    if (!Array.isArray(h.subbots)) h.subbots = []
+    return h
+  } catch {
+    global.botHierarchy = { parent: parentJid || null, subbots: [] }
+    return global.botHierarchy
+  }
+}
+
 let handler = async (m, { conn, args, usedPrefix, command }) => {
   if (!m.isGroup) {
     return conn.reply(m.chat, '⚠️ Este comando solo se puede usar en *grupos*.', m)
@@ -59,19 +73,16 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     // Admin humano / owner no se tocan
     if (isAdmin || isOwner) return
 
+    // ───────── SISTEMA DE JERARQUÍA GLOBAL (LINAJE) ─────────
+    const selfJid0 = conn?.user?.jid
+    const hierarchy = ensureBotHierarchy(conn?.isSubBot ? conn?.parentJid : (selfJid0 || null))
+
     // ───────── DETECCIÓN DE MENSAJE BOT ─────────
     let isBotMessage = false
-
     if (m.isBaileys) isBotMessage = true
     if (typeof m.id === 'string' && (
-      m.id.startsWith('BAE5') ||
-      m.id.startsWith('B24E') ||
-      m.id.startsWith('3EB0') ||
-      m.id.startsWith('WA')
-    )) {
-      isBotMessage = true
-    }
-
+      m.id.startsWith('BAE5') || m.id.startsWith('B24E') || m.id.startsWith('3EB0') || m.id.startsWith('WA')
+    )) isBotMessage = true
     if (!isBotMessage) return
 
     // ───────── NORMALIZAR JID (LID → JID) ─────────
@@ -90,23 +101,29 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     const senderJid = normalizeJid(m.sender)
     const selfJid = conn?.user?.jid
 
-    // ───────── PERMITIR AL BOT MISMO ─────────
+    // ───────── LINAJE (PROTECCIÓN ABSOLUTA) ─────────
+    const isParent = hierarchy.parent ? areJidsSameUser(hierarchy.parent, senderJid) : false
+    const isSubbot = Array.isArray(hierarchy.subbots) && hierarchy.subbots.some(j => areJidsSameUser(j, senderJid))
+
+    // Permitir al propio bot (padre o subbot)
     if (selfJid && areJidsSameUser(selfJid, senderJid)) return
 
-    // ───────── FIX CRÍTICO: PERMITIR BOT PADRE ─────────
+    // Ignorar si es parte del linaje
+    if (isParent || isSubbot) {
+      console.log('[ANTIBOT] Acción ignorada: bot del mismo linaje')
+      return
+    }
+
+    // Permisos existentes (fallbacks) – mantener por compatibilidad
     if (conn?.isSubBot && conn?.parentJid) {
       if (areJidsSameUser(conn.parentJid, senderJid)) return
     }
-
-    // ───────── PERMITIR SUBBOTS CONECTADOS ─────────
     if (Array.isArray(global.conns)) {
       for (const sock of global.conns) {
         if (!sock?.user?.jid) continue
         if (areJidsSameUser(sock.user.jid, senderJid)) return
       }
     }
-
-    // ───────── PERMITIR SUBBOTS REGISTRADOS EN PANEL ─────────
     try {
       const panelSubbots = global.db?.data?.panel?.subbots
       if (panelSubbots && typeof panelSubbots === 'object') {

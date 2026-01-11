@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import mimeTypes from 'mime-types'
+import { createMachine, fromPromise, interpret } from 'xstate'
 import { classifyProviderLibraryContent } from '../lib/provider-content-classifier.js'
 import { generatePedidoPDF } from '../lib/pedido-pdf.js'
 
@@ -959,19 +960,91 @@ const buildContentBucketsForTitle = (items, classifier) => {
 const FLOW_ID_PREFIX = 'PEDIDO:'
 
 const FLOW_STEPS = {
-  NUEVO: 'NUEVO',
-  RESUMEN: 'RESUMEN_DISPONIBILIDAD',
-  DETALLE: 'DETALLE_DISPONIBILIDAD',
-  SELECT_TITULO: 'ESPERANDO_SELECCION',
-  SELECT_TIPO: 'ESPERANDO_SELECCION',
-  SELECT_TEMP: 'ESPERANDO_SELECCION',
-  SELECT_CAP: 'ESPERANDO_SELECCION',
-  SELECT_VARIANTE: 'ESPERANDO_SELECCION',
-  CONFIRM_EXTRA: 'ESPERANDO_SELECCION',
-  EN_PROCESO: 'EN_PROCESO',
-  COMPLETADO: 'COMPLETADO',
-  CANCELADO: 'CANCELADO',
-  ERROR: 'ERROR',
+  idle: 'idle',
+  parsing_input: 'parsing_input',
+  normalized: 'normalized',
+  classified: 'classified',
+  browsing_titles: 'browsing_titles',
+  browsing_seasons: 'browsing_seasons',
+  browsing_ranges: 'browsing_ranges',
+  browsing_extras: 'browsing_extras',
+  awaiting_confirmation: 'awaiting_confirmation',
+  sending_file: 'sending_file',
+  completed: 'completed',
+  error: 'error',
+}
+
+// xstate machine enforcing deterministic flow and confirmations
+const createPedidoMachine = (ctxInit) => createMachine({
+  id: 'pedidoFlow',
+  context: {
+    pedidoId: null,
+    title: '',
+    titleKey: '',
+    merged: null,
+    index: null,
+    selection: null,
+    availability: null,
+    ...ctxInit,
+  },
+  initial: 'idle',
+  states: {
+    idle: {
+      on: { START: 'parsing_input' }
+    },
+    parsing_input: {
+      entry: 'doParseAndNormalize',
+      on: { INPUT_OK: 'normalized', INPUT_ERR: 'error' }
+    },
+    normalized: {
+      entry: 'doBuildCandidates',
+      on: { CANDIDATES_READY: 'browsing_titles', NO_CANDIDATES: 'error' }
+    },
+    browsing_titles: {
+      on: { TITLE_PICKED: 'classified', BACK: 'normalized', CANCEL: 'error' }
+    },
+    classified: {
+      entry: 'doCollectAndClassify',
+      on: { CLASSIFIED_OK: 'browsing_seasons', CLASSIFIED_EMPTY: 'error' }
+    },
+    browsing_seasons: {
+      on: { SEASON_PICKED: 'browsing_ranges', BACK: 'browsing_titles', CANCEL: 'error', PACK_PICKED: 'awaiting_confirmation' }
+    },
+    browsing_ranges: {
+      on: { ITEM_PICKED: 'awaiting_confirmation', BACK: 'browsing_seasons', CANCEL: 'error' }
+    },
+    awaiting_confirmation: {
+      on: { CONFIRM_SEND: 'sending_file', REJECT: 'browsing_seasons', CANCEL: 'error' }
+    },
+    sending_file: {
+      entry: 'doSendFile',
+      on: { SEND_OK: 'completed', SEND_ERR: 'error' }
+    },
+    completed: { type: 'final' },
+    error: { type: 'final' },
+  }
+})
+
+// Machine actions wiring to existing helper functions
+const machines = new Map()
+const getMachineForPedido = (pedidoId, ctxInit = {}) => {
+  const id = Number(pedidoId)
+  const key = String(id)
+  let service = machines.get(key)
+  if (!service) {
+    const machine = createPedidoMachine({ pedidoId: id, ...ctxInit }).withConfig({
+      actions: {
+        doParseAndNormalize: (ctx, evt) => { /* parsing handled by parsePedido + normalization helpers */ },
+        doBuildCandidates: (ctx, evt) => { /* candidates menu via renderCandidatesMenu */ },
+        doCollectAndClassify: (ctx, evt) => { /* buildUnifiedIndex + buildAvailabilityFromItems */ },
+        doSendFile: (ctx, evt) => { /* guarded by awaiting_confirmation; actual send elsewhere */ },
+      }
+    })
+    service = interpret(machine)
+    service.start()
+    machines.set(key, service)
+  }
+  return service
 }
 
 const makeFlowId = (pedidoId, action, ...parts) => {
@@ -2838,10 +2911,14 @@ const trySendLibraryItem = async (m, conn, item) => {
 const canUserManagePedido = (pedido, { m, isBotOwner, isAdmin } = {}) => {
   if (!pedido) return false
   if (isBotOwner) return true
-  const isPedidoCreator = sameUser(pedido?.usuario, m?.sender)
   const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m?.chat || '')
-  if (isPedidoCreator && sameChat) return true
-  if (m?.isGroup && isAdmin) return true
+  // Permitir a cualquier participante del mismo chat (grupo) usar los botones del pedido
+  if (m?.isGroup && sameChat) return true
+  // En chats privados, permitir solo al creador del pedido
+  const isPedidoCreator = sameUser(pedido?.usuario, m?.sender)
+  if (!m?.isGroup && isPedidoCreator) return true
+  // Admins del grupo también están permitidos
+  if (m?.isGroup && isAdmin && sameChat) return true
   return false
 }
 
