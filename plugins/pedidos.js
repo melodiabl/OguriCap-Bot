@@ -110,23 +110,15 @@ const parsePedido = (rawInput) => {
 
   title = safeString(title).trim()
   if (!title) return { ok: false, error: 'Falta el título' }
-  if (!chapterFrom) {
-    return {
-      ok: false,
-      error:
-        'El capítulo es obligatorio.\n\n' +
-        `Ejemplos:\n` +
-        `- Solo Leveling | Capítulo 1\n` +
-        `- Solo Leveling | Capítulos 1-50\n` +
-        `- Attack on Titan | Temporada 2 | Capítulo 3`,
-    }
-  }
 
-  const fromN = Number(chapterFrom)
-  const toN = Number(chapterTo || chapterFrom)
-  if (Number.isFinite(fromN) && Number.isFinite(toN) && toN < fromN) {
-    chapterFrom = String(toN)
-    chapterTo = String(fromN)
+  const hasChapter = Boolean(chapterFrom)
+  if (hasChapter) {
+    const fromN = Number(chapterFrom)
+    const toN = Number(chapterTo || chapterFrom)
+    if (Number.isFinite(fromN) && Number.isFinite(toN) && toN < fromN) {
+      chapterFrom = String(toN)
+      chapterTo = String(fromN)
+    }
   }
 
   const descripcion = extra.length ? extra.join(' | ').trim() : ''
@@ -135,8 +127,9 @@ const parsePedido = (rawInput) => {
     title,
     season,
     chapterFrom,
-    chapterTo: chapterTo || chapterFrom,
-    isRange: String(chapterTo || chapterFrom) !== String(chapterFrom),
+    chapterTo: hasChapter ? (chapterTo || chapterFrom) : null,
+    isRange: hasChapter ? (String(chapterTo || chapterFrom) !== String(chapterFrom)) : false,
+    hasChapter,
     prioridad,
     descripcion,
   }
@@ -160,6 +153,8 @@ const searchExactMatch = ({ panel, proveedorJid, pedidoParsed, limit = 10, allow
     .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
 
   const qTitleNorm = normalizeText(pedidoParsed?.title || '')
+  if (!qTitleNorm) return []
+  if (!pedidoParsed?.hasChapter) return []
   const qSeason = pedidoParsed?.season ? String(pedidoParsed.season) : null
   const qFrom = Number(pedidoParsed?.chapterFrom)
   const qTo = Number(pedidoParsed?.chapterTo ?? pedidoParsed?.chapterFrom)
@@ -222,6 +217,147 @@ const searchExactMatch = ({ panel, proveedorJid, pedidoParsed, limit = 10, allow
 
   out.sort((a, b) => b.score - a.score)
   return out.slice(0, limit)
+}
+
+const searchTitlesInLibrary = ({ panel, proveedorJid, titleQuery, limitTitles = 10 } = {}) => {
+  const qNorm = normalizeText(titleQuery || '')
+  if (!qNorm) return []
+
+  const list = Object.values(panel?.contentLibrary || {})
+    .filter((it) => it && it.id)
+    .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
+
+  const buckets = new Map()
+  for (const it of list) {
+    const itTitle = safeString(it?.title || it?.originalName || '').trim()
+    const itNorm = normalizeText(itTitle)
+    if (!itNorm) continue
+    const matches = itNorm === qNorm || itNorm.includes(qNorm) || qNorm.includes(itNorm)
+    if (!matches) continue
+
+    const key = itNorm
+    const season = normalizeSeason(it?.season) || '0'
+    const chapter = normalizeChapter(it?.chapter)
+    const entry = buckets.get(key) || {
+      key,
+      title: itTitle,
+      sampleId: Number(it?.id) || null,
+      proveedorJid: safeString(it?.proveedorJid || ''),
+      seasons: new Set(),
+      chapters: [],
+    }
+    entry.seasons.add(season)
+    if (chapter) entry.chapters.push(Number(chapter))
+    if (!entry.sampleId) entry.sampleId = Number(it?.id) || null
+    buckets.set(key, entry)
+  }
+
+  const scored = [...buckets.values()].map((b) => {
+    const normTitle = normalizeText(b.title)
+    let score = 0
+    if (normTitle === qNorm) score += 100
+    else if (normTitle.startsWith(qNorm) || qNorm.startsWith(normTitle)) score += 80
+    else score += 60
+    score += Math.min(10, b.seasons.size)
+    return { ...b, score }
+  })
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, limitTitles)
+}
+
+const buildTitleSelectRowsForPedido = (titleBuckets, usedPrefix, pedidoId) => {
+  const rows = []
+  for (const b of titleBuckets || []) {
+    const sampleId = Number(b?.sampleId)
+    if (!Number.isFinite(sampleId) || sampleId <= 0) continue
+    const seasonsCount = Number(b?.seasons?.size || 0) || 0
+    const chapters = Array.isArray(b?.chapters) ? b.chapters.filter((n) => Number.isFinite(n)).sort((x, y) => x - y) : []
+    const capTxt = chapters.length ? `Caps: ${chapters[0]}-${chapters[chapters.length - 1]} (${chapters.length})` : 'Caps: ?'
+    const desc = `${seasonsCount ? `Temps: ${seasonsCount} · ` : ''}${capTxt}`
+    rows.push({
+      title: truncateText(b?.title || `Título #${sampleId}`, 44),
+      description: truncateText(desc, 60),
+      rowId: `${usedPrefix}pedidotitulo ${pedidoId} ${sampleId}`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const getLibraryItemsByTitleKey = (panel, { baseItem, season = null, restrictProviderJid = null } = {}) => {
+  if (!baseItem) return []
+  const titleKey = normalizeText(baseItem?.title || baseItem?.originalName || '')
+  if (!titleKey) return []
+  const providerJid = restrictProviderJid ? String(restrictProviderJid) : String(baseItem?.proveedorJid || '')
+  const targetSeason = season != null ? String(season) : null
+
+  return Object.values(panel?.contentLibrary || {})
+    .filter((it) => it && it.id)
+    .filter((it) => (providerJid ? String(it?.proveedorJid || '') === providerJid : true))
+    .filter((it) => normalizeText(it?.title || it?.originalName || '') === titleKey)
+    .filter((it) => {
+      if (targetSeason == null) return true
+      const s = normalizeSeason(it?.season) || '0'
+      return String(s) === String(targetSeason)
+    })
+}
+
+const buildSeasonsRowsForPedido = (items, usedPrefix, pedidoId, baseLibId) => {
+  const grouped = new Map()
+  for (const it of items || []) {
+    const s = normalizeSeason(it?.season) || '0'
+    const entry = grouped.get(s) || { season: s, chapters: [] }
+    const ch = normalizeChapter(it?.chapter)
+    if (ch) entry.chapters.push(Number(ch))
+    grouped.set(s, entry)
+  }
+
+  const seasons = [...grouped.values()].sort((a, b) => Number(a.season) - Number(b.season))
+  const rows = []
+  for (const g of seasons) {
+    const seasonLabel = g.season === '0' ? 'Sin temporada' : `Temporada ${String(g.season).padStart(2, '0')}`
+    const chs = g.chapters.filter((n) => Number.isFinite(n)).sort((x, y) => x - y)
+    const desc = chs.length ? `Caps: ${chs[0]}-${chs[chs.length - 1]} (${chs.length})` : 'Caps: ?'
+    rows.push({
+      title: seasonLabel,
+      description: truncateText(desc, 60),
+      rowId: `${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} ${g.season} 1`,
+    })
+    if (rows.length >= 10) break
+  }
+  return rows
+}
+
+const buildLibraryChaptersRows = (items, usedPrefix, pedidoId, page = 1) => {
+  const perPage = 9
+  const p = clampInt(page, { min: 1, max: 9999, fallback: 1 })
+  const sorted = (items || []).slice().sort((a, b) => {
+    const ac = normalizeChapter(a?.chapter)
+    const bc = normalizeChapter(b?.chapter)
+    if (ac && bc) return Number(ac) - Number(bc)
+    if (ac && !bc) return -1
+    if (!ac && bc) return 1
+    return Number(a?.id || 0) - Number(b?.id || 0)
+  })
+
+  const total = sorted.length
+  const start = (p - 1) * perPage
+  const slice = sorted.slice(start, start + perPage)
+  const rows = []
+  for (const it of slice) {
+    const id = Number(it?.id)
+    if (!Number.isFinite(id) || id <= 0) continue
+    const cap = normalizeChapter(it?.chapter)
+    const capLabel = cap ? `Capítulo ${String(cap).padStart(4, '0')}` : `Archivo #${id}`
+    rows.push({
+      title: capLabel,
+      description: truncateText(waSafeInline(it?.originalName || it?.title || ''), 60),
+      rowId: `${usedPrefix}seleccionpedido ${pedidoId} lib ${id}`,
+    })
+    if (rows.length >= perPage) break
+  }
+
+  return { rows, total, page: p, perPage }
 }
 
 const truncateText = (v, max = 140) => {
@@ -1104,11 +1240,12 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const raw = (args || []).join(' ').trim()
       if (!raw) {
         return m.reply(
-          `📝 *Crear un pedido (estructurado)*\n\n` +
-          `> *Uso:* \`\`\`${usedPrefix}${command} <título> | Capítulo <n>\`\`\`\n` +
+          `📝 *Crear un pedido*\n\n` +
+          `> *Rápido (solo título):* \`\`\`${usedPrefix}${command} <título>\`\`\`\n` +
+          `> _Te muestro temporadas y capítulos para elegir._\n\n` +
+          `> *Estructurado:* \`\`\`${usedPrefix}${command} <título> | Capítulo <n>\`\`\`\n` +
           `> *Rango:* \`\`\`${usedPrefix}${command} <título> | Capítulos <n>-<m>\`\`\`\n` +
-          `> *Con temporada:* \`\`\`${usedPrefix}${command} <título> | Temporada <t> | Capítulo <n>\`\`\`\n\n` +
-          `🛡️ _El capítulo es obligatorio._`
+          `> *Con temporada:* \`\`\`${usedPrefix}${command} <título> | Temporada <t> | Capítulo <n>\`\`\``
         )
       }
 
@@ -1175,6 +1312,79 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         const { emitPedidoCreated } = await import('../lib/socket-io.js')
         emitPedidoCreated(pedido)
       } catch { }
+
+      // Modo rápido: si no viene capítulo, navegar por biblioteca (título -> temporadas -> capítulos).
+      if (!parsed.hasChapter) {
+        const canBrowseGlobal = !m.isGroup && isBotOwner
+        const browseProviderJid = proveedorJid || pedido?.proveedor_jid || null
+
+        const buckets = (browseProviderJid || canBrowseGlobal)
+          ? searchTitlesInLibrary({
+            panel,
+            proveedorJid: browseProviderJid || null,
+            titleQuery: titulo,
+            limitTitles: 10,
+          })
+          : []
+
+        const provRows = !browseProviderJid ? buildProviderSelectRows(panel, usedPrefix, id) : []
+
+        const aporteMatches = searchAportesForPedido(pedido, {
+          limit: 5,
+          allowPendingUserJid: m.sender,
+          allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (m.isGroup ? m.chat : null) : null,
+        })
+
+        const sections = []
+        if (buckets.length === 1) {
+          const sampleId = Number(buckets?.[0]?.sampleId)
+          const baseItem = sampleId ? panel?.contentLibrary?.[sampleId] : null
+          const items = baseItem ? getLibraryItemsByTitleKey(panel, { baseItem, restrictProviderJid: browseProviderJid || null }) : []
+          const seasonRows = buildSeasonsRowsForPedido(items, usedPrefix, id, sampleId)
+          if (seasonRows.length) sections.push({ title: '📚 Temporadas', rows: seasonRows })
+        } else {
+          const titleRows = buildTitleSelectRowsForPedido(buckets, usedPrefix, id)
+          if (titleRows.length) sections.push({ title: '📚 Títulos', rows: titleRows })
+        }
+
+        const aporteRows = buildAporteSelectRowsForPedido(aporteMatches, usedPrefix, id)
+        if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
+        if (provRows.length) sections.push({ title: '📦 Elegir proveedor', rows: provRows })
+
+        const bodyLines = []
+        bodyLines.push('✅ *Pedido creado*')
+        bodyLines.push(`> *ID:* \`\`\`#${id}\`\`\``)
+        bodyLines.push(`> *Título:* ${waSafeInline(titulo)}`)
+        bodyLines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
+        bodyLines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
+        if (descripcion) bodyLines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
+        if (!browseProviderJid && m.isGroup) bodyLines.push('> 🛡️ _Selecciona un proveedor para ver temporadas/capítulos._')
+        else if (!sections.length) bodyLines.push('> 🔎 _No encontré coincidencias en biblioteca (por ahora)._')
+        else bodyLines.push('> ✅ _Selecciona una opción para enviarla._')
+
+        if (m.fromMe) {
+          const templateButtons = [
+            ['👁️ Ver pedido', `${usedPrefix}verpedido ${id}`],
+            ['🔎 Explorar', `${usedPrefix}procesarpedido ${id}`],
+            ['📌 Aportes', `${usedPrefix}buscaraporte ${id}`],
+          ]
+          await trySendTemplateResponse(m, conn, { text: bodyLines.join('\n'), footer: '🛡️ Oguri Bot', buttons: templateButtons })
+          await m.reply(`✅ Pedido #${id} creado.\n\nUsa:\n${usedPrefix}procesarpedido ${id}`)
+          return null
+        }
+
+        const ok = await trySendInteractiveList(m, conn, { title: 'Pedido', text: bodyLines.join('\n'), sections })
+        if (ok) {
+          await m.reply(`✅ Pedido #${id} creado.\n\nSi no te aparece el menú, usa:\n${usedPrefix}procesarpedido ${id}`)
+          return null
+        }
+
+        const lines = []
+        lines.push(...bodyLines)
+        lines.push('')
+        lines.push(`🔎 *Explorar:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
+        return m.reply(lines.join('\n'))
+      }
 
       const auto = await processPedidoAuto({
         panel,
@@ -1311,6 +1521,125 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         `> *ID:* \`\`\`#${pedidoId}\`\`\`\n` +
         `> *Resultado:* _${waSafeInline(processed?.selected?.title || '')}_`
       )
+    }
+
+    case 'pedidotitulo': {
+      const pedidoId = parseInt(args[0])
+      const baseLibId = parseInt(args[1])
+      if (!pedidoId || !baseLibId) {
+        return m.reply(`📚 *Temporadas por título*\n\n> \`\`\`${usedPrefix}pedidotitulo <idPedido> <idBiblioteca>\`\`\``)
+      }
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+
+      const isPedidoCreator = String(pedido?.usuario || '') === String(m.sender || '')
+      const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m.chat || '')
+      const canProcess = isBotOwner || (m.isGroup && isAdmin) || (isPedidoCreator && sameChat)
+      if (!canProcess) return m.reply('❌ *No permitido*\n\n> _Solo admins/owner o el creador del pedido pueden usar esto._')
+
+      const base = panel?.contentLibrary?.[baseLibId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${baseLibId} no encontrado en biblioteca._`)
+
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
+      const items = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
+      const rows = buildSeasonsRowsForPedido(items, usedPrefix, pedidoId, baseLibId)
+      if (!rows.length) return m.reply('📚 *Temporadas*\n\n🛡️ _No encontré temporadas/capítulos para este título._')
+
+      try {
+        pedido.proveedor_jid = restrictProviderJid || pedido.proveedor_jid || null
+        pedido.fecha_actualizacion = new Date().toISOString()
+        panel.pedidos[pedidoId] = pedido
+        if (global.db?.write) await global.db.write().catch(() => { })
+      } catch { }
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📚 Temporadas',
+        text: `*Título:* ${waSafeInline(base?.title || base?.originalName || pedido?.titulo || '')}\n> _Selecciona una temporada para ver capítulos._`,
+        sections: [{ title: 'Temporadas', rows }],
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push('📚 *Temporadas*')
+      lines.push(`> *Título:* ${waSafeInline(base?.title || base?.originalName || pedido?.titulo || '')}`)
+      lines.push('')
+      for (const r of rows) lines.push(`> ${r.title} — _${r.description}_`)
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} <temporada> <página>\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
+    case 'pedidocapslib': {
+      const pedidoId = parseInt(args[0])
+      const baseLibId = parseInt(args[1])
+      const seasonArg = safeString(args[2] || '').trim()
+      const pageArg = parseInt(args[3] || '1')
+      if (!pedidoId || !baseLibId || !seasonArg) {
+        return m.reply(`📖 *Capítulos de biblioteca*\n\n> \`\`\`${usedPrefix}pedidocapslib <idPedido> <idBiblioteca> <temporada> [página]\`\`\``)
+      }
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+
+      const isPedidoCreator = String(pedido?.usuario || '') === String(m.sender || '')
+      const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m.chat || '')
+      const canProcess = isBotOwner || (m.isGroup && isAdmin) || (isPedidoCreator && sameChat)
+      if (!canProcess) return m.reply('❌ *No permitido*\n\n> _Solo admins/owner o el creador del pedido pueden usar esto._')
+
+      const base = panel?.contentLibrary?.[baseLibId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${baseLibId} no encontrado en biblioteca._`)
+
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const season = seasonArg === '0' ? '0' : (normalizeSeason(seasonArg) || seasonArg)
+      const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
+      const items = getLibraryItemsByTitleKey(panel, { baseItem: base, season, restrictProviderJid })
+      const { rows, total, page, perPage } = buildLibraryChaptersRows(items, usedPrefix, pedidoId, pageArg)
+      if (!rows.length) {
+        const seasonLabel = season === '0' ? 'Sin temporada' : `Temporada ${String(season).padStart(2, '0')}`
+        return m.reply(`📖 *Capítulos*\n\n> *Título:* ${waSafeInline(base?.title || base?.originalName || '')}\n> *Temporada:* _${seasonLabel}_\n\n🛡️ _No encontré capítulos para mostrar._`)
+      }
+
+      const navRows = []
+      const maxPage = total ? Math.max(1, Math.ceil(total / perPage)) : 1
+      if (page > 1) navRows.push({ title: '⬅️ Anterior', description: `Página ${page - 1}/${maxPage}`, rowId: `${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} ${season} ${page - 1}` })
+      if (page < maxPage) navRows.push({ title: '➡️ Siguiente', description: `Página ${page + 1}/${maxPage}`, rowId: `${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} ${season} ${page + 1}` })
+      navRows.push({ title: '🔙 Temporadas', description: 'Volver a temporadas', rowId: `${usedPrefix}pedidotitulo ${pedidoId} ${baseLibId}` })
+
+      const seasonLabel = season === '0' ? 'Sin temporada' : `Temporada ${String(season).padStart(2, '0')}`
+      const sections = [{ title: 'Capítulos', rows }]
+      if (navRows.length) sections.push({ title: 'Navegación', rows: navRows.slice(0, 10) })
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📖 Capítulos',
+        text: `*Título:* ${waSafeInline(base?.title || base?.originalName || '')}\n> *Temporada:* _${seasonLabel}_\n> _Selecciona un capítulo para enviarlo._`,
+        sections,
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push('📖 *Capítulos*')
+      lines.push(`> *Título:* ${waSafeInline(base?.title || base?.originalName || '')}`)
+      lines.push(`> *Temporada:* _${seasonLabel}_`)
+      lines.push(`> *Página:* _${page}/${maxPage}_`)
+      lines.push('')
+      for (const r of rows) lines.push(`> ${r.title} — _${r.description}_`)
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}seleccionpedido ${pedidoId} lib <idBiblioteca>\`\`\``)
+      return m.reply(lines.join('\n'))
     }
 
     case 'pedidos':
@@ -1516,6 +1845,9 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
 
       const pedido = panel.pedidos[id]
       if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${id} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${id}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
 
       const isPedidoCreator = String(pedido?.usuario || '') === String(m.sender || '')
       const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m.chat || '')
@@ -1544,6 +1876,72 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
 
       const proveedor = panel?.proveedores?.[targetProviderJid] || null
       if (!proveedor) return m.reply('❌ *Error*\n\n> _El proveedor indicado no existe o no está configurado en el panel._')
+
+      const hasStructuredChapter = Boolean(pedido?.capitulo_desde || pedido?.capitulo)
+      if (!hasStructuredChapter) {
+        pedido.proveedor_jid = targetProviderJid
+        pedido.fecha_actualizacion = new Date().toISOString()
+        pedido.bot ||= {}
+        pedido.bot.browseAt = new Date().toISOString()
+        panel.pedidos[id] = pedido
+        if (global.db?.write) await global.db.write().catch(() => { })
+
+        try {
+          const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+          emitPedidoUpdated(pedido)
+        } catch { }
+
+        const buckets = searchTitlesInLibrary({
+          panel,
+          proveedorJid: targetProviderJid,
+          titleQuery: pedido?.titulo || '',
+          limitTitles: 10,
+        })
+
+        const aporteMatches = searchAportesForPedido(pedido, {
+          limit: 5,
+          allowPendingUserJid: pedido?.usuario || null,
+          allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (pedido?.grupo_id || null) : null,
+        })
+
+        const sections = []
+        if (buckets.length === 1) {
+          const sampleId = Number(buckets?.[0]?.sampleId)
+          const baseItem = sampleId ? panel?.contentLibrary?.[sampleId] : null
+          const items = baseItem ? getLibraryItemsByTitleKey(panel, { baseItem, restrictProviderJid: targetProviderJid }) : []
+          const seasonRows = buildSeasonsRowsForPedido(items, usedPrefix, id, sampleId)
+          if (seasonRows.length) sections.push({ title: '📚 Temporadas', rows: seasonRows })
+        } else {
+          const titleRows = buildTitleSelectRowsForPedido(buckets, usedPrefix, id)
+          if (titleRows.length) sections.push({ title: '📚 Títulos', rows: titleRows })
+        }
+
+        const aporteRows = buildAporteSelectRowsForPedido(aporteMatches, usedPrefix, id)
+        if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
+
+        const proveedorTxt = waSafeInline(proveedor?.nombre || proveedor?.jid || targetProviderJid || '')
+        const ok = await trySendInteractiveList(m, conn, {
+          title: '🔎 Explorar',
+          text:
+            `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n` +
+            (proveedorTxt ? `> *Proveedor:* _${proveedorTxt}_\n` : '') +
+            `> _Selecciona una opción para enviar._`,
+          sections,
+        })
+        if (ok) return null
+
+        if (!sections.length) {
+          return m.reply(`🔎 *Explorar*\n\n> *Pedido:* ${waSafeInline(pedido?.titulo || '')}\n\n🛡️ _No encontré coincidencias en biblioteca._`)
+        }
+
+        return m.reply(
+          `🔎 *Explorar*\n\n` +
+          `> *Pedido:* ${waSafeInline(pedido?.titulo || '')}\n` +
+          (buckets.length ? `> *Títulos:* _${buckets.length}_\n` : '') +
+          `\nSi no te aparece el menú, prueba:\n` +
+          `\`\`\`${usedPrefix}pedidotitulo ${id} <idBiblioteca>\`\`\``
+        )
+      }
 
       const { query, results } = await searchProviderLibrary(panel, targetProviderJid, pedido, 5)
       const hasMatches = results.length > 0
@@ -2004,6 +2402,8 @@ handler.help = [
   'cancelarpedido',
   'estadopedido',
   'seleccionpedido',
+  'pedidotitulo',
+  'pedidocapslib',
   'procesarpedido',
   'infolib',
   'libproveedor',
@@ -2029,6 +2429,8 @@ handler.command = [
   'cancelarpedido',
   'estadopedido',
   'seleccionpedido',
+  'pedidotitulo',
+  'pedidocapslib',
   'procesarpedido',
   'buscarpedido',
   'infolib',
