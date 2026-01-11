@@ -782,8 +782,39 @@ const buildProviderSelectRows = (panel, usedPrefix, pedidoId) => {
 }
 
 const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
-  if (!connCanSendList(conn)) return false
   if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
+
+  const flattenRows = () => {
+    const out = []
+    for (const s of sections) {
+      const rows = Array.isArray(s?.rows) ? s.rows : []
+      for (const r of rows) {
+        if (!r?.rowId || !r?.title) continue
+        out.push({ title: waSafeInline(r.title), rowId: String(r.rowId) })
+        if (out.length >= 10) return out
+      }
+    }
+    return out
+  }
+
+  // Preferir botones nativos (proto/native flow) porque en muchos clientes las listas no aparecen o no se pueden tocar.
+  if (typeof conn?.sendButton === 'function') {
+    const rows = flattenRows()
+    if (!rows.length) return false
+    try {
+      const timeoutMs = clampInt(process.env.WA_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+      const buttons = rows.map((r) => [truncateText(r.title, 22) || 'Opción', r.rowId])
+      await Promise.race([
+        conn.sendButton(m.chat, String(text || ''), String(title || ''), null, buttons, null, null, m),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('sendButton timeout')), timeoutMs)),
+      ])
+      return true
+    } catch (err) {
+      console.error('sendButton failed:', err)
+    }
+  }
+
+  if (!connCanSendList(conn)) return false
   try {
     const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
     await Promise.race([
@@ -822,9 +853,10 @@ const isAporteApproved = (aporte) => {
 const scoreAporte = (aporte, queryTokensSet, pedidoMeta = null) => {
   const title = safeString(aporte?.titulo || '')
   const body = safeString(aporte?.contenido || '')
+  const archivoNombre = safeString(aporte?.archivoNombre || '')
   const tags = Array.isArray(aporte?.tags) ? aporte.tags.join(' ') : ''
   const tipo = safeString(aporte?.tipo || '')
-  const combined = `${title} ${body} ${tags} ${tipo}`
+  const combined = `${title} ${body} ${archivoNombre} ${tags} ${tipo}`
   const aTokens = new Set(tokenize(combined))
 
   let overlap = 0
@@ -907,7 +939,7 @@ const searchExactMatchAportes = (pedidoParsed, { limit = 10, allowPendingUserJid
       if (!allowPending) continue
     }
 
-    const aTitleNorm = normalizeText(aporte?.titulo || '')
+    const aTitleNorm = normalizeText(aporte?.titulo || aporte?.archivoNombre || '')
     if (!aTitleNorm || !qTitleNorm) continue
     const exactTitle = aTitleNorm === qTitleNorm
     const looseTitle = exactTitle || aTitleNorm.includes(qTitleNorm) || qTitleNorm.includes(aTitleNorm)
