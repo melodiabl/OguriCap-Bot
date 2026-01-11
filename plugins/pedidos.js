@@ -982,7 +982,6 @@ const FLOW_STEPS = {
   sending_file: 'sending_file',
 }
 
-// xstate machine enforcing deterministic flow and confirmations
 const createPedidoMachine = (ctxInit) => createMachine({
   id: 'pedidoFlow',
   context: {
@@ -1042,19 +1041,17 @@ const getMachineForPedido = (pedidoId, ctxInit = {}) => {
   if (!service) {
     const machine = createPedidoMachine({ pedidoId: id, ...ctxInit }).withConfig({
       actions: {
-        // Legacy actions (compatibilidad)
-        doParseAndNormalize: (ctx, evt) => {},
-        doBuildCandidates: (ctx, evt) => {},
-        doCollectAndClassify: (ctx, evt) => {},
-        doSendFile: (ctx, evt) => {},
-        // Nuevas acciones del flujo requerido
-        doParseTitle: (ctx, evt) => { /* parsePedido + normalización NFKD + extracción de título base */ },
-        doSearchAportes: (ctx, evt) => { /* buscar en global.db.data.aportes (prioridad 1) */ },
-        doSearchProviders: (ctx, evt) => { /* buscar en panel.contentLibrary por proveedor (si falta) */ },
-        doMergeResults: (ctx, evt) => { /* consolidar coberturas, validar COMPLETE anti-FP */ },
-        doPresentInteractives: (ctx, evt) => { /* menús: temporadas, rangos, extras/BL, faltantes */ },
-        doPrepareConfirmation: (ctx, evt) => { /* armar resumen con páginas/tamaño (pdf-parse si aplica) */ },
-        doDeliver: (ctx, evt) => { /* envío tras confirmación (documentos únicos o múltiples) */ },
+        doParseAndNormalize: (ctx, evt) => { },
+        doBuildCandidates: (ctx, evt) => { },
+        doCollectAndClassify: (ctx, evt) => { },
+        doSendFile: (ctx, evt) => { },
+        doParseTitle: (ctx, evt) => { },
+        doSearchAportes: (ctx, evt) => { },
+        doSearchProviders: (ctx, evt) => { },
+        doMergeResults: (ctx, evt) => { },
+        doPresentInteractives: (ctx, evt) => { },
+        doPrepareConfirmation: (ctx, evt) => { },
+        doDeliver: (ctx, evt) => { },
       }
     })
     service = interpret(machine)
@@ -1461,9 +1458,6 @@ const renderAvailabilityDetailsText = (pedido, availability) => {
   return lines.join('\n')
 }
 
-// -----------------------------
-// Push summary message builder (User-facing)
-// -----------------------------
 
 const yesNo = (b) => (b ? 'sí' : 'no')
 
@@ -1494,7 +1488,7 @@ const buildMissingRangesBySeason = (missingBySeason) => {
       const ranges = arr
         .map((r) => {
           const a = Number(r?.from), b = Number(r?.to)
-          if (Number.isFinite(a) && Number.isFinite(b)) return `${Math.min(a,b)}–${Math.max(a,b)}`
+          if (Number.isFinite(a) && Number.isFinite(b)) return `${Math.min(a, b)}–${Math.max(a, b)}`
           return null
         })
         .filter(Boolean)
@@ -3463,247 +3457,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       await m.reply(summaryText + `\n\n> _No pude mostrar el menú interactivo._` + fallback)
       return null
 
-      /*
-      const raw = (args || []).join(' ').trim()
-      if (!raw) {
-        return m.reply(
-          `📝 *Crear un pedido*\n\n` +
-          `> *Uso:* \`\`\`${usedPrefix}${command} <título>\`\`\`\n` +
-          `> _No escribas capítulos, temporadas ni extras; el bot te guía con interactivos._`
-        )
-      }
 
-      const parsed = parsePedido(raw)
-      if (!parsed.ok) return m.reply(`❌ *Pedido inválido*\n\n> _${safeString(parsed.error)}_`)
-
-      // Principio: el usuario solo escribe el título. Ignorar capítulos/temporadas/números extra.
-      const titulo = parsed.title
-      const descripcion = ''
-      const prioridad = 'media'
-      parsed.season = null
-      parsed.chapterFrom = null
-      parsed.chapterTo = null
-      parsed.isRange = false
-      parsed.hasChapter = false
-      const temporada = null
-      const capDesde = null
-      const capHasta = null
-
-      const id = nextPedidoId()
-      const now = new Date().toISOString()
-      const proveedorJid = (m.isGroup && panel?.proveedores?.[m.chat]) ? m.chat : null
-
-      const pedido = {
-        id,
-        titulo,
-        descripcion,
-        tipo: 'general',
-        estado: 'pendiente',
-        prioridad,
-        usuario: m.sender,
-        grupo_id: m.isGroup ? m.chat : null,
-        grupo_nombre: m.isGroup ? (await conn.groupMetadata(m.chat).catch(() => ({}))).subject || '' : '',
-        proveedor_jid: proveedorJid,
-        tags: [],
-        categoria: null,
-        capitulo: capDesde,
-        capitulo_desde: capDesde,
-        capitulo_hasta: capHasta,
-        temporada,
-        ai: null,
-        votos: 0,
-        votantes: [],
-        fecha_creacion: now,
-        fecha_actualizacion: now,
-      }
-
-      let aiEnhanced = null
-      try {
-        aiEnhanced = await aiEnhancePedido({
-          titulo,
-          descripcion,
-          proveedor: proveedorJid ? { jid: proveedorJid, tipo: safeString(panel?.proveedores?.[proveedorJid]?.tipo || '') } : { tipo: '' },
-        })
-        if (aiEnhanced) {
-          pedido.ai = aiEnhanced.ai || null
-          if (aiEnhanced.tags?.length) pedido.tags = aiEnhanced.tags
-          if (aiEnhanced.category) pedido.categoria = aiEnhanced.category
-          if (aiEnhanced.chapter != null) pedido.capitulo = aiEnhanced.chapter
-          if (aiEnhanced.season != null) pedido.temporada = aiEnhanced.season
-        }
-      } catch (e) {
-        console.error('aiEnhancePedido failed:', e)
-      }
-
-      panel.pedidos[id] = pedido
-      if (global.db?.write) await global.db.write().catch(() => { })
-
-      try {
-        const { emitPedidoCreated } = await import('../lib/socket-io.js')
-        emitPedidoCreated(pedido)
-      } catch { }
-
-      // Modo rápido: si no viene capítulo, ofrecer flujos (Biblioteca / Aportes / Proveedor).
-      if (!parsed.hasChapter) {
-        const browseProviderJid = proveedorJid || pedido?.proveedor_jid || null
-        const aporteMatches = searchAportesForPedido(pedido, {
-          limit: 5,
-          includePending: Boolean(isBotOwner),
-          allowPendingUserJid: m.sender,
-          allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (m.isGroup ? m.chat : null) : null,
-        })
-
-        const bodyLines = []
-        bodyLines.push('✅ *Pedido creado*')
-        bodyLines.push(`> *ID:* \`\`\`#${id}\`\`\``)
-        bodyLines.push(`> *Título:* ${waSafeInline(titulo)}`)
-        bodyLines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
-        bodyLines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
-        if (descripcion) bodyLines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
-        if (!browseProviderJid && m.isGroup) bodyLines.push('> 🛡️ _Primero selecciona un proveedor._')
-        bodyLines.push('> ✅ _Elige un flujo:_')
-
-        const flowButtons = [
-          ['📚 Biblioteca', `${usedPrefix}procesarpedido ${id}`],
-          ['📌 Aportes', `${usedPrefix}buscaraporte ${id}`],
-          ['📦 Proveedor', `${usedPrefix}elegirproveedorpedido ${id}`],
-        ]
-        if (aporteMatches.length) flowButtons.push(['📌 Aportes (hay)', `${usedPrefix}buscaraporte ${id}`])
-
-        const ok = await trySendFlowButtons(m, conn, {
-          text: bodyLines.join('\n'),
-          footer: '🛡️ Oguri Bot',
-          buttons: flowButtons.slice(0, 6),
-        })
-        if (ok) {
-          // Fallback visible: si WhatsApp no muestra el interactivo, al menos responde en texto.
-          await m.reply(
-            `✅ *Pedido creado* \`\`\`#${id}\`\`\`\n` +
-            `> *Título:* ${waSafeInline(titulo)}\n\n` +
-            `> _Si no ves el menú, usa:_\n` +
-            `> \`\`\`${usedPrefix}procesarpedido ${id}\`\`\`\n` +
-            `> \`\`\`${usedPrefix}buscaraporte ${id}\`\`\`\n` +
-            `> \`\`\`${usedPrefix}elegirproveedorpedido ${id}\`\`\``
-          )
-          return null
-        }
-
-        const lines = []
-        lines.push(...bodyLines)
-        lines.push('')
-        lines.push(`📚 *Biblioteca:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
-        lines.push(`📌 *Aportes:* \`\`\`${usedPrefix}buscaraporte ${id}\`\`\``)
-        lines.push(`📦 *Proveedor:* \`\`\`${usedPrefix}elegirproveedorpedido ${id}\`\`\``)
-        return m.reply(lines.join('\n'))
-      }
-
-      const auto = await processPedidoAuto({
-        panel,
-        pedido,
-        parsed,
-        proveedorJid,
-        m,
-        conn,
-        usedPrefix,
-        isAdmin,
-        isBotOwner,
-      })
-
-      if (auto.mode === 'auto') {
-        await m.reply(
-          `✅ *Pedido completado automáticamente*\n\n` +
-          `> *ID:* \`\`\`#${id}\`\`\`\n` +
-          `> *Resultado:* _${waSafeInline(auto?.selected?.title || '')}_`
-        )
-        return null
-      }
-      if (auto.mode === 'error') {
-        await m.reply(`⚠️ *No pude procesar automáticamente*\n\n> *Motivo:* _${waSafeInline(auto.error || 'Error desconocido')}_`)
-      }
-
-      const libraryResults = Array.isArray(auto?.libraryResults) ? auto.libraryResults : []
-      const exactAporteMatches = Array.isArray(auto?.exactAporteMatches) ? auto.exactAporteMatches : []
-
-      const libRows = buildLibrarySelectRowsForPedido(libraryResults, usedPrefix, id)
-      const aporteRows = buildAporteSelectRowsForPedido(exactAporteMatches, usedPrefix, id)
-      const provRows = !proveedorJid ? buildProviderSelectRows(panel, usedPrefix, id) : []
-
-      const sections = []
-      if (libRows.length) sections.push({ title: '📚 Biblioteca', rows: libRows })
-      if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
-      if (provRows.length) sections.push({ title: '📦 Elegir proveedor', rows: provRows })
-
-      const actionRows = [
-        { title: '👁️ Ver pedido', description: 'Ver detalles del pedido', rowId: `${usedPrefix}verpedido ${id}` },
-        { title: '🗳️ Votar', description: 'Sumar 1 voto al pedido', rowId: `${usedPrefix}votarpedido ${id}` },
-        { title: '📌 Buscar aportes', description: 'Ver aportes sugeridos', rowId: `${usedPrefix}buscaraporte ${id}` },
-      ]
-      if (proveedorJid) actionRows.push({ title: '🔎 Buscar en biblioteca', description: 'Procesar pedido en biblioteca', rowId: `${usedPrefix}procesarpedido ${id}` })
-      if (actionRows.length) sections.push({ title: 'Acciones', rows: actionRows.slice(0, 10) })
-
-      const bodyLines = []
-      bodyLines.push('✅ *Pedido creado*')
-      bodyLines.push(`> *ID:* \`\`\`#${id}\`\`\``)
-      bodyLines.push(`> *Título:* ${waSafeInline(titulo)}`)
-      bodyLines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
-      bodyLines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
-      if (descripcion) bodyLines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
-      bodyLines.push(`> *Capítulo(s):* _${waSafeInline(parsed.isRange ? `${parsed.chapterFrom}-${parsed.chapterTo}` : parsed.chapterFrom)}_`)
-      if (parsed.season) bodyLines.push(`> *Temporada:* _${waSafeInline(parsed.season)}_`)
-      if (aiEnhanced?.title && aiEnhanced.title && normalizeText(aiEnhanced.title) !== normalizeText(titulo)) {
-        bodyLines.push(`> *IA:* _${waSafeInline(aiEnhanced.title)}_`)
-      }
-      const cat = waSafeInline(aiEnhanced?.category || pedido?.categoria || '')
-      if (cat) bodyLines.push(`> *Categoría:* _${cat}_`)
-      // No sobreescribir capítulo/temporada estructurados con IA: solo metadata arriba
-      if (!proveedorJid && m.isGroup) bodyLines.push('> 🛡️ _Selecciona un proveedor para buscar en biblioteca._')
-      else if (!libRows.length && !aporteRows.length) bodyLines.push('> 🔎 _Sin coincidencias (por ahora)._')
-      else bodyLines.push('> ✅ _Encontré coincidencias: elige una para enviarla._')
-      if (aiEnhanced?.title && normalizeText(aiEnhanced.title) !== normalizeText(titulo)) bodyLines.push(`> 🔎 *Interpretado:* _${waSafeInline(aiEnhanced.title)}_`)
-
-      if (m.fromMe) {
-        const templateButtons = [
-          ['👁️ Ver pedido', `${usedPrefix}verpedido ${id}`],
-          ['📌 Aportes', `${usedPrefix}buscaraporte ${id}`],
-          [proveedorJid ? '🔎 Biblioteca' : '📦 Elegir proveedor', `${usedPrefix}procesarpedido ${id}`],
-        ]
-        await trySendTemplateResponse(m, conn, {
-          text: bodyLines.join('\n'),
-          footer: '🛡️ Oguri Bot',
-          buttons: templateButtons,
-        })
-        await m.reply(`✅ Pedido #${id} creado.\n\nUsa:\n${usedPrefix}verpedido ${id}`)
-        return null
-      }
-
-      const ok = await trySendInteractiveList(m, conn, {
-        title: 'Pedido',
-        text: bodyLines.join('\n'),
-        sections,
-      })
-      if (ok) {
-        await m.reply(`✅ Pedido #${id} creado.\n\nSi no te aparece el menú, usa:\n${usedPrefix}verpedido ${id}`)
-        return null
-      }
-
-      const lines = []
-      lines.push(...bodyLines)
-      if (proveedorJid) {
-        lines.push('')
-        lines.push(`🔎 *Buscar en biblioteca:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
-      } else {
-        lines.push('')
-        lines.push(`📦 *Proveedores:* \`\`\`${usedPrefix}procesarpedido ${id} <idProveedor|jidProveedor>\`\`\``)
-      }
-      if (aporteMatches.length) {
-        lines.push('')
-        lines.push(formatAportesMatches(pedido, aporteMatches, usedPrefix))
-      } else {
-        lines.push('')
-        lines.push(`📌 *Aportes:* \`\`\`${usedPrefix}buscaraporte ${id}\`\`\``)
-      }
-      return m.reply(lines.join('\n'))
-      */
     }
 
     case 'seleccionpedido': {
