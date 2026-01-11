@@ -67,6 +67,16 @@ const truncateText = (v, max = 140) => {
 
 const waSafeInline = (v) => oneLine(v).replace(/[*_~`]/g, '').trim()
 
+// Normalización de títulos compatible con pedidos.js
+const normalizeText = (s) => safeString(s || '')
+  .toLowerCase()
+  .normalize('NFKC')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+
 const ensureStore = () => {
   if (!global.db.data.aportes) global.db.data.aportes = []
   if (!global.db.data.aportesCounter) {
@@ -306,6 +316,8 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
         temporada: temporadaFinal,
         capitulo: capituloFinal,
         ai: ai.ai || null,
+        // Clave de título estable para matching con pedidos
+        titulo_normalizado: normalizeText(ai.titulo || tituloFinal || detected?.fileName || contenido || ''),
         fecha: new Date().toISOString(),
         estado: 'pendiente',
         archivo: media?.url || null,

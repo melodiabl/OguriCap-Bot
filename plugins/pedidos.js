@@ -59,9 +59,13 @@ const COVERAGE_TYPES = {
 }
 
 const normalizeForRangeParsing = (rawText) => safeString(rawText || '')
+  // NFKC normaliza superíndices como ³ -> 3 y fullwidth forms a ASCII
   .normalize('NFKC')
+  // Unificar guiones y separadores comunes
   .replace(/[–—−]/g, '-')
-  .replace(/[_|]+/g, ' ')
+  .replace(/[|｜]/g, ' ')
+  .replace(/[_]+/g, ' ')
+  // Mantener solo letras, números, espacios y guiones
   .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
   .replace(/\s+/g, ' ')
   .trim()
@@ -868,9 +872,10 @@ const detectIsBLFromText = (rawText) => {
 const inferSeasonFromText = (rawText) => {
   const inferred = extractSeasonFromTextRobust(rawText)
   if (inferred) return inferred
-  const t = safeString(rawText || '').trim()
-  if (!t) return null
-  const m = t.match(/\b(?:temporada|temp(?:orada)?|season|s)\s*0*(\d{1,2})\b/i)
+  const base = safeString(rawText || '')
+  if (!base) return null
+  const t = base.normalize('NFKC')
+  const m = t.match(/\b(?:temporada|temp(?:orada)?|season|t|s)\s*0*(\d{1,2})\b/i)
   if (m) return normalizeSeason(m[1])
   return null
 }
@@ -878,15 +883,16 @@ const inferSeasonFromText = (rawText) => {
 const inferChapterFromText = (rawText) => {
   const inferred = extractSingleChapterFromText(rawText, { contentType: 'main' })
   if (inferred) return inferred
-  const t = safeString(rawText || '').trim()
-  if (!t) return null
+  const base = safeString(rawText || '')
+  if (!base) return null
+  const t = base.normalize('NFKC')
   // prefer explícitos
   const m1 = t.match(/\b(?:cap(?:itulo)?|chapter|ch)\s*0*(\d{1,4})\b/i)
   if (m1) return normalizeChapter(m1[1])
-  // prefijo numérico (ej: 05_ ...), evitando extras/special
+  // prefijo numérico al inicio (ej: 05_, 66-T3, 66｜... ), evitando extras/special
   const low = normalizeText(t)
   if (/\b(extra|especial|special|side|bonus|omake|epilogue|prologue|spin\s*off|spinoff|illustration|ilustr)\b/u.test(low)) return null
-  const m2 = t.match(/^\s*0*(\d{1,4})\s*[_\-–]/)
+  const m2 = t.match(/^\s*0*(\d{1,4})\s*[_\-–|｜]/)
   if (m2) return normalizeChapter(m2[1])
   return null
 }
@@ -1202,9 +1208,11 @@ const collectTitleItems = (panel, { titleKey, proveedorJid } = {}) => {
 
   const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
   const aportesMatched = aportes.filter((a) => {
-    const raw = safeString(a?.titulo || a?.archivoNombre || '')
-    const t = normalizeText(inferTitleFromFilename(raw) || raw)
-    return isTitleMatch(t, key)
+    // Priorizar clave persistida normalizada desde aportes.js
+    const baseNorm = typeof a?.titulo_normalizado === 'string' && a.titulo_normalizado.trim()
+      ? a.titulo_normalizado.trim()
+      : normalizeText(inferTitleFromFilename(safeString(a?.titulo || a?.archivoNombre || '')) || safeString(a?.titulo || a?.archivoNombre || ''))
+    return isTitleMatch(baseNorm, key)
   })
   return { library, aportes: aportesMatched }
 }
@@ -1588,7 +1596,11 @@ const savePedidoAndEmit = async (panel, pedido, eventName = 'updated') => {
 }
 
 const getMergedItemsForPedido = (panel, pedido, { m, isBotOwner, isAdmin } = {}) => {
-  const selectedKey = safeString(pedido?.titulo_normalizado || pedido?.flow?.data?.selectedKey || '').trim() || normalizeText(pedido?.titulo || '')
+  // Clave de título priorizando una versión normalizada persistida
+  const baseKey = pedido?.titulo_normalizado && typeof pedido.titulo_normalizado === 'string'
+    ? pedido.titulo_normalizado
+    : normalizeText(pedido?.titulo || '')
+  const selectedKey = safeString(pedido?.flow?.data?.selectedKey || '').trim() || baseKey
   const proveedorJid = pedido?.proveedor_jid || pedido?.flow?.data?.proveedorJid || null
   const allowGlobalLibrary = !m?.isGroup || Boolean(isBotOwner)
 
@@ -1611,8 +1623,10 @@ const getMergedItemsForPedido = (panel, pedido, { m, isBotOwner, isAdmin } = {})
   const aportesAll = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
   const aportes = aportesAll
     .filter((a) => {
-      const raw = safeString(a?.titulo || a?.archivoNombre || '')
-      return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+      const norm = typeof a?.titulo_normalizado === 'string' && a.titulo_normalizado.trim()
+        ? a.titulo_normalizado.trim()
+        : normalizeText(inferTitleFromFilename(safeString(a?.titulo || a?.archivoNombre || '')) || safeString(a?.titulo || a?.archivoNombre || ''))
+      return isTitleMatch(norm, selectedKey)
     })
     .filter((a) => isAporteVisibleToUser(a, { m, isBotOwner, isAdmin }))
 
