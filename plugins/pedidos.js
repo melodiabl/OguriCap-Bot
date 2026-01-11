@@ -774,6 +774,26 @@ const formatSearchResults = (pedido, query, results, usedPrefix, proveedorJid) =
 }
 
 const connCanSendList = (conn) => typeof conn?.sendList === 'function'
+const connCanSendProtoFlow = (conn) => typeof conn?.sendNCarousel === 'function'
+
+const trySendProtoSingleSelect = async (m, conn, { title, text, buttonText, sections, footer } = {}) => {
+  if (!connCanSendProtoFlow(conn)) return false
+  if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
+
+  const safeButtonText = safeString(buttonText || 'Ver opciones').trim() || 'Ver opciones'
+  const body = `${title ? `*${waSafeInline(title)}*\n\n` : ''}${safeString(text || '')}`
+  try {
+    const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+    await Promise.race([
+      conn.sendNCarousel(m.chat, body, safeString(footer || '🛡️ Oguri Bot'), null, [], null, null, [[safeButtonText, sections]], m, {}),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel(single_select) timeout')), timeoutMs)),
+    ])
+    return true
+  } catch (err) {
+    console.error('sendNCarousel(single_select) failed:', err)
+    return false
+  }
+}
 
 const buildLibraryListRows = (results, usedPrefix, opts = {}) => {
   const rowIdOf = typeof opts?.rowIdOf === 'function' ? opts.rowIdOf : (id) => `${usedPrefix}infolib ${id}`
@@ -904,6 +924,12 @@ const buildProviderSelectRows = (panel, usedPrefix, pedidoId) => {
 const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
   if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
 
+  // 0) Preferir "proto/nativeFlow" (single_select) porque suele ser el más compatible.
+  {
+    const ok = await trySendProtoSingleSelect(m, conn, { title, text, buttonText: 'Ver opciones', sections, footer: '🛡️ Oguri Bot' })
+    if (ok) return true
+  }
+
   // 1) Preferir listas para selección detallada (capítulos/archivos).
   if (connCanSendList(conn)) {
     try {
@@ -947,6 +973,23 @@ const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
 }
 
 const trySendTemplateResponse = async (m, conn, { text, footer, buttons }) => {
+  // 0) Preferir proto/nativeFlow (quick_reply) si está disponible.
+  if (connCanSendProtoFlow(conn)) {
+    const safeButtons = Array.isArray(buttons) ? buttons.filter((b) => Array.isArray(b) && b[0] && b[1]).slice(0, 10) : []
+    if (safeButtons.length) {
+      try {
+        const timeoutMs = clampInt(process.env.WA_TEMPLATE_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+        await Promise.race([
+          conn.sendNCarousel(m.chat, String(text || ''), String(footer || '🛡️ Oguri Bot'), null, safeButtons, null, null, null, m, {}),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel(quick_reply) timeout')), timeoutMs)),
+        ])
+        return true
+      } catch (err) {
+        console.error('sendNCarousel(quick_reply) failed:', err)
+      }
+    }
+  }
+
   try {
     if (typeof conn?.sendHydrated !== 'function') return false
     const safeButtons = Array.isArray(buttons) ? buttons.filter((b) => Array.isArray(b) && b[0] && b[1]).slice(0, 3) : []
@@ -966,6 +1009,20 @@ const trySendTemplateResponse = async (m, conn, { text, footer, buttons }) => {
 const trySendFlowButtons = async (m, conn, { text, footer, buttons } = {}) => {
   const safeButtons = Array.isArray(buttons) ? buttons.filter((b) => Array.isArray(b) && b[0] && b[1]).slice(0, 10) : []
   if (!safeButtons.length) return false
+
+  // Preferir proto/nativeFlow (quick_reply).
+  if (connCanSendProtoFlow(conn)) {
+    try {
+      const timeoutMs = clampInt(process.env.WA_FLOW_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+      await Promise.race([
+        conn.sendNCarousel(m.chat, String(text || ''), String(footer || '🛡️ Oguri Bot'), null, safeButtons, null, null, null, m, {}),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel timeout')), timeoutMs)),
+      ])
+      return true
+    } catch (err) {
+      console.error('sendNCarousel(flow) failed:', err)
+    }
+  }
 
   // Preferir templateResponse: suele ser más compatible (máximo 3 botones).
   if (typeof conn?.sendHydrated === 'function') {
