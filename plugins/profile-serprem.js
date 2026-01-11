@@ -32,13 +32,21 @@ if (!precios[kk]) return conn.reply(m.chat, `ꕥ Formato no válido. Opciones: h
 let precio = precios[kk]
 let comision = comisiones[kk]
 let total = (precio * args[0]) + (comision * args[0])
-if (user.coin < total) return conn.reply(m.chat, `ꕥ No tienes suficientes ${currency} para comprar la membresía premium!`, m)
+let totalBalance = (user.coin || 0) + (user.bank || 0)
+if (totalBalance < total) return conn.reply(m.chat, `ꕥ No tienes suficientes ${currency} para comprar la membresía premium!`, m)
 let tiempoMs = { h: 3600000, d: 86400000, s: 604800000, m: 2592000000 }[kk] * args[0]
 let now = Date.now()
 if (now < user.premiumTime) user.premiumTime += tiempoMs
 else user.premiumTime = now + tiempoMs
 user.premium = true
-user.coin -= total
+
+if ((user.coin || 0) >= total) {
+    user.coin = (user.coin || 0) - total
+} else {
+    let remainder = total - (user.coin || 0)
+    user.coin = 0
+    user.bank = (user.bank || 0) - remainder
+}
 let tipos = { h: "Hora(s)", d: "Día(s)", s: "Semana(s)", m: "Mes(es)" }
 let tipo = tipos[kk]
 let cap = `  \`\`\`乂 ¡BUY  -  PREMIUM! 乂\`\`\`
