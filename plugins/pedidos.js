@@ -759,16 +759,16 @@ const inferTitleFromFilename = (name) => {
   s = stripKnownExtensions(s)
   s = s.replace(/[_|┇~•·]+/g, ' ')
   s = s.replace(/[()\[\]{}]/g, ' ')
-  // Quitar prefijos numéricos tipo "05_" o "5 -"
+  // Quitar prefijos numéricos tipo "05_" o "5 -" al inicio, pero sin eliminar palabras clave del título
   s = s.replace(/^\s*0*\d{1,4}\s*[_\-–]\s*/g, ' ')
-  // Quitar tokens de temporada/capítulo
+  // Quitar tokens de temporada/capítulo que claramente son metadatos
   s = s
     .replace(/\b(?:temporada|temp(?:orada)?|season)\s*0*\d{1,2}\b/gi, ' ')
     .replace(/\b(?:t|s)\s*0*\d{1,2}\b/gi, ' ')
     .replace(/\b(?:cap(?:itulo)?|chapter|ch)\s*0*\d{1,4}\b/gi, ' ')
     .replace(/\b(?:cap(?:itulo)?s?|chapters?)\s*0*\d{1,4}\s*(?:-|–|a)\s*0*\d{1,4}\b/gi, ' ')
-  // Quitar tokens de extras
-  s = s.replace(/\b(extra|extras|special|specials|especial|especiales|side|sidestory|side\s*story|bonus|omake|epilogue|epilogo|prologue|prologo|spin\s*off|spinoff|au|what\s*if|illustration|illustrations|ilustracion|ilustraciones|illust|artbook)\b/gi, ' ')
+  // No eliminar por completo palabras como "especial" o "special":
+  // dejar que formen parte del título base para que el match por título sea más tolerante.
   s = s.replace(/\s+/g, ' ').trim()
   return s
 }
@@ -3042,13 +3042,8 @@ const canUserManagePedido = (pedido, { m, isBotOwner, isAdmin } = {}) => {
   if (!pedido) return false
   if (isBotOwner) return true
   const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m?.chat || '')
-  // Permitir a cualquier participante del mismo chat (grupo) usar los botones del pedido
-  if (m?.isGroup && sameChat) return true
-  // En chats privados, permitir solo al creador del pedido
-  const isPedidoCreator = sameUser(pedido?.usuario, m?.sender)
-  if (!m?.isGroup && isPedidoCreator) return true
-  // Admins del grupo también están permitidos
-  if (m?.isGroup && isAdmin && sameChat) return true
+  // Permitir a cualquier participante del mismo chat (grupo) usar los menús e interactivos del pedido
+  if (sameChat) return true
   return false
 }
 
