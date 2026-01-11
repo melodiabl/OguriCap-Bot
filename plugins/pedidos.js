@@ -43,6 +43,235 @@ const normalizeChapter = (value) => {
   return String(n)
 }
 
+// -----------------------------
+// Coverage / Ranges / Packs
+// -----------------------------
+
+const COVERAGE_TYPES = {
+  SINGLE_CHAPTER: 'SINGLE_CHAPTER',
+  CHAPTER_RANGE: 'CHAPTER_RANGE',
+  FULL_SEASON: 'FULL_SEASON',
+  FULL_SERIES: 'FULL_SERIES',
+  VOLUME: 'VOLUME',
+  COMPLETE_PACK: 'COMPLETE_PACK',
+  UNKNOWN: 'UNKNOWN',
+}
+
+const normalizeForRangeParsing = (rawText) => safeString(rawText || '')
+  .normalize('NFKC')
+  .replace(/[–—−]/g, '-')
+  .replace(/[_|]+/g, ' ')
+  .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase()
+
+const hasCompleteKeyword = (rawText) => {
+  const t = normalizeText(rawText || '')
+  if (!t) return false
+  return /\b(completo|completa|complete|full|all\s*chapters|todos?|todo|final|finished)\b/u.test(t)
+}
+
+const extractSeasonFromTextRobust = (rawText) => {
+  const t = normalizeForRangeParsing(rawText)
+  if (!t) return null
+  // "temporada 2", "season 2", "temp 02"
+  let m = t.match(/\b(?:temporada|temp(?:orada)?|season)\s*0*(\d{1,2})\b/i)
+  if (m) return normalizeSeason(m[1])
+  // "t02", "s2", "t 02", "s 2"
+  m = t.match(/\b(?:t|s)\s*0*(\d{1,2})\b/i)
+  if (m) return normalizeSeason(m[1])
+  return null
+}
+
+const isLikelyDateLikeRange = (a, b) => {
+  const x = Number(a)
+  const y = Number(b)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+  const isYear = (n) => n >= 1900 && n <= 2100
+  const isMonthOrDay = (n) => n >= 1 && n <= 31
+  return (isYear(x) && isMonthOrDay(y)) || (isYear(y) && isMonthOrDay(x))
+}
+
+const extractChapterRangeFromText = (rawText) => {
+  const t = normalizeForRangeParsing(rawText)
+  if (!t) return null
+
+  // 1) Explícito: "cap 1-20", "caps 001-050", "ch 5-12"
+  let m = t.match(/\b(?:cap(?:itulo)?s?|chapters?|ch(?:apter)?s?|eps?|episodes?)\b\s*0*(\d{1,4})\s*(?:-|a|to)\s*0*(\d{1,4})\b/i)
+  if (m) {
+    const from = normalizeChapter(m[1])
+    const to = normalizeChapter(m[2])
+    if (from && to) return Number(from) <= Number(to) ? { from, to } : { from: to, to: from }
+  }
+
+  // 2) Genérico: "01-108" (solo si el texto tiene señales de capítulos o de pack completo)
+  const looksChaptery = /\b(cap(?:itulo)?s?|chapter(?:s)?|ch(?:apter)?|eps?|episodes?)\b/u.test(t)
+  const looksPacky = hasCompleteKeyword(t) || /\b(pack|bundle|合集)\b/u.test(t)
+
+  const re = /0*(\d{1,4})\s*-\s*0*(\d{1,4})/g
+  m = re.exec(t)
+  if (!m) return null
+  const from = normalizeChapter(m[1])
+  const to = normalizeChapter(m[2])
+  if (!from || !to) return null
+  const atStart = (m.index != null) ? m.index <= 2 : false
+  const likelyRangeToken = atStart || looksChaptery || looksPacky
+  if (!likelyRangeToken) return null
+  if (isLikelyDateLikeRange(from, to)) return null
+  return Number(from) <= Number(to) ? { from, to } : { from: to, to: from }
+}
+
+const extractSingleChapterFromText = (rawText, { contentType = 'main' } = {}) => {
+  const raw = safeString(rawText || '').trim()
+  if (!raw) return null
+
+  const low = normalizeText(raw)
+  if (contentType !== 'main') return null
+  if (/\b(extra|especial|special|side|bonus|omake|epilogue|prologue|spin\s*off|spinoff|illustration|ilustr)\b/u.test(low)) return null
+  if (hasCompleteKeyword(low)) return null
+  if (extractChapterRangeFromText(raw)) return null
+
+  // prefer explícitos
+  const t = normalizeForRangeParsing(raw)
+  const m1 = t.match(/\b(?:cap(?:itulo)?|chapter|ch)\s*0*(\d{1,4})\b/i)
+  if (m1) {
+    const ch = normalizeChapter(m1[1])
+    const n = ch ? Number(ch) : NaN
+    if (Number.isFinite(n) && !(n >= 1900 && n <= 2100)) return ch
+  }
+
+  // prefijo numérico (ej: 05_ ...), evitando años
+  const m2 = t.match(/^\s*0*(\d{1,4})\s*[_\-]/)
+  if (m2) {
+    const ch = normalizeChapter(m2[1])
+    const n = ch ? Number(ch) : NaN
+    if (Number.isFinite(n) && !(n >= 1900 && n <= 2100)) return ch
+  }
+
+  return null
+}
+
+const extractVolumeFromText = (rawText) => {
+  const t = normalizeForRangeParsing(rawText)
+  if (!t) return null
+  const m = t.match(/\b(?:vol(?:ume)?|volumen|tomo)\s*0*(\d{1,3})\b/i)
+  if (!m) return null
+  const n = Number(m[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  return String(n)
+}
+
+const getFileMeasures = (filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return { sizeBytes: null, sizeMB: null, pageCount: null }
+    const st = fs.statSync(filePath)
+    if (!st.isFile()) return { sizeBytes: null, sizeMB: null, pageCount: null }
+    const sizeBytes = Number(st.size) || 0
+    const sizeMB = Math.round((sizeBytes / 1024 / 1024) * 10) / 10
+    return { sizeBytes, sizeMB, pageCount: null }
+  } catch {
+    return { sizeBytes: null, sizeMB: null, pageCount: null }
+  }
+}
+
+const quickPdfPageCount = (filePath) => {
+  try {
+    const ext = getFileExtUpper(filePath || '')
+    if (ext !== 'PDF') return null
+    const fd = fs.openSync(filePath, 'r')
+    try {
+      const maxBytes = 2 * 1024 * 1024
+      const buf = Buffer.allocUnsafe(maxBytes)
+      const bytesRead = fs.readSync(fd, buf, 0, maxBytes, 0)
+      const chunk = buf.subarray(0, Math.max(0, bytesRead)).toString('latin1')
+      let max = 0
+      const re = /\/Count\s+(\d{1,6})/g
+      let m
+      while ((m = re.exec(chunk))) {
+        const n = Number(m[1])
+        if (Number.isFinite(n) && n > max) max = n
+      }
+      return max > 0 ? max : null
+    } finally {
+      fs.closeSync(fd)
+    }
+  } catch {
+    return null
+  }
+}
+
+const classifyCoverageFromItemText = ({ rawText, contentType = 'main', explicitSeason = null, explicitChapter = null, filePath = null } = {}) => {
+  const type = safeString(contentType || 'main').toLowerCase().trim() || 'main'
+  const baseText = safeString(rawText || '').trim()
+
+  const season = normalizeSeason(explicitSeason) || extractSeasonFromTextRobust(baseText) || '0'
+  if (type !== 'main') {
+    return { coverageType: COVERAGE_TYPES.UNKNOWN, season, chapterFrom: null, chapterTo: null, inferredCoverage: false, isComplete: false, volume: null, measures: null }
+  }
+
+  const volume = extractVolumeFromText(baseText)
+  const complete = hasCompleteKeyword(baseText)
+  const range = extractChapterRangeFromText(baseText)
+  const single = range ? null : (normalizeChapter(explicitChapter) || extractSingleChapterFromText(baseText, { contentType: type }))
+
+  let coverageType = COVERAGE_TYPES.UNKNOWN
+  let chapterFrom = null
+  let chapterTo = null
+  let inferredCoverage = false
+
+  if (volume) {
+    coverageType = COVERAGE_TYPES.VOLUME
+  } else if (range) {
+    chapterFrom = range.from
+    chapterTo = range.to
+    inferredCoverage = true
+    const fromN = Number(chapterFrom)
+    const toN = Number(chapterTo)
+    const isLargeFromOne = Number.isFinite(fromN) && Number.isFinite(toN) && fromN === 1 && toN >= 20
+    if (complete || isLargeFromOne) {
+      coverageType = season && season !== '0' ? COVERAGE_TYPES.FULL_SEASON : COVERAGE_TYPES.COMPLETE_PACK
+    } else {
+      coverageType = COVERAGE_TYPES.CHAPTER_RANGE
+    }
+  } else if (complete) {
+    inferredCoverage = true
+    coverageType = season && season !== '0' ? COVERAGE_TYPES.FULL_SEASON : COVERAGE_TYPES.COMPLETE_PACK
+  } else if (single) {
+    chapterFrom = String(single)
+    chapterTo = String(single)
+    coverageType = COVERAGE_TYPES.SINGLE_CHAPTER
+  }
+
+  // Heurística por medidas (si existe un archivo local) para evitar falsos positivos (packs).
+  let measures = null
+  if (filePath && (coverageType === COVERAGE_TYPES.CHAPTER_RANGE || coverageType === COVERAGE_TYPES.FULL_SEASON || coverageType === COVERAGE_TYPES.COMPLETE_PACK || coverageType === COVERAGE_TYPES.UNKNOWN)) {
+    const m = getFileMeasures(filePath)
+    const pageCount = quickPdfPageCount(filePath)
+    measures = { ...m, pageCount }
+    const sizeMB = Number(measures?.sizeMB || 0)
+    const pages = Number(measures?.pageCount || 0)
+    if ((pages && pages >= 200) || (sizeMB && sizeMB >= 30)) {
+      if (coverageType === COVERAGE_TYPES.SINGLE_CHAPTER) {
+        // no degradar single explícito
+      } else if (coverageType === COVERAGE_TYPES.UNKNOWN && (complete || range)) {
+        coverageType = season && season !== '0' ? COVERAGE_TYPES.FULL_SEASON : COVERAGE_TYPES.COMPLETE_PACK
+        inferredCoverage = true
+      } else if (coverageType === COVERAGE_TYPES.CHAPTER_RANGE) {
+        coverageType = season && season !== '0' ? COVERAGE_TYPES.FULL_SEASON : COVERAGE_TYPES.COMPLETE_PACK
+        inferredCoverage = true
+      }
+    }
+  }
+
+  const normalizedType =
+    (coverageType === COVERAGE_TYPES.COMPLETE_PACK && /\bseries\b/u.test(normalizeText(baseText || '')))
+      ? COVERAGE_TYPES.FULL_SERIES
+      : coverageType
+
+  return { coverageType: normalizedType, season, chapterFrom, chapterTo, inferredCoverage, isComplete: Boolean(complete), volume: volume || null, measures }
+}
+
 const parsePedido = (rawInput) => {
   const raw = safeString(rawInput).trim()
   if (!raw) return { ok: false, error: 'Pedido vacío' }
@@ -636,6 +865,8 @@ const detectIsBLFromText = (rawText) => {
 }
 
 const inferSeasonFromText = (rawText) => {
+  const inferred = extractSeasonFromTextRobust(rawText)
+  if (inferred) return inferred
   const t = safeString(rawText || '').trim()
   if (!t) return null
   const m = t.match(/\b(?:temporada|temp(?:orada)?|season|s)\s*0*(\d{1,2})\b/i)
@@ -644,6 +875,8 @@ const inferSeasonFromText = (rawText) => {
 }
 
 const inferChapterFromText = (rawText) => {
+  const inferred = extractSingleChapterFromText(rawText, { contentType: 'main' })
+  if (inferred) return inferred
   const t = safeString(rawText || '').trim()
   if (!t) return null
   // prefer explícitos
@@ -674,6 +907,18 @@ const classifyAporteItem = (aporte) => {
 }
 
 const needsExplicitConfirmForType = (contentType) => String(contentType || 'main') !== 'main'
+
+const needsExplicitConfirmForCoverage = (coverage) => {
+  const t = safeString(coverage?.coverageType || '').trim()
+  if (!t) return false
+  return (
+    t === COVERAGE_TYPES.CHAPTER_RANGE ||
+    t === COVERAGE_TYPES.FULL_SEASON ||
+    t === COVERAGE_TYPES.FULL_SERIES ||
+    t === COVERAGE_TYPES.COMPLETE_PACK ||
+    t === COVERAGE_TYPES.VOLUME
+  )
+}
 
 const appendPedidoLog = (pedido, entry) => {
   try {
@@ -878,24 +1123,51 @@ const collectTitleItems = (panel, { titleKey, proveedorJid } = {}) => {
 }
 
 const buildAvailabilityFromItems = (items) => {
-  const seasons = new Map() // season -> { chapters:Set<number>, missing:number, min,max }
+  const seasons = new Map() // season -> { intervals:[{from,to}], min,max, available }
   const formats = new Set()
   const origin = new Set()
   let hasExtras = false
   let hasSide = false
   let hasIllus = false
   let anyBL = false
+  const packs = {
+    completePack: 0,
+    fullSeries: 0,
+    fullSeason: 0,
+    chapterRange: 0,
+    volume: 0,
+  }
 
-  const pushMainChapter = (season, chapter) => {
+  const mergeIntervals = (intervals) => {
+    const list = (intervals || [])
+      .map((x) => ({ from: Number(x?.from), to: Number(x?.to) }))
+      .filter((x) => Number.isFinite(x.from) && Number.isFinite(x.to))
+      .map((x) => (x.from <= x.to ? x : ({ from: x.to, to: x.from })))
+      .sort((a, b) => a.from - b.from)
+
+    const merged = []
+    for (const it of list) {
+      const prev = merged[merged.length - 1]
+      if (!prev) merged.push({ ...it })
+      else if (it.from <= prev.to + 1) prev.to = Math.max(prev.to, it.to)
+      else merged.push({ ...it })
+    }
+
+    let length = 0
+    for (const m of merged) length += Math.max(0, m.to - m.from + 1)
+    return { merged, length }
+  }
+
+  const pushInterval = (season, from, to) => {
     const s = safeString(season || '0').trim() || '0'
-    const ch = normalizeChapter(chapter)
-    if (!ch) return
-    const n = Number(ch)
-    if (!Number.isFinite(n)) return
-    const entry = seasons.get(s) || { season: s, chapters: new Set(), min: null, max: null }
-    entry.chapters.add(n)
-    entry.min = entry.min == null ? n : Math.min(entry.min, n)
-    entry.max = entry.max == null ? n : Math.max(entry.max, n)
+    const a = normalizeChapter(from)
+    const b = normalizeChapter(to)
+    if (!a || !b) return
+    const n1 = Number(a)
+    const n2 = Number(b)
+    if (!Number.isFinite(n1) || !Number.isFinite(n2)) return
+    const entry = seasons.get(s) || { season: s, intervals: [] }
+    entry.intervals.push({ from: Math.min(n1, n2), to: Math.max(n1, n2) })
     seasons.set(s, entry)
   }
 
@@ -907,9 +1179,31 @@ const buildAvailabilityFromItems = (items) => {
     if (ext) formats.add(ext)
     const type = cls?.contentType || 'main'
     if (type === 'main') {
-      const season = normalizeSeason(it?.season) || inferSeasonFromText(it?.originalName || it?.title || '') || '0'
-      const chapter = normalizeChapter(it?.chapter) || inferChapterFromText(it?.originalName || it?.title || '')
-      pushMainChapter(season, chapter)
+      const rawName = safeString(it?.originalName || it?.title || '').trim()
+      const filePathHint = (it?.file_path && (hasCompleteKeyword(rawName) || extractChapterRangeFromText(rawName))) ? it.file_path : null
+      const cov = classifyCoverageFromItemText({
+        rawText: rawName,
+        contentType: 'main',
+        explicitSeason: it?.season,
+        explicitChapter: it?.chapter,
+        filePath: filePathHint,
+      })
+      if (cov.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      else if (cov.coverageType === COVERAGE_TYPES.CHAPTER_RANGE) {
+        packs.chapterRange += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.FULL_SEASON) {
+        packs.fullSeason += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.FULL_SERIES) {
+        packs.fullSeries += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.COMPLETE_PACK) {
+        packs.completePack += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.VOLUME) {
+        packs.volume += 1
+      }
     }
     else if (type === 'illustration') hasIllus = true
     else {
@@ -926,9 +1220,31 @@ const buildAvailabilityFromItems = (items) => {
     if (ext) formats.add(ext)
     const type = cls?.contentType || 'main'
     if (type === 'main') {
-      const season = normalizeSeason(a?.temporada) || inferSeasonFromText(a?.archivoNombre || a?.titulo || '') || '0'
-      const chapter = normalizeChapter(a?.capitulo) || inferChapterFromText(a?.archivoNombre || a?.titulo || '')
-      pushMainChapter(season, chapter)
+      const rawName = safeString(a?.archivoNombre || a?.titulo || '').trim()
+      const filePathHint = null
+      const cov = classifyCoverageFromItemText({
+        rawText: rawName,
+        contentType: 'main',
+        explicitSeason: a?.temporada,
+        explicitChapter: a?.capitulo,
+        filePath: filePathHint,
+      })
+      if (cov.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      else if (cov.coverageType === COVERAGE_TYPES.CHAPTER_RANGE) {
+        packs.chapterRange += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.FULL_SEASON) {
+        packs.fullSeason += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.FULL_SERIES) {
+        packs.fullSeries += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.COMPLETE_PACK) {
+        packs.completePack += 1
+        if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
+      } else if (cov.coverageType === COVERAGE_TYPES.VOLUME) {
+        packs.volume += 1
+      }
     }
     else if (type === 'illustration') hasIllus = true
     else {
@@ -941,27 +1257,33 @@ const buildAvailabilityFromItems = (items) => {
   let chaptersTotal = 0
   let chaptersAvailable = 0
   let missingTotal = 0
+  const seasonSummaries = []
+
   for (const s of seasonList) {
-    const count = s.chapters.size
-    chaptersAvailable += count
-    if (s.min != null && s.max != null) {
-      const range = Math.max(0, s.max - s.min + 1)
-      chaptersTotal += range
-      missingTotal += Math.max(0, range - count)
-    }
+    const { merged, length } = mergeIntervals(s.intervals || [])
+    const min = merged.length ? merged[0].from : null
+    const max = merged.length ? merged[merged.length - 1].to : null
+    const total = (min != null && max != null) ? Math.max(0, max - min + 1) : 0
+    const missing = total > 0 ? Math.max(0, total - length) : 0
+    chaptersAvailable += length
+    chaptersTotal += total
+    missingTotal += missing
+    seasonSummaries.push({
+      season: s.season,
+      min,
+      max,
+      available: length,
+      total: total || length,
+      complete: total > 0 ? missing === 0 : false,
+    })
   }
-  const complete = chaptersTotal > 0 ? missingTotal === 0 : false
+
+  const hasAnyPack = Object.values(packs).some((n) => Number(n || 0) > 0)
+  const complete = chaptersTotal > 0 ? missingTotal === 0 : Boolean(hasAnyPack && (packs.completePack || packs.fullSeries || packs.fullSeason))
 
   return {
-    seasons: seasonList.map((s) => ({
-      season: s.season,
-      min: s.min,
-      max: s.max,
-      available: s.chapters.size,
-      total: s.min != null && s.max != null ? (s.max - s.min + 1) : s.chapters.size,
-      complete: s.min != null && s.max != null ? (s.chapters.size === (s.max - s.min + 1)) : true,
-    })),
-    seasonsCount: seasonList.length,
+    seasons: seasonSummaries,
+    seasonsCount: seasonSummaries.length,
     chaptersTotal,
     chaptersAvailable,
     hasExtras,
@@ -969,6 +1291,7 @@ const buildAvailabilityFromItems = (items) => {
     hasIllus,
     formats: [...formats].slice(0, 6),
     origin: [...origin],
+    packs,
     complete,
     anyBL,
   }
@@ -979,6 +1302,14 @@ const renderAvailabilitySummaryText = (pedido, availability) => {
   const fmt = availability?.formats?.length ? availability.formats.join(', ') : '-'
   const origin = availability?.origin?.length ? availability.origin.map((x) => (x === 'biblioteca' ? 'Biblioteca' : 'Aportes')).join(' + ') : '-'
   const stateLabel = availability?.complete ? 'Completo' : (availability?.chaptersAvailable ? 'Parcial' : 'Vacío')
+  const packs = availability?.packs || {}
+  const packsTotal =
+    Number(packs.completePack || 0) +
+    Number(packs.fullSeries || 0) +
+    Number(packs.fullSeason || 0) +
+    Number(packs.chapterRange || 0) +
+    Number(packs.volume || 0)
+  const hasCompletePack = (Number(packs.completePack || 0) + Number(packs.fullSeries || 0) + Number(packs.fullSeason || 0)) > 0
 
   const lines = []
   lines.push(`📖 *${title}*`)
@@ -987,12 +1318,14 @@ const renderAvailabilitySummaryText = (pedido, availability) => {
   lines.push(`• Temporadas: *${Number(availability?.seasonsCount || 0)}*`)
   lines.push(`• Capítulos totales: *${Number(availability?.chaptersTotal || 0)}*`)
   lines.push(`• Capítulos disponibles: *${Number(availability?.chaptersAvailable || 0)}*`)
+  lines.push(`• Packs completos: *${hasCompletePack ? 'Sí' : 'No'}*`)
   lines.push(`• Extras BL: *${availability?.hasExtras ? 'Sí' : 'No'}*`)
   lines.push(`• Side stories: *${availability?.hasSide ? 'Sí' : 'No'}*`)
   lines.push(`• Ilustraciones: *${availability?.hasIllus ? 'Sí' : 'No'}*`)
   lines.push(`• Formatos: *${fmt}*`)
   lines.push(`• Origen: *${origin}*`)
   lines.push(`• Estado: *${stateLabel}*`)
+  if (packsTotal) lines.push(`• Variantes/Packs detectados: *${packsTotal}*`)
   lines.push('')
   lines.push('¿Es este el título que estabas buscando?')
   return lines.join('\n')
@@ -1015,6 +1348,23 @@ const renderAvailabilityDetailsText = (pedido, availability) => {
     lines.push('• Temporadas: -')
   }
   lines.push('')
+  const packs = availability?.packs || {}
+  const packsTotal =
+    Number(packs.completePack || 0) +
+    Number(packs.fullSeries || 0) +
+    Number(packs.fullSeason || 0) +
+    Number(packs.chapterRange || 0) +
+    Number(packs.volume || 0)
+  if (packsTotal) {
+    const parts = []
+    if (packs.fullSeries) parts.push(`FULL_SERIES: ${packs.fullSeries}`)
+    if (packs.completePack) parts.push(`COMPLETE_PACK: ${packs.completePack}`)
+    if (packs.fullSeason) parts.push(`FULL_SEASON: ${packs.fullSeason}`)
+    if (packs.chapterRange) parts.push(`RANGOS: ${packs.chapterRange}`)
+    if (packs.volume) parts.push(`VOLUMENES: ${packs.volume}`)
+    lines.push(`• Packs/variantes: ${parts.join(' | ')}`)
+    lines.push('')
+  }
   lines.push(`• Extras BL: ${availability?.hasExtras ? 'Sí' : 'No'}`)
   lines.push(`• Side stories: ${availability?.hasSide ? 'Sí' : 'No'}`)
   lines.push(`• Ilustraciones: ${availability?.hasIllus ? 'Sí' : 'No'}`)
@@ -1074,9 +1424,59 @@ const buildUnifiedIndex = (merged) => {
   for (const a of merged?.aportes || []) unified.push({ source: 'aporte', id: Number(a?.id) || null, it: a })
 
   const main = []
+  const mainRanges = []
+  const mainPacks = []
+  const mainUnknown = []
   const illustrations = []
   const extrasByType = new Map()
   let anyBL = false
+
+  const resolveAporteFilePathForMeasures = (aporte) => {
+    try {
+      const rel = safeString(aporte?.archivoPath || '').trim()
+      if (!rel) return null
+      if (rel.includes('..')) return null
+      const root = path.resolve(process.cwd(), 'storage', 'media')
+      const filePath = path.resolve(process.cwd(), rel)
+      if (!filePath.toLowerCase().startsWith(root.toLowerCase())) return null
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null
+      return filePath
+    } catch {
+      return null
+    }
+  }
+
+  const getUnifiedCoverageMeta = (u, { includeMeasures = false } = {}) => {
+    if (!u) return { coverageType: COVERAGE_TYPES.UNKNOWN, season: '0', chapterFrom: null, chapterTo: null, inferredCoverage: false, isComplete: false, volume: null, measures: null }
+    if (u.__coverage && (!includeMeasures || u.__coverage?.measures)) return u.__coverage
+
+    const rawName =
+      u.source === 'lib'
+        ? safeString(u?.it?.originalName || u?.it?.title || '').trim()
+        : safeString(u?.it?.archivoNombre || u?.it?.titulo || '').trim()
+
+    const explicitSeason = u.source === 'lib' ? u?.it?.season : u?.it?.temporada
+    const explicitChapter = u.source === 'lib' ? u?.it?.chapter : u?.it?.capitulo
+    const contentType = safeString(u?.cls?.contentType || 'main').toLowerCase().trim() || 'main'
+
+    let filePath = null
+    if (includeMeasures) {
+      if (u.source === 'lib') filePath = safeString(u?.it?.file_path || '').trim() || null
+      else filePath = resolveAporteFilePathForMeasures(u?.it)
+    }
+
+    const wantsMeasures = includeMeasures && filePath && (hasCompleteKeyword(rawName) || extractChapterRangeFromText(rawName))
+    const cov = classifyCoverageFromItemText({
+      rawText: rawName,
+      contentType,
+      explicitSeason,
+      explicitChapter,
+      filePath: wantsMeasures ? filePath : null,
+    })
+
+    u.__coverage = cov
+    return cov
+  }
 
   for (const u of unified) {
     if (!u?.id) continue
@@ -1084,7 +1484,19 @@ const buildUnifiedIndex = (merged) => {
     if (cls?.isBL) anyBL = true
     const contentType = cls?.contentType || 'main'
     const entry = { ...u, cls }
-    if (contentType === 'main') main.push(entry)
+    if (contentType === 'main') {
+      const cov = getUnifiedCoverageMeta(entry, { includeMeasures: false })
+      entry.coverage = cov
+      if (cov.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER) main.push(entry)
+      else if (cov.coverageType === COVERAGE_TYPES.CHAPTER_RANGE) mainRanges.push(entry)
+      else if (
+        cov.coverageType === COVERAGE_TYPES.FULL_SEASON ||
+        cov.coverageType === COVERAGE_TYPES.FULL_SERIES ||
+        cov.coverageType === COVERAGE_TYPES.COMPLETE_PACK ||
+        cov.coverageType === COVERAGE_TYPES.VOLUME
+      ) mainPacks.push(entry)
+      else mainUnknown.push(entry)
+    }
     else if (contentType === 'illustration') illustrations.push(entry)
     else {
       const key = CONTENT_TYPES.includes(contentType) ? contentType : 'extra'
@@ -1094,11 +1506,16 @@ const buildUnifiedIndex = (merged) => {
     }
   }
 
-  return { main, illustrations, extrasByType, anyBL }
+  return { main, mainRanges, mainPacks, mainUnknown, illustrations, extrasByType, anyBL }
 }
 
 const getSeasonAndChapterFromUnified = (u) => {
   if (!u) return { season: '0', chapter: null }
+  const cov = u?.coverage || null
+  if (cov) {
+    const chapter = cov.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER ? cov.chapterFrom : null
+    return { season: safeString(cov.season || '0') || '0', chapter }
+  }
   if (u.source === 'lib') {
     const season = normalizeSeason(u?.it?.season) || inferSeasonFromText(u?.it?.originalName || u?.it?.title || '') || '0'
     const chapter = normalizeChapter(u?.it?.chapter) || inferChapterFromText(u?.it?.originalName || u?.it?.title || '')
@@ -1224,23 +1641,70 @@ const renderCandidatesMenu = async (m, conn, panel, pedido) => {
 const renderMainSeasonsMenu = async (m, conn, panel, pedido, index) => {
   const pid = Number(pedido?.id)
   const chapterMap = buildMainChapterMap(index?.main || [])
-  const seasons = [...chapterMap.keys()].sort((a, b) => Number(a) - Number(b))
-  if (!seasons.length) {
-    await m.reply('📘 *Capítulos principales*\n\n🛡️ _No encontré capítulos principales para este título._')
-    return renderContentTypeMenu(m, conn, panel, pedido, index)
+  const seasonKeys = new Set([...chapterMap.keys()].map((s) => safeString(s || '0') || '0'))
+  for (const u of index?.mainPacks || []) seasonKeys.add(safeString(u?.coverage?.season || '0') || '0')
+  for (const u of index?.mainRanges || []) seasonKeys.add(safeString(u?.coverage?.season || '0') || '0')
+  for (const u of index?.mainUnknown || []) seasonKeys.add(safeString(u?.coverage?.season || '0') || '0')
+
+  const seasons = [...seasonKeys].sort((a, b) => Number(a) - Number(b))
+
+  const formatCoverage = (cov) => {
+    if (!cov) return 'desconocido'
+    if (cov.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER) return cov.chapterFrom ? `Cap ${cov.chapterFrom}` : 'Capítulo'
+    if (cov.coverageType === COVERAGE_TYPES.CHAPTER_RANGE) return (cov.chapterFrom && cov.chapterTo) ? `Rango ${cov.chapterFrom}-${cov.chapterTo}` : 'Rango'
+    if (cov.coverageType === COVERAGE_TYPES.FULL_SEASON) return (cov.chapterFrom && cov.chapterTo) ? `Temporada completa ${cov.chapterFrom}-${cov.chapterTo}` : 'Temporada completa'
+    if (cov.coverageType === COVERAGE_TYPES.FULL_SERIES) return (cov.chapterFrom && cov.chapterTo) ? `Serie completa ${cov.chapterFrom}-${cov.chapterTo}` : 'Serie completa'
+    if (cov.coverageType === COVERAGE_TYPES.COMPLETE_PACK) return (cov.chapterFrom && cov.chapterTo) ? `Pack completo ${cov.chapterFrom}-${cov.chapterTo}` : 'Pack completo'
+    if (cov.coverageType === COVERAGE_TYPES.VOLUME) return cov.volume ? `Volumen ${cov.volume}` : 'Volumen'
+    return 'desconocido'
   }
 
-  if (seasons.length === 1) {
-    const season = seasons[0]
-    pedido.flow ||= {}
-    pedido.flow.data ||= {}
-    pedido.flow.data.season = season
-    setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_CAP, data: pedido.flow.data })
-    await savePedidoAndEmit(panel, pedido, 'auto_one_season')
-    return renderMainChaptersPage(m, conn, panel, pedido, index, season, 1)
+  const seriesPacks = (index?.mainPacks || []).filter((u) => {
+    const t = u?.coverage?.coverageType
+    return t === COVERAGE_TYPES.COMPLETE_PACK || t === COVERAGE_TYPES.FULL_SERIES
+  })
+  const seasonPacks = (index?.mainPacks || []).filter((u) => u?.coverage?.coverageType === COVERAGE_TYPES.FULL_SEASON)
+  const ranges = Array.isArray(index?.mainRanges) ? index.mainRanges : []
+
+  const sections = []
+  if (seriesPacks.length) {
+    const rows = seriesPacks.slice(0, 10).map((u) => {
+      const name = u.source === 'lib' ? (u?.it?.originalName || u?.it?.title || `Archivo #${u.id}`) : (u?.it?.archivoNombre || u?.it?.titulo || `Aporte #${u.id}`)
+      const fmt = getFileExtUpper(name) || 'DOC'
+      return {
+        title: truncateText(`🟢 Serie completa (${fmt})`, 44),
+        description: truncateText(`${formatCoverage(u.coverage)} · ${waSafeInline(name)}`, 60),
+        rowId: makeFlowId(pid, 'SEND', u.source, String(u.id)),
+      }
+    })
+    sections.push({ title: '🟢 Packs completos', rows })
+  }
+  if (seasonPacks.length) {
+    const rows = seasonPacks.slice(0, 10).map((u) => {
+      const s = safeString(u?.coverage?.season || '0') || '0'
+      const seasonLabel = s === '0' ? 'Sin temporada' : `Temp ${String(s).padStart(2, '0')}`
+      return {
+        title: truncateText(`🟢 ${seasonLabel}`, 44),
+        description: truncateText(formatCoverage(u.coverage), 60),
+        rowId: makeFlowId(pid, 'SEND', u.source, String(u.id)),
+      }
+    })
+    sections.push({ title: 'Packs por temporada', rows })
+  }
+  if (ranges.length) {
+    const rows = ranges.slice(0, 10).map((u) => {
+      const s = safeString(u?.coverage?.season || '0') || '0'
+      const seasonLabel = s === '0' ? 'Sin temporada' : `Temp ${String(s).padStart(2, '0')}`
+      return {
+        title: truncateText(`📦 ${seasonLabel}`, 44),
+        description: truncateText(formatCoverage(u.coverage), 60),
+        rowId: makeFlowId(pid, 'SEND', u.source, String(u.id)),
+      }
+    })
+    sections.push({ title: 'Rangos', rows })
   }
 
-  const rows = seasons.slice(0, 10).map((s) => {
+  const seasonRows = seasons.slice(0, 10).map((s) => {
     const seasonMap = chapterMap.get(s) || new Map()
     const chapters = [...seasonMap.keys()].map(Number).filter((n) => Number.isFinite(n)).sort((x, y) => x - y)
     const desc = chapters.length ? `Caps: ${chapters[0]}-${chapters[chapters.length - 1]} (${chapters.length})` : 'Caps: -'
@@ -1251,6 +1715,24 @@ const renderMainSeasonsMenu = async (m, conn, panel, pedido, index) => {
       rowId: makeFlowId(pid, 'MAIN_SEASON', s),
     }
   })
+  if (seasonRows.length) sections.push({ title: 'Temporadas', rows: seasonRows })
+
+  const hasAnyMainOptions = Boolean(seasonRows.length || seriesPacks.length || seasonPacks.length || ranges.length)
+  if (!hasAnyMainOptions) {
+    await m.reply('📘 *Capítulos principales*\n\n🛡️ _No encontré contenido principal para este título._')
+    return renderContentTypeMenu(m, conn, panel, pedido, index)
+  }
+
+  const hasAlt = Boolean(seriesPacks.length || seasonPacks.length || ranges.length)
+  if (seasons.length === 1 && !hasAlt) {
+    const season = seasons[0]
+    pedido.flow ||= {}
+    pedido.flow.data ||= {}
+    pedido.flow.data.season = season
+    setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_CAP, data: pedido.flow.data })
+    await savePedidoAndEmit(panel, pedido, 'auto_one_season')
+    return renderMainChaptersPage(m, conn, panel, pedido, index, season, 1)
+  }
 
   setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_TEMP, data: { ...(pedido.flow?.data || {}), lastMenu: 'MAIN_SEASONS' } })
   await savePedidoAndEmit(panel, pedido, 'menu_main_seasons')
@@ -1258,7 +1740,7 @@ const renderMainSeasonsMenu = async (m, conn, panel, pedido, index) => {
   const ok = await trySendInteractiveList(m, conn, {
     title: '📘 Temporadas',
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona una temporada._`,
-    sections: [{ title: 'Temporadas', rows }],
+    sections,
   })
   if (ok) return true
   await m.reply('📘 *Temporadas*\n\n🛡️ _No pude mostrar el menú. Escribe: TEMPORADA 1/2..._')
@@ -1272,8 +1754,35 @@ const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, pag
   const seasonMap = chapterMap.get(seasonKey) || new Map()
   const chapters = [...seasonMap.keys()].map(Number).filter((n) => Number.isFinite(n)).sort((x, y) => x - y)
   if (!chapters.length) {
-    await m.reply('📘 *Capítulos*\n\n🛡️ _No encontré capítulos para esta temporada._')
-    return renderMainSeasonsMenu(m, conn, panel, pedido, index)
+    const seasonPacks = (index?.mainPacks || []).filter((u) => safeString(u?.coverage?.season || '0') === seasonKey)
+    const seasonRanges = (index?.mainRanges || []).filter((u) => safeString(u?.coverage?.season || '0') === seasonKey)
+    const fallbackRows = []
+    for (const u of [...seasonPacks, ...seasonRanges].slice(0, 10)) {
+      const name = u.source === 'lib' ? (u?.it?.originalName || u?.it?.title || `Archivo #${u.id}`) : (u?.it?.archivoNombre || u?.it?.titulo || `Aporte #${u.id}`)
+      const fmt = getFileExtUpper(name) || 'DOC'
+      const cov = u.coverage || {}
+      const desc = cov.chapterFrom && cov.chapterTo ? `${cov.coverageType} ${cov.chapterFrom}-${cov.chapterTo}` : cov.coverageType || 'PACK'
+      fallbackRows.push({
+        title: truncateText(`${fmt}`, 44),
+        description: truncateText(desc, 60),
+        rowId: makeFlowId(pid, 'SEND', u.source, String(u.id)),
+      })
+    }
+    if (!fallbackRows.length) {
+      await m.reply('📘 *Capítulos*\n\n🛡️ _No encontré capítulos ni packs para esta temporada._')
+      return renderMainSeasonsMenu(m, conn, panel, pedido, index)
+    }
+    const seasonLabel = seasonKey === '0' ? 'Sin temporada' : `Temporada ${String(seasonKey).padStart(2, '0')}`
+    setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_VARIANTE, data: { ...(pedido.flow?.data || {}), season: seasonKey, lastMenu: 'SEASON_PACKS' } })
+    await savePedidoAndEmit(panel, pedido, 'menu_season_packs')
+    const ok = await trySendInteractiveList(m, conn, {
+      title: '📦 Packs',
+      text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${seasonLabel}_\n> _Selecciona un pack/rango._`,
+      sections: [{ title: 'Packs', rows: fallbackRows }, { title: 'Navegación', rows: [{ title: '🔙 Volver', description: 'Volver a temporadas', rowId: makeFlowId(pid, 'BACK', 'MAIN_SEASONS') }] }],
+    })
+    if (ok) return true
+    await m.reply('📦 *Packs*\n\n🛡️ _No pude mostrar el menú._')
+    return true
   }
 
   const perPage = 9
@@ -1311,23 +1820,62 @@ const renderVariantsForChapter = async (m, conn, panel, pedido, index, seasonKey
   const chapterMap = buildMainChapterMap(index?.main || [])
   const seasonMap = chapterMap.get(String(seasonKey)) || new Map()
   const variants = seasonMap.get(String(chapterNum)) || []
-  if (!variants.length) {
+
+  const extraVariants = []
+  for (const u of index?.mainRanges || []) {
+    const cov = u?.coverage || null
+    if (!cov) continue
+    if (safeString(cov.season || '0') !== safeString(seasonKey || '0')) continue
+    const fromN = Number(cov.chapterFrom)
+    const toN = Number(cov.chapterTo)
+    if (!Number.isFinite(fromN) || !Number.isFinite(toN)) continue
+    if (chapterNum >= Math.min(fromN, toN) && chapterNum <= Math.max(fromN, toN)) extraVariants.push(u)
+  }
+  for (const u of index?.mainPacks || []) {
+    const cov = u?.coverage || null
+    if (!cov) continue
+    if (safeString(cov.season || '0') !== safeString(seasonKey || '0')) continue
+    if (cov.chapterFrom && cov.chapterTo) {
+      const fromN = Number(cov.chapterFrom)
+      const toN = Number(cov.chapterTo)
+      if (Number.isFinite(fromN) && Number.isFinite(toN) && chapterNum >= Math.min(fromN, toN) && chapterNum <= Math.max(fromN, toN)) extraVariants.push(u)
+    }
+  }
+
+  const combined = []
+  const seen = new Set()
+  for (const u of [...variants, ...extraVariants]) {
+    const key = `${u.source}:${u.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    combined.push(u)
+  }
+
+  if (!combined.length) {
     await m.reply('📘 *Capítulo*\n\n🛡️ _No encontré archivos para ese capítulo._')
     return renderMainChaptersPage(m, conn, panel, pedido, index, seasonKey, pedido?.flow?.data?.page || 1)
   }
 
-  if (variants.length === 1) {
-    const v = variants[0]
+  const isSingleChapterOnly = combined.length === 1 && (combined[0]?.coverage?.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER)
+  if (isSingleChapterOnly) {
+    const v = combined[0]
     return handleSendSelection(m, conn, panel, pedido, v.source, v.id, v.cls?.contentType || 'main')
   }
 
-  const rows = variants.slice(0, 10).map((v, idx) => {
+  const rows = combined.slice(0, 10).map((v) => {
     const name = v.source === 'lib' ? (v?.it?.originalName || v?.it?.title || `Archivo #${v.id}`) : (v?.it?.archivoNombre || v?.it?.titulo || `Aporte #${v.id}`)
     const fmt = getFileExtUpper(name) || (v.source === 'lib' ? 'DOC' : 'DOC')
     const origin = v.source === 'lib' ? 'Biblioteca' : 'Aportes'
+    const cov = v.coverage || {}
+    const covLabel =
+      cov.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER
+        ? (cov.chapterFrom ? `Cap ${cov.chapterFrom}` : 'Capítulo')
+        : cov.chapterFrom && cov.chapterTo
+          ? `${cov.coverageType} ${cov.chapterFrom}-${cov.chapterTo}`
+          : (cov.coverageType || 'VARIANTE')
     return {
       title: truncateText(`${origin} (${fmt})`, 44),
-      description: truncateText(waSafeInline(name), 60),
+      description: truncateText(`${covLabel} · ${waSafeInline(name)}`, 60),
       rowId: makeFlowId(pid, 'SEND', v.source, String(v.id)),
     }
   })
@@ -1448,15 +1996,40 @@ const renderIllustrationsMenu = async (m, conn, panel, pedido, index) => {
 const renderConfirmNonMain = async (m, conn, panel, pedido, pending) => {
   const pid = Number(pedido?.id)
   const type = safeString(pending?.contentType || 'extra')
-  const warning = CONTENT_TYPE_WARNING[type] || 'Este contenido no forma parte de la historia principal.'
+  const cov = pending?.coverage || null
+  const covType = safeString(cov?.coverageType || '').trim()
+  const covLabel = (() => {
+    if (!covType) return ''
+    if (covType === COVERAGE_TYPES.SINGLE_CHAPTER) return ''
+    if (covType === COVERAGE_TYPES.VOLUME) return cov?.volume ? `Volumen ${safeString(cov.volume)}` : 'Volumen'
+    if (cov?.chapterFrom && cov?.chapterTo) return `${covType} ${safeString(cov.chapterFrom)}-${safeString(cov.chapterTo)}`
+    return covType
+  })()
+  const sizeMB = cov?.measures?.sizeMB != null ? Number(cov.measures.sizeMB) : null
+  const pageCount = cov?.measures?.pageCount != null ? Number(cov.measures.pageCount) : null
+
+  const warning =
+    (String(type).toLowerCase().trim() !== 'main')
+      ? (CONTENT_TYPE_WARNING[type] || 'Este contenido no forma parte de la historia principal.')
+      : needsExplicitConfirmForCoverage(cov)
+        ? 'Este archivo contiene múltiples capítulos (pack/rango).'
+        : ''
+
   setPedidoFlow(pedido, { step: FLOW_STEPS.CONFIRM_EXTRA, data: { ...(pedido.flow?.data || {}), pending } })
   await savePedidoAndEmit(panel, pedido, 'confirm_needed')
+
+  const extraLines = []
+  if (covLabel) extraLines.push(`> *Cobertura:* _${waSafeInline(covLabel)}_`)
+  if (Number.isFinite(sizeMB) && sizeMB > 0) extraLines.push(`> *Tamaño:* _${sizeMB} MB_`)
+  if (Number.isFinite(pageCount) && pageCount > 0) extraLines.push(`> *Páginas:* _${pageCount}_`)
+  if (Number.isFinite(sizeMB) && sizeMB >= 30) extraLines.push('> ⚠️ _Archivo pesado: puede tardar y consumir datos._')
 
   const text =
     `⚠️ *Confirmación*\n\n` +
     `> *Título:* ${waSafeInline(pedido?.titulo || '')}\n` +
-    `> *Tipo:* _${CONTENT_TYPE_LABEL[type] || type}_\n\n` +
-    `${warning}\n\n` +
+    `> *Tipo:* _${CONTENT_TYPE_LABEL[type] || type}_\n` +
+    (extraLines.length ? `${extraLines.join('\n')}\n\n` : '\n') +
+    (warning ? `${warning}\n\n` : '') +
     `¿Deseas continuar?`
 
   const buttons = [
@@ -1477,8 +2050,52 @@ const handleSendSelection = async (m, conn, panel, pedido, source, itemId, conte
     return true
   }
   const ctype = safeString(contentType || '').toLowerCase().trim() || 'main'
-  if (!confirmed && needsExplicitConfirmForType(ctype)) {
-    const pending = { source: src, itemId: idNum, contentType: ctype, createdAt: new Date().toISOString() }
+  const coverage = (() => {
+    try {
+      if (src === 'lib') {
+        const it = panel?.contentLibrary?.[idNum] || null
+        const name = safeString(it?.originalName || it?.title || '').trim()
+        const fp = safeString(it?.file_path || '').trim() || null
+        return classifyCoverageFromItemText({
+          rawText: name,
+          contentType: ctype,
+          explicitSeason: it?.season,
+          explicitChapter: it?.chapter,
+          filePath: fp,
+        })
+      }
+      const aportesAll = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+      const a = aportesAll.find((x) => Number(x?.id) === idNum) || null
+      const name = safeString(a?.archivoNombre || a?.titulo || '').trim()
+      // Resolver filePath inline para medir tamaño/páginas (sin depender de funciones definidas más abajo).
+      let fp = null
+      try {
+        const rel = safeString(a?.archivoPath || '').trim()
+        if (rel && !rel.includes('..')) {
+          const root = path.resolve(process.cwd(), 'storage', 'media')
+          const p = path.resolve(process.cwd(), rel)
+          if (p.toLowerCase().startsWith(root.toLowerCase()) && fs.existsSync(p) && fs.statSync(p).isFile()) fp = p
+        }
+      } catch { }
+      return classifyCoverageFromItemText({
+        rawText: name,
+        contentType: ctype,
+        explicitSeason: a?.temporada,
+        explicitChapter: a?.capitulo,
+        filePath: fp,
+      })
+    } catch {
+      return null
+    }
+  })()
+
+  const needsConfirm =
+    needsExplicitConfirmForType(ctype) ||
+    needsExplicitConfirmForCoverage(coverage) ||
+    (Number(coverage?.measures?.sizeMB || 0) >= 30)
+
+  if (!confirmed && needsConfirm) {
+    const pending = { source: src, itemId: idNum, contentType: ctype, coverage, createdAt: new Date().toISOString() }
     return renderConfirmNonMain(m, conn, panel, pedido, pending)
   }
 
@@ -2265,14 +2882,24 @@ const buildAporteSelectRowsForPedido = (matches, usedPrefix, pedidoId) => {
   return rows
 }
 
-const buildSelectedResultMeta = ({ source, score, libItem, aporte, contentType = null, contentSource = null, isBL = null } = {}) => {
+const buildSelectedResultMeta = ({ source, score, libItem, aporte, coverage = null, contentType = null, contentSource = null, isBL = null } = {}) => {
   if (source === 'lib') {
+    const cov = coverage || null
+    const fmt = getFileExtUpper(libItem?.originalName || libItem?.filename || libItem?.file_path || '') || null
     return {
       source: 'biblioteca',
       id: Number(libItem?.id || 0) || null,
       title: safeString(libItem?.title || libItem?.originalName || '').trim(),
-      season: libItem?.season != null ? String(libItem.season) : null,
-      chapter: libItem?.chapter != null ? String(libItem.chapter) : null,
+      filename: safeString(libItem?.originalName || libItem?.filename || '').trim() || null,
+      format: fmt,
+      season: cov?.season != null ? String(cov.season) : (libItem?.season != null ? String(libItem.season) : null),
+      chapter: cov?.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER ? (cov?.chapterFrom != null ? String(cov.chapterFrom) : null) : null,
+      chapterFrom: cov?.chapterFrom != null ? String(cov.chapterFrom) : null,
+      chapterTo: cov?.chapterTo != null ? String(cov.chapterTo) : null,
+      coverageType: cov?.coverageType || null,
+      inferredCoverage: Boolean(cov?.inferredCoverage),
+      sizeMB: cov?.measures?.sizeMB != null ? Number(cov.measures.sizeMB) : null,
+      pageCount: cov?.measures?.pageCount != null ? Number(cov.measures.pageCount) : null,
       score: typeof score === 'number' ? Math.round(score) : null,
       contentType: contentType || 'main',
       contentSource: contentSource || null,
@@ -2280,19 +2907,29 @@ const buildSelectedResultMeta = ({ source, score, libItem, aporte, contentType =
     }
   }
   if (source === 'aporte') {
+    const cov = coverage || null
+    const fmt = getFileExtUpper(aporte?.archivoNombre || aporte?.archivo || '') || null
     return {
       source: 'aporte',
       id: Number(aporte?.id || 0) || null,
       title: safeString(aporte?.titulo || aporte?.contenido || '').trim(),
-      season: aporte?.temporada != null ? String(aporte.temporada) : null,
-      chapter: aporte?.capitulo != null ? String(aporte.capitulo) : null,
+      filename: safeString(aporte?.archivoNombre || '').trim() || null,
+      format: fmt,
+      season: cov?.season != null ? String(cov.season) : (aporte?.temporada != null ? String(aporte.temporada) : null),
+      chapter: cov?.coverageType === COVERAGE_TYPES.SINGLE_CHAPTER ? (cov?.chapterFrom != null ? String(cov.chapterFrom) : null) : null,
+      chapterFrom: cov?.chapterFrom != null ? String(cov.chapterFrom) : null,
+      chapterTo: cov?.chapterTo != null ? String(cov.chapterTo) : null,
+      coverageType: cov?.coverageType || null,
+      inferredCoverage: Boolean(cov?.inferredCoverage),
+      sizeMB: cov?.measures?.sizeMB != null ? Number(cov.measures.sizeMB) : null,
+      pageCount: cov?.measures?.pageCount != null ? Number(cov.measures.pageCount) : null,
       score: typeof score === 'number' ? Math.round(score) : null,
       contentType: contentType || 'main',
       contentSource: contentSource || null,
       isBL: typeof isBL === 'boolean' ? isBL : null,
     }
   }
-  return { source: safeString(source || 'unknown'), id: null, title: '', season: null, chapter: null, score: null, contentType: contentType || 'main', contentSource: contentSource || null, isBL: typeof isBL === 'boolean' ? isBL : null }
+  return { source: safeString(source || 'unknown'), id: null, title: '', season: null, chapter: null, chapterFrom: null, chapterTo: null, coverageType: null, inferredCoverage: false, sizeMB: null, pageCount: null, score: null, contentType: contentType || 'main', contentSource: contentSource || null, isBL: typeof isBL === 'boolean' ? isBL : null }
 }
 
 const finalizePedidoAsCompleted = async (panel, pedido, { selected, pdfFile } = {}) => {
@@ -2351,10 +2988,18 @@ const processPedidoSelection = async (
     if (!isLibraryItemAllowedInChat(item, { m, isBotOwner })) return { ok: false, error: 'Este archivo pertenece a otro proveedor' }
 
     const cls = classifyLibraryItem(item)
+    const cov = classifyCoverageFromItemText({
+      rawText: safeString(item?.originalName || item?.title || '').trim(),
+      contentType: cls?.contentType || 'main',
+      explicitSeason: item?.season,
+      explicitChapter: item?.chapter,
+      filePath: safeString(item?.file_path || '').trim() || null,
+    })
     selected = buildSelectedResultMeta({
       source: 'lib',
       score: typeof score === 'number' ? score : null,
       libItem: item,
+      coverage: cov,
       contentType: cls?.contentType || 'main',
       contentSource: cls?.contentSource || null,
       isBL: cls?.isBL || false,
@@ -2369,16 +3014,24 @@ const processPedidoSelection = async (
     if (!isAporteVisibleToUser(aporte, { m, isBotOwner, isAdmin })) return { ok: false, error: 'No tienes acceso a este aporte' }
 
     const cls = classifyAporteItem(aporte)
+    const filePath = resolveAporteFilePath(aporte)
+    const cov = classifyCoverageFromItemText({
+      rawText: safeString(aporte?.archivoNombre || aporte?.titulo || '').trim(),
+      contentType: cls?.contentType || 'main',
+      explicitSeason: aporte?.temporada,
+      explicitChapter: aporte?.capitulo,
+      filePath,
+    })
     selected = buildSelectedResultMeta({
       source: 'aporte',
       score: typeof score === 'number' ? score : null,
       aporte,
+      coverage: cov,
       contentType: cls?.contentType || 'main',
       contentSource: cls?.contentSource || null,
       isBL: cls?.isBL || false,
     })
 
-    const filePath = resolveAporteFilePath(aporte)
     const filename = safeString(aporte?.archivoNombre || `aporte_${iid}`)
     const caption = `${safeString(aporte?.titulo || 'Aporte')}`.trim()
 
