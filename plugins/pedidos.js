@@ -460,18 +460,138 @@ const normalizeText = (s) => safeString(s || '')
   .toLowerCase()
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9\s]/g, ' ')
+  // Mantener letras/números Unicode para títulos con tipografías/cjk.
+  .replace(/[^\p{L}\p{N}\s]/gu, ' ')
   .replace(/\s+/g, ' ')
   .trim()
 
 const tokenize = (s) => {
-  const parts = normalizeText(s).split(' ').filter(Boolean)
+  const norm = normalizeText(s)
+  const parts = norm.split(' ').filter(Boolean)
   const out = []
   for (const p of parts) {
-    if (p.length < 3) continue
-    if (stopwords.has(p)) continue
+    const hasCjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(p)
+    const minLen = hasCjk ? 2 : 3
+    if (p.length < minLen) continue
+    if (!hasCjk && stopwords.has(p)) continue
     out.push(p)
     if (out.length >= 24) break
+  }
+  // Fallback para títulos sin espacios (CJK o strings compactas).
+  if (!out.length && norm) out.push(norm.slice(0, 48))
+  return out
+}
+
+const CONTENT_TYPES = [
+  'main',
+  'extra',
+  'side',
+  'bonus',
+  'epilogue',
+  'prologue',
+  'illustration',
+  'au',
+  'spin_off',
+]
+
+const CONTENT_TYPE_LABEL = {
+  main: 'Capítulos principales',
+  extra: 'Extras / Special',
+  side: 'Side stories',
+  bonus: 'Bonus',
+  epilogue: 'Epilogues',
+  prologue: 'Prologues',
+  illustration: 'Ilustraciones',
+  au: 'AU / What-if',
+  spin_off: 'Spin-offs',
+}
+
+const CONTENT_TYPE_WARNING = {
+  extra: 'Este contenido no forma parte de la historia principal.',
+  side: 'Este contenido no forma parte de la historia principal.',
+  bonus: 'Este contenido no forma parte de la historia principal.',
+  epilogue: 'Este contenido no forma parte de la historia principal.',
+  prologue: 'Este contenido no forma parte de la historia principal.',
+  illustration: 'Este contenido no forma parte de la historia principal.',
+  au: 'Este contenido no forma parte de la historia principal.',
+  spin_off: 'Este contenido no forma parte de la historia principal.',
+}
+
+const detectContentTypeFromText = (rawText) => {
+  const t = normalizeText(rawText || '')
+  if (!t) return 'main'
+
+  const has = (re) => re.test(t)
+  if (has(/\b(illustration|illustrations|ilustracion|ilustraciones|illust|artbook|art\s*book|artwork|gallery|galeria)\b/u)) return 'illustration'
+  if (has(/\b(spin\s*off|spin-off|spinoff)\b/u)) return 'spin_off'
+  if (has(/\b(au|what\s*if|what-if|universo\s*alterno)\b/u)) return 'au'
+  if (has(/\b(side\s*story|side\s*stories|side-story|sidestory|side)\b/u)) return 'side'
+  if (has(/\b(bonus|omake)\b/u)) return 'bonus'
+  if (has(/\b(epilogue|epilogo|epilogo?s)\b/u)) return 'epilogue'
+  if (has(/\b(prologue|prologo|prologo?s)\b/u)) return 'prologue'
+  if (has(/\b(extra|extras|special|specials|especial|especiales)\b/u)) return 'extra'
+  return 'main'
+}
+
+const detectContentSourceFromText = (rawText) => {
+  const t = normalizeText(rawText || '')
+  if (!t) return null
+  if (/\b(fan|fanmade|fan\s*made|fansub|scanlation|scanlated)\b/u.test(t)) return 'fan'
+  return 'official'
+}
+
+const detectIsBLFromText = (rawText) => {
+  const t = normalizeText(rawText || '')
+  if (!t) return false
+  return /\b(bl|boys\s*love|boy\s*s\s*love|yaoi)\b/u.test(t)
+}
+
+const classifyLibraryItem = (it) => {
+  const text = `${safeString(it?.title || '')} ${safeString(it?.originalName || '')} ${safeString(it?.category || '')} ${(it?.tags || []).join(' ')}`.trim()
+  const contentType = detectContentTypeFromText(text)
+  const contentSource = detectContentSourceFromText(text)
+  const isBL = detectIsBLFromText(text)
+  return { contentType, contentSource, isBL }
+}
+
+const classifyAporteItem = (aporte) => {
+  const text = `${safeString(aporte?.titulo || '')} ${safeString(aporte?.archivoNombre || '')} ${safeString(aporte?.contenido || '')} ${safeString(aporte?.tipo || '')} ${(aporte?.tags || []).join(' ')}`.trim()
+  const contentType = detectContentTypeFromText(text)
+  const contentSource = detectContentSourceFromText(text)
+  const isBL = detectIsBLFromText(text)
+  return { contentType, contentSource, isBL }
+}
+
+const needsExplicitConfirmForType = (contentType) => String(contentType || 'main') !== 'main'
+
+const appendPedidoLog = (pedido, entry) => {
+  try {
+    pedido.bot ||= {}
+    pedido.bot.logs ||= []
+    pedido.bot.logs.push({ at: new Date().toISOString(), ...(entry || {}) })
+    if (pedido.bot.logs.length > 200) pedido.bot.logs.splice(0, pedido.bot.logs.length - 200)
+  } catch { }
+}
+
+const buildContentBucketsForTitle = (items, classifier) => {
+  const out = {
+    main: [],
+    illustration: [],
+    extrasByType: new Map(),
+    anyBL: false,
+  }
+  for (const it of items || []) {
+    const cls = classifier(it)
+    if (cls?.isBL) out.anyBL = true
+    const type = cls?.contentType || 'main'
+    if (type === 'main') out.main.push({ it, cls })
+    else if (type === 'illustration') out.illustration.push({ it, cls })
+    else {
+      const key = CONTENT_TYPES.includes(type) ? type : 'extra'
+      const arr = out.extrasByType.get(key) || []
+      arr.push({ it, cls })
+      out.extrasByType.set(key, arr)
+    }
   }
   return out
 }
@@ -784,48 +904,46 @@ const buildProviderSelectRows = (panel, usedPrefix, pedidoId) => {
 const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
   if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
 
-  const flattenRows = () => {
+  // 1) Preferir listas para selección detallada (capítulos/archivos).
+  if (connCanSendList(conn)) {
+    try {
+      const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+      await Promise.race([
+        conn.sendList(m.chat, title, text, 'Ver opciones', sections, m),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('sendList timeout')), timeoutMs)),
+      ])
+      return true
+    } catch (err) {
+      console.error('sendList failed:', err)
+    }
+  }
+
+  // 2) Fallback: botones por item (máximo 10) si la lista no se pudo enviar/mostrar.
+  if (typeof conn?.sendButton === 'function') {
     const out = []
     for (const s of sections) {
       const rows = Array.isArray(s?.rows) ? s.rows : []
       for (const r of rows) {
         if (!r?.rowId || !r?.title) continue
-        out.push({ title: waSafeInline(r.title), rowId: String(r.rowId) })
-        if (out.length >= 10) return out
+        out.push([truncateText(r.title, 22) || 'Opción', String(r.rowId)])
+        if (out.length >= 10) break
       }
+      if (out.length >= 10) break
     }
-    return out
-  }
-
-  // Preferir botones nativos (proto/native flow) porque en muchos clientes las listas no aparecen o no se pueden tocar.
-  if (typeof conn?.sendButton === 'function') {
-    const rows = flattenRows()
-    if (!rows.length) return false
+    if (!out.length) return false
     try {
       const timeoutMs = clampInt(process.env.WA_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-      const buttons = rows.map((r) => [truncateText(r.title, 22) || 'Opción', r.rowId])
       await Promise.race([
-        conn.sendButton(m.chat, String(text || ''), String(title || ''), null, buttons, null, null, m),
+        conn.sendButton(m.chat, String(text || ''), String(title || ''), null, out, null, null, m),
         new Promise((_, reject) => setTimeout(() => reject(new Error('sendButton timeout')), timeoutMs)),
       ])
       return true
     } catch (err) {
-      console.error('sendButton failed:', err)
+      console.error('sendButton fallback failed:', err)
     }
   }
 
-  if (!connCanSendList(conn)) return false
-  try {
-    const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-    await Promise.race([
-      conn.sendList(m.chat, title, text, 'Ver opciones', sections, m),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('sendList timeout')), timeoutMs)),
-    ])
-    return true
-  } catch (err) {
-    console.error('sendList failed:', err)
-    return false
-  }
+  return false
 }
 
 const trySendTemplateResponse = async (m, conn, { text, footer, buttons }) => {
@@ -843,6 +961,36 @@ const trySendTemplateResponse = async (m, conn, { text, footer, buttons }) => {
     console.error('sendHydrated failed:', err)
     return false
   }
+}
+
+const trySendFlowButtons = async (m, conn, { text, footer, buttons } = {}) => {
+  const safeButtons = Array.isArray(buttons) ? buttons.filter((b) => Array.isArray(b) && b[0] && b[1]).slice(0, 10) : []
+  if (!safeButtons.length) return false
+
+  // Preferir templateResponse: suele ser más compatible (máximo 3 botones).
+  if (typeof conn?.sendHydrated === 'function') {
+    const first3 = safeButtons.slice(0, 3)
+    if (first3.length) {
+      const ok = await trySendTemplateResponse(m, conn, { text, footer, buttons: first3 })
+      if (ok) return true
+    }
+  }
+
+  // Fallback: botones nativos (hasta 10).
+  if (typeof conn?.sendButton === 'function') {
+    try {
+      const timeoutMs = clampInt(process.env.WA_FLOW_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
+      await Promise.race([
+        conn.sendButton(m.chat, String(text || ''), String(footer || ''), null, safeButtons, null, null, m),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('sendButton timeout')), timeoutMs)),
+      ])
+      return true
+    } catch (err) {
+      console.error('sendButton(flow) failed:', err)
+    }
+  }
+
+  return false
 }
 
 const isAporteApproved = (aporte) => {
@@ -1088,7 +1236,7 @@ const buildAporteSelectRowsForPedido = (matches, usedPrefix, pedidoId) => {
   return rows
 }
 
-const buildSelectedResultMeta = ({ source, score, libItem, aporte } = {}) => {
+const buildSelectedResultMeta = ({ source, score, libItem, aporte, contentType = null, contentSource = null, isBL = null } = {}) => {
   if (source === 'lib') {
     return {
       source: 'biblioteca',
@@ -1097,6 +1245,9 @@ const buildSelectedResultMeta = ({ source, score, libItem, aporte } = {}) => {
       season: libItem?.season != null ? String(libItem.season) : null,
       chapter: libItem?.chapter != null ? String(libItem.chapter) : null,
       score: typeof score === 'number' ? Math.round(score) : null,
+      contentType: contentType || 'main',
+      contentSource: contentSource || null,
+      isBL: typeof isBL === 'boolean' ? isBL : null,
     }
   }
   if (source === 'aporte') {
@@ -1107,9 +1258,12 @@ const buildSelectedResultMeta = ({ source, score, libItem, aporte } = {}) => {
       season: aporte?.temporada != null ? String(aporte.temporada) : null,
       chapter: aporte?.capitulo != null ? String(aporte.capitulo) : null,
       score: typeof score === 'number' ? Math.round(score) : null,
+      contentType: contentType || 'main',
+      contentSource: contentSource || null,
+      isBL: typeof isBL === 'boolean' ? isBL : null,
     }
   }
-  return { source: safeString(source || 'unknown'), id: null, title: '', season: null, chapter: null, score: null }
+  return { source: safeString(source || 'unknown'), id: null, title: '', season: null, chapter: null, score: null, contentType: contentType || 'main', contentSource: contentSource || null, isBL: typeof isBL === 'boolean' ? isBL : null }
 }
 
 const finalizePedidoAsCompleted = async (panel, pedido, { selected, pdfFile } = {}) => {
@@ -1167,7 +1321,15 @@ const processPedidoSelection = async (
     if (!item) return { ok: false, error: `Archivo #${iid} no encontrado en biblioteca` }
     if (!isLibraryItemAllowedInChat(item, { m, isBotOwner })) return { ok: false, error: 'Este archivo pertenece a otro proveedor' }
 
-    selected = buildSelectedResultMeta({ source: 'lib', score: typeof score === 'number' ? score : null, libItem: item })
+    const cls = classifyLibraryItem(item)
+    selected = buildSelectedResultMeta({
+      source: 'lib',
+      score: typeof score === 'number' ? score : null,
+      libItem: item,
+      contentType: cls?.contentType || 'main',
+      contentSource: cls?.contentSource || null,
+      isBL: cls?.isBL || false,
+    })
 
     const sent = await trySendLibraryItem(m, conn, item)
     if (!sent.ok) return { ok: false, error: sent.reason || 'No pude enviar el archivo' }
@@ -1177,7 +1339,15 @@ const processPedidoSelection = async (
     if (!aporte) return { ok: false, error: `Aporte #${iid} no encontrado` }
     if (!isAporteVisibleToUser(aporte, { m, isBotOwner, isAdmin })) return { ok: false, error: 'No tienes acceso a este aporte' }
 
-    selected = buildSelectedResultMeta({ source: 'aporte', score: typeof score === 'number' ? score : null, aporte })
+    const cls = classifyAporteItem(aporte)
+    selected = buildSelectedResultMeta({
+      source: 'aporte',
+      score: typeof score === 'number' ? score : null,
+      aporte,
+      contentType: cls?.contentType || 'main',
+      contentSource: cls?.contentSource || null,
+      isBL: cls?.isBL || false,
+    })
 
     const filePath = resolveAporteFilePath(aporte)
     const filename = safeString(aporte?.archivoNombre || `aporte_${iid}`)
@@ -1225,6 +1395,7 @@ const processPedidoAuto = async ({ panel, pedido, parsed, proveedorJid, m, conn,
     limit: 10,
     allowPendingUserJid: m?.sender || null,
     allowPendingGroupJid: isBotOwner || (m?.isGroup && isAdmin) ? (m?.isGroup ? m?.chat : null) : null,
+    includePending: Boolean(isBotOwner),
   })
 
   const totalMatches = (libraryResults?.length || 0) + (exactAporteMatches?.length || 0)
@@ -1273,23 +1444,26 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (!raw) {
         return m.reply(
           `📝 *Crear un pedido*\n\n` +
-          `> *Rápido (solo título):* \`\`\`${usedPrefix}${command} <título>\`\`\`\n` +
-          `> _Te muestro temporadas y capítulos para elegir._\n\n` +
-          `> *Estructurado:* \`\`\`${usedPrefix}${command} <título> | Capítulo <n>\`\`\`\n` +
-          `> *Rango:* \`\`\`${usedPrefix}${command} <título> | Capítulos <n>-<m>\`\`\`\n` +
-          `> *Con temporada:* \`\`\`${usedPrefix}${command} <título> | Temporada <t> | Capítulo <n>\`\`\``
+          `> *Uso:* \`\`\`${usedPrefix}${command} <título>\`\`\`\n` +
+          `> _No escribas capítulos, temporadas ni extras; el bot te guía con interactivos._`
         )
       }
 
       const parsed = parsePedido(raw)
       if (!parsed.ok) return m.reply(`❌ *Pedido inválido*\n\n> _${safeString(parsed.error)}_`)
 
+      // Principio: el usuario solo escribe el título. Ignorar capítulos/temporadas/números extra.
       const titulo = parsed.title
-      const descripcion = parsed.descripcion || ''
-      const prioridad = parsed.prioridad || 'media'
-      const temporada = parsed.season
-      const capDesde = parsed.chapterFrom
-      const capHasta = parsed.chapterTo
+      const descripcion = ''
+      const prioridad = 'media'
+      parsed.season = null
+      parsed.chapterFrom = null
+      parsed.chapterTo = null
+      parsed.isRange = false
+      parsed.hasChapter = false
+      const temporada = null
+      const capDesde = null
+      const capHasta = null
 
       const id = nextPedidoId()
       const now = new Date().toISOString()
@@ -1345,43 +1519,15 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         emitPedidoCreated(pedido)
       } catch { }
 
-      // Modo rápido: si no viene capítulo, navegar por biblioteca (título -> temporadas -> capítulos).
+      // Modo rápido: si no viene capítulo, ofrecer flujos (Biblioteca / Aportes / Proveedor).
       if (!parsed.hasChapter) {
-        const canBrowseGlobal = !m.isGroup && isBotOwner
         const browseProviderJid = proveedorJid || pedido?.proveedor_jid || null
-
-        const buckets = (browseProviderJid || canBrowseGlobal)
-          ? searchTitlesInLibrary({
-            panel,
-            proveedorJid: browseProviderJid || null,
-            titleQuery: titulo,
-            limitTitles: 10,
-          })
-          : []
-
-        const provRows = !browseProviderJid ? buildProviderSelectRows(panel, usedPrefix, id) : []
-
         const aporteMatches = searchAportesForPedido(pedido, {
           limit: 5,
+          includePending: Boolean(isBotOwner),
           allowPendingUserJid: m.sender,
           allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (m.isGroup ? m.chat : null) : null,
         })
-
-        const sections = []
-        if (buckets.length === 1) {
-          const sampleId = Number(buckets?.[0]?.sampleId)
-          const baseItem = sampleId ? panel?.contentLibrary?.[sampleId] : null
-          const items = baseItem ? getLibraryItemsByTitleKey(panel, { baseItem, restrictProviderJid: browseProviderJid || null }) : []
-          const seasonRows = buildSeasonsRowsForPedido(items, usedPrefix, id, sampleId)
-          if (seasonRows.length) sections.push({ title: '📚 Temporadas', rows: seasonRows })
-        } else {
-          const titleRows = buildTitleSelectRowsForPedido(buckets, usedPrefix, id)
-          if (titleRows.length) sections.push({ title: '📚 Títulos', rows: titleRows })
-        }
-
-        const aporteRows = buildAporteSelectRowsForPedido(aporteMatches, usedPrefix, id)
-        if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
-        if (provRows.length) sections.push({ title: '📦 Elegir proveedor', rows: provRows })
 
         const bodyLines = []
         bodyLines.push('✅ *Pedido creado*')
@@ -1390,31 +1536,29 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         bodyLines.push(`> *Prioridad:* ${prioridadEmoji[prioridad]} _${waSafeInline(prioridad)}_`)
         bodyLines.push(`> *Estado:* ${estadoEmoji.pendiente} _pendiente_`)
         if (descripcion) bodyLines.push(`> *Descripción:* ${truncateText(descripcion, 120)}`)
-        if (!browseProviderJid && m.isGroup) bodyLines.push('> 🛡️ _Selecciona un proveedor para ver temporadas/capítulos._')
-        else if (!sections.length) bodyLines.push('> 🔎 _No encontré coincidencias en biblioteca (por ahora)._')
-        else bodyLines.push('> ✅ _Selecciona una opción para enviarla._')
+        if (!browseProviderJid && m.isGroup) bodyLines.push('> 🛡️ _Primero selecciona un proveedor._')
+        bodyLines.push('> ✅ _Elige un flujo:_')
 
-        if (m.fromMe) {
-          const templateButtons = [
-            ['👁️ Ver pedido', `${usedPrefix}verpedido ${id}`],
-            ['🔎 Explorar', `${usedPrefix}procesarpedido ${id}`],
-            ['📌 Aportes', `${usedPrefix}buscaraporte ${id}`],
-          ]
-          await trySendTemplateResponse(m, conn, { text: bodyLines.join('\n'), footer: '🛡️ Oguri Bot', buttons: templateButtons })
-          await m.reply(`✅ Pedido #${id} creado.\n\nUsa:\n${usedPrefix}procesarpedido ${id}`)
-          return null
-        }
+        const flowButtons = [
+          ['📚 Biblioteca', `${usedPrefix}procesarpedido ${id}`],
+          ['📌 Aportes', `${usedPrefix}buscaraporte ${id}`],
+          ['📦 Proveedor', `${usedPrefix}elegirproveedorpedido ${id}`],
+        ]
+        if (aporteMatches.length) flowButtons.push(['📌 Aportes (hay)', `${usedPrefix}buscaraporte ${id}`])
 
-        const ok = await trySendInteractiveList(m, conn, { title: 'Pedido', text: bodyLines.join('\n'), sections })
-        if (ok) {
-          await m.reply(`✅ Pedido #${id} creado.\n\nSi no te aparece el menú, usa:\n${usedPrefix}procesarpedido ${id}`)
-          return null
-        }
+        const ok = await trySendFlowButtons(m, conn, {
+          text: bodyLines.join('\n'),
+          footer: '🛡️ Oguri Bot',
+          buttons: flowButtons.slice(0, 6),
+        })
+        if (ok) return null
 
         const lines = []
         lines.push(...bodyLines)
         lines.push('')
-        lines.push(`🔎 *Explorar:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
+        lines.push(`📚 *Biblioteca:* \`\`\`${usedPrefix}procesarpedido ${id}\`\`\``)
+        lines.push(`📌 *Aportes:* \`\`\`${usedPrefix}buscaraporte ${id}\`\`\``)
+        lines.push(`📦 *Proveedor:* \`\`\`${usedPrefix}elegirproveedorpedido ${id}\`\`\``)
         return m.reply(lines.join('\n'))
       }
 
@@ -1534,6 +1678,74 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         return m.reply(`✅ *Seleccionar coincidencia*\n\n> \`\`\`${usedPrefix}seleccionpedido <idPedido> <lib|aporte> <id>\`\`\``)
       }
 
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+      if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) {
+        return m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o owner pueden usar esto._')
+      }
+
+      let cls = { contentType: 'main', contentSource: null, isBL: false }
+      if (source === 'lib' || source === 'biblioteca') {
+        const it = panel?.contentLibrary?.[itemId] || null
+        if (!it) return m.reply(`❌ *Error*\n\n> _Archivo #${itemId} no encontrado en biblioteca._`)
+        cls = classifyLibraryItem(it)
+      } else if (source === 'aporte' || source === 'aportes') {
+        const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+        const ap = aportes.find((a) => Number(a?.id) === Number(itemId)) || null
+        if (!ap) return m.reply(`❌ *Error*\n\n> _Aporte #${itemId} no encontrado._`)
+        cls = classifyAporteItem(ap)
+      }
+
+      const contentType = cls?.contentType || 'main'
+      if (needsExplicitConfirmForType(contentType)) {
+        pedido.bot ||= {}
+        pedido.bot.pendingSelection = {
+          source,
+          itemId,
+          contentType,
+          contentSource: cls?.contentSource || null,
+          isBL: Boolean(cls?.isBL),
+          chat: String(m.chat || ''),
+          sender: String(m.sender || ''),
+          createdAt: new Date().toISOString(),
+        }
+        appendPedidoLog(pedido, {
+          event: 'extra_selected',
+          source,
+          itemId,
+          contentType,
+          contentSource: cls?.contentSource || null,
+        })
+        panel.pedidos[pedidoId] = pedido
+        if (global.db?.write) await global.db.write().catch(() => { })
+
+        const typeLabel = CONTENT_TYPE_LABEL[contentType] || contentType
+        const warning = CONTENT_TYPE_WARNING[contentType] || 'Este contenido no forma parte de la historia principal.'
+        const srcLabel = cls?.contentSource ? `> *Fuente:* _${waSafeInline(cls.contentSource)}_\n` : ''
+
+        const msg =
+          `⚠️ *Contenido adicional detectado*\n\n` +
+          `> *Tipo:* _${waSafeInline(typeLabel)}_\n` +
+          srcLabel +
+          `> _${waSafeInline(warning)}_\n\n` +
+          `¿Deseas continuar?`
+
+        const ok = await trySendFlowButtons(m, conn, {
+          text: msg,
+          footer: '🛡️ Confirmación requerida',
+          buttons: [
+            ['✅ Sí, enviar', `${usedPrefix}confirmarpedido ${pedidoId} si`],
+            ['❌ Volver', `${usedPrefix}confirmarpedido ${pedidoId} no`],
+            ['🔙 Menú', `${usedPrefix}procesarpedido ${pedidoId}`],
+          ],
+        })
+        if (ok) return null
+        return m.reply(`${msg}\n\n> \`\`\`${usedPrefix}confirmarpedido ${pedidoId} si|no\`\`\``)
+      }
+
       const processed = await processPedidoSelection(panel, {
         pedidoId,
         source,
@@ -1555,11 +1767,134 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       )
     }
 
+    case 'confirmarpedido': {
+      const pedidoId = parseInt(args[0])
+      const decision = safeString(args[1] || '').toLowerCase().trim()
+      if (!pedidoId || !decision) {
+        return m.reply(`⚠️ *Confirmación*\n\n> \`\`\`${usedPrefix}confirmarpedido <idPedido> si|no\`\`\``)
+      }
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+      if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) {
+        return m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o owner pueden usar esto._')
+      }
+
+      const pending = pedido?.bot?.pendingSelection || null
+      if (!pending) return m.reply('🛡️ _No hay ninguna confirmación pendiente._')
+
+      const createdAt = new Date(pending?.createdAt || 0).getTime()
+      if (!createdAt || Number.isNaN(createdAt) || (Date.now() - createdAt) > 10 * 60 * 1000) {
+        try {
+          pedido.bot ||= {}
+          pedido.bot.pendingSelection = null
+          appendPedidoLog(pedido, { event: 'extra_expired' })
+          panel.pedidos[pedidoId] = pedido
+          if (global.db?.write) await global.db.write().catch(() => { })
+        } catch { }
+        return m.reply('🛡️ _Confirmación expirada. Abre el menú y selecciona de nuevo._')
+      }
+
+      if (decision === 'no' || decision === 'cancelar' || decision === 'volver') {
+        pedido.bot ||= {}
+        pedido.bot.pendingSelection = null
+        appendPedidoLog(pedido, { event: 'extra_cancelled' })
+        panel.pedidos[pedidoId] = pedido
+        if (global.db?.write) await global.db.write().catch(() => { })
+
+        const ok = await trySendFlowButtons(m, conn, {
+          text: `✅ _Cancelado._\n\n> *Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Elige un flujo:_`,
+          footer: '🛡️ Oguri Bot',
+          buttons: [
+            ['📚 Biblioteca', `${usedPrefix}procesarpedido ${pedidoId}`],
+            ['📌 Aportes', `${usedPrefix}buscaraporte ${pedidoId}`],
+            ['📦 Proveedor', `${usedPrefix}elegirproveedorpedido ${pedidoId}`],
+          ],
+        })
+        if (ok) return null
+        return m.reply(`✅ _Cancelado._\n\n> \`\`\`${usedPrefix}procesarpedido ${pedidoId}\`\`\``)
+      }
+
+      if (decision !== 'si' && decision !== 'sí' && decision !== 'yes') {
+        return m.reply(`⚠️ *Confirmación inválida*\n\n> \`\`\`${usedPrefix}confirmarpedido ${pedidoId} si|no\`\`\``)
+      }
+
+      appendPedidoLog(pedido, {
+        event: 'extra_confirmed',
+        source: pending?.source,
+        itemId: pending?.itemId,
+        contentType: pending?.contentType,
+        contentSource: pending?.contentSource || null,
+      })
+      pedido.bot ||= {}
+      pedido.bot.pendingSelection = null
+      panel.pedidos[pedidoId] = pedido
+      if (global.db?.write) await global.db.write().catch(() => { })
+
+      const processed = await processPedidoSelection(panel, {
+        pedidoId,
+        source: pending?.source,
+        itemId: pending?.itemId,
+        m,
+        conn,
+        usedPrefix,
+        isAdmin,
+        isBotOwner,
+      })
+      if (!processed.ok) {
+        return m.reply(`❌ *No pude completar el pedido*\n\n> *Motivo:* _${waSafeInline(processed.error || 'Error desconocido')}_`)
+      }
+
+      return m.reply(
+        `✅ *Pedido completado*\n\n` +
+        `> *ID:* \`\`\`#${pedidoId}\`\`\`\n` +
+        `> *Resultado:* _${waSafeInline(processed?.selected?.title || '')}_`
+      )
+    }
+
+    case 'elegirproveedorpedido': {
+      const pedidoId = parseInt(args[0])
+      if (!pedidoId) return m.reply(`📦 *Elegir proveedor*\n\n> \`\`\`${usedPrefix}elegirproveedorpedido <idPedido>\`\`\``)
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+
+      const isPedidoCreator = String(pedido?.usuario || '') === String(m.sender || '')
+      const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m.chat || '')
+      const canUse = isBotOwner || (m.isGroup && isAdmin) || (isPedidoCreator && sameChat)
+      if (!canUse) return m.reply('❌ *No permitido*\n\n> _Solo admins/owner o el creador del pedido puede hacer esto._')
+
+      const rows = buildProviderSelectRows(panel, usedPrefix, pedidoId)
+      if (!rows.length) return m.reply('❌ *Error*\n\n> _No hay proveedores configurados._')
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '📦 Proveedores',
+        text: `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona el proveedor._`,
+        sections: [{ title: 'Proveedores', rows }],
+      })
+      if (ok) return null
+
+      const lines = []
+      lines.push('📦 *Proveedores*')
+      lines.push(`> *Pedido:* ${waSafeInline(pedido?.titulo || '')}`)
+      lines.push('')
+      for (const r of rows) lines.push(`> ${waSafeInline(r.title)} — _${waSafeInline(r.description || '')}_`)
+      lines.push('')
+      lines.push(`> \`\`\`${usedPrefix}procesarpedido ${pedidoId} <idProveedor|jidProveedor>\`\`\``)
+      return m.reply(lines.join('\n'))
+    }
+
     case 'pedidotitulo': {
       const pedidoId = parseInt(args[0])
       const baseLibId = parseInt(args[1])
       if (!pedidoId || !baseLibId) {
-        return m.reply(`📚 *Temporadas por título*\n\n> \`\`\`${usedPrefix}pedidotitulo <idPedido> <idBiblioteca>\`\`\``)
+        return m.reply(`📚 *Contenido por título*\n\n> \`\`\`${usedPrefix}pedidotitulo <idPedido> <idBiblioteca>\`\`\``)
       }
 
       const pedido = panel?.pedidos?.[pedidoId] || null
@@ -1581,9 +1916,12 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       }
 
       const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
-      const items = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
-      const rows = buildSeasonsRowsForPedido(items, usedPrefix, pedidoId, baseLibId)
-      if (!rows.length) return m.reply('📚 *Temporadas*\n\n🛡️ _No encontré temporadas/capítulos para este título._')
+      const allItems = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
+      const buckets = buildContentBucketsForTitle(allItems, classifyLibraryItem)
+      const mainItems = buckets.main.map((x) => x.it)
+      const illustrationItems = buckets.illustration.map((x) => x.it)
+      const hasExtras = buckets.extrasByType.size > 0
+      const hasIllustrations = illustrationItems.length > 0
 
       try {
         pedido.proveedor_jid = restrictProviderJid || pedido.proveedor_jid || null
@@ -1592,21 +1930,288 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         if (global.db?.write) await global.db.write().catch(() => { })
       } catch { }
 
+      // Si no hay extras/ilustraciones, ir directo a capítulos principales.
+      if (!hasExtras && !hasIllustrations) {
+        if (!mainItems.length) {
+          return m.reply('🛡️ _No encontré capítulos principales para este título._')
+        }
+
+        // Auto-envío permitido solo si es MAIN y hay 1 solo archivo.
+        if (mainItems.length === 1) {
+          appendPedidoLog(pedido, { event: 'auto_main', itemId: Number(mainItems[0]?.id || 0) })
+          const processed = await processPedidoSelection(panel, {
+            pedidoId,
+            source: 'lib',
+            itemId: Number(mainItems[0].id),
+            m,
+            conn,
+            usedPrefix,
+            isAdmin,
+            isBotOwner,
+          })
+          if (!processed.ok) {
+            return m.reply(`❌ *No pude completar el pedido*\n\n> *Motivo:* _${waSafeInline(processed.error || 'Error desconocido')}_`)
+          }
+          return m.reply(
+            `✅ *Pedido completado*\n\n` +
+            `> *ID:* \`\`\`#${pedidoId}\`\`\`\n` +
+            `> *Resultado:* _${waSafeInline(processed?.selected?.title || '')}_`
+          )
+        }
+
+        const rows = buildSeasonsRowsForPedido(mainItems, usedPrefix, pedidoId, baseLibId)
+        if (!rows.length) return m.reply('🛡️ _No encontré temporadas/capítulos para este título._')
+        const ok = await trySendInteractiveList(m, conn, {
+          title: '📚 Capítulos principales',
+          text: `*Título:* ${waSafeInline(base?.title || base?.originalName || pedido?.titulo || '')}\n> _Selecciona una temporada para ver capítulos._`,
+          sections: [{ title: 'Temporadas', rows }],
+        })
+        if (ok) return null
+        return m.reply(`📚 *Capítulos principales*\n\n> \`\`\`${usedPrefix}pedidomain ${pedidoId} ${baseLibId}\`\`\``)
+      }
+
+      const summaryParts = []
+      summaryParts.push(`> *Main:* _${mainItems.length}_`)
+      if (hasExtras) {
+        const extrasCount = [...buckets.extrasByType.values()].reduce((n, arr) => n + (arr?.length || 0), 0)
+        summaryParts.push(`> *Extras:* _${extrasCount}_`)
+      }
+      if (hasIllustrations) summaryParts.push(`> *Ilustraciones:* _${illustrationItems.length}_`)
+
+      appendPedidoLog(pedido, {
+        event: 'bl_content_detected',
+        mainCount: mainItems.length,
+        extrasTypes: [...buckets.extrasByType.keys()],
+        illustrationsCount: illustrationItems.length,
+      })
+
+      const menuText =
+        `📌 *Contenido adicional detectado*\n\n` +
+        `> *Título:* ${waSafeInline(base?.title || base?.originalName || pedido?.titulo || '')}\n` +
+        `${summaryParts.join('\n')}\n\n` +
+        `Elige qué deseas recibir:`
+
+      const buttons = [
+        ['📖 Capítulos principales', `${usedPrefix}pedidomain ${pedidoId} ${baseLibId}`],
+      ]
+      if (hasExtras) buttons.push(['✨ Extras / Side stories', `${usedPrefix}pedidoextrasmenu ${pedidoId} ${baseLibId}`])
+      if (hasIllustrations) buttons.push(['🎨 Ilustraciones', `${usedPrefix}pedidoilustraciones ${pedidoId} ${baseLibId}`])
+
+      const ok = await trySendFlowButtons(m, conn, {
+        text: menuText,
+        footer: '🛡️ Oguri Bot',
+        buttons,
+      })
+      if (ok) return null
+
+      return m.reply(`${menuText}\n\n> \`\`\`${usedPrefix}pedidomain ${pedidoId} ${baseLibId}\`\`\``)
+    }
+
+    case 'pedidomain': {
+      const pedidoId = parseInt(args[0])
+      const baseLibId = parseInt(args[1])
+      if (!pedidoId || !baseLibId) return m.reply(`📖 *Capítulos principales*\n\n> \`\`\`${usedPrefix}pedidomain <idPedido> <idBiblioteca>\`\`\``)
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+      if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) return m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o owner pueden usar esto._')
+
+      const base = panel?.contentLibrary?.[baseLibId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${baseLibId} no encontrado en biblioteca._`)
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
+      const allItems = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
+      const buckets = buildContentBucketsForTitle(allItems, classifyLibraryItem)
+      const mainItems = buckets.main.map((x) => x.it)
+      if (!mainItems.length) return m.reply('🛡️ _No encontré capítulos principales para este título._')
+
+      const rows = buildSeasonsRowsForPedido(mainItems, usedPrefix, pedidoId, baseLibId)
+      if (!rows.length) return m.reply('🛡️ _No encontré temporadas/capítulos para este título._')
+
       const ok = await trySendInteractiveList(m, conn, {
-        title: '📚 Temporadas',
+        title: '📖 Capítulos principales',
         text: `*Título:* ${waSafeInline(base?.title || base?.originalName || pedido?.titulo || '')}\n> _Selecciona una temporada para ver capítulos._`,
         sections: [{ title: 'Temporadas', rows }],
       })
       if (ok) return null
 
       const lines = []
-      lines.push('📚 *Temporadas*')
+      lines.push('📖 *Capítulos principales*')
       lines.push(`> *Título:* ${waSafeInline(base?.title || base?.originalName || pedido?.titulo || '')}`)
       lines.push('')
       for (const r of rows) lines.push(`> ${r.title} — _${r.description}_`)
       lines.push('')
       lines.push(`> \`\`\`${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} <temporada> <página>\`\`\``)
       return m.reply(lines.join('\n'))
+    }
+
+    case 'pedidoextrasmenu': {
+      const pedidoId = parseInt(args[0])
+      const baseLibId = parseInt(args[1])
+      if (!pedidoId || !baseLibId) return m.reply(`✨ *Extras / Side stories*\n\n> \`\`\`${usedPrefix}pedidoextrasmenu <idPedido> <idBiblioteca>\`\`\``)
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+      if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) return m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o owner pueden usar esto._')
+
+      const base = panel?.contentLibrary?.[baseLibId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${baseLibId} no encontrado en biblioteca._`)
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
+      const allItems = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
+      const buckets = buildContentBucketsForTitle(allItems, classifyLibraryItem)
+
+      const rows = []
+      for (const [type, arr] of buckets.extrasByType.entries()) {
+        const label = CONTENT_TYPE_LABEL[type] || type
+        const count = Array.isArray(arr) ? arr.length : 0
+        if (!count) continue
+        const hasFan = arr.some((x) => x?.cls?.contentSource === 'fan')
+        const hasOfficial = arr.some((x) => x?.cls?.contentSource === 'official')
+        const srcTxt = hasFan && hasOfficial ? 'mix' : hasFan ? 'fan' : hasOfficial ? 'official' : '-'
+        rows.push({
+          title: `✨ ${label}`,
+          description: truncateText(`Items: ${count} · Fuente: ${srcTxt}`, 60),
+          rowId: `${usedPrefix}pedidoextrastipo ${pedidoId} ${baseLibId} ${type}`,
+        })
+        if (rows.length >= 10) break
+      }
+
+      if (!rows.length) return m.reply('🛡️ _No encontré extras/side content para este título._')
+
+      appendPedidoLog(pedido, { event: 'extras_menu_opened' })
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '✨ Extras / Side stories',
+        text: `*Título:* ${waSafeInline(base?.title || base?.originalName || '')}\n> _Selecciona un tipo (requiere confirmación)._`,
+        sections: [{ title: 'Tipos', rows }],
+      })
+      if (ok) return null
+
+      return m.reply(`✨ *Extras / Side stories*\n\n> \`\`\`${usedPrefix}pedidoextrastipo ${pedidoId} ${baseLibId} <tipo>\`\`\``)
+    }
+
+    case 'pedidoextrastipo': {
+      const pedidoId = parseInt(args[0])
+      const baseLibId = parseInt(args[1])
+      const type = safeString(args[2] || '').trim()
+      if (!pedidoId || !baseLibId || !type) return m.reply(`✨ *Extras por tipo*\n\n> \`\`\`${usedPrefix}pedidoextrastipo <idPedido> <idBiblioteca> <tipo>\`\`\``)
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+      if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) return m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o owner pueden usar esto._')
+
+      const base = panel?.contentLibrary?.[baseLibId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${baseLibId} no encontrado en biblioteca._`)
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const normalizedType = CONTENT_TYPES.includes(type) ? type : detectContentTypeFromText(type)
+      const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
+      const allItems = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
+      const buckets = buildContentBucketsForTitle(allItems, classifyLibraryItem)
+      const list = buckets.extrasByType.get(normalizedType) || []
+      if (!list.length) return m.reply('🛡️ _No encontré items para ese tipo._')
+
+      appendPedidoLog(pedido, { event: 'extras_type_opened', type: normalizedType })
+
+      const rows = list
+        .slice()
+        .sort((a, b) => Number(a?.it?.id || 0) - Number(b?.it?.id || 0))
+        .slice(0, 10)
+        .map(({ it, cls }) => {
+          const id = Number(it?.id)
+          const cap = normalizeChapter(it?.chapter)
+          const title = cap ? `Capítulo ${String(cap).padStart(4, '0')}` : truncateText(it?.title || it?.originalName || `Archivo #${id}`, 44)
+          const descParts = []
+          if (it?.season != null && String(it.season).trim()) descParts.push(`Temp: ${waSafeInline(it.season)}`)
+          if (cap) descParts.push(`Cap: ${cap}`)
+          if (cls?.contentSource) descParts.push(`Fuente: ${waSafeInline(cls.contentSource)}`)
+          if (it?.originalName) descParts.push(waSafeInline(it.originalName))
+          return {
+            title: truncateText(title, 44),
+            description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+            rowId: `${usedPrefix}seleccionpedido ${pedidoId} lib ${id}`,
+          }
+        })
+
+      const typeLabel = CONTENT_TYPE_LABEL[normalizedType] || normalizedType
+      const ok = await trySendInteractiveList(m, conn, {
+        title: `✨ ${typeLabel}`,
+        text: `*Título:* ${waSafeInline(base?.title || base?.originalName || '')}\n> _Selecciona un item (requiere confirmación)._`,
+        sections: [{ title: 'Items', rows }],
+      })
+      if (ok) return null
+
+      return m.reply(`✨ *${waSafeInline(typeLabel)}*\n\n> \`\`\`${usedPrefix}seleccionpedido ${pedidoId} lib <idBiblioteca>\`\`\``)
+    }
+
+    case 'pedidoilustraciones': {
+      const pedidoId = parseInt(args[0])
+      const baseLibId = parseInt(args[1])
+      if (!pedidoId || !baseLibId) return m.reply(`🎨 *Ilustraciones*\n\n> \`\`\`${usedPrefix}pedidoilustraciones <idPedido> <idBiblioteca>\`\`\``)
+
+      const pedido = panel?.pedidos?.[pedidoId] || null
+      if (!pedido) return m.reply(`❌ *Error*\n\n> _Pedido #${pedidoId} no encontrado._`)
+      if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+        return m.reply(`✅ *Pedido ya completado*\n\n> \`\`\`#${pedidoId}\`\`\` _${waSafeInline(pedido?.titulo || '')}_`)
+      }
+      if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) return m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o owner pueden usar esto._')
+
+      const base = panel?.contentLibrary?.[baseLibId] || null
+      if (!base) return m.reply(`❌ *Error*\n\n> _Archivo #${baseLibId} no encontrado en biblioteca._`)
+      if (m.isGroup && !isBotOwner && String(base?.proveedorJid || '') !== String(m.chat || '')) {
+        return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
+      }
+
+      const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
+      const allItems = getLibraryItemsByTitleKey(panel, { baseItem: base, restrictProviderJid })
+      const buckets = buildContentBucketsForTitle(allItems, classifyLibraryItem)
+      const list = buckets.illustration || []
+      if (!list.length) return m.reply('🛡️ _No encontré ilustraciones para este título._')
+
+      appendPedidoLog(pedido, { event: 'illustrations_opened' })
+
+      const rows = list
+        .slice()
+        .sort((a, b) => Number(a?.it?.id || 0) - Number(b?.it?.id || 0))
+        .slice(0, 10)
+        .map(({ it, cls }) => {
+          const id = Number(it?.id)
+          const descParts = []
+          if (cls?.contentSource) descParts.push(`Fuente: ${waSafeInline(cls.contentSource)}`)
+          if (it?.originalName) descParts.push(waSafeInline(it.originalName))
+          return {
+            title: truncateText(it?.title || it?.originalName || `Archivo #${id}`, 44),
+            description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+            rowId: `${usedPrefix}seleccionpedido ${pedidoId} lib ${id}`,
+          }
+        })
+
+      const ok = await trySendInteractiveList(m, conn, {
+        title: '🎨 Ilustraciones',
+        text: `*Título:* ${waSafeInline(base?.title || base?.originalName || '')}\n> _Selecciona un item (requiere confirmación)._`,
+        sections: [{ title: 'Items', rows }],
+      })
+      if (ok) return null
+
+      return m.reply(`🎨 *Ilustraciones*\n\n> \`\`\`${usedPrefix}seleccionpedido ${pedidoId} lib <idBiblioteca>\`\`\``)
     }
 
     case 'pedidocapslib': {
@@ -1638,7 +2243,8 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
 
       const season = seasonArg === '0' ? '0' : (normalizeSeason(seasonArg) || seasonArg)
       const restrictProviderJid = base?.proveedorJid ? String(base.proveedorJid) : (pedido?.proveedor_jid ? String(pedido.proveedor_jid) : null)
-      const items = getLibraryItemsByTitleKey(panel, { baseItem: base, season, restrictProviderJid })
+      const itemsAll = getLibraryItemsByTitleKey(panel, { baseItem: base, season, restrictProviderJid })
+      const items = itemsAll.filter((it) => (classifyLibraryItem(it)?.contentType || 'main') === 'main')
       const { rows, total, page, perPage } = buildLibraryChaptersRows(items, usedPrefix, pedidoId, pageArg)
       if (!rows.length) {
         const seasonLabel = season === '0' ? 'Sin temporada' : `Temporada ${String(season).padStart(2, '0')}`
@@ -1649,7 +2255,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const maxPage = total ? Math.max(1, Math.ceil(total / perPage)) : 1
       if (page > 1) navRows.push({ title: '⬅️ Anterior', description: `Página ${page - 1}/${maxPage}`, rowId: `${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} ${season} ${page - 1}` })
       if (page < maxPage) navRows.push({ title: '➡️ Siguiente', description: `Página ${page + 1}/${maxPage}`, rowId: `${usedPrefix}pedidocapslib ${pedidoId} ${baseLibId} ${season} ${page + 1}` })
-      navRows.push({ title: '🔙 Temporadas', description: 'Volver a temporadas', rowId: `${usedPrefix}pedidotitulo ${pedidoId} ${baseLibId}` })
+      navRows.push({ title: '🔙 Temporadas', description: 'Volver a temporadas', rowId: `${usedPrefix}pedidomain ${pedidoId} ${baseLibId}` })
 
       const seasonLabel = season === '0' ? 'Sin temporada' : `Temporada ${String(season).padStart(2, '0')}`
       const sections = [{ title: 'Capítulos', rows }]
@@ -1817,11 +2423,61 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         allowPendingUserJid: m.sender,
         allowPendingGroupJid: canSeeAll ? (m.isGroup ? m.chat : null) : null,
       })
-      const rows = buildAportesListRows(matches, usedPrefix)
-      const sections = rows.length ? [{ title: '📌 Aportes', rows }] : []
+
+      const groups = {
+        main: [],
+        extras: [],
+        illustration: [],
+      }
+      for (const m0 of matches || []) {
+        const a = m0?.aporte || null
+        if (!a) continue
+        const cls = classifyAporteItem(a)
+        const type = cls?.contentType || 'main'
+        const entry = { ...m0, __cls: cls }
+        if (type === 'main') groups.main.push(entry)
+        else if (type === 'illustration') groups.illustration.push(entry)
+        else groups.extras.push(entry)
+      }
+
+      const buildRows = (list, { prefixTitle = '' } = {}) => {
+        const rows = []
+        for (const m1 of list || []) {
+          const a = m1?.aporte || {}
+          const id = Number(a?.id)
+          if (!Number.isFinite(id) || id <= 0) continue
+          const cls = m1?.__cls || classifyAporteItem(a)
+          const score = Math.max(0, Math.min(100, Math.round(Number(m1?.score) || 0)))
+          const type = cls?.contentType || 'main'
+          const label = CONTENT_TYPE_LABEL[type] || type
+          const title = truncateText(a?.titulo || a?.archivoNombre || a?.contenido || `Aporte #${id}`, 44)
+          const descParts = []
+          descParts.push(`Tipo: ${waSafeInline(label)}`)
+          if (cls?.contentSource) descParts.push(`Fuente: ${waSafeInline(cls.contentSource)}`)
+          if (a?.temporada != null && String(a.temporada).trim()) descParts.push(`Temp: ${waSafeInline(a.temporada)}`)
+          if (a?.capitulo != null && String(a.capitulo).trim()) descParts.push(`Cap: ${waSafeInline(a.capitulo)}`)
+          descParts.push(`Score: ${score}`)
+          rows.push({
+            title: waSafeInline(`${prefixTitle}${title}`),
+            description: truncateText(descParts.filter(Boolean).join(' · '), 60),
+            rowId: `${usedPrefix}seleccionpedido ${pedidoId} aporte ${id}`,
+          })
+          if (rows.length >= 10) break
+        }
+        return rows
+      }
+
+      const sections = []
+      const mainRows = buildRows(groups.main, { prefixTitle: '📖 ' })
+      const extraRows = buildRows(groups.extras, { prefixTitle: '✨ ' })
+      const illustRows = buildRows(groups.illustration, { prefixTitle: '🎨 ' })
+      if (mainRows.length) sections.push({ title: '📖 Main', rows: mainRows })
+      if (extraRows.length) sections.push({ title: '✨ Extras / Side', rows: extraRows })
+      if (illustRows.length) sections.push({ title: '🎨 Ilustraciones', rows: illustRows })
+
       const ok = await trySendInteractiveList(m, conn, {
         title: '📌 Aportes sugeridos',
-        text: `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un aporte para ver más info o enviarlo._`,
+        text: `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un aporte para enviarlo._`,
         sections,
       })
       if (ok) return null
@@ -1932,21 +2588,14 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
 
         const aporteMatches = searchAportesForPedido(pedido, {
           limit: 5,
+          includePending: Boolean(isBotOwner),
           allowPendingUserJid: pedido?.usuario || null,
           allowPendingGroupJid: isBotOwner || (m.isGroup && isAdmin) ? (pedido?.grupo_id || null) : null,
         })
 
         const sections = []
-        if (buckets.length === 1) {
-          const sampleId = Number(buckets?.[0]?.sampleId)
-          const baseItem = sampleId ? panel?.contentLibrary?.[sampleId] : null
-          const items = baseItem ? getLibraryItemsByTitleKey(panel, { baseItem, restrictProviderJid: targetProviderJid }) : []
-          const seasonRows = buildSeasonsRowsForPedido(items, usedPrefix, id, sampleId)
-          if (seasonRows.length) sections.push({ title: '📚 Temporadas', rows: seasonRows })
-        } else {
-          const titleRows = buildTitleSelectRowsForPedido(buckets, usedPrefix, id)
-          if (titleRows.length) sections.push({ title: '📚 Títulos', rows: titleRows })
-        }
+        const titleRows = buildTitleSelectRowsForPedido(buckets, usedPrefix, id)
+        if (titleRows.length) sections.push({ title: '📚 Títulos', rows: titleRows })
 
         const aporteRows = buildAporteSelectRowsForPedido(aporteMatches, usedPrefix, id)
         if (aporteRows.length) sections.push({ title: '📌 Aportes', rows: aporteRows })
@@ -2434,7 +3083,13 @@ handler.help = [
   'cancelarpedido',
   'estadopedido',
   'seleccionpedido',
+  'confirmarpedido',
+  'elegirproveedorpedido',
   'pedidotitulo',
+  'pedidomain',
+  'pedidoextrasmenu',
+  'pedidoextrastipo',
+  'pedidoilustraciones',
   'pedidocapslib',
   'procesarpedido',
   'infolib',
@@ -2461,7 +3116,13 @@ handler.command = [
   'cancelarpedido',
   'estadopedido',
   'seleccionpedido',
+  'confirmarpedido',
+  'elegirproveedorpedido',
   'pedidotitulo',
+  'pedidomain',
+  'pedidoextrasmenu',
+  'pedidoextrastipo',
+  'pedidoilustraciones',
   'pedidocapslib',
   'procesarpedido',
   'buscarpedido',
