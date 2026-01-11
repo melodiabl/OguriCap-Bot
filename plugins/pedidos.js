@@ -776,6 +776,29 @@ const formatSearchResults = (pedido, query, results, usedPrefix, proveedorJid) =
 const connCanSendList = (conn) => typeof conn?.sendList === 'function'
 const connCanSendProtoFlow = (conn) => typeof conn?.sendNCarousel === 'function'
 
+const toNativeFlowSingleSelectSections = (sections) => {
+  const out = []
+  for (const s of Array.isArray(sections) ? sections : []) {
+    const rowsIn = Array.isArray(s?.rows) ? s.rows : []
+    const rows = []
+    for (const r of rowsIn) {
+      const id = safeString(r?.id || r?.rowId || '').trim()
+      const title = safeString(r?.title || '').trim()
+      if (!id || !title) continue
+      rows.push({
+        title,
+        description: safeString(r?.description || '').trim(),
+        id,
+      })
+      if (rows.length >= 10) break
+    }
+    if (!rows.length) continue
+    out.push({ title: safeString(s?.title || '').trim(), rows })
+    if (out.length >= 10) break
+  }
+  return out
+}
+
 const trySendProtoSingleSelect = async (m, conn, { title, text, buttonText, sections, footer } = {}) => {
   if (!connCanSendProtoFlow(conn)) return false
   if (!Array.isArray(sections) || !sections.some((s) => Array.isArray(s?.rows) && s.rows.length)) return false
@@ -783,9 +806,11 @@ const trySendProtoSingleSelect = async (m, conn, { title, text, buttonText, sect
   const safeButtonText = safeString(buttonText || 'Ver opciones').trim() || 'Ver opciones'
   const body = `${title ? `*${waSafeInline(title)}*\n\n` : ''}${safeString(text || '')}`
   try {
+    const nfSections = toNativeFlowSingleSelectSections(sections)
+    if (!nfSections.length) return false
     const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
     await Promise.race([
-      conn.sendNCarousel(m.chat, body, safeString(footer || '🛡️ Oguri Bot'), null, [], null, null, [[safeButtonText, sections]], m, {}),
+      conn.sendNCarousel(m.chat, body, safeString(footer || '🛡️ Oguri Bot'), null, [], null, null, [[safeButtonText, nfSections]], m, {}),
       new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel(single_select) timeout')), timeoutMs)),
     ])
     return true
@@ -930,45 +955,6 @@ const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
     if (ok) return true
   }
 
-  // 1) Preferir listas para selección detallada (capítulos/archivos).
-  if (connCanSendList(conn)) {
-    try {
-      const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-      await Promise.race([
-        conn.sendList(m.chat, title, text, 'Ver opciones', sections, m),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('sendList timeout')), timeoutMs)),
-      ])
-      return true
-    } catch (err) {
-      console.error('sendList failed:', err)
-    }
-  }
-
-  // 2) Fallback: botones por item (máximo 10) si la lista no se pudo enviar/mostrar.
-  if (typeof conn?.sendButton === 'function') {
-    const out = []
-    for (const s of sections) {
-      const rows = Array.isArray(s?.rows) ? s.rows : []
-      for (const r of rows) {
-        if (!r?.rowId || !r?.title) continue
-        out.push([truncateText(r.title, 22) || 'Opción', String(r.rowId)])
-        if (out.length >= 10) break
-      }
-      if (out.length >= 10) break
-    }
-    if (!out.length) return false
-    try {
-      const timeoutMs = clampInt(process.env.WA_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-      await Promise.race([
-        conn.sendButton(m.chat, String(text || ''), String(title || ''), null, out, null, null, m),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('sendButton timeout')), timeoutMs)),
-      ])
-      return true
-    } catch (err) {
-      console.error('sendButton fallback failed:', err)
-    }
-  }
-
   return false
 }
 
@@ -990,20 +976,7 @@ const trySendTemplateResponse = async (m, conn, { text, footer, buttons }) => {
     }
   }
 
-  try {
-    if (typeof conn?.sendHydrated !== 'function') return false
-    const safeButtons = Array.isArray(buttons) ? buttons.filter((b) => Array.isArray(b) && b[0] && b[1]).slice(0, 3) : []
-    if (!safeButtons.length) return false
-    const timeoutMs = clampInt(process.env.WA_TEMPLATE_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-    await Promise.race([
-      conn.sendHydrated(m.chat, String(text || ''), String(footer || ''), null, null, null, null, null, safeButtons, m),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('sendHydrated timeout')), timeoutMs)),
-    ])
-    return true
-  } catch (err) {
-    console.error('sendHydrated failed:', err)
-    return false
-  }
+  return false
 }
 
 const trySendFlowButtons = async (m, conn, { text, footer, buttons } = {}) => {
@@ -1021,29 +994,6 @@ const trySendFlowButtons = async (m, conn, { text, footer, buttons } = {}) => {
       return true
     } catch (err) {
       console.error('sendNCarousel(flow) failed:', err)
-    }
-  }
-
-  // Preferir templateResponse: suele ser más compatible (máximo 3 botones).
-  if (typeof conn?.sendHydrated === 'function') {
-    const first3 = safeButtons.slice(0, 3)
-    if (first3.length) {
-      const ok = await trySendTemplateResponse(m, conn, { text, footer, buttons: first3 })
-      if (ok) return true
-    }
-  }
-
-  // Fallback: botones nativos (hasta 10).
-  if (typeof conn?.sendButton === 'function') {
-    try {
-      const timeoutMs = clampInt(process.env.WA_FLOW_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-      await Promise.race([
-        conn.sendButton(m.chat, String(text || ''), String(footer || ''), null, safeButtons, null, null, m),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('sendButton timeout')), timeoutMs)),
-      ])
-      return true
-    } catch (err) {
-      console.error('sendButton(flow) failed:', err)
     }
   }
 
@@ -1608,7 +1558,18 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
           footer: '🛡️ Oguri Bot',
           buttons: flowButtons.slice(0, 6),
         })
-        if (ok) return null
+        if (ok) {
+          // Fallback visible: si WhatsApp no muestra el interactivo, al menos responde en texto.
+          await m.reply(
+            `✅ *Pedido creado* \`\`\`#${id}\`\`\`\n` +
+            `> *Título:* ${waSafeInline(titulo)}\n\n` +
+            `> _Si no ves el menú, usa:_\n` +
+            `> \`\`\`${usedPrefix}procesarpedido ${id}\`\`\`\n` +
+            `> \`\`\`${usedPrefix}buscaraporte ${id}\`\`\`\n` +
+            `> \`\`\`${usedPrefix}elegirproveedorpedido ${id}\`\`\``
+          )
+          return null
+        }
 
         const lines = []
         lines.push(...bodyLines)

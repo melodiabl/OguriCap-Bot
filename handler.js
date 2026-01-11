@@ -277,10 +277,11 @@ export async function handler(chatUpdate) {
 
       // Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
       // pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
-      if (isBaileysMessage && name !== '_antibots.js' && !isInteractiveReply) continue
+      if (isBaileysMessage && name !== '_antibots.js' && !isInteractiveReply && !m.fromMe) continue
 
       const __filename = join(___dirname, name)
-      if (typeof plugin.all === "function") {
+      const skipAllAndBefore = isBaileysMessage && m.fromMe && !isInteractiveReply
+      if (!skipAllAndBefore && typeof plugin.all === "function") {
         try {
           await plugin.all.call(this, m, {
             chatUpdate,
@@ -311,7 +312,7 @@ export async function handler(chatUpdate) {
             [[[], new RegExp]]).find(prefix => prefix[1])
 
       // EJECUTAR plugin.before (aquí se ejecuta el antibot)
-      if (typeof plugin.before === "function") {
+      if (!skipAllAndBefore && typeof plugin.before === "function") {
         try {
           const beforeResult = await plugin.before.call(this, m, {
             match,
@@ -376,7 +377,7 @@ export async function handler(chatUpdate) {
 
         // Bloquear comandos de mensajes con IDs de bots conocidos
         // PERO solo si el antibot NO está activo en este chat
-        if (!chat?.antiBot && !isInteractiveReply) {
+        if (!chat?.antiBot && !isInteractiveReply && !m.fromMe) {
           if ((m.id.startsWith("NJX-") || (m.id.startsWith("BAE5") && m.id.length === 16) || (m.id.startsWith("B24E") && m.id.length === 20))) {
             console.log('[HANDLER] Mensaje de bot detectado (antibot desactivado), ignorando')
             return
