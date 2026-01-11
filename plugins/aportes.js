@@ -459,13 +459,92 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
       )
     }
 
+    case 'syncaportes': {
+      if (!isBotOwner) return m.reply('❌ *No permitido*\n\n> _Solo el owner puede sincronizar los archivos._')
+      
+      const baseDir = path.join(process.cwd(), 'storage', 'media', 'aportes')
+      if (!fs.existsSync(baseDir)) return m.reply('❌ *Error*\n\n> _El directorio de aportes no existe._')
+
+      const aportes = Array.isArray(data.aportes) ? data.aportes : []
+      const existingPaths = new Set(aportes.map(a => safeString(a.archivoPath).replace(/\\/g, '/')))
+      let added = 0
+      let total = 0
+
+      const scan = async (dir) => {
+        const files = fs.readdirSync(dir)
+        for (const file of files) {
+          const fullPath = path.join(dir, file)
+          const stat = fs.statSync(fullPath)
+          if (stat.isDirectory()) {
+            await scan(fullPath)
+          } else if (stat.isFile()) {
+            total++
+            const relPath = path.relative(process.cwd(), fullPath).replace(/\\/g, '/')
+            if (!existingPaths.has(relPath)) {
+              // Extraer info de la ruta si es posible: Title/Season/Filename
+              const parts = path.relative(baseDir, fullPath).split(path.sep)
+              let guessedTitle = ''
+              let guessedSeason = null
+              
+              if (parts.length >= 3) {
+                guessedTitle = parts[0].replace(/_/g, ' ')
+                guessedSeason = normalizeSeason(parts[1])
+              } else {
+                guessedTitle = path.parse(file).name.replace(/_/g, ' ')
+              }
+
+              const ai = await aiEnhanceAporte({
+                contenido: guessedTitle,
+                media: { filename: file, mimetype: (await import('mime-types')).default.lookup(file) || 'application/octet-stream' },
+                tipo: 'extra'
+              })
+
+              const entry = {
+                id: data.aportesCounter++,
+                usuario: m.sender,
+                grupo: null,
+                contenido: '(sincronizado)',
+                tipo: ai.categoria || 'extra',
+                titulo: ai.titulo || guessedTitle,
+                descripcion: ai.descripcion || '',
+                tags: ai.tags || [],
+                categoria: ai.categoria || null,
+                temporada: guessedSeason || ai.temporada || null,
+                capitulo: ai.capitulo || null,
+                ai: ai.ai || null,
+                titulo_normalizado: normalizeText(ai.titulo || guessedTitle),
+                fecha: new Date(stat.birthtime || Date.now()).toISOString(),
+                estado: 'aprobado',
+                archivo: `/media/aportes/${parts.map(s => encodeURIComponent(s)).join('/')}`,
+                archivoPath: relPath,
+                archivoMime: (await import('mime-types')).default.lookup(file) || 'application/octet-stream',
+                archivoNombre: file,
+              }
+              data.aportes.push(entry)
+              added++
+            }
+          }
+        }
+      }
+
+      await scan(baseDir)
+      if (added > 0 && global.db?.write) await global.db.write().catch(() => { })
+
+      return m.reply(
+        `♻️ *Sincronización de aportes*\n\n` +
+        `> *Total archivos:* _${total}_\n` +
+        `> *Nuevos registrados:* _${added}_\n\n` +
+        `✅ _Los nuevos aportes ya deberían aparecer en las búsquedas._`
+      )
+    }
+
     default:
       return null
   }
 }
 
-handler.help = ['addaporte', 'aportes', 'myaportes', 'organizaraportes']
+handler.help = ['addaporte', 'aportes', 'myaportes', 'organizaraportes', 'syncaportes']
 handler.tags = ['tools']
-handler.command = ['addaporte', 'aportes', 'myaportes', 'organizaraportes']
+handler.command = ['addaporte', 'aportes', 'myaportes', 'organizaraportes', 'syncaportes']
 
 export default handler

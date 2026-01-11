@@ -33,12 +33,21 @@ const admingp = `> ❀ ${targetTag} Ahora es admin del grupo.\n> ✦ Acción hec
 const noadmingp = `> ❀ ${targetTag} Deja de ser admin del grupo.\n> ✦ Acción hecha por:\n> » ${actorTag}`
 if (chat.detect && m.messageStubType == 2) {
 const uniqid = (m.isGroup ? m.chat : m.sender).split('@')[0]
-const sessionPath = `./${sessions}/`
-for (const file of await fs.promises.readdir(sessionPath)) {
+const sessionPath = conn.isSubBot ? (conn.sessionPath || `./${global.jadi}/${conn.user.jid.split('@')[0]}`) : `./${sessions}/`
+if (fs.existsSync(sessionPath)) {
+try {
+const files = await fs.promises.readdir(sessionPath)
+for (const file of files) {
 if (file.includes(uniqid)) {
 await fs.promises.unlink(path.join(sessionPath, file))
-console.log(`${chalk.yellow.bold('✎ Delete!')} ${chalk.greenBright(`'${file}'`)}\n${chalk.redBright('Que provoca el "undefined" en el chat.')}`)
-}}} if (chat.detect && m.messageStubType == 21) {
+console.log(`${chalk.yellow.bold('✎ Delete!')} ${chalk.greenBright(`'${file}'`)} en ${sessionPath}\n${chalk.redBright('Que provoca el "undefined" en el chat.')}`)
+}
+}
+} catch (e) {
+console.error('Error en limpieza de sesión:', e)
+}
+}
+} if (chat.detect && m.messageStubType == 21) {
 rcanal.contextInfo.mentionedJid = [actorJid, ...groupAdmins.map(v => v.id)].filter(Boolean)
 await this.sendMessage(m.chat, { text: nombre, ...rcanal }, { quoted: null })
 } if (chat.detect && m.messageStubType == 22) {
