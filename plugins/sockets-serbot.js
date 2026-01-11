@@ -502,6 +502,23 @@ export async function yukiJadiBot(options) {
           console.log(chalk.bold.cyanBright(`\n❒⸺⸺⸺⸺【• SUB-BOT •】⸺⸺⸺⸺❒\n│\n│ ❍ ${userName} (+${path.basename(pathYukiJadiBot)}) conectado exitosamente.\n│\n❒⸺⸺⸺【• CONECTADO •】⸺⸺⸺❒`))
           sock.isInit = true
           global.conns.push(sock)
+          
+          // ─────────── REGISTRAR SUBBOT EN JERARQUÍA GLOBAL (ANTIBOT)
+          try {
+            if (!global.botHierarchy) {
+              global.botHierarchy = { parent: conn?.user?.jid || null, subbots: [] }
+            }
+            if (!Array.isArray(global.botHierarchy.subbots)) {
+              global.botHierarchy.subbots = []
+            }
+            const subbotJid = sock?.user?.jid || userJid
+            if (subbotJid && !global.botHierarchy.subbots.includes(subbotJid)) {
+              global.botHierarchy.subbots.push(subbotJid)
+              console.log(`[JERARQUÍA] SubBot ${subbotJid} registrado en linaje`)
+            }
+          } catch (err) {
+            console.error('[JERARQUÍA] Error registrando subbot:', err.message)
+          }
           m?.chat ? await conn.sendMessage(m.chat, { text: isSubBotConnected(m.sender) ? `@${m.sender.split('@')[0]}, ya estás conectado, leyendo mensajes entrantes...` : `❀ Has registrado un nuevo *Sub-Bot!* [@${m.sender.split('@')[0]}]\n\n> Puedes ver la información del bot usando el comando *#infobot*`, mentions: [m.sender] }, { quoted: m }) : ''
           resolveOnce({ success: true, open: true })
         }
