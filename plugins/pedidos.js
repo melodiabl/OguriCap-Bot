@@ -960,7 +960,18 @@ const buildContentBucketsForTitle = (items, classifier) => {
 const FLOW_ID_PREFIX = 'PEDIDO:'
 
 const FLOW_STEPS = {
+  // Nuevos estados obligatorios
   idle: 'idle',
+  parsing_title: 'parsing_title',
+  searching_aportes: 'searching_aportes',
+  searching_providers_groups: 'searching_providers_groups',
+  merging_results: 'merging_results',
+  presenting_interactives: 'presenting_interactives',
+  awaiting_confirmation: 'awaiting_confirmation',
+  delivering: 'delivering',
+  completed: 'completed',
+  error: 'error',
+  // Estados legacy para compatibilidad (no usados en el nuevo flujo)
   parsing_input: 'parsing_input',
   normalized: 'normalized',
   classified: 'classified',
@@ -968,10 +979,7 @@ const FLOW_STEPS = {
   browsing_seasons: 'browsing_seasons',
   browsing_ranges: 'browsing_ranges',
   browsing_extras: 'browsing_extras',
-  awaiting_confirmation: 'awaiting_confirmation',
   sending_file: 'sending_file',
-  completed: 'completed',
-  error: 'error',
 }
 
 // xstate machine enforcing deterministic flow and confirmations
@@ -990,34 +998,34 @@ const createPedidoMachine = (ctxInit) => createMachine({
   initial: 'idle',
   states: {
     idle: {
-      on: { START: 'parsing_input' }
+      on: { START: 'parsing_title' }
     },
-    parsing_input: {
-      entry: 'doParseAndNormalize',
-      on: { INPUT_OK: 'normalized', INPUT_ERR: 'error' }
+    parsing_title: {
+      entry: 'doParseTitle',
+      on: { PARSE_OK: 'searching_aportes', PARSE_ERR: 'error' }
     },
-    normalized: {
-      entry: 'doBuildCandidates',
-      on: { CANDIDATES_READY: 'browsing_titles', NO_CANDIDATES: 'error' }
+    searching_aportes: {
+      entry: 'doSearchAportes',
+      on: { APORTES_OK: 'merging_results', APORTES_PARTIAL: 'searching_providers_groups', APORTES_EMPTY: 'searching_providers_groups' }
     },
-    browsing_titles: {
-      on: { TITLE_PICKED: 'classified', BACK: 'normalized', CANCEL: 'error' }
+    searching_providers_groups: {
+      entry: 'doSearchProviders',
+      on: { PROVIDERS_OK: 'merging_results', PROVIDERS_EMPTY: 'merging_results' }
     },
-    classified: {
-      entry: 'doCollectAndClassify',
-      on: { CLASSIFIED_OK: 'browsing_seasons', CLASSIFIED_EMPTY: 'error' }
+    merging_results: {
+      entry: 'doMergeResults',
+      on: { MERGE_OK: 'presenting_interactives', MERGE_EMPTY: 'presenting_interactives', MERGE_ERR: 'error' }
     },
-    browsing_seasons: {
-      on: { SEASON_PICKED: 'browsing_ranges', BACK: 'browsing_titles', CANCEL: 'error', PACK_PICKED: 'awaiting_confirmation' }
-    },
-    browsing_ranges: {
-      on: { ITEM_PICKED: 'awaiting_confirmation', BACK: 'browsing_seasons', CANCEL: 'error' }
+    presenting_interactives: {
+      entry: 'doPresentInteractives',
+      on: { USER_SELECTION: 'awaiting_confirmation', BACK: 'presenting_interactives', CANCEL: 'error' }
     },
     awaiting_confirmation: {
-      on: { CONFIRM_SEND: 'sending_file', REJECT: 'browsing_seasons', CANCEL: 'error' }
+      entry: 'doPrepareConfirmation',
+      on: { CONFIRM_SEND: 'delivering', REJECT: 'presenting_interactives', CANCEL: 'error' }
     },
-    sending_file: {
-      entry: 'doSendFile',
+    delivering: {
+      entry: 'doDeliver',
       on: { SEND_OK: 'completed', SEND_ERR: 'error' }
     },
     completed: { type: 'final' },
@@ -1034,10 +1042,19 @@ const getMachineForPedido = (pedidoId, ctxInit = {}) => {
   if (!service) {
     const machine = createPedidoMachine({ pedidoId: id, ...ctxInit }).withConfig({
       actions: {
-        doParseAndNormalize: (ctx, evt) => { /* parsing handled by parsePedido + normalization helpers */ },
-        doBuildCandidates: (ctx, evt) => { /* candidates menu via renderCandidatesMenu */ },
-        doCollectAndClassify: (ctx, evt) => { /* buildUnifiedIndex + buildAvailabilityFromItems */ },
-        doSendFile: (ctx, evt) => { /* guarded by awaiting_confirmation; actual send elsewhere */ },
+        // Legacy actions (compatibilidad)
+        doParseAndNormalize: (ctx, evt) => {},
+        doBuildCandidates: (ctx, evt) => {},
+        doCollectAndClassify: (ctx, evt) => {},
+        doSendFile: (ctx, evt) => {},
+        // Nuevas acciones del flujo requerido
+        doParseTitle: (ctx, evt) => { /* parsePedido + normalización NFKD + extracción de título base */ },
+        doSearchAportes: (ctx, evt) => { /* buscar en global.db.data.aportes (prioridad 1) */ },
+        doSearchProviders: (ctx, evt) => { /* buscar en panel.contentLibrary por proveedor (si falta) */ },
+        doMergeResults: (ctx, evt) => { /* consolidar coberturas, validar COMPLETE anti-FP */ },
+        doPresentInteractives: (ctx, evt) => { /* menús: temporadas, rangos, extras/BL, faltantes */ },
+        doPrepareConfirmation: (ctx, evt) => { /* armar resumen con páginas/tamaño (pdf-parse si aplica) */ },
+        doDeliver: (ctx, evt) => { /* envío tras confirmación (documentos únicos o múltiples) */ },
       }
     })
     service = interpret(machine)
@@ -1442,6 +1459,125 @@ const renderAvailabilityDetailsText = (pedido, availability) => {
   lines.push(`• Side stories: ${availability?.hasSide ? 'Sí' : 'No'}`)
   lines.push(`• Ilustraciones: ${availability?.hasIllus ? 'Sí' : 'No'}`)
   return lines.join('\n')
+}
+
+// -----------------------------
+// Push summary message builder (User-facing)
+// -----------------------------
+
+const yesNo = (b) => (b ? 'sí' : 'no')
+
+const formatSeasonShort = (s) => (s === '0' ? 'T0' : `T${String(s).padStart(1, '0')}`)
+
+const buildAvailableRangesBySeason = (availability) => {
+  try {
+    const seasons = Array.isArray(availability?.seasons) ? availability.seasons : []
+    const parts = []
+    for (const s of seasons) {
+      if (!s || Number(s.available || 0) <= 0) continue
+      const label = formatSeasonShort(String(s.season || '0'))
+      if (s.min != null && s.max != null) parts.push(`${label}: ${s.min}–${s.max}`)
+      else if (Number(s.available || 0) > 0) parts.push(`${label}: ${s.available} caps`)
+    }
+    return parts.join('; ')
+  } catch { return '' }
+}
+
+const buildMissingRangesBySeason = (missingBySeason) => {
+  try {
+    if (!missingBySeason || typeof missingBySeason !== 'object') return ''
+    const seasons = Object.keys(missingBySeason)
+    const parts = []
+    for (const s of seasons) {
+      const arr = Array.isArray(missingBySeason[s]) ? missingBySeason[s] : []
+      const label = formatSeasonShort(String(s || '0'))
+      const ranges = arr
+        .map((r) => {
+          const a = Number(r?.from), b = Number(r?.to)
+          if (Number.isFinite(a) && Number.isFinite(b)) return `${Math.min(a,b)}–${Math.max(a,b)}`
+          return null
+        })
+        .filter(Boolean)
+      if (ranges.length) parts.push(`${label}: ${ranges.join(', ')}`)
+    }
+    return parts.join('; ')
+  } catch { return '' }
+}
+
+const buildSourceLabel = (availability, { mode } = {}) => {
+  const origin = Array.isArray(availability?.origin) ? availability.origin : []
+  const hasAportes = origin.includes('aportes')
+  const hasLib = origin.includes('biblioteca')
+  if (mode === 'complete') {
+    if (hasAportes && hasLib) return 'Aportes verificados + Grupos proveedores'
+    if (hasAportes) return 'Aportes verificados'
+    if (hasLib) return 'Grupos proveedores'
+    return 'En seguimiento'
+  }
+  // parcial/registrado context
+  return {
+    aportes: hasAportes ? 'disponibles' : 'no disponibles',
+    proveedores: 'monitoreando',
+  }
+}
+
+// Build push text according to availability and templates
+// Input: { userName, title, availability, missingBySeason }
+const buildPedidoPush = ({ userName, title, availability, missingBySeason } = {}) => {
+  const name = waSafeInline(userName || '-')
+  const t = waSafeInline(title || '-')
+  const avail = availability || {}
+  const hasExtras = Boolean(avail?.hasExtras)
+  const isBL = Boolean(avail?.anyBL)
+  const chaptersAvailable = Number(avail?.chaptersAvailable || 0) || 0
+  const isComplete = Boolean(avail?.complete)
+
+  // Complete (solo si validado determinísticamente)
+  if (isComplete) {
+    const seasonsCount = Number(avail?.seasonsCount || 0) || 0
+    const source = buildSourceLabel(avail, { mode: 'complete' })
+    return (
+      '✅ PEDIDO LISTO\n' +
+      `👤 Usuario: ${name}\n` +
+      `📖 Título: ${t}\n` +
+      `✔ Contenido completo disponible\n` +
+      `🎬 Temporadas: ${seasonsCount}\n` +
+      `📚 Capítulos: COMPLETO\n` +
+      `✨ Extras: ${yesNo(hasExtras)}\n` +
+      `🏷️ BL: ${yesNo(isBL)}\n` +
+      `📂 Fuente: ${source}\n` +
+      '👉 Confirmá para recibir el contenido.'
+    )
+  }
+
+  // Parcial (hay algo disponible pero faltan rangos)
+  if (chaptersAvailable > 0) {
+    const availableStr = buildAvailableRangesBySeason(avail)
+    const missingStr = buildMissingRangesBySeason(missingBySeason)
+    const source = buildSourceLabel(avail, { mode: 'partial' })
+    const lines = []
+    lines.push('⚠️ PEDIDO PARCIAL')
+    lines.push(`👤 Usuario: ${name}`)
+    lines.push(`📖 Título: ${t}`)
+    if (availableStr) lines.push(`📚 Disponible: ${availableStr}`)
+    if (missingStr) lines.push(`❌ Falta: ${missingStr}`)
+    lines.push(`✨ Extras: ${yesNo(hasExtras)}`)
+    lines.push(`📂 Aportes: ${source.aportes}`)
+    lines.push(`📡 Grupos proveedores: ${source.proveedores}`)
+    lines.push('👉 ¿Deseás recibir lo disponible o esperar?')
+    return lines.join('\n')
+  }
+
+  // Registrado (sin contenido aún)
+  return (
+    '⏳ PEDIDO REGISTRADO\n' +
+    `👤 Usuario: ${name}\n` +
+    `📖 Título: ${t}\n` +
+    '❌ Aún no hay aportes disponibles\n' +
+    '📡 Grupos proveedores: en seguimiento\n' +
+    '🔔 Te avisaremos automáticamente\n' +
+    'cuando llegue nuevo contenido.'
+  )
 }
 
 const savePedidoAndEmit = async (panel, pedido, eventName = 'updated') => {
