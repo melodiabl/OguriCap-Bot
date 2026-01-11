@@ -434,8 +434,9 @@ export async function handler(chatUpdate) {
         }
         if (!isOwners && !m.chat.endsWith('g.us') && !/code|p|ping|qr|estado|status|infobot|botinfo|report|reportar|invite|join|logout|suggest|help|menu/gim.test(m.text)) return
         const adminMode = chat.modoadmin || false
+        const allowInAdminMode = plugin?.allowInAdminMode === true
         const wa = plugin.botAdmin || plugin.admin || plugin.group || plugin || noPrefix || pluginPrefix || m.text.slice(0, 1) === pluginPrefix || plugin.command
-        if (adminMode && !isOwner && m.isGroup && !isAdmin && wa) return
+        if (adminMode && !allowInAdminMode && !isOwner && m.isGroup && !isAdmin && wa) return
         if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) {
           fail("owner", m, this)
           continue

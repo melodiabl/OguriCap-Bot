@@ -1,11 +1,21 @@
 import fs from 'fs'
 import path from 'path'
+import mimeTypes from 'mime-types'
 import { classifyProviderLibraryContent } from '../lib/provider-content-classifier.js'
 import { generatePedidoPDF } from '../lib/pedido-pdf.js'
 
 const safeString = (v) => (v == null ? '' : typeof v === 'string' ? v : String(v))
 
 const waSafeInline = (v) => safeString(v).replace(/\s+/g, ' ').replace(/[*_~`]/g, '').trim()
+
+const userKey = (jid) => safeString(jid || '').split('@')[0].replace(/\D/g, '')
+
+const sameUser = (a, b) => {
+  const ak = userKey(a)
+  const bk = userKey(b)
+  if (!ak || !bk) return safeString(a) === safeString(b)
+  return ak === bk
+}
 
 const clampInt = (value, { min, max, fallback }) => {
   const n = Number(value)
@@ -399,6 +409,55 @@ const shouldSkipDuplicateCommand = (m, command) => {
   }
 }
 
+const extractInteractiveSelectionId = (m) => {
+  try {
+    const msg =
+      m?.msg ||
+      m?.message?.interactiveResponseMessage ||
+      m?.message ||
+      null
+
+    if (!msg || typeof msg !== 'object') return null
+
+    const direct =
+      msg?.buttonsResponseMessage?.selectedButtonId ||
+      msg?.templateButtonReplyMessage?.selectedId ||
+      msg?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      msg?.singleSelectReply?.selectedRowId ||
+      msg?.selectedButtonId ||
+      msg?.selectedRowId ||
+      msg?.selectedId ||
+      null
+
+    if (typeof direct === 'string' && direct.trim()) return direct.trim()
+
+    const paramsJson =
+      msg?.nativeFlowResponseMessage?.paramsJson ||
+      msg?.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
+      msg?.interactiveResponseMessage?.paramsJson ||
+      msg?.paramsJson ||
+      null
+
+    if (typeof paramsJson === 'string' && paramsJson.trim()) {
+      try {
+        const parsed = JSON.parse(paramsJson)
+        const id =
+          parsed?.id ||
+          parsed?.selectedId ||
+          parsed?.selectedRowId ||
+          parsed?.rowId ||
+          parsed?.selectedButtonId ||
+          null
+        if (typeof id === 'string' && id.trim()) return id.trim()
+      } catch { }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
 const ensureStore = () => {
   if (!global.db.data.panel) global.db.data.panel = {}
   if (!global.db.data.panel.pedidos) global.db.data.panel.pedidos = {}
@@ -456,8 +515,38 @@ const stopwords = new Set([
   'cap', 'capitulo', 'capítulo', 'chapter', 'ch', 'episodio', 'ep', 'pdf', 'epub',
 ])
 
+const stripKnownExtensions = (name) => {
+  const s = safeString(name || '').trim()
+  if (!s) return ''
+  return s.replace(/\.(pdf|epub|cbz|cbr|zip|rar|7z|png|jpg|jpeg|webp|mp4|mkv)\b/gi, ' ')
+}
+
+const inferTitleFromFilename = (name) => {
+  let s = safeString(name || '')
+  if (!s) return ''
+  // Normalizar unicode y separadores
+  s = s.normalize('NFKC')
+  s = stripKnownExtensions(s)
+  s = s.replace(/[_|┇~•·]+/g, ' ')
+  s = s.replace(/[()\[\]{}]/g, ' ')
+  // Quitar prefijos numéricos tipo "05_" o "5 -"
+  s = s.replace(/^\s*0*\d{1,4}\s*[_\-–]\s*/g, ' ')
+  // Quitar tokens de temporada/capítulo
+  s = s
+    .replace(/\b(?:temporada|temp(?:orada)?|season)\s*0*\d{1,2}\b/gi, ' ')
+    .replace(/\b(?:t|s)\s*0*\d{1,2}\b/gi, ' ')
+    .replace(/\b(?:cap(?:itulo)?|chapter|ch)\s*0*\d{1,4}\b/gi, ' ')
+    .replace(/\b(?:cap(?:itulo)?s?|chapters?)\s*0*\d{1,4}\s*(?:-|–|a)\s*0*\d{1,4}\b/gi, ' ')
+  // Quitar tokens de extras
+  s = s.replace(/\b(extra|extras|special|specials|especial|especiales|side|sidestory|side\s*story|bonus|omake|epilogue|epilogo|prologue|prologo|spin\s*off|spinoff|au|what\s*if|illustration|illustrations|ilustracion|ilustraciones|illust|artbook)\b/gi, ' ')
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+
 const normalizeText = (s) => safeString(s || '')
   .toLowerCase()
+  // NFKC primero para compatibilidad (fullwidth/fancy digits/letters), luego NFKD para separar diacríticos.
+  .normalize('NFKC')
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')
   // Mantener letras/números Unicode para títulos con tipografías/cjk.
@@ -546,6 +635,28 @@ const detectIsBLFromText = (rawText) => {
   return /\b(bl|boys\s*love|boy\s*s\s*love|yaoi)\b/u.test(t)
 }
 
+const inferSeasonFromText = (rawText) => {
+  const t = safeString(rawText || '').trim()
+  if (!t) return null
+  const m = t.match(/\b(?:temporada|temp(?:orada)?|season|s)\s*0*(\d{1,2})\b/i)
+  if (m) return normalizeSeason(m[1])
+  return null
+}
+
+const inferChapterFromText = (rawText) => {
+  const t = safeString(rawText || '').trim()
+  if (!t) return null
+  // prefer explícitos
+  const m1 = t.match(/\b(?:cap(?:itulo)?|chapter|ch)\s*0*(\d{1,4})\b/i)
+  if (m1) return normalizeChapter(m1[1])
+  // prefijo numérico (ej: 05_ ...), evitando extras/special
+  const low = normalizeText(t)
+  if (/\b(extra|especial|special|side|bonus|omake|epilogue|prologue|spin\s*off|spinoff|illustration|ilustr)\b/u.test(low)) return null
+  const m2 = t.match(/^\s*0*(\d{1,4})\s*[_\-–]/)
+  if (m2) return normalizeChapter(m2[1])
+  return null
+}
+
 const classifyLibraryItem = (it) => {
   const text = `${safeString(it?.title || '')} ${safeString(it?.originalName || '')} ${safeString(it?.category || '')} ${(it?.tags || []).join(' ')}`.trim()
   const contentType = detectContentTypeFromText(text)
@@ -594,6 +705,807 @@ const buildContentBucketsForTitle = (items, classifier) => {
     }
   }
   return out
+}
+
+// -----------------------------
+// Pedido Flow (State Machine)
+// -----------------------------
+
+const FLOW_ID_PREFIX = 'PEDIDO:'
+
+const FLOW_STEPS = {
+  NUEVO: 'NUEVO',
+  RESUMEN: 'RESUMEN_DISPONIBILIDAD',
+  DETALLE: 'DETALLE_DISPONIBILIDAD',
+  SELECT_TITULO: 'ESPERANDO_SELECCION',
+  SELECT_TIPO: 'ESPERANDO_SELECCION',
+  SELECT_TEMP: 'ESPERANDO_SELECCION',
+  SELECT_CAP: 'ESPERANDO_SELECCION',
+  SELECT_VARIANTE: 'ESPERANDO_SELECCION',
+  CONFIRM_EXTRA: 'ESPERANDO_SELECCION',
+  EN_PROCESO: 'EN_PROCESO',
+  COMPLETADO: 'COMPLETADO',
+  CANCELADO: 'CANCELADO',
+  ERROR: 'ERROR',
+}
+
+const makeFlowId = (pedidoId, action, ...parts) => {
+  const pid = Number(pedidoId)
+  if (!Number.isFinite(pid) || pid <= 0) return `${FLOW_ID_PREFIX}0:INVALID`
+  const a = safeString(action || '').trim().replace(/[:\s]/g, '_').slice(0, 32) || 'A'
+  const rest = (parts || []).map((p) => safeString(p).trim().replace(/[:\s]/g, '_').slice(0, 64)).filter(Boolean)
+  // Formato estricto: PEDIDO:<id>:STEP:<action>[:payload...]
+  return `${FLOW_ID_PREFIX}${pid}:STEP:${a}${rest.length ? `:${rest.join(':')}` : ''}`
+}
+
+const parseFlowId = (text) => {
+  const raw = safeString(text || '').trim()
+  if (!raw.startsWith(FLOW_ID_PREFIX)) return null
+  const parts = raw.split(':').filter(Boolean)
+  // Aceptar formatos antiguos: PEDIDO:<id>:<action>:...
+  // y el nuevo: PEDIDO:<id>:STEP:<action>:...
+  if (parts.length < 3) return null
+  const pid = Number(parts[1])
+  if (!Number.isFinite(pid) || pid <= 0) return null
+  const hasStep = String(parts[2] || '').toUpperCase() === 'STEP'
+  const action = safeString(parts[hasStep ? 3 : 2] || '').trim()
+  const args = parts.slice(hasStep ? 4 : 3).map((p) => safeString(p || '').trim())
+  return { pedidoId: pid, action, args, raw }
+}
+
+const setPedidoFlow = (pedido, { step, data } = {}) => {
+  pedido.flow ||= {}
+  if (step) pedido.flow.step = safeString(step)
+  if (data && typeof data === 'object') pedido.flow.data = data
+  pedido.flow.updatedAt = new Date().toISOString()
+  const ttlMs = clampInt(process.env.PEDIDOS_FLOW_TTL_MS, { min: 60_000, max: 24 * 60 * 60 * 1000, fallback: 10 * 60 * 1000 })
+  pedido.flow.expiresAt = new Date(Date.now() + ttlMs).toISOString()
+}
+
+const isFlowExpired = (pedido) => {
+  try {
+    const exp = new Date(pedido?.flow?.expiresAt || 0).getTime()
+    return Number.isFinite(exp) ? Date.now() > exp : false
+  } catch {
+    return false
+  }
+}
+
+const isTitleMatch = (aNorm, bNorm) => {
+  const a = safeString(aNorm || '').trim()
+  const b = safeString(bNorm || '').trim()
+  if (!a || !b) return false
+  if (a === b) return true
+  if (a.includes(b) || b.includes(a)) return true
+  return false
+}
+
+const getFileExtUpper = (name) => {
+  const base = safeString(name || '').trim()
+  const ext = base.includes('.') ? base.split('.').pop() : ''
+  const up = safeString(ext).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return up || null
+}
+
+const pickDisplayTitle = (candidates, fallbackTitle) => {
+  const best = candidates?.[0]
+  return safeString(best?.title || fallbackTitle || '').trim() || safeString(fallbackTitle || '').trim()
+}
+
+const scoreTitleCandidate = (candidateTitle, queryTitle) => {
+  const cNorm = normalizeText(candidateTitle || '')
+  const qNorm = normalizeText(queryTitle || '')
+  if (!cNorm || !qNorm) return 0
+  if (cNorm === qNorm) return 100
+  const qTokens = new Set(tokenize(qNorm))
+  const cTokens = new Set(tokenize(cNorm))
+  let overlap = 0
+  for (const t of qTokens) if (cTokens.has(t)) overlap += 1
+  const ratio = qTokens.size ? overlap / qTokens.size : 0
+  let score = ratio * 80
+  if (cNorm.includes(qNorm) || qNorm.includes(cNorm)) score += 20
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+const searchTitleCandidatesFromLibrary = (panel, { proveedorJid, queryTitle, limit = 10 } = {}) => {
+  const qNorm = normalizeText(queryTitle || '')
+  if (!qNorm) return []
+  const list = Object.values(panel?.contentLibrary || {})
+    .filter((it) => it && it.id)
+    .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
+
+  const buckets = new Map()
+  for (const it of list) {
+    const rawTitle = safeString(it?.title || it?.originalName || '').trim()
+    const inferred = inferTitleFromFilename(rawTitle)
+    const t = inferred || rawTitle
+    const n = normalizeText(t)
+    if (!n) continue
+    const s = scoreTitleCandidate(n, qNorm)
+    if (s <= 0) continue
+    const entry = buckets.get(n) || { key: n, title: inferred || rawTitle, score: s, sampleId: Number(it?.id) || null }
+    entry.score = Math.max(entry.score, s)
+    if (!entry.sampleId) entry.sampleId = Number(it?.id) || null
+    buckets.set(n, entry)
+  }
+  const out = [...buckets.values()].sort((a, b) => b.score - a.score).slice(0, limit)
+  return out
+}
+
+const searchTitleCandidatesFromAportes = (queryTitle, { limit = 10, m, isBotOwner, isAdmin } = {}) => {
+  const qNorm = normalizeText(queryTitle || '')
+  if (!qNorm) return []
+  const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+
+  const buckets = new Map()
+  for (const a of aportes) {
+    if (!a) continue
+    if (!isAporteVisibleToUser(a, { m, isBotOwner, isAdmin })) continue
+    const rawTitle = safeString(a?.titulo || a?.archivoNombre || '').trim()
+    const inferred = inferTitleFromFilename(rawTitle)
+    const t = inferred || rawTitle
+    const n = normalizeText(t)
+    if (!n) continue
+    const s = scoreTitleCandidate(n, qNorm)
+    if (s <= 0) continue
+    const entry = buckets.get(n) || { key: n, title: inferred || rawTitle, score: s, sampleId: Number(a?.id) || null }
+    entry.score = Math.max(entry.score, s)
+    if (!entry.sampleId) entry.sampleId = Number(a?.id) || null
+    buckets.set(n, entry)
+  }
+  return [...buckets.values()].sort((a, b) => b.score - a.score).slice(0, limit)
+}
+
+const collectTitleItems = (panel, { titleKey, proveedorJid } = {}) => {
+  const key = normalizeText(titleKey || '')
+  if (!key) return { library: [], aportes: [] }
+  const library = Object.values(panel?.contentLibrary || {})
+    .filter((it) => it && it.id)
+    .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
+    .filter((it) => {
+      const raw = safeString(it?.title || it?.originalName || '')
+      const t = normalizeText(inferTitleFromFilename(raw) || raw)
+      return isTitleMatch(t, key)
+    })
+
+  const aportes = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+  const aportesMatched = aportes.filter((a) => {
+    const raw = safeString(a?.titulo || a?.archivoNombre || '')
+    const t = normalizeText(inferTitleFromFilename(raw) || raw)
+    return isTitleMatch(t, key)
+  })
+  return { library, aportes: aportesMatched }
+}
+
+const buildAvailabilityFromItems = (items) => {
+  const seasons = new Map() // season -> { chapters:Set<number>, missing:number, min,max }
+  const formats = new Set()
+  const origin = new Set()
+  let hasExtras = false
+  let hasSide = false
+  let hasIllus = false
+  let anyBL = false
+
+  const pushMainChapter = (season, chapter) => {
+    const s = safeString(season || '0').trim() || '0'
+    const ch = normalizeChapter(chapter)
+    if (!ch) return
+    const n = Number(ch)
+    if (!Number.isFinite(n)) return
+    const entry = seasons.get(s) || { season: s, chapters: new Set(), min: null, max: null }
+    entry.chapters.add(n)
+    entry.min = entry.min == null ? n : Math.min(entry.min, n)
+    entry.max = entry.max == null ? n : Math.max(entry.max, n)
+    seasons.set(s, entry)
+  }
+
+  for (const it of items.library || []) {
+    origin.add('biblioteca')
+    const cls = classifyLibraryItem(it)
+    if (cls?.isBL) anyBL = true
+    const ext = getFileExtUpper(it?.originalName || it?.filename || it?.file_path || '')
+    if (ext) formats.add(ext)
+    const type = cls?.contentType || 'main'
+    if (type === 'main') {
+      const season = normalizeSeason(it?.season) || inferSeasonFromText(it?.originalName || it?.title || '') || '0'
+      const chapter = normalizeChapter(it?.chapter) || inferChapterFromText(it?.originalName || it?.title || '')
+      pushMainChapter(season, chapter)
+    }
+    else if (type === 'illustration') hasIllus = true
+    else {
+      hasExtras = true
+      if (type === 'side') hasSide = true
+    }
+  }
+
+  for (const a of items.aportes || []) {
+    origin.add('aportes')
+    const cls = classifyAporteItem(a)
+    if (cls?.isBL) anyBL = true
+    const ext = getFileExtUpper(a?.archivoNombre || a?.archivo || '')
+    if (ext) formats.add(ext)
+    const type = cls?.contentType || 'main'
+    if (type === 'main') {
+      const season = normalizeSeason(a?.temporada) || inferSeasonFromText(a?.archivoNombre || a?.titulo || '') || '0'
+      const chapter = normalizeChapter(a?.capitulo) || inferChapterFromText(a?.archivoNombre || a?.titulo || '')
+      pushMainChapter(season, chapter)
+    }
+    else if (type === 'illustration') hasIllus = true
+    else {
+      hasExtras = true
+      if (type === 'side') hasSide = true
+    }
+  }
+
+  const seasonList = [...seasons.values()].sort((a, b) => Number(a.season) - Number(b.season))
+  let chaptersTotal = 0
+  let chaptersAvailable = 0
+  let missingTotal = 0
+  for (const s of seasonList) {
+    const count = s.chapters.size
+    chaptersAvailable += count
+    if (s.min != null && s.max != null) {
+      const range = Math.max(0, s.max - s.min + 1)
+      chaptersTotal += range
+      missingTotal += Math.max(0, range - count)
+    }
+  }
+  const complete = chaptersTotal > 0 ? missingTotal === 0 : false
+
+  return {
+    seasons: seasonList.map((s) => ({
+      season: s.season,
+      min: s.min,
+      max: s.max,
+      available: s.chapters.size,
+      total: s.min != null && s.max != null ? (s.max - s.min + 1) : s.chapters.size,
+      complete: s.min != null && s.max != null ? (s.chapters.size === (s.max - s.min + 1)) : true,
+    })),
+    seasonsCount: seasonList.length,
+    chaptersTotal,
+    chaptersAvailable,
+    hasExtras,
+    hasSide,
+    hasIllus,
+    formats: [...formats].slice(0, 6),
+    origin: [...origin],
+    complete,
+    anyBL,
+  }
+}
+
+const renderAvailabilitySummaryText = (pedido, availability) => {
+  const title = waSafeInline(pedido?.titulo || '')
+  const fmt = availability?.formats?.length ? availability.formats.join(', ') : '-'
+  const origin = availability?.origin?.length ? availability.origin.map((x) => (x === 'biblioteca' ? 'Biblioteca' : 'Aportes')).join(' + ') : '-'
+  const stateLabel = availability?.complete ? 'Completo' : (availability?.chaptersAvailable ? 'Parcial' : 'Vacío')
+
+  const lines = []
+  lines.push(`📖 *${title}*`)
+  lines.push('')
+  lines.push('📊 *Disponibilidad detectada:*')
+  lines.push(`• Temporadas: *${Number(availability?.seasonsCount || 0)}*`)
+  lines.push(`• Capítulos totales: *${Number(availability?.chaptersTotal || 0)}*`)
+  lines.push(`• Capítulos disponibles: *${Number(availability?.chaptersAvailable || 0)}*`)
+  lines.push(`• Extras BL: *${availability?.hasExtras ? 'Sí' : 'No'}*`)
+  lines.push(`• Side stories: *${availability?.hasSide ? 'Sí' : 'No'}*`)
+  lines.push(`• Ilustraciones: *${availability?.hasIllus ? 'Sí' : 'No'}*`)
+  lines.push(`• Formatos: *${fmt}*`)
+  lines.push(`• Origen: *${origin}*`)
+  lines.push(`• Estado: *${stateLabel}*`)
+  lines.push('')
+  lines.push('¿Es este el título que estabas buscando?')
+  return lines.join('\n')
+}
+
+const renderAvailabilityDetailsText = (pedido, availability) => {
+  const title = waSafeInline(pedido?.titulo || '')
+  const lines = []
+  lines.push(`📖 *${title}* — *Detalles*`)
+  lines.push('')
+  const seasons = Array.isArray(availability?.seasons) ? availability.seasons : []
+  if (seasons.length) {
+    for (const s of seasons) {
+      const label = s.season === '0' ? 'Sin temporada' : `Temporada ${String(s.season).padStart(2, '0')}`
+      const range = (s.min != null && s.max != null) ? `Cap. ${s.min}–${s.max}` : `Capítulos: ${s.available}`
+      const status = s.complete ? 'completo' : 'incompleto'
+      lines.push(`• ${label}: ${range} (${status})`)
+    }
+  } else {
+    lines.push('• Temporadas: -')
+  }
+  lines.push('')
+  lines.push(`• Extras BL: ${availability?.hasExtras ? 'Sí' : 'No'}`)
+  lines.push(`• Side stories: ${availability?.hasSide ? 'Sí' : 'No'}`)
+  lines.push(`• Ilustraciones: ${availability?.hasIllus ? 'Sí' : 'No'}`)
+  return lines.join('\n')
+}
+
+const savePedidoAndEmit = async (panel, pedido, eventName = 'updated') => {
+  try {
+    pedido.fecha_actualizacion = new Date().toISOString()
+    panel.pedidos[pedido.id] = pedido
+    if (global.db?.write) await global.db.write().catch(() => { })
+    try {
+      const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+      emitPedidoUpdated(pedido)
+    } catch { }
+    if (eventName) appendPedidoLog(pedido, { event: eventName, step: safeString(pedido?.flow?.step || '') })
+  } catch { }
+}
+
+const getMergedItemsForPedido = (panel, pedido, { m, isBotOwner, isAdmin } = {}) => {
+  const selectedKey = safeString(pedido?.titulo_normalizado || pedido?.flow?.data?.selectedKey || '').trim() || normalizeText(pedido?.titulo || '')
+  const proveedorJid = pedido?.proveedor_jid || pedido?.flow?.data?.proveedorJid || null
+  const allowGlobalLibrary = !m?.isGroup || Boolean(isBotOwner)
+
+  const libProv = Object.values(panel?.contentLibrary || {})
+    .filter((it) => it && it.id)
+    .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
+    .filter((it) => {
+      const raw = safeString(it?.title || it?.originalName || '')
+      return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+    })
+  const libGlobal = allowGlobalLibrary
+    ? Object.values(panel?.contentLibrary || {})
+      .filter((it) => it && it.id)
+      .filter((it) => {
+        const raw = safeString(it?.title || it?.originalName || '')
+        return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+      })
+    : []
+
+  const aportesAll = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+  const aportes = aportesAll
+    .filter((a) => {
+      const raw = safeString(a?.titulo || a?.archivoNombre || '')
+      return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+    })
+    .filter((a) => isAporteVisibleToUser(a, { m, isBotOwner, isAdmin }))
+
+  const libMap = new Map()
+  for (const it of [...libProv, ...libGlobal]) libMap.set(Number(it?.id), it)
+  return { titleKey: selectedKey, proveedorJid, library: [...libMap.values()], aportes }
+}
+
+const buildUnifiedIndex = (merged) => {
+  const unified = []
+  for (const it of merged?.library || []) unified.push({ source: 'lib', id: Number(it?.id) || null, it })
+  for (const a of merged?.aportes || []) unified.push({ source: 'aporte', id: Number(a?.id) || null, it: a })
+
+  const main = []
+  const illustrations = []
+  const extrasByType = new Map()
+  let anyBL = false
+
+  for (const u of unified) {
+    if (!u?.id) continue
+    const cls = u.source === 'lib' ? classifyLibraryItem(u.it) : classifyAporteItem(u.it)
+    if (cls?.isBL) anyBL = true
+    const contentType = cls?.contentType || 'main'
+    const entry = { ...u, cls }
+    if (contentType === 'main') main.push(entry)
+    else if (contentType === 'illustration') illustrations.push(entry)
+    else {
+      const key = CONTENT_TYPES.includes(contentType) ? contentType : 'extra'
+      const arr = extrasByType.get(key) || []
+      arr.push(entry)
+      extrasByType.set(key, arr)
+    }
+  }
+
+  return { main, illustrations, extrasByType, anyBL }
+}
+
+const getSeasonAndChapterFromUnified = (u) => {
+  if (!u) return { season: '0', chapter: null }
+  if (u.source === 'lib') {
+    const season = normalizeSeason(u?.it?.season) || inferSeasonFromText(u?.it?.originalName || u?.it?.title || '') || '0'
+    const chapter = normalizeChapter(u?.it?.chapter) || inferChapterFromText(u?.it?.originalName || u?.it?.title || '')
+    return { season, chapter }
+  }
+  const season = normalizeSeason(u?.it?.temporada) || inferSeasonFromText(u?.it?.archivoNombre || u?.it?.titulo || '') || '0'
+  const chapter = normalizeChapter(u?.it?.capitulo) || inferChapterFromText(u?.it?.archivoNombre || u?.it?.titulo || '')
+  return { season, chapter }
+}
+
+const buildMainChapterMap = (mainItems) => {
+  const bySeason = new Map() // season -> Map(chapter -> unified[])
+  for (const u of mainItems || []) {
+    const { season, chapter } = getSeasonAndChapterFromUnified(u)
+    if (!chapter) continue
+    const sKey = safeString(season || '0') || '0'
+    const cKey = String(chapter)
+    const seasonMap = bySeason.get(sKey) || new Map()
+    const arr = seasonMap.get(cKey) || []
+    arr.push(u)
+    seasonMap.set(cKey, arr)
+    bySeason.set(sKey, seasonMap)
+  }
+  return bySeason
+}
+
+const renderContentTypeMenu = async (m, conn, panel, pedido, index) => {
+  const pid = Number(pedido?.id)
+  const availability = pedido?.disponibilidad_detectada || null
+  const buttons = [
+    ['📘 Historia principal', makeFlowId(pid, 'TYPE_MAIN')],
+  ]
+  if (availability?.hasExtras) buttons.push(['✨ Extras / Side', makeFlowId(pid, 'TYPE_EXTRAS')])
+  if (availability?.hasIllus) buttons.push(['🎨 Ilustraciones', makeFlowId(pid, 'TYPE_ILLUS')])
+  buttons.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'AVAIL')])
+  buttons.push(['❌ Cancelar', makeFlowId(pid, 'AVAIL_CANCEL')])
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_TIPO, data: { ...(pedido.flow?.data || {}), lastMenu: 'TYPE' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_type')
+
+  const text =
+    `📌 *Contenido disponible*\n\n` +
+    `> *Título:* ${waSafeInline(pedido?.titulo || '')}\n` +
+    `> _Elige qué quieres recibir:_`
+  const ok = await trySendFlowButtons(m, conn, { text, footer: '🛡️ Oguri Bot', buttons: buttons.slice(0, 10) })
+  if (ok) return true
+  await m.reply(`${text}\n\n> Responde: *PRINCIPAL*${availability?.hasExtras ? ' / *EXTRAS*' : ''}${availability?.hasIllus ? ' / *ILUSTRACIONES*' : ''} / *VOLVER* / *CANCELAR*`)
+  return true
+}
+
+const renderAvailabilityMenu = async (m, conn, panel, pedido) => {
+  const pid = Number(pedido?.id)
+  const availability = pedido?.disponibilidad_detectada || buildAvailabilityFromItems({ library: [], aportes: [] })
+  const summaryText = renderAvailabilitySummaryText(pedido, availability)
+  setPedidoFlow(pedido, { step: FLOW_STEPS.RESUMEN, data: { ...(pedido.flow?.data || {}), lastMenu: 'AVAIL' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_availability')
+
+  const buttons = [
+    ['✅ Sí, continuar', makeFlowId(pid, 'AVAIL_YES')],
+    ['🔍 Ver detalles', makeFlowId(pid, 'AVAIL_DETAILS')],
+    ['🔁 Buscar otro', makeFlowId(pid, 'AVAIL_OTHER')],
+    ['❌ Cancelar', makeFlowId(pid, 'AVAIL_CANCEL')],
+  ]
+  const ok = await trySendFlowButtons(m, conn, { text: summaryText, footer: '🛡️ Oguri Bot', buttons })
+  const fallback = `\n\n> _Si no ves botones, responde:_ *SI* / *DETALLES* / *OTRO* / *CANCELAR*`
+  if (ok) {
+    await m.reply(summaryText + fallback)
+    return true
+  }
+  await m.reply(summaryText + `\n\n> _No pude mostrar el menú interactivo._` + fallback)
+  return true
+}
+
+const renderDetailsMenu = async (m, conn, panel, pedido) => {
+  const pid = Number(pedido?.id)
+  const availability = pedido?.disponibilidad_detectada || null
+  const text = renderAvailabilityDetailsText(pedido, availability)
+  const buttons = [
+    ['📘 Capítulos', makeFlowId(pid, 'TYPE_MAIN')],
+  ]
+  if (availability?.hasExtras) buttons.push(['✨ Extras', makeFlowId(pid, 'TYPE_EXTRAS')])
+  if (availability?.hasIllus) buttons.push(['🎨 Ilustraciones', makeFlowId(pid, 'TYPE_ILLUS')])
+  buttons.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'AVAIL')])
+  buttons.push(['❌ Cancelar', makeFlowId(pid, 'AVAIL_CANCEL')])
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.DETALLE, data: { ...(pedido.flow?.data || {}), lastMenu: 'DETAIL' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_details')
+
+  const ok = await trySendFlowButtons(m, conn, { text, footer: '🛡️ Oguri Bot', buttons: buttons.slice(0, 10) })
+  if (ok) return true
+  await m.reply(`${text}\n\n> Responde: *CAPITULOS*${availability?.hasExtras ? ' / *EXTRAS*' : ''}${availability?.hasIllus ? ' / *ILUSTRACIONES*' : ''} / *VOLVER* / *CANCELAR*`)
+  return true
+}
+
+const renderCandidatesMenu = async (m, conn, panel, pedido) => {
+  const pid = Number(pedido?.id)
+  const candidates = Array.isArray(pedido?.flow?.data?.candidates) ? pedido.flow.data.candidates : []
+  if (!candidates.length) {
+    await m.reply('🔎 *Buscar otro título*\n\n🛡️ _No tengo más títulos candidatos para mostrar._')
+    return renderAvailabilityMenu(m, conn, panel, pedido)
+  }
+
+  const rows = candidates.slice(0, 10).map((c, idx) => ({
+    title: truncateText(c?.title || c?.key || `Título ${idx + 1}`, 44),
+    description: truncateText(`Score: ${Number(c?.score || 0)} · ${waSafeInline(c?.source || '')}`, 60),
+    rowId: makeFlowId(pid, 'TITLE_PICK', String(idx)),
+  }))
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_TITULO, data: { ...(pedido.flow?.data || {}), lastMenu: 'CANDIDATES' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_candidates')
+
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '🔎 Buscar otro título',
+    text: `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona el título correcto._`,
+    sections: [{ title: 'Títulos', rows }],
+  })
+  if (ok) return true
+  const lines = rows.map((r, i) => `${i + 1}. ${waSafeInline(r.title)}`).join('\n')
+  await m.reply(`🔎 *Títulos candidatos*\n\n${lines}\n\n> _No pude mostrar el menú. Responde el título exacto._`)
+  return true
+}
+
+const renderMainSeasonsMenu = async (m, conn, panel, pedido, index) => {
+  const pid = Number(pedido?.id)
+  const chapterMap = buildMainChapterMap(index?.main || [])
+  const seasons = [...chapterMap.keys()].sort((a, b) => Number(a) - Number(b))
+  if (!seasons.length) {
+    await m.reply('📘 *Capítulos principales*\n\n🛡️ _No encontré capítulos principales para este título._')
+    return renderContentTypeMenu(m, conn, panel, pedido, index)
+  }
+
+  if (seasons.length === 1) {
+    const season = seasons[0]
+    pedido.flow ||= {}
+    pedido.flow.data ||= {}
+    pedido.flow.data.season = season
+    setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_CAP, data: pedido.flow.data })
+    await savePedidoAndEmit(panel, pedido, 'auto_one_season')
+    return renderMainChaptersPage(m, conn, panel, pedido, index, season, 1)
+  }
+
+  const rows = seasons.slice(0, 10).map((s) => {
+    const seasonMap = chapterMap.get(s) || new Map()
+    const chapters = [...seasonMap.keys()].map(Number).filter((n) => Number.isFinite(n)).sort((x, y) => x - y)
+    const desc = chapters.length ? `Caps: ${chapters[0]}-${chapters[chapters.length - 1]} (${chapters.length})` : 'Caps: -'
+    const label = s === '0' ? 'Sin temporada' : `Temporada ${String(s).padStart(2, '0')}`
+    return {
+      title: label,
+      description: truncateText(desc, 60),
+      rowId: makeFlowId(pid, 'MAIN_SEASON', s),
+    }
+  })
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_TEMP, data: { ...(pedido.flow?.data || {}), lastMenu: 'MAIN_SEASONS' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_main_seasons')
+
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '📘 Temporadas',
+    text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona una temporada._`,
+    sections: [{ title: 'Temporadas', rows }],
+  })
+  if (ok) return true
+  await m.reply('📘 *Temporadas*\n\n🛡️ _No pude mostrar el menú. Escribe: TEMPORADA 1/2..._')
+  return true
+}
+
+const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, page) => {
+  const pid = Number(pedido?.id)
+  const chapterMap = buildMainChapterMap(index?.main || [])
+  const seasonKey = safeString(season || '0') || '0'
+  const seasonMap = chapterMap.get(seasonKey) || new Map()
+  const chapters = [...seasonMap.keys()].map(Number).filter((n) => Number.isFinite(n)).sort((x, y) => x - y)
+  if (!chapters.length) {
+    await m.reply('📘 *Capítulos*\n\n🛡️ _No encontré capítulos para esta temporada._')
+    return renderMainSeasonsMenu(m, conn, panel, pedido, index)
+  }
+
+  const perPage = 9
+  const p = clampInt(page, { min: 1, max: 9999, fallback: 1 })
+  const maxPage = Math.max(1, Math.ceil(chapters.length / perPage))
+  const start = (p - 1) * perPage
+  const slice = chapters.slice(start, start + perPage)
+  const rows = slice.map((ch) => ({
+    title: `Capítulo ${String(ch).padStart(4, '0')}`,
+    description: 'Ver opciones',
+    rowId: makeFlowId(pid, 'MAIN_CH', seasonKey, String(ch)),
+  }))
+
+  const nav = []
+  if (p > 1) nav.push({ title: '⬅️ Anterior', description: `Página ${p - 1}/${maxPage}`, rowId: makeFlowId(pid, 'MAIN_PAGE', seasonKey, String(p - 1)) })
+  if (p < maxPage) nav.push({ title: '➡️ Siguiente', description: `Página ${p + 1}/${maxPage}`, rowId: makeFlowId(pid, 'MAIN_PAGE', seasonKey, String(p + 1)) })
+  nav.push({ title: '🔙 Volver', description: 'Volver a temporadas', rowId: makeFlowId(pid, 'BACK', 'MAIN_SEASONS') })
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_CAP, data: { ...(pedido.flow?.data || {}), season: seasonKey, page: p, lastMenu: 'MAIN_CHAPTERS' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_main_chapters')
+
+  const seasonLabel = seasonKey === '0' ? 'Sin temporada' : `Temporada ${String(seasonKey).padStart(2, '0')}`
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '📘 Capítulos',
+    text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${seasonLabel}_\n> *Página:* _${p}/${maxPage}_\n> _Selecciona un capítulo._`,
+    sections: [{ title: 'Capítulos', rows }, { title: 'Navegación', rows: nav }],
+  })
+  if (ok) return true
+  await m.reply('📘 *Capítulos*\n\n🛡️ _No pude mostrar el menú._')
+  return true
+}
+
+const renderVariantsForChapter = async (m, conn, panel, pedido, index, seasonKey, chapterNum) => {
+  const pid = Number(pedido?.id)
+  const chapterMap = buildMainChapterMap(index?.main || [])
+  const seasonMap = chapterMap.get(String(seasonKey)) || new Map()
+  const variants = seasonMap.get(String(chapterNum)) || []
+  if (!variants.length) {
+    await m.reply('📘 *Capítulo*\n\n🛡️ _No encontré archivos para ese capítulo._')
+    return renderMainChaptersPage(m, conn, panel, pedido, index, seasonKey, pedido?.flow?.data?.page || 1)
+  }
+
+  if (variants.length === 1) {
+    const v = variants[0]
+    return handleSendSelection(m, conn, panel, pedido, v.source, v.id, v.cls?.contentType || 'main')
+  }
+
+  const rows = variants.slice(0, 10).map((v, idx) => {
+    const name = v.source === 'lib' ? (v?.it?.originalName || v?.it?.title || `Archivo #${v.id}`) : (v?.it?.archivoNombre || v?.it?.titulo || `Aporte #${v.id}`)
+    const fmt = getFileExtUpper(name) || (v.source === 'lib' ? 'DOC' : 'DOC')
+    const origin = v.source === 'lib' ? 'Biblioteca' : 'Aportes'
+    return {
+      title: truncateText(`${origin} (${fmt})`, 44),
+      description: truncateText(waSafeInline(name), 60),
+      rowId: makeFlowId(pid, 'SEND', v.source, String(v.id)),
+    }
+  })
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_VARIANTE, data: { ...(pedido.flow?.data || {}), season: String(seasonKey), chapter: String(chapterNum), lastMenu: 'VARIANTS' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_variants')
+
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '📦 Opciones',
+    text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Capítulo:* _${String(chapterNum)}_\n> _Selecciona una opción._`,
+    sections: [{ title: 'Opciones', rows }],
+  })
+  if (ok) return true
+  await m.reply('📦 *Opciones*\n\n🛡️ _No pude mostrar el menú._')
+  return true
+}
+
+const renderExtraTypesMenu = async (m, conn, panel, pedido, index) => {
+  const pid = Number(pedido?.id)
+  const types = [...(index?.extrasByType?.keys?.() || [])]
+  if (!types.length) {
+    await m.reply('✨ *Extras / Side stories*\n\n🛡️ _No encontré contenido adicional._')
+    return renderContentTypeMenu(m, conn, panel, pedido, index)
+  }
+
+  const rows = types.slice(0, 10).map((t) => {
+    const arr = index.extrasByType.get(t) || []
+    return {
+      title: truncateText(CONTENT_TYPE_LABEL[t] || t, 44),
+      description: truncateText(`Items: ${arr.length}`, 60),
+      rowId: makeFlowId(pid, 'EXTRA_TYPE', t),
+    }
+  })
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_TIPO, data: { ...(pedido.flow?.data || {}), lastMenu: 'EXTRA_TYPES' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_extra_types')
+
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '✨ Contenido adicional',
+    text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un tipo._`,
+    sections: [{ title: 'Tipos', rows }],
+  })
+  if (ok) return true
+  await m.reply('✨ *Contenido adicional*\n\n🛡️ _No pude mostrar el menú._')
+  return true
+}
+
+const renderExtraItemsPage = async (m, conn, panel, pedido, index, type, page) => {
+  const pid = Number(pedido?.id)
+  const t = CONTENT_TYPES.includes(type) ? type : detectContentTypeFromText(type)
+  const list = (index?.extrasByType?.get(t) || []).slice()
+  if (!list.length) {
+    await m.reply('✨ *Extras*\n\n🛡️ _No encontré items para ese tipo._')
+    return renderExtraTypesMenu(m, conn, panel, pedido, index)
+  }
+
+  const perPage = 9
+  const p = clampInt(page, { min: 1, max: 9999, fallback: 1 })
+  const maxPage = Math.max(1, Math.ceil(list.length / perPage))
+  const start = (p - 1) * perPage
+  const slice = list.slice(start, start + perPage)
+  const rows = slice.map((u) => {
+    const name = u.source === 'lib' ? (u?.it?.originalName || u?.it?.title || `Archivo #${u.id}`) : (u?.it?.archivoNombre || u?.it?.titulo || `Aporte #${u.id}`)
+    const origin = u.source === 'lib' ? 'Biblioteca' : 'Aportes'
+    return {
+      title: truncateText(name, 44),
+      description: truncateText(`${origin} · ${CONTENT_TYPE_LABEL[t] || t}`, 60),
+      rowId: makeFlowId(pid, 'EXTRA_ITEM', u.source, String(u.id)),
+    }
+  })
+
+  const nav = []
+  if (p > 1) nav.push({ title: '⬅️ Anterior', description: `Página ${p - 1}/${maxPage}`, rowId: makeFlowId(pid, 'EXTRA_PAGE', t, String(p - 1)) })
+  if (p < maxPage) nav.push({ title: '➡️ Siguiente', description: `Página ${p + 1}/${maxPage}`, rowId: makeFlowId(pid, 'EXTRA_PAGE', t, String(p + 1)) })
+  nav.push({ title: '🔙 Tipos', description: 'Volver a tipos', rowId: makeFlowId(pid, 'BACK', 'EXTRA_TYPES') })
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_VARIANTE, data: { ...(pedido.flow?.data || {}), extraType: t, page: p, lastMenu: 'EXTRA_ITEMS' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_extra_items')
+
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '✨ Extras',
+    text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Tipo:* _${CONTENT_TYPE_LABEL[t] || t}_\n> *Página:* _${p}/${maxPage}_\n> _Selecciona un item._`,
+    sections: [{ title: 'Items', rows }, { title: 'Navegación', rows: nav }],
+  })
+  if (ok) return true
+  await m.reply('✨ *Extras*\n\n🛡️ _No pude mostrar el menú._')
+  return true
+}
+
+const renderIllustrationsMenu = async (m, conn, panel, pedido, index) => {
+  const pid = Number(pedido?.id)
+  const list = Array.isArray(index?.illustrations) ? index.illustrations.slice() : []
+  if (!list.length) {
+    await m.reply('🎨 *Ilustraciones*\n\n🛡️ _No encontré ilustraciones._')
+    return renderContentTypeMenu(m, conn, panel, pedido, index)
+  }
+  const rows = list.slice(0, 10).map((u) => {
+    const name = u.source === 'lib' ? (u?.it?.originalName || u?.it?.title || `Archivo #${u.id}`) : (u?.it?.archivoNombre || u?.it?.titulo || `Aporte #${u.id}`)
+    const origin = u.source === 'lib' ? 'Biblioteca' : 'Aportes'
+    return {
+      title: truncateText(name, 44),
+      description: truncateText(`${origin} · Ilustraciones`, 60),
+      rowId: makeFlowId(pid, 'EXTRA_ITEM', u.source, String(u.id)),
+    }
+  })
+  setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_VARIANTE, data: { ...(pedido.flow?.data || {}), lastMenu: 'ILLUS' } })
+  await savePedidoAndEmit(panel, pedido, 'menu_illustrations')
+  const ok = await trySendInteractiveList(m, conn, {
+    title: '🎨 Ilustraciones',
+    text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un item._`,
+    sections: [{ title: 'Ilustraciones', rows }],
+  })
+  if (ok) return true
+  await m.reply('🎨 *Ilustraciones*\n\n🛡️ _No pude mostrar el menú._')
+  return true
+}
+
+const renderConfirmNonMain = async (m, conn, panel, pedido, pending) => {
+  const pid = Number(pedido?.id)
+  const type = safeString(pending?.contentType || 'extra')
+  const warning = CONTENT_TYPE_WARNING[type] || 'Este contenido no forma parte de la historia principal.'
+  setPedidoFlow(pedido, { step: FLOW_STEPS.CONFIRM_EXTRA, data: { ...(pedido.flow?.data || {}), pending } })
+  await savePedidoAndEmit(panel, pedido, 'confirm_needed')
+
+  const text =
+    `⚠️ *Confirmación*\n\n` +
+    `> *Título:* ${waSafeInline(pedido?.titulo || '')}\n` +
+    `> *Tipo:* _${CONTENT_TYPE_LABEL[type] || type}_\n\n` +
+    `${warning}\n\n` +
+    `¿Deseas continuar?`
+
+  const buttons = [
+    ['✅ Sí, enviar', makeFlowId(pid, 'CONFIRM_SEND', 'YES')],
+    ['❌ Volver', makeFlowId(pid, 'CONFIRM_SEND', 'NO')],
+  ]
+  const ok = await trySendFlowButtons(m, conn, { text, footer: '🛡️ Oguri Bot', buttons })
+  if (ok) return true
+  await m.reply(`${text}\n\n> Responde: *SI* / *NO*`)
+  return true
+}
+
+const handleSendSelection = async (m, conn, panel, pedido, source, itemId, contentType, { isAdmin, isBotOwner, confirmed = false } = {}) => {
+  const src = safeString(source).toLowerCase()
+  const idNum = Number(itemId)
+  if (!Number.isFinite(idNum) || idNum <= 0) {
+    await m.reply('❌ *Error*\n\n> _Selección inválida._')
+    return true
+  }
+  const ctype = safeString(contentType || '').toLowerCase().trim() || 'main'
+  if (!confirmed && needsExplicitConfirmForType(ctype)) {
+    const pending = { source: src, itemId: idNum, contentType: ctype, createdAt: new Date().toISOString() }
+    return renderConfirmNonMain(m, conn, panel, pedido, pending)
+  }
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.EN_PROCESO, data: { ...(pedido.flow?.data || {}), lastMenu: 'SENDING' } })
+  await savePedidoAndEmit(panel, pedido, 'sending')
+
+  const processed = await processPedidoSelection(panel, {
+    pedidoId: pedido.id,
+    source: src === 'aporte' ? 'aporte' : 'lib',
+    itemId: idNum,
+    m,
+    conn,
+    usedPrefix: '',
+    isAdmin: Boolean(isAdmin),
+    isBotOwner: Boolean(isBotOwner),
+  })
+  if (!processed.ok) {
+    setPedidoFlow(pedido, { step: FLOW_STEPS.ERROR, data: { ...(pedido.flow?.data || {}), error: processed.error || 'send_failed' } })
+    await savePedidoAndEmit(panel, pedido, 'send_failed')
+    await m.reply(`❌ *No pude enviar*\n\n> *Motivo:* _${waSafeInline(processed.error || 'Error')}_`)
+    return true
+  }
+
+  setPedidoFlow(pedido, { step: FLOW_STEPS.COMPLETADO, data: { ...(pedido.flow?.data || {}), completedAt: new Date().toISOString() } })
+  await savePedidoAndEmit(panel, pedido, 'completed')
+  await m.reply(`✅ *Pedido completado*\n\n> *ID:* \`\`\`#${pedido.id}\`\`\`\n> *Título:* ${waSafeInline(pedido?.titulo || '')}`)
+  return true
 }
 
 const getPanelUrl = () => {
@@ -809,11 +1721,19 @@ const trySendProtoSingleSelect = async (m, conn, { title, text, buttonText, sect
     const nfSections = toNativeFlowSingleSelectSections(sections)
     if (!nfSections.length) return false
     const timeoutMs = clampInt(process.env.WA_LIST_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-    await Promise.race([
-      conn.sendNCarousel(m.chat, body, safeString(footer || '🛡️ Oguri Bot'), null, [], null, null, [[safeButtonText, nfSections]], m, {}),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel(single_select) timeout')), timeoutMs)),
-    ])
-    return true
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await Promise.race([
+          conn.sendNCarousel(m.chat, body, safeString(footer || '🛡️ Oguri Bot'), null, [], null, null, [[safeButtonText, nfSections]], m, {}),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel(single_select) timeout')), timeoutMs)),
+        ])
+        return true
+      } catch (err) {
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 450))
+        else throw err
+      }
+    }
+    return false
   } catch (err) {
     console.error('sendNCarousel(single_select) failed:', err)
     return false
@@ -915,7 +1835,7 @@ const isAporteVisibleToUser = (aporte, { m, isBotOwner, isAdmin } = {}) => {
   if (!aporte) return false
   if (isBotOwner) return true
 
-  const isCreator = String(aporte?.usuario || '') === String(m?.sender || '')
+  const isCreator = sameUser(aporte?.usuario, m?.sender)
   if (isCreator) return true
 
   if (isAporteApproved(aporte)) return true
@@ -955,6 +1875,30 @@ const trySendInteractiveList = async (m, conn, { title, text, sections }) => {
     if (ok) return true
   }
 
+  // 1) Fallback: listMessage (si existe) para dispositivos que no responden a nativeFlow.
+  if (connCanSendList(conn)) {
+    try {
+      const listSections = (sections || []).map((s) => ({
+        title: safeString(s?.title || '').trim(),
+        rows: (Array.isArray(s?.rows) ? s.rows : [])
+          .map((r) => ({
+            title: safeString(r?.title || '').trim(),
+            description: safeString(r?.description || '').trim(),
+            rowId: safeString(r?.rowId || r?.id || '').trim(),
+          }))
+          .filter((r) => r.rowId && r.title)
+          .slice(0, 10),
+      })).filter((s) => s.rows.length).slice(0, 10)
+
+      if (listSections.length) {
+        await conn.sendList(m.chat, safeString(title || ''), safeString(text || ''), 'Ver opciones', listSections, m)
+        return true
+      }
+    } catch (err) {
+      console.error('sendList fallback failed:', err)
+    }
+  }
+
   return false
 }
 
@@ -987,13 +1931,37 @@ const trySendFlowButtons = async (m, conn, { text, footer, buttons } = {}) => {
   if (connCanSendProtoFlow(conn)) {
     try {
       const timeoutMs = clampInt(process.env.WA_FLOW_BUTTONS_TIMEOUT_MS, { min: 1500, max: 30000, fallback: 9000 })
-      await Promise.race([
-        conn.sendNCarousel(m.chat, String(text || ''), String(footer || '🛡️ Oguri Bot'), null, safeButtons, null, null, null, m, {}),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel timeout')), timeoutMs)),
-      ])
-      return true
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          await Promise.race([
+            conn.sendNCarousel(m.chat, String(text || ''), String(footer || '🛡️ Oguri Bot'), null, safeButtons, null, null, null, m, {}),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('sendNCarousel timeout')), timeoutMs)),
+          ])
+          return true
+        } catch (err) {
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 450))
+          else throw err
+        }
+      }
     } catch (err) {
       console.error('sendNCarousel(flow) failed:', err)
+    }
+  }
+
+  // Fallback: listMessage
+  if (connCanSendList(conn)) {
+    try {
+      const rows = safeButtons.slice(0, 10).map(([t, id]) => ({
+        title: safeString(t || '').trim().slice(0, 24) || 'Opción',
+        description: '',
+        rowId: safeString(id || '').trim(),
+      })).filter((r) => r.rowId && r.title)
+      if (rows.length) {
+        await conn.sendList(m.chat, 'Opciones', safeString(text || ''), 'Abrir', [{ title: 'Opciones', rows }], m)
+        return true
+      }
+    } catch (err) {
+      console.error('sendList(flow) fallback failed:', err)
     }
   }
 
@@ -1161,6 +2129,60 @@ const resolveAporteFilePath = (aporte) => {
   return filePath
 }
 
+const dedupeDoubleExtension = (name) => {
+  const s = safeString(name || '').trim()
+  if (!s) return s
+  // Evitar "archivo.pdf.pdf" u otros duplicados simples.
+  return s.replace(/(\.[a-z0-9]{1,6})\1$/i, '$1')
+}
+
+const sanitizeDocumentFilename = (name, { fallbackExt = 'bin' } = {}) => {
+  let s = safeString(name || '').trim()
+  if (!s) s = `archivo.${fallbackExt}`
+  s = s.replace(/[\\\/]+/g, '_')
+  s = s.replace(/\s+/g, ' ').trim()
+  s = dedupeDoubleExtension(s)
+  if (!/\.[a-z0-9]{1,6}$/i.test(s)) s = `${s}.${fallbackExt}`
+  return s
+}
+
+const withPedidoSendQueue = async (fn) => {
+  const maxConcurrent = clampInt(process.env.PEDIDOS_SEND_CONCURRENCY, { min: 1, max: 3, fallback: 1 })
+  global.__pedidoSendQueue ||= { active: 0, waiters: [] }
+  const q = global.__pedidoSendQueue
+
+  if (q.active >= maxConcurrent) {
+    await new Promise((resolve) => q.waiters.push(resolve))
+  }
+
+  q.active += 1
+  try {
+    return await fn()
+  } finally {
+    q.active = Math.max(0, Number(q.active || 0) - 1)
+    const next = q.waiters.shift()
+    if (typeof next === 'function') next()
+  }
+}
+
+const sendDocumentFromPath = async (m, conn, filePath, filename, caption) => {
+  const safeName = sanitizeDocumentFilename(filename || path.basename(filePath), { fallbackExt: 'bin' })
+  const mimetype = mimeTypes.lookup(safeName) || mimeTypes.lookup(filePath) || 'application/octet-stream'
+
+  await withPedidoSendQueue(async () => {
+    await conn.sendMessage(
+      m.chat,
+      {
+        document: { url: filePath },
+        fileName: safeName,
+        mimetype,
+        caption: safeString(caption || '').trim() || undefined,
+      },
+      { quoted: m }
+    )
+  })
+}
+
 const trySendLocalFile = async (m, conn, filePath, filename, caption) => {
   try {
     const stat = fs.statSync(filePath)
@@ -1168,7 +2190,7 @@ const trySendLocalFile = async (m, conn, filePath, filename, caption) => {
     if (Number.isFinite(maxBytes) && stat.size > maxBytes) {
       return { ok: false, reason: `Archivo muy grande (${Math.round(stat.size / 1024 / 1024)}MB)` }
     }
-    await conn.sendFile(m.chat, filePath, filename, caption, m, null, { asDocument: true })
+    await sendDocumentFromPath(m, conn, filePath, filename, caption)
     return { ok: true }
   } catch (err) {
     return { ok: false, reason: err?.message || 'Error enviando archivo' }
@@ -1189,7 +2211,7 @@ const trySendLibraryItem = async (m, conn, item) => {
 
     const filename = item?.originalName || item?.filename || path.basename(filePath)
     const caption = `${item?.title || filename}`.trim()
-    await conn.sendFile(m.chat, filePath, filename, caption, m, null, { asDocument: true })
+    await sendDocumentFromPath(m, conn, filePath, filename, caption)
     return { ok: true }
   } catch (err) {
     return { ok: false, reason: err?.message || 'Error enviando archivo' }
@@ -1199,7 +2221,7 @@ const trySendLibraryItem = async (m, conn, item) => {
 const canUserManagePedido = (pedido, { m, isBotOwner, isAdmin } = {}) => {
   if (!pedido) return false
   if (isBotOwner) return true
-  const isPedidoCreator = String(pedido?.usuario || '') === String(m?.sender || '')
+  const isPedidoCreator = sameUser(pedido?.usuario, m?.sender)
   const sameChat = !pedido?.grupo_id || String(pedido.grupo_id) === String(m?.chat || '')
   if (isPedidoCreator && sameChat) return true
   if (m?.isGroup && isAdmin) return true
@@ -1380,7 +2402,7 @@ const processPedidoSelection = async (
       `📄 *Resumen del pedido* \`\`\`#${pid}\`\`\`\n` +
       `> *Título:* ${waSafeInline(pedido?.titulo || '')}\n` +
       `> *Resultado:* _${waSafeInline(selected?.title || '')}_`
-    await conn.sendFile(m.chat, pdfFile.filePath, pdfFile.filename, caption, m, null, { asDocument: true })
+    await sendDocumentFromPath(m, conn, pdfFile.filePath, pdfFile.filename, caption)
   } catch (err) {
     pedido.bot ||= {}
     pedido.bot.pdfError = safeString(err?.message || 'Error generando PDF')
@@ -1447,6 +2469,135 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
   switch (command) {
     case 'pedido':
     case 'pedir': {
+      // -----------------------------
+      // NUEVO FLUJO (state machine)
+      // El usuario solo escribe el título.
+      // Todo lo demás se resuelve con interactivos + estados internos.
+      // -----------------------------
+
+      const rawInput = (args || []).join(' ').trim()
+      if (!rawInput) {
+        return m.reply(
+          `📝 *Crear un pedido*\n\n` +
+          `> *Uso:* \`\`\`${usedPrefix}${command} <título>\`\`\`\n` +
+          `> _Solo escribe el título. El bot guía todo con interactivos._`
+        )
+      }
+
+      const parsedInput = parsePedido(rawInput)
+      if (!parsedInput.ok) return m.reply(`❌ *Pedido inválido*\n\n> _${safeString(parsedInput.error)}_`)
+
+      const queryTitle = safeString(parsedInput.title).trim()
+      const id = nextPedidoId()
+      const now = new Date().toISOString()
+      const proveedorJid = (m.isGroup && panel?.proveedores?.[m.chat]) ? m.chat : null
+
+      const pedido = {
+        id,
+        titulo: queryTitle,
+        titulo_normalizado: normalizeText(queryTitle),
+        descripcion: '',
+        tipo: 'general',
+        estado: 'pendiente',
+        prioridad: 'media',
+        usuario: m.sender,
+        grupo_id: m.isGroup ? m.chat : null,
+        grupo_nombre: m.isGroup ? (await conn.groupMetadata(m.chat).catch(() => ({}))).subject || '' : '',
+        proveedor_jid: proveedorJid,
+        disponibilidad_detectada: null,
+        flow: null,
+        bot: {},
+        votos: 0,
+        votantes: [],
+        fecha_creacion: now,
+        fecha_actualizacion: now,
+      }
+
+      panel.pedidos[id] = pedido
+      if (global.db?.write) await global.db.write().catch(() => { })
+      try {
+        const { emitPedidoCreated } = await import('../lib/socket-io.js')
+        emitPedidoCreated(pedido)
+      } catch { }
+
+      const candidates = []
+      for (const c of searchTitleCandidatesFromLibrary(panel, { proveedorJid, queryTitle, limit: 10 })) candidates.push({ ...c, source: 'proveedor' })
+      for (const c of searchTitleCandidatesFromLibrary(panel, { proveedorJid: null, queryTitle, limit: 10 })) candidates.push({ ...c, source: 'global' })
+      for (const c of searchTitleCandidatesFromAportes(queryTitle, { limit: 10, m, isBotOwner, isAdmin })) candidates.push({ ...c, source: 'aportes' })
+
+      const dedup = new Map()
+      for (const c of candidates) {
+        const k = safeString(c?.key || '').trim()
+        if (!k) continue
+        const prev = dedup.get(k)
+        if (!prev || Number(c.score || 0) > Number(prev.score || 0)) dedup.set(k, c)
+      }
+      const top = [...dedup.values()].sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 10)
+
+      const selectedKey = safeString(top?.[0]?.key || normalizeText(queryTitle)).trim()
+      const displayTitle = pickDisplayTitle(top, queryTitle)
+      pedido.titulo = displayTitle
+      pedido.titulo_normalizado = selectedKey
+
+      const allowGlobalLibrary = !m.isGroup || isBotOwner
+      const libProv = Object.values(panel?.contentLibrary || {})
+        .filter((it) => it && it.id)
+        .filter((it) => (proveedorJid ? String(it?.proveedorJid || '') === String(proveedorJid) : true))
+        .filter((it) => {
+          const raw = safeString(it?.title || it?.originalName || '')
+          return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+        })
+      const libGlobal = allowGlobalLibrary
+        ? Object.values(panel?.contentLibrary || {})
+          .filter((it) => it && it.id)
+          .filter((it) => {
+            const raw = safeString(it?.title || it?.originalName || '')
+            return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+          })
+        : []
+      const aportesAll = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+      const aportes = aportesAll
+        .filter((a) => {
+          const raw = safeString(a?.titulo || a?.archivoNombre || '')
+          return isTitleMatch(normalizeText(inferTitleFromFilename(raw) || raw), selectedKey)
+        })
+        .filter((a) => isAporteVisibleToUser(a, { m, isBotOwner, isAdmin }))
+      const libMap = new Map()
+      for (const it of [...libProv, ...libGlobal]) libMap.set(Number(it?.id), it)
+      const mergedItems = { library: [...libMap.values()], aportes }
+
+      const availability = buildAvailabilityFromItems(mergedItems)
+      pedido.disponibilidad_detectada = availability
+      setPedidoFlow(pedido, {
+        step: FLOW_STEPS.RESUMEN,
+        data: {
+          queryTitle,
+          queryKey: normalizeText(queryTitle),
+          proveedorJid: proveedorJid || null,
+          candidates: top.map((c) => ({ key: c.key, title: c.title, score: c.score, source: c.source })),
+          selectedKey,
+        },
+      })
+      appendPedidoLog(pedido, { event: 'pedido_created', step: FLOW_STEPS.RESUMEN, selectedKey })
+      panel.pedidos[id] = pedido
+      if (global.db?.write) await global.db.write().catch(() => { })
+
+      const summaryText = renderAvailabilitySummaryText(pedido, availability)
+      const buttons = [
+        ['✅ Sí, continuar', makeFlowId(id, 'AVAIL_YES')],
+        ['🔍 Ver detalles', makeFlowId(id, 'AVAIL_DETAILS')],
+        ['🔁 Buscar otro', makeFlowId(id, 'AVAIL_OTHER')],
+        ['❌ Cancelar', makeFlowId(id, 'AVAIL_CANCEL')],
+      ]
+
+      const ok = await trySendFlowButtons(m, conn, { text: summaryText, footer: '🛡️ Oguri Bot', buttons })
+      if (ok) return null
+
+      const fallback = `\n\n> _Si no ves botones, responde:_ *SI* / *DETALLES* / *OTRO* / *CANCELAR*`
+      await m.reply(summaryText + `\n\n> _No pude mostrar el menú interactivo._` + fallback)
+      return null
+
+      /*
       const raw = (args || []).join(' ').trim()
       if (!raw) {
         return m.reply(
@@ -1686,6 +2837,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         lines.push(`📌 *Aportes:* \`\`\`${usedPrefix}buscaraporte ${id}\`\`\``)
       }
       return m.reply(lines.join('\n'))
+      */
     }
 
     case 'seleccionpedido': {
@@ -3092,6 +4244,231 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
   }
 }
 
+// Capturar clicks de botones/listas sin comandos visibles.
+handler.before = async function (m, { conn, isAdmin, isOwner } = {}) {
+  try {
+    ensureStore()
+    const panel = global.db.data.panel
+    const isBotOwner = Boolean(isOwner) || global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
+
+    const rawText = safeString(m?.text || '').trim()
+    const selectedId = extractInteractiveSelectionId(m)
+    const candidateText = selectedId || rawText
+    if (!candidateText) return
+
+    if (process.env.DEBUG_PEDIDOS_FLOW === '1') {
+      try {
+        console.log('[PEDIDOS_FLOW]', {
+          chat: m?.chat,
+          sender: m?.sender,
+          mtype: m?.mtype,
+          fromMe: Boolean(m?.fromMe),
+          rawText: rawText || null,
+          selectedId: selectedId || null,
+        })
+      } catch { }
+    }
+
+    let flow = parseFlowId(candidateText)
+    let pedido = flow ? (panel?.pedidos?.[flow.pedidoId] || null) : null
+
+    // Fallback por texto (solo si el interactivo no se ve)
+    if (!flow) {
+      const norm = normalizeText(rawText)
+      if (!norm) return
+      const active = Object.values(panel?.pedidos || {})
+        .filter((p) => p && sameUser(p?.usuario, m?.sender))
+        .filter((p) => String(p?.estado || '').toLowerCase().trim() !== 'completado' && String(p?.estado || '').toLowerCase().trim() !== 'cancelado')
+        .sort((a, b) => String(b?.fecha_creacion || '').localeCompare(String(a?.fecha_creacion || '')))
+      pedido = active?.[0] || null
+      if (!pedido) return
+      const step = safeString(pedido?.flow?.step || '')
+      if (step === FLOW_STEPS.RESUMEN) {
+        if (norm === 'si' || norm === 'sí' || norm === 'continuar') flow = { pedidoId: pedido.id, action: 'AVAIL_YES', args: [] }
+        else if (norm === 'detalles' || norm === 'detalle') flow = { pedidoId: pedido.id, action: 'AVAIL_DETAILS', args: [] }
+        else if (norm === 'otro' || norm === 'buscar' || norm === 'buscar otro') flow = { pedidoId: pedido.id, action: 'AVAIL_OTHER', args: [] }
+        else if (norm === 'cancelar' || norm === 'cancelado') flow = { pedidoId: pedido.id, action: 'AVAIL_CANCEL', args: [] }
+      } else if (step === FLOW_STEPS.DETALLE || step === FLOW_STEPS.SELECT_TIPO) {
+        if (norm.includes('principal') || norm.includes('capitulo')) flow = { pedidoId: pedido.id, action: 'TYPE_MAIN', args: [] }
+        else if (norm.includes('extra')) flow = { pedidoId: pedido.id, action: 'TYPE_EXTRAS', args: [] }
+        else if (norm.includes('ilustr')) flow = { pedidoId: pedido.id, action: 'TYPE_ILLUS', args: [] }
+        else if (norm === 'volver' || norm === 'atras' || norm === 'atrás') flow = { pedidoId: pedido.id, action: 'BACK', args: ['AVAIL'] }
+        else if (norm === 'cancelar') flow = { pedidoId: pedido.id, action: 'AVAIL_CANCEL', args: [] }
+      } else if (step === FLOW_STEPS.CONFIRM_EXTRA) {
+        if (norm === 'si' || norm === 'sí') flow = { pedidoId: pedido.id, action: 'CONFIRM_SEND', args: ['YES'] }
+        else if (norm === 'no') flow = { pedidoId: pedido.id, action: 'CONFIRM_SEND', args: ['NO'] }
+      }
+    }
+
+    if (!flow) return
+    pedido = panel?.pedidos?.[flow.pedidoId] || pedido
+    if (!pedido) return true
+
+    if (!canUserManagePedido(pedido, { m, isBotOwner, isAdmin })) {
+      await m.reply('❌ *No permitido*\n\n> _Solo el creador, admins o el owner pueden usar este menú._')
+      return true
+    }
+
+    if (String(pedido?.estado || '').toLowerCase().trim() === 'completado') {
+      await m.reply(`✅ *Pedido ya completado*\n\n> *ID:* \`\`\`#${pedido.id}\`\`\`\n> *Título:* ${waSafeInline(pedido?.titulo || '')}`)
+      return true
+    }
+
+    if (isFlowExpired(pedido) && !['AVAIL_CANCEL'].includes(flow.action)) {
+      await m.reply('⏳ *Menú vencido*\n\n> _Reconstruyendo el flujo..._')
+      await renderAvailabilityMenu(m, conn, panel, pedido)
+      return true
+    }
+
+    const merged = getMergedItemsForPedido(panel, pedido, { m, isBotOwner, isAdmin })
+    const index = buildUnifiedIndex(merged)
+
+    switch (safeString(flow.action)) {
+      case 'AVAIL_DETAILS':
+        await renderDetailsMenu(m, conn, panel, pedido)
+        return true
+      case 'AVAIL_OTHER':
+        await renderCandidatesMenu(m, conn, panel, pedido)
+        return true
+      case 'TITLE_PICK': {
+        const idx = clampInt(flow?.args?.[0], { min: 0, max: 50, fallback: 0 })
+        const candidates = Array.isArray(pedido?.flow?.data?.candidates) ? pedido.flow.data.candidates : []
+        const c = candidates[idx] || null
+        if (c?.key) {
+          pedido.titulo = safeString(c.title || pedido.titulo || '').trim() || pedido.titulo
+          pedido.titulo_normalizado = safeString(c.key).trim()
+          pedido.flow ||= {}
+          pedido.flow.data ||= {}
+          pedido.flow.data.selectedKey = pedido.titulo_normalizado
+        }
+        const merged2 = getMergedItemsForPedido(panel, pedido, { m, isBotOwner, isAdmin })
+        const availability = buildAvailabilityFromItems({ library: merged2.library, aportes: merged2.aportes })
+        pedido.disponibilidad_detectada = availability
+        await savePedidoAndEmit(panel, pedido, 'title_picked')
+        await renderAvailabilityMenu(m, conn, panel, pedido)
+        return true
+      }
+      case 'AVAIL_CANCEL':
+        pedido.estado = 'cancelado'
+        setPedidoFlow(pedido, { step: FLOW_STEPS.CANCELADO, data: { ...(pedido.flow?.data || {}), cancelledAt: new Date().toISOString() } })
+        await savePedidoAndEmit(panel, pedido, 'cancelled')
+        await m.reply(`✅ *Pedido cancelado*\n\n> *ID:* \`\`\`#${pedido.id}\`\`\`\n> *Título:* ${waSafeInline(pedido?.titulo || '')}`)
+        return true
+      case 'BACK': {
+        const target = safeString(flow?.args?.[0] || '').toUpperCase()
+        if (target === 'AVAIL') return renderAvailabilityMenu(m, conn, panel, pedido)
+        if (target === 'MAIN_SEASONS') return renderMainSeasonsMenu(m, conn, panel, pedido, index)
+        if (target === 'EXTRA_TYPES') return renderExtraTypesMenu(m, conn, panel, pedido, index)
+        return renderContentTypeMenu(m, conn, panel, pedido, index)
+      }
+      case 'AVAIL_YES':
+        await renderContentTypeMenu(m, conn, panel, pedido, index)
+        return true
+      case 'TYPE_MAIN':
+        await renderMainSeasonsMenu(m, conn, panel, pedido, index)
+        return true
+      case 'MAIN_SEASON': {
+        const season = safeString(flow?.args?.[0] || '0') || '0'
+        await renderMainChaptersPage(m, conn, panel, pedido, index, season, 1)
+        return true
+      }
+      case 'MAIN_PAGE': {
+        const season = safeString(flow?.args?.[0] || '0') || '0'
+        const page = clampInt(flow?.args?.[1], { min: 1, max: 9999, fallback: 1 })
+        await renderMainChaptersPage(m, conn, panel, pedido, index, season, page)
+        return true
+      }
+      case 'MAIN_CH': {
+        const season = safeString(flow?.args?.[0] || '0') || '0'
+        const chapter = clampInt(flow?.args?.[1], { min: 1, max: 9999, fallback: 1 })
+        await renderVariantsForChapter(m, conn, panel, pedido, index, season, chapter)
+        return true
+      }
+      case 'SEND': {
+        const src = safeString(flow?.args?.[0] || '').toLowerCase()
+        const idNum = clampInt(flow?.args?.[1], { min: 1, max: 1_000_000_000, fallback: 0 })
+        if (!idNum) {
+          await m.reply('❌ *Error*\n\n> _Selección inválida._')
+          return true
+        }
+        const contentType = (() => {
+          if (src === 'lib') {
+            const it = panel?.contentLibrary?.[idNum] || null
+            return classifyLibraryItem(it)?.contentType || 'main'
+          }
+          const aportesAll = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+          const a = aportesAll.find((x) => Number(x?.id) === idNum) || null
+          return classifyAporteItem(a)?.contentType || 'main'
+        })()
+        await handleSendSelection(m, conn, panel, pedido, src, idNum, contentType, { isAdmin, isBotOwner })
+        return true
+      }
+      case 'TYPE_EXTRAS':
+        await renderExtraTypesMenu(m, conn, panel, pedido, index)
+        return true
+      case 'EXTRA_TYPE': {
+        const type = safeString(flow?.args?.[0] || '').trim()
+        await renderExtraItemsPage(m, conn, panel, pedido, index, type, 1)
+        return true
+      }
+      case 'EXTRA_PAGE': {
+        const type = safeString(flow?.args?.[0] || '').trim()
+        const page = clampInt(flow?.args?.[1], { min: 1, max: 9999, fallback: 1 })
+        await renderExtraItemsPage(m, conn, panel, pedido, index, type, page)
+        return true
+      }
+      case 'EXTRA_ITEM': {
+        const src = safeString(flow?.args?.[0] || '').toLowerCase()
+        const idNum = clampInt(flow?.args?.[1], { min: 1, max: 1_000_000_000, fallback: 0 })
+        if (!idNum) {
+          await m.reply('❌ *Error*\n\n> _Selección inválida._')
+          return true
+        }
+        const contentType = (() => {
+          if (src === 'lib') {
+            const it = panel?.contentLibrary?.[idNum] || null
+            return classifyLibraryItem(it)?.contentType || 'extra'
+          }
+          const aportesAll = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+          const a = aportesAll.find((x) => Number(x?.id) === idNum) || null
+          return classifyAporteItem(a)?.contentType || 'extra'
+        })()
+        await handleSendSelection(m, conn, panel, pedido, src, idNum, contentType, { isAdmin, isBotOwner })
+        return true
+      }
+      case 'TYPE_ILLUS':
+        await renderIllustrationsMenu(m, conn, panel, pedido, index)
+        return true
+      case 'CONFIRM_SEND': {
+        const ans = safeString(flow?.args?.[0] || '').toUpperCase()
+        const pending = pedido?.flow?.data?.pending || null
+        if (!pending) {
+          await m.reply('⚠️ *Confirmación*\n\n> _No tengo una selección pendiente._')
+          return renderContentTypeMenu(m, conn, panel, pedido, index)
+        }
+        if (ans === 'NO') {
+          pedido.flow.data.pending = null
+          await savePedidoAndEmit(panel, pedido, 'confirm_no')
+          return renderContentTypeMenu(m, conn, panel, pedido, index)
+        }
+        if (ans === 'YES') {
+          pedido.flow.data.pending = null
+          await savePedidoAndEmit(panel, pedido, 'confirm_yes')
+          await handleSendSelection(m, conn, panel, pedido, pending.source, pending.itemId, pending.contentType, { isAdmin, isBotOwner, confirmed: true })
+          return true
+        }
+        await m.reply('⚠️ *Confirmación*\n\n> _Respuesta inválida._')
+        return true
+      }
+      default:
+        return true
+    }
+  } catch (err) {
+    console.error('[pedidos-flow.before] error:', err)
+    return
+  }
+}
+
 handler.help = [
   'pedido',
   'pedidos',
@@ -3122,6 +4499,8 @@ handler.help = [
   'enviaraporte',
 ]
 handler.tags = ['tools']
+// Permitir pedidos aunque el grupo esté en "modo admin".
+handler.allowInAdminMode = true
 handler.command = [
   'pedido',
   'pedir',
