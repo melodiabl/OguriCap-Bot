@@ -1783,12 +1783,7 @@ const renderAvailabilityMenu = async (m, conn, panel, pedido) => {
     ['❌ Cancelar', makeFlowId(pid, 'AVAIL_CANCEL')],
   ]
   const ok = await trySendFlowButtons(m, conn, { text: summaryText, footer: '🛡️ Oguri Bot', buttons })
-  const fallback = `\n\n> _Si no ves botones, responde:_ *SI* / *DETALLES* / *OTRO* / *CANCELAR*`
-  if (ok) {
-    await m.reply(summaryText + fallback)
-    return true
-  }
-  await m.reply(summaryText + `\n\n> _No pude mostrar el menú interactivo._` + fallback)
+  if (!ok) await m.reply(summaryText)
   return true
 }
 
@@ -1808,8 +1803,7 @@ const renderDetailsMenu = async (m, conn, panel, pedido) => {
   await savePedidoAndEmit(panel, pedido, 'menu_details')
 
   const ok = await trySendFlowButtons(m, conn, { text, footer: '🛡️ Oguri Bot', buttons: buttons.slice(0, 10) })
-  if (ok) return true
-  await m.reply(`${text}\n\n> Responde: *CAPITULOS*${availability?.hasExtras ? ' / *EXTRAS*' : ''}${availability?.hasIllus ? ' / *ILUSTRACIONES*' : ''} / *VOLVER* / *CANCELAR*`)
+  if (!ok) await m.reply(text)
   return true
 }
 
@@ -1835,9 +1829,10 @@ const renderCandidatesMenu = async (m, conn, panel, pedido) => {
     text: `*Pedido:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona el título correcto._`,
     sections: [{ title: 'Títulos', rows }],
   })
-  if (ok) return true
-  const lines = rows.map((r, i) => `${i + 1}. ${waSafeInline(r.title)}`).join('\n')
-  await m.reply(`🔎 *Títulos candidatos*\n\n${lines}\n\n> _No pude mostrar el menú. Responde el título exacto._`)
+  if (!ok) {
+    const lines = rows.map((r, i) => `${i + 1}. ${waSafeInline(r.title)}`).join('\n')
+    await m.reply(`🔎 *Títulos candidatos*\n\n${lines}`)
+  }
   return true
 }
 
@@ -1945,8 +1940,7 @@ const renderMainSeasonsMenu = async (m, conn, panel, pedido, index) => {
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona una temporada._`,
     sections,
   })
-  if (ok) return true
-  await m.reply('📘 *Temporadas*\n\n🛡️ _No pude mostrar el menú. Escribe: TEMPORADA 1/2..._')
+  if (!ok) await m.reply('📘 *Temporadas*')
   return true
 }
 
@@ -1983,8 +1977,7 @@ const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, pag
       text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${seasonLabel}_\n> _Selecciona un pack/rango._`,
       sections: [{ title: 'Packs', rows: fallbackRows }, { title: 'Navegación', rows: [{ title: '🔙 Volver', description: 'Volver a temporadas', rowId: makeFlowId(pid, 'BACK', 'MAIN_SEASONS') }] }],
     })
-    if (ok) return true
-    await m.reply('📦 *Packs*\n\n🛡️ _No pude mostrar el menú._')
+    if (!ok) await m.reply('📦 *Packs*')
     return true
   }
 
@@ -2013,8 +2006,7 @@ const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, pag
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${seasonLabel}_\n> *Página:* _${p}/${maxPage}_\n> _Selecciona un capítulo._`,
     sections: [{ title: 'Capítulos', rows }, { title: 'Navegación', rows: nav }],
   })
-  if (ok) return true
-  await m.reply('📘 *Capítulos*\n\n🛡️ _No pude mostrar el menú._')
+  if (!ok) await m.reply('📘 *Capítulos*')
   return true
 }
 
