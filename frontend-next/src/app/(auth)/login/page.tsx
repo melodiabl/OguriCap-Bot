@@ -212,13 +212,14 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 overflow-hidden">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 relative">
+            <div className="absolute inset-[3px] rounded-2xl bg-slate-950/90" />
             <Image
               src="/oguricap-avatar.png"
               alt="Oguri Cap"
-              width={48}
-              height={48}
-              className="object-cover rounded-2xl animate-pulse"
+              width={40}
+              height={40}
+              className="relative w-10 h-10 rounded-full border-2 border-white/70 object-cover animate-pulse"
               priority
             />
           </div>
@@ -323,13 +324,14 @@ export default function LoginPage() {
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
             className="mb-8"
           >
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6 overflow-hidden">
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6 relative">
+              <div className="absolute inset-[4px] rounded-3xl bg-slate-950/90" />
               <Image
                 src="/oguricap-login.png"
                 alt="Oguri Cap"
-                width={80}
-                height={80}
-                className="object-cover rounded-2xl"
+                width={96}
+                height={96}
+                className="relative w-20 h-20 rounded-3xl object-cover border border-white/40"
                 priority
               />
             </div>
@@ -383,13 +385,14 @@ export default function LoginPage() {
               animate={{ scale: 1 }}
               className="lg:hidden text-center mb-5 [@media(max-height:740px)]:mb-3"
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 overflow-hidden">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 relative">
+                <div className="absolute inset-[3px] rounded-2xl bg-slate-950/90" />
                 <Image
                   src="/oguricap-login.png"
                   alt="Oguri Cap"
-                  width={64}
-                  height={64}
-                  className="object-cover rounded-2xl"
+                  width={56}
+                  height={56}
+                  className="relative w-12 h-12 rounded-2xl object-cover border border-white/50"
                   priority
                 />
               </div>

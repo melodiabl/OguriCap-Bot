@@ -106,14 +106,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <motion.div
               whileHover={{ rotate: 360 }}
               transition={{ duration: 0.5 }}
-              className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 flex items-center justify-center shadow-glow-lg hover-lift-soft overflow-hidden"
+              className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 shadow-glow-lg hover-lift-soft flex items-center justify-center"
             >
+              <div className="absolute inset-[2px] rounded-2xl bg-slate-950/90" />
               <Image
                 src="/oguricap-avatar.png"
                 alt="Oguri Cap"
                 width={32}
                 height={32}
-                className="object-cover rounded-2xl"
+                className="relative w-9 h-9 rounded-full border border-white/60 object-cover"
                 priority
               />
             </motion.div>
