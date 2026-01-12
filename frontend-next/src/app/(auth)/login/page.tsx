@@ -302,13 +302,13 @@ export default function LoginPage() {
         />
       </div>
 
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-10 lg:gap-12 relative z-10 lg:min-h-[calc(100vh-5rem)]">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-10 lg:gap-12 items-center relative z-10 lg:min-h-[calc(100vh-5rem)]">
         {/* Left side - Branding */}
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="hidden lg:flex flex-col items-start pt-24 pb-12"
+          className="hidden lg:flex flex-col items-start justify-center"
         >
           <motion.div
             initial={{ scale: 0 }}
