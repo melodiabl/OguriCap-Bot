@@ -14,25 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { cn } from '@/lib/utils';
-
-const menuItems = [
-  { path: '/', label: 'Dashboard' },
-  { path: '/bot', label: 'Estado del Bot' },
-  { path: '/usuarios', label: 'Usuarios' },
-  { path: '/subbots', label: 'SubBots' },
-  { path: '/grupos', label: 'Grupos' },
-  { path: '/grupos-management', label: 'Gestión Global' },
-  { path: '/aportes', label: 'Aportes' },
-  { path: '/pedidos', label: 'Pedidos' },
-  { path: '/proveedores', label: 'Proveedores' },
-  { path: '/ai-chat', label: 'AI Chat' },
-  { path: '/alertas', label: 'Alertas' },
-  { path: '/tareas', label: 'Tareas' },
-  { path: '/logs', label: 'Logs' },
-  { path: '/analytics', label: 'Analytics' },
-  { path: '/multimedia', label: 'Multimedia' },
-  { path: '/configuracion', label: 'Configuración' },
-];
+import { NAV_ITEMS } from '@/lib/navigation';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -74,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const currentPage = menuItems.find(item => item.path === pathname);
+  const currentPage = NAV_ITEMS.find(item => item.path === pathname);
   const isConnected = pollingConnected;
 
   // Filtrar notificaciones
@@ -119,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
 
           <div className="hidden sm:block">
             <h2 className="text-2xl font-extrabold gradient-text-animated tracking-tight">
-              {currentPage?.label || 'Panel'}
+              {currentPage?.headerLabel || currentPage?.label || 'Panel'}
             </h2>
           </div>
         </div>

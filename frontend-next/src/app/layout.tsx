@@ -7,8 +7,8 @@ import { Providers } from './providers';
 import { RouteProgress } from '@/components/ui/RouteProgress';
 
 export const metadata: Metadata = {
-  title: 'Oguri Bot Panel',
-  description: 'Panel de administración para WhatsApp Bot',
+  title: 'OguriCap Bot Panel',
+  description: 'Panel de administración del bot inspirado en Oguri Cap',
   icons: {
     icon: '/bot-icon.svg',
     apple: '/apple-touch-icon.png',

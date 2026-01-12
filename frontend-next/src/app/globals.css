@@ -8,16 +8,17 @@
   --shine: 255 255 255;
 
   /* Page atmosphere tokens (space-separated RGB for `rgb(var(--x) / a)`) */
-  --page-a: 99 102 241;
-  /* indigo */
-  --page-b: 139 92 246;
-  /* violet */
-  --page-c: 6 182 212;
-  /* cyan */
-  --page-d: 16 185 129;
-  /* emerald */
+  /* OguriCap base palette: morado traje, lavanda, azul ojos, cian cinta */
+  --page-a: 115 93 173;
+  /* oguri purple */
+  --page-b: 183 166 230;
+  /* soft lavender */
+  --page-c: 127 180 255;
+  /* eye blue */
+  --page-d: 70 195 207;
+  /* hairband cyan */
   --page-e: 244 63 94;
-  /* rose */
+  /* rose (alerts, se mantiene) */
   --bg-0: 2 6 23;
   /* slate-950 */
   --bg-1: 15 23 42;
@@ -76,11 +77,12 @@ html[data-theme="dark"] {
 }
 
 html[data-page="dashboard"] {
-  --page-a: 99 102 241;
-  --page-b: 139 92 246;
-  --page-c: 6 182 212;
-  --page-d: 16 185 129;
-  --glow-boost: 1.15;
+  /* OguriCap home: morado + lavanda + azul + cian */
+  --page-a: 115 93 173;
+  --page-b: 183 166 230;
+  --page-c: 127 180 255;
+  --page-d: 70 195 207;
+  --glow-boost: 1.2;
 }
 
 html[data-page="bot"] {
@@ -169,10 +171,11 @@ html[data-page="ai-chat"] {
 }
 
 html[data-page="auth"] {
-  --page-a: 99 102 241;
-  --page-b: 244 63 94;
-  --page-c: 6 182 212;
-  --page-d: 16 185 129;
+  /* Pantallas de login/register con el mismo mood OguriCap */
+  --page-a: 115 93 173;
+  --page-b: 183 166 230;
+  --page-c: 127 180 255;
+  --page-d: 70 195 207;
   --glow-boost: 1.25;
 }
 

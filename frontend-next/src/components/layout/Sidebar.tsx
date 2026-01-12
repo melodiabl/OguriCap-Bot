@@ -15,35 +15,12 @@ import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useNavParticleBurst } from '@/components/ui/NavParticles';
-import {
-  Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
-  LogOut, Bell, FileText, BarChart3, Image, Zap, Globe,
-  Calendar, AlertTriangle, Server
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NAV_ITEMS, type NavColor } from '@/lib/navigation';
+import { OguriLogo } from '@/components/layout/OguriLogo';
 
-const menuItems = [
-  { path: '/', icon: Home, label: 'Dashboard', color: 'primary', page: 'dashboard' },
-  { path: '/bot', icon: Bot, label: 'Estado del Bot', color: 'success', page: 'bot-status' },
-  { path: '/usuarios', icon: Users, label: 'Usuarios del Panel', color: 'info', page: 'usuarios' },
-  { path: '/community-users', icon: Users, label: 'Usuarios Comunidad', color: 'violet', page: 'community-users' },
-  { path: '/subbots', icon: Zap, label: 'SubBots', color: 'warning', page: 'subbots' },
-  { path: '/grupos', icon: MessageSquare, label: 'Grupos', color: 'violet', page: 'grupos' },
-  { path: '/grupos-management', icon: Globe, label: 'Gestión Global', color: 'cyan', page: 'grupos-management' },
-  { path: '/aportes', icon: Package, label: 'Aportes', color: 'success', page: 'aportes' },
-  { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos', color: 'warning', page: 'pedidos' },
-  { path: '/proveedores', icon: Users, label: 'Proveedores', color: 'info', page: 'proveedores' },
-  { path: '/tareas', icon: Calendar, label: 'Tareas & Programador', color: 'primary', page: 'tareas' },
-  { path: '/ai-chat', icon: Bot, label: 'AI Chat', color: 'violet', page: 'ai-chat' },
-  { path: '/alertas', icon: AlertTriangle, label: 'Alertas', color: 'danger', page: 'alertas' },
-  { path: '/recursos', icon: BarChart3, label: 'Recursos', color: 'success', page: 'recursos' },
-  { path: '/configuracion', icon: Settings, label: 'Configuración', color: 'cyan', page: 'configuracion' },
-  { path: '/logs', icon: FileText, label: 'Logs & Sistema', color: 'danger', page: 'logs' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
-  { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
-];
-
-const colorClasses: Record<string, string> = {
+const colorClasses: Record<NavColor, string> = {
   primary: 'text-primary-400 bg-primary-500/20',
   success: 'text-emerald-400 bg-emerald-500/20',
   warning: 'text-amber-400 bg-amber-500/20',
@@ -94,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // Auto-refresh del sidebar - DISABLED to prevent resource exhaustion
   // useAutoRefresh(refreshAll, { interval: 30000 });
 
-  const allowedMenuItems = menuItems.filter(item => hasPermission(item.page));
+  const allowedMenuItems = NAV_ITEMS.filter(item => hasPermission(item.pageKey));
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;
 
   return (
@@ -132,11 +109,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               transition={{ duration: 0.5 }}
               className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 flex items-center justify-center shadow-glow-lg hover-lift-soft"
             >
-              <Bot className="w-6 h-6 text-white" />
+              <OguriLogo className="w-7 h-7 text-white" />
             </motion.div>
             <div>
-              <h1 className="text-xl font-bold gradient-text">Oguri Bot</h1>
-              <p className="text-xs text-gray-500">Panel de Control</p>
+              <h1 className="text-xl font-bold gradient-text">OguriCap Bot</h1>
+              <p className="text-xs text-gray-500">Panel de Control de Oguri Cap</p>
             </div>
           </Link>
         </div>

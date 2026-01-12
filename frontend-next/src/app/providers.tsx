@@ -54,15 +54,18 @@ function EffectsGate() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: 2,
-        refetchOnWindowFocus: true,
-        staleTime: 5000,
-      },
-    },
-  }));
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 2,
+            refetchOnWindowFocus: true,
+            staleTime: 5000,
+          },
+        },
+      })
+  );
 
   return (
     <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem enableColorScheme>
@@ -70,22 +73,28 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PageThemeSync />
         <DevicePerformanceProvider>
           <MotionMode>
+            {/* Auth / sesión */}
             <AuthProvider>
+              {/* Conexión en tiempo real (Socket.IO) */}
               <SocketProvider>
+                {/* Preferencias de usuario (sonido, etc.) */}
                 <PreferencesProvider>
+                  {/* Sistema de notificaciones en memoria */}
                   <NotificationProvider>
+                    {/* Overlay global de loading */}
                     <LoadingOverlayProvider>
+                      {/* Efectos visuales ligados a notificaciones (desactivables por performanceMode) */}
                       <EffectsGate />
                       {children}
-                  <Toaster
-                    position="top-right"
-                    toastOptions={{
-                        duration: 4000,
-                        className: 'toast-custom',
-                        success: { className: 'toast-custom toast-success' },
-                        error: { className: 'toast-custom toast-error' },
-                      }}
-                    />
+                      <Toaster
+                        position="top-right"
+                        toastOptions={{
+                          duration: 4000,
+                          className: 'toast-custom',
+                          success: { className: 'toast-custom toast-success' },
+                          error: { className: 'toast-custom toast-error' },
+                        }}
+                      />
                     </LoadingOverlayProvider>
                   </NotificationProvider>
                 </PreferencesProvider>
