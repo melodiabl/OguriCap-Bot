@@ -3,10 +3,16 @@ import { areJidsSameUser } from '@whiskeysockets/baileys'
 // Global bot hierarchy initializer
 function ensureBotHierarchy(parentJid = null) {
   try {
-    global.botHierarchy ||= { parent: null, subbots: [] }
-    if (parentJid && typeof parentJid === 'string') global.botHierarchy.parent = parentJid
+    if (!global.botHierarchy) {
+      global.botHierarchy = { parent: null, subbots: [] }
+    }
+    if (parentJid && typeof parentJid === 'string') {
+      global.botHierarchy.parent = parentJid
+    }
     const h = global.botHierarchy
-    if (!Array.isArray(h.subbots)) h.subbots = []
+    if (!Array.isArray(h.subbots)) {
+      h.subbots = []
+    }
     return h
   } catch {
     global.botHierarchy = { parent: parentJid || null, subbots: [] }
@@ -62,119 +68,81 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
 handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, participants }) {
   try {
-    // ───────── VALIDACIONES BÁSICAS ─────────
     if (!m.isGroup) return
     if (m.fromMe) return
     if (!m.chat.endsWith('@g.us')) return
 
     let chat = global.db.data.chats[m.chat]
-    if (!chat?.antiBot) return
-
-    // Admin humano / owner no se tocan
+    if (!chat || !chat.antiBot) return
     if (isAdmin || isOwner) return
 
-    // ───────── SISTEMA DE JERARQUÍA GLOBAL (LINAJE) ─────────
-    const selfJid0 = conn?.user?.jid
-    const hierarchy = ensureBotHierarchy(conn?.isSubBot ? conn?.parentJid : (selfJid0 || null))
+    const selfJid0 = conn?.user?.jid || null
+    const parentJidForHierarchy = conn?.isSubBot && conn.parentJid ? conn.parentJid : selfJid0
+    const hierarchy = ensureBotHierarchy(parentJidForHierarchy)
 
-    // ───────── DETECCIÓN DE MENSAJE BOT ─────────
     let isBotMessage = false
     if (m.isBaileys) isBotMessage = true
     if (typeof m.id === 'string' && (
-      m.id.startsWith('BAE5') || m.id.startsWith('B24E') || m.id.startsWith('3EB0') || m.id.startsWith('WA')
+      m.id.startsWith('BAE5') ||
+      m.id.startsWith('B24E') ||
+      m.id.startsWith('3EB0') ||
+      m.id.startsWith('WA')
     )) isBotMessage = true
     if (!isBotMessage) return
 
-    // ───────── NORMALIZAR JID (LID → JID) ─────────
     const normalizeJid = (jid) => {
       if (!jid || typeof jid !== 'string') return jid
       if (!jid.endsWith('@lid')) return jid
-      try {
-        const list = participants || conn?.chats?.[m.chat]?.metadata?.participants
-        const found = list?.find(p => p?.lid === jid)
-        return found?.jid || jid
-      } catch {
-        return jid
-      }
+      const list = participants || conn?.chats?.[m.chat]?.metadata?.participants
+      const found = list?.find(p => p?.lid === jid)
+      return found?.jid || jid
     }
 
     const senderJid = normalizeJid(m.sender)
-    const selfJid = conn?.user?.jid
+    const selfJid = conn?.user?.jid || null
 
-    // ───────── LINAJE (PROTECCIÓN ABSOLUTA) ─────────
-    const isParent = hierarchy.parent ? areJidsSameUser(hierarchy.parent, senderJid) : false
-    const isSubbot = Array.isArray(hierarchy.subbots) && hierarchy.subbots.some(j => areJidsSameUser(j, senderJid))
-
-    // Permitir al propio bot (padre o subbot)
     if (selfJid && areJidsSameUser(selfJid, senderJid)) return
+    if (conn?.isSubBot && conn.parentJid && areJidsSameUser(conn.parentJid, senderJid)) return
 
-    // Ignorar si es parte del linaje
-    if (isParent || isSubbot) {
-      console.log('[ANTIBOT] Acción ignorada: bot del mismo linaje')
-      return
-    }
+    const isParent = hierarchy.parent && areJidsSameUser(hierarchy.parent, senderJid)
+    const isSubbot = hierarchy.subbots?.some(j => areJidsSameUser(j, senderJid))
+    if (isParent || isSubbot) return
 
-    // Permisos existentes (fallbacks) – mantener por compatibilidad
-    if (conn?.isSubBot && conn?.parentJid) {
-      if (areJidsSameUser(conn.parentJid, senderJid)) return
-    }
     if (Array.isArray(global.conns)) {
       for (const sock of global.conns) {
-        if (!sock?.user?.jid) continue
-        if (areJidsSameUser(sock.user.jid, senderJid)) return
+        if (sock?.user?.jid && areJidsSameUser(sock.user.jid, senderJid)) return
       }
     }
-    try {
-      const panelSubbots = global.db?.data?.panel?.subbots
-      if (panelSubbots && typeof panelSubbots === 'object') {
-        for (const sb of Object.values(panelSubbots)) {
-          if (!sb?.numero) continue
-          const jid = `${String(sb.numero).replace(/\D/g, '')}@s.whatsapp.net`
-          if (areJidsSameUser(jid, senderJid)) return
-        }
+
+    const panelSubbots = global.db?.data?.panel?.subbots
+    if (panelSubbots) {
+      for (const sb of Object.values(panelSubbots)) {
+        const jid = `${String(sb.numero).replace(/\D/g, '')}@s.whatsapp.net`
+        if (areJidsSameUser(jid, senderJid)) return
       }
-    } catch {}
+    }
 
-    // ───────── BOT EXTERNO DETECTADO ─────────
-
-    // ❌ NO soy admin → AVISO ÚNICO
     if (!isBotAdmin) {
       await conn.sendMessage(m.chat, {
         text:
           `🤖 *Bot externo detectado*\n\n` +
           `> Usuario: @${senderJid.split('@')[0]}\n` +
-          `> Estado: _No tengo permisos para eliminarlo_\n\n` +
-          `_Otórgame administrador para activar la protección._`,
+          `> Estado: _No tengo permisos para eliminarlo_`,
         mentions: [senderJid]
       })
       return
     }
 
-    // ✅ Soy admin → ACTUAR
     await conn.sendMessage(m.chat, {
       text:
         `🤖 *Bot externo detectado*\n\n` +
         `> Usuario: @${senderJid.split('@')[0]}\n` +
-        `> Acción: *Eliminado automáticamente*\n\n` +
-        `_Protección activa_`,
+        `> Acción: *Eliminado automáticamente*`,
       mentions: [senderJid]
     })
 
     await new Promise(r => setTimeout(r, 1500))
 
-    // borrar mensaje
-    try {
-      await conn.sendMessage(m.chat, {
-        delete: {
-          remoteJid: m.chat,
-          fromMe: false,
-          id: m.key.id,
-          participant: senderJid
-        }
-      })
-    } catch {}
-
-    // expulsar bot
     await conn.groupParticipantsUpdate(m.chat, [senderJid], 'remove')
 
   } catch (err) {
