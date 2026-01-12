@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +18,6 @@ import { useNavParticleBurst } from '@/components/ui/NavParticles';
 import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS, type NavColor } from '@/lib/navigation';
-import { OguriLogo } from '@/components/layout/OguriLogo';
 
 const colorClasses: Record<NavColor, string> = {
   primary: 'text-primary-400 bg-primary-500/20',
@@ -106,9 +106,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <motion.div
               whileHover={{ rotate: 360 }}
               transition={{ duration: 0.5 }}
-              className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 flex items-center justify-center shadow-glow-lg hover-lift-soft"
+              className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 flex items-center justify-center shadow-glow-lg hover-lift-soft overflow-hidden"
             >
-              <OguriLogo className="w-7 h-7 text-white" />
+              <Image
+                src="/oguricap-avatar.png"
+                alt="Oguri Cap"
+                width={32}
+                height={32}
+                className="object-cover rounded-2xl"
+                priority
+              />
             </motion.div>
             <div>
               <h1 className="text-xl font-bold gradient-text">OguriCap Bot</h1>

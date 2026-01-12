@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +13,6 @@ import { notify } from '@/lib/notify';
 import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 import { cn } from '@/lib/utils';
 import { LoginRolesSelector, type LoginRoleOption } from '@/components/auth/LoginRolesSelector';
-import { OguriLogo } from '@/components/layout/OguriLogo';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -212,8 +212,15 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
-            <Bot className="w-8 h-8 text-white animate-pulse" />
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 overflow-hidden">
+            <Image
+              src="/oguricap-avatar.png"
+              alt="Oguri Cap"
+              width={48}
+              height={48}
+              className="object-cover rounded-2xl animate-pulse"
+              priority
+            />
           </div>
           <p className="text-muted">Verificando estado del sistema...</p>
         </div>
@@ -316,11 +323,18 @@ export default function LoginPage() {
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
             className="mb-8"
           >
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6">
-              <Bot className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6 overflow-hidden">
+              <Image
+                src="/oguricap-login.png"
+                alt="Oguri Cap"
+                width={80}
+                height={80}
+                className="object-cover rounded-2xl"
+                priority
+              />
             </div>
             <h1 className="text-5xl font-bold mb-4">
-              <span className="gradient-text-animated">Oguri Bot</span>
+              <span className="gradient-text-animated">OguriCap Bot</span>
             </h1>
             <p className="text-xl text-muted">Panel de Control Avanzado</p>
           </motion.div>
@@ -369,10 +383,17 @@ export default function LoginPage() {
               animate={{ scale: 1 }}
               className="lg:hidden text-center mb-5 [@media(max-height:740px)]:mb-3"
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
-                <Bot className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 overflow-hidden">
+                <Image
+                  src="/oguricap-login.png"
+                  alt="Oguri Cap"
+                  width={64}
+                  height={64}
+                  className="object-cover rounded-2xl"
+                  priority
+                />
               </div>
-              <h1 className="text-3xl font-black gradient-text-animated">Oguri Bot</h1>
+              <h1 className="text-3xl font-black gradient-text-animated">OguriCap Bot</h1>
             </motion.div>
 
             {/* Login card */}
