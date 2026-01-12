@@ -13,7 +13,6 @@ import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { useNavParticleBurst } from '@/components/ui/NavParticles';
 import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -193,11 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* User section */}
         <div className="p-4 border-t border-white/10 space-y-3">
-          {/* Theme Toggle */}
-          <div className="flex justify-center">
-            <ThemeToggle />
-          </div>
-          
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
             <div className="avatar">
               {user?.username?.charAt(0).toUpperCase() || 'U'}

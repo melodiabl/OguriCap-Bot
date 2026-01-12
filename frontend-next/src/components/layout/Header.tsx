@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { useSocketConnection } from '@/contexts/SocketContext';
+import { useSocketConnection } from '@/contexts/SocketConnection';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
