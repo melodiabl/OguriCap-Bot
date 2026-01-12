@@ -7,7 +7,10 @@ function ensureBotHierarchy(parentJid = null) {
       global.botHierarchy = { parent: null, subbots: [] }
     }
     if (parentJid && typeof parentJid === 'string') {
-      global.botHierarchy.parent = parentJid
+      // No sobreescribir con valores raros: sólo setear una vez o cuando sea el mismo bot
+      if (!global.botHierarchy.parent || areJidsSameUser(global.botHierarchy.parent, parentJid)) {
+        global.botHierarchy.parent = parentJid
+      }
     }
     const h = global.botHierarchy
     if (!Array.isArray(h.subbots)) {
@@ -17,6 +20,50 @@ function ensureBotHierarchy(parentJid = null) {
   } catch {
     global.botHierarchy = { parent: parentJid || null, subbots: [] }
     return global.botHierarchy
+  }
+}
+
+// Determina si un JID pertenece a este sistema de bots (bot principal o cualquier subbot)
+function isSystemBotJid(jid, conn) {
+  if (!jid) return false
+  try {
+    const selfJid = conn?.user?.jid || null
+
+    // 1) El propio socket actual
+    if (selfJid && areJidsSameUser(selfJid, jid)) return true
+
+    // 2) Jerarquía global (bot padre + todos los subbots registrados)
+    const h = global.botHierarchy
+    if (h?.parent && areJidsSameUser(h.parent, jid)) return true
+    if (Array.isArray(h?.subbots) && h.subbots.some(j => j && areJidsSameUser(j, jid))) return true
+
+    // 3) Cualquier socket en global.conns (subbots creados por el sistema)
+    if (Array.isArray(global.conns)) {
+      for (const sock of global.conns) {
+        const sJid = sock?.user?.jid
+        if (sJid && areJidsSameUser(sJid, jid)) return true
+        const parentJid = sock?.parentJid
+        if (parentJid && areJidsSameUser(parentJid, jid)) return true
+      }
+    }
+
+    // 4) Subbots registrados en la base de datos del panel
+    const panelSubbots = global.db?.data?.panel?.subbots
+    if (panelSubbots && typeof panelSubbots === 'object') {
+      for (const sb of Object.values(panelSubbots)) {
+        if (!sb) continue
+        const rawNumber = sb.numero || sb.jid || sb.id || sb.code
+        if (!rawNumber) continue
+        const num = String(rawNumber).replace(/\D/g, '')
+        if (!num) continue
+        const panelJid = `${num}@s.whatsapp.net`
+        if (areJidsSameUser(panelJid, jid)) return true
+      }
+    }
+
+    return false
+  } catch {
+    return false
   }
 }
 
@@ -90,23 +137,26 @@ handler.before = async function (m, { conn, isAdmin, isOwner, isBotAdmin, partic
     )) isBotMessage = true
     if (!isBotMessage) return
 
-    const normalizeJid = (jid) => {
-      if (!jid || typeof jid !== 'string') return jid
-      if (!jid.endsWith('@lid')) return jid
-      const list = participants || conn?.chats?.[m.chat]?.metadata?.participants
-      const found = list?.find(p => p?.lid === jid)
-      return found?.jid || jid
-    }
+  const normalizeJid = (jid) => {
+  if (!jid || typeof jid !== 'string') return jid
+  if (!jid.endsWith('@lid')) return jid
+  const list = participants || conn?.chats?.[m.chat]?.metadata?.participants
+  const found = list?.find(p => p?.lid === jid)
+  return found?.jid || jid
+}
 
-    const senderJid = normalizeJid(m.sender)
-    const selfJid = conn?.user?.jid || null
+const senderJid = normalizeJid(m.sender)
+const selfJid = conn?.user?.jid || null
 
-    if (selfJid && areJidsSameUser(selfJid, senderJid)) return
-    if (conn?.isSubBot && conn.parentJid && areJidsSameUser(conn.parentJid, senderJid)) return
+// ✅ Nunca actuar contra el bot principal ni contra ningún subbot del sistema
+if (isSystemBotJid(senderJid, conn)) return
 
-    const isParent = hierarchy.parent && areJidsSameUser(hierarchy.parent, senderJid)
-    const isSubbot = hierarchy.subbots?.some(j => areJidsSameUser(j, senderJid))
-    if (isParent || isSubbot) return
+if (selfJid && areJidsSameUser(selfJid, senderJid)) return
+if (conn?.isSubBot && conn.parentJid && areJidsSameUser(conn.parentJid, senderJid)) return
+
+const isParent = hierarchy.parent && areJidsSameUser(hierarchy.parent, senderJid)
+const isSubbot = hierarchy.subbots?.some(j => areJidsSameUser(j, senderJid))
+if (isParent || isSubbot) return
 
     if (Array.isArray(global.conns)) {
       for (const sock of global.conns) {

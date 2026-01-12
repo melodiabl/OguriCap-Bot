@@ -268,6 +268,15 @@ const connectionOptions = {
 }
 
 global.conn = makeWASocket(connectionOptions)
+
+// Inicializar jerarquía global de bots para el sistema antibot
+try {
+  global.botHierarchy = global.botHierarchy || { parent: null, subbots: [] }
+  if (!Array.isArray(global.botHierarchy.subbots)) global.botHierarchy.subbots = []
+} catch {
+  global.botHierarchy = { parent: null, subbots: [] }
+}
+
 conn.ev.on("creds.update", saveCreds)
 
 // ============================================
@@ -391,6 +400,8 @@ global.reauthInProgress = false
 global.panelApiLastSeen = null
 global.stopped = 'connecting'
 global.__panelLastConnState ||= null
+// Controla si el backend tiene permiso para emitir QR al panel
+global.panelAllowQr = false
 
 function pushPanelLog(entry) {
   try {
@@ -558,8 +569,13 @@ async function connectionUpdate(update) {
       return
     }
     
+    // Guardar siempre el último QR generado
     global.panelApiMainQr = qr
-    // Emitir QR via Socket.IO
+
+    // Si el panel aún no ha pedido ver el QR, no lo emitimos por Socket.IO
+    if (!global.panelAllowQr) return
+
+    // Emitir QR via Socket.IO sólo cuando el panel lo haya solicitado
     try {
       const { emitBotQR } = await import('./lib/socket-io.js')
       emitBotQR(qr)
@@ -570,6 +586,19 @@ async function connectionUpdate(update) {
   if (connection === 'open') {
     global.panelApiLastSeen = new Date().toISOString()
     global.stopped = 'open'
+    // Ya no necesitamos mostrar QR cuando la conexión está abierta
+    global.panelAllowQr = false
+
+    // Registrar bot principal como padre en la jerarquía global (si aún no está)
+    try {
+      const mainJid = conn.user?.id || conn.user?.jid || null
+      if (mainJid) {
+        global.botHierarchy = global.botHierarchy || { parent: null, subbots: [] }
+        if (!Array.isArray(global.botHierarchy.subbots)) global.botHierarchy.subbots = []
+        if (!global.botHierarchy.parent) global.botHierarchy.parent = mainJid
+      }
+    } catch {}
+
     // Limpiar código de pairing
     global.panelPairingCode = null
     // Emitir conexión via Socket.IO
@@ -622,6 +651,8 @@ async function connectionUpdate(update) {
   
   if (connection === "close") {
     global.stopped = 'close'
+    // En desconexión, deshabilitar emisión automática de QR hasta que el panel lo pida de nuevo
+    global.panelAllowQr = false
     // Emitir desconexión via Socket.IO
     try {
       const { emitBotDisconnected, emitBotStatus } = await import('./lib/socket-io.js')
