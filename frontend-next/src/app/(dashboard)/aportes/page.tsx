@@ -522,7 +522,14 @@ export default function AportesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-gray-400 mb-2 block">Título *</label>
-              <input type="text" value={newAporte.titulo} onChange={(e) => setNewAporte(prev => ({ ...prev, titulo: e.target.value }))} className="input-glass w-full" placeholder="Título del aporte" />
+              <input
+                type="text"
+                value={newAporte.titulo}
+                onChange={(e) => setNewAporte(prev => ({ ...prev, titulo: e.target.value }))}
+                className="input-glass w-full"
+                placeholder="Título del aporte"
+                data-autofocus
+              />
             </div>
             <div>
               <label className="text-sm text-gray-400 mb-2 block">Tipo</label>

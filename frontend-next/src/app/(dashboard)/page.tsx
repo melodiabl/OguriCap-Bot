@@ -27,6 +27,7 @@ import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
 import { formatUptime } from '@/lib/utils';
 import { Magnetic } from '@/components/ui/Magnetic';
 import { Progress } from '@/components/ui/Progress';
+import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 
 export default function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats(10000);
@@ -37,6 +38,8 @@ export default function DashboardPage() {
   const { onlineCount, totalCount } = useSubbotsStatus(8000);
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { activities: recentActivity, isLoading: activitiesLoading } = useRecentActivity(15000);
+  const { performanceMode, viewport } = useDevicePerformance();
+  const isMobileLite = performanceMode && viewport === 'mobile';
 
   // Auto-refresh del dashboard - DISABLED to prevent resource exhaustion
   // useAutoRefresh(async () => {
@@ -341,19 +344,26 @@ export default function DashboardPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.9 }}
           >
-            <BarChart data={hourlyActivity} height={180} animated={true} scale="sqrt" minBarHeight={3} showGrid />
+            <BarChart
+              data={hourlyActivity}
+              height={isMobileLite ? 140 : 180}
+              animated={!isMobileLite}
+              scale={isMobileLite ? 'linear' : 'sqrt'}
+              minBarHeight={isMobileLite ? 0 : 3}
+              showGrid={!isMobileLite}
+            />
           </motion.div>
 
           <motion.div 
             className="grid grid-cols-3 gap-4 mt-6"
-            initial={{ opacity: 0, y: 20 }}
+            initial={isMobileLite ? undefined : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.2 }}
+            transition={isMobileLite ? { duration: 0.15 } : { duration: 0.5, delay: 1.2 }}
           >
             <motion.div 
               className="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={isMobileLite ? undefined : { scale: 1.05, y: -2 }}
+              transition={isMobileLite ? undefined : { duration: 0.2 }}
             >
               <motion.p 
                 className="text-2xl font-bold text-white"
@@ -367,8 +377,8 @@ export default function DashboardPage() {
             </motion.div>
             <motion.div 
               className="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={isMobileLite ? undefined : { scale: 1.05, y: -2 }}
+              transition={isMobileLite ? undefined : { duration: 0.2 }}
             >
               <motion.p 
                 className="text-2xl font-bold text-white"
@@ -382,8 +392,8 @@ export default function DashboardPage() {
             </motion.div>
             <motion.div 
               className="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={isMobileLite ? undefined : { scale: 1.05, y: -2 }}
+              transition={isMobileLite ? undefined : { duration: 0.2 }}
             >
               <motion.p 
                 className="text-2xl font-bold text-white"

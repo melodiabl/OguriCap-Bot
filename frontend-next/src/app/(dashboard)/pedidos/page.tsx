@@ -590,7 +590,14 @@ export default function PedidosPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Título del Pedido</label>
-            <input type="text" value={newPedido.titulo} onChange={(e) => setNewPedido({ ...newPedido, titulo: e.target.value })} className="input-glass w-full" placeholder="Ej: Manhwa Solo Leveling completo" />
+            <input
+              type="text"
+              value={newPedido.titulo}
+              onChange={(e) => setNewPedido({ ...newPedido, titulo: e.target.value })}
+              className="input-glass w-full"
+              placeholder="Ej: Manhwa Solo Leveling completo"
+              data-autofocus
+            />
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">

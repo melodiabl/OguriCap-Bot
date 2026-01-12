@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
@@ -190,63 +189,46 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     };
   }, [getFocusable, isOpen, onClose]);
 
-  if (!mounted) return null;
+  if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] pointer-events-none"
-          role="presentation"
-        >
-          {/* Scrim */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 overlay-scrim pointer-events-auto"
-            onClick={onClose}
-          />
+    <div className="fixed inset-0 z-[9999]" role="presentation">
+      {/* Scrim */}
+      <div
+        className="absolute inset-0 overlay-scrim"
+        onClick={onClose}
+      />
 
-          {/* Centered content */}
-          <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: 10 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className={cn('modal-content pointer-events-auto', className)}
-              onClick={(e) => e.stopPropagation()}
-              ref={contentRef}
-              tabIndex={-1}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={title ? titleId : undefined}
-            >
-              {title && (
-                <div className="flex items-center justify-between mb-6">
-                  <h3 id={titleId} className="text-xl font-semibold text-foreground">
-                    {title}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="p-2 rounded-xl text-muted hover:text-foreground hover:bg-card/20 transition-colors focus-ring-animated"
-                  >
-                    <X className="w-5 h-5" />
-                    <span className="sr-only">Cerrar</span>
-                  </button>
-                </div>
-              )}
-              {children}
-            </motion.div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+      {/* Centered content */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div
+          className={cn('modal-content', className)}
+          onClick={(e) => e.stopPropagation()}
+          ref={contentRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+        >
+          {title && (
+            <div className="flex items-center justify-between mb-6">
+              <h3 id={titleId} className="text-xl font-semibold text-foreground">
+                {title}
+              </h3>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-xl text-muted hover:text-foreground hover:bg-card/20 transition-colors focus-ring-animated"
+              >
+                <X className="w-5 h-5" />
+                <span className="sr-only">Cerrar</span>
+              </button>
+            </div>
+          )}
+          {children}
+        </div>
+      </div>
+    </div>,
     document.body
   );
 };

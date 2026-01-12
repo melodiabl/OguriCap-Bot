@@ -318,66 +318,200 @@ html[data-theme="light"] {
   --glass-border: rgb(var(--border) / 0.14);
 }
 
-/* Adaptive performance mode (automatic) */
+/* Adaptive performance mode (automatic) - AGGRESSIVE for mobile */
 html[data-perf="low"] {
   --chrome-blur: 0px;
-  --chrome-sat: 112%;
-  --grid-opacity: 0.08;
-  --noise-opacity: 0.06;
-  --glow-boost: 0.78;
+  --chrome-sat: 100%;
+  --grid-opacity: 0;
+  --noise-opacity: 0;
+  --glow-boost: 0;
 }
 
-html[data-perf="low"] .mesh-bg,
-html[data-perf="low"] .mesh-bg::after,
-html[data-perf="low"] .bg-animated,
-html[data-perf="low"] .animate-blob,
-html[data-perf="low"] .tabs-indicator {
+/* Kill ALL animations in performance mode */
+html[data-perf="low"] *,
+html[data-perf="low"] *::before,
+html[data-perf="low"] *::after {
   animation: none !important;
+  transition-duration: 0.1s !important;
 }
 
-html[data-perf="low"] .gradient-text-animated,
-html[data-perf="low"] .btn-primary,
-html[data-perf="low"] .btn-danger,
-html[data-perf="low"] .btn-glow,
-html[data-perf="low"] .glass-card::before {
-  animation: none !important;
-}
-
-html[data-perf="low"] .page-backdrop {
-  opacity: 0.22 !important;
-  filter: none !important;
-  mix-blend-mode: normal !important;
-}
-
-html[data-perf="low"] .page-backdrop-grid {
-  opacity: 0.18 !important;
-}
-
+/* Remove ALL blur effects - very expensive on mobile */
 html[data-perf="low"] .glass,
 html[data-perf="low"] .glass-card,
 html[data-perf="low"] .glass-dark,
 html[data-perf="low"] .tooltip-panel,
 html[data-perf="low"] .dropdown,
-html[data-perf="low"] .chart-frame {
+html[data-perf="low"] .chart-frame,
+html[data-perf="low"] .modal-overlay,
+html[data-perf="low"] .overlay-scrim,
+html[data-perf="low"] .input-glass,
+html[data-perf="low"] .btn-secondary,
+html[data-perf="low"] .badge,
+html[data-perf="low"] .live-indicator,
+html[data-perf="low"] .status-badge,
+html[data-perf="low"] .ultra-card {
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
+/* Simplify backgrounds */
+html[data-perf="low"] body {
+  background: rgb(var(--bg-0)) !important;
+}
+
+html[data-perf="low"] body::before,
+html[data-perf="low"] body::after {
+  display: none !important;
+}
+
+html[data-perf="low"] .mesh-bg {
+  background: rgb(var(--bg-0)) !important;
+}
+
+html[data-perf="low"] .mesh-bg::before,
+html[data-perf="low"] .mesh-bg::after {
+  display: none !important;
+}
+
+/* Remove decorative overlays */
+html[data-perf="low"] .page-backdrop,
+html[data-perf="low"] .page-backdrop-grid,
+html[data-perf="low"] .page-transition-overlay {
+  display: none !important;
+}
+
+/* Simplify cards */
+html[data-perf="low"] .glass-card::before,
+html[data-perf="low"] .glass-card::after,
+html[data-perf="low"] .ultra-card::before,
+html[data-perf="low"] .ultra-card::after {
+  display: none !important;
+}
+
+html[data-perf="low"] .glass-card,
+html[data-perf="low"] .ultra-card {
+  background: rgb(var(--surface-elevated)) !important;
+  border: 1px solid rgb(var(--border) / 0.2) !important;
+  box-shadow: 0 4px 12px rgb(var(--shadow-rgb) / 0.15) !important;
+}
+
+/* Remove glow effects */
+html[data-perf="low"] .shadow-glow,
+html[data-perf="low"] .shadow-glow-lg,
+html[data-perf="low"] .shadow-glow-cyan,
+html[data-perf="low"] .shadow-glow-emerald,
+html[data-perf="low"] .shadow-inner-glow {
+  box-shadow: none !important;
+}
+
+/* Simplify buttons */
+html[data-perf="low"] .btn-primary,
+html[data-perf="low"] .btn-danger,
+html[data-perf="low"] .btn-glow {
+  background-size: 100% 100% !important;
+  box-shadow: 0 2px 8px rgb(var(--shadow-rgb) / 0.2) !important;
+}
+
+html[data-perf="low"] .btn-primary::before,
+html[data-perf="low"] .btn-danger::before {
+  display: none !important;
+}
+
+/* Remove nav particles */
+html[data-perf="low"] .nav-particles,
 html[data-perf="low"] .nav-particle {
-  filter: none !important;
-  box-shadow: none !important;
+  display: none !important;
 }
 
+/* Simplify progress elements */
 html[data-perf="low"] .progress-ring__glow {
-  filter: none !important;
-  opacity: 0.22 !important;
+  display: none !important;
 }
 
-html[data-perf="low"] .progress-ring__arc {
-  filter: none !important;
-}
-
+html[data-perf="low"] .progress-ring__arc,
 html[data-perf="low"] .bar {
+  filter: none !important;
   box-shadow: none !important;
+}
+
+/* Remove chart decorations */
+html[data-perf="low"] .chart-frame::before {
+  display: none !important;
+}
+
+/* Simplify header/sidebar chrome */
+html[data-perf="low"] .header-chrome::before,
+html[data-perf="low"] .header-chrome::after,
+html[data-perf="low"] .sidebar-chrome::before,
+html[data-perf="low"] .sidebar-chrome::after {
+  display: none !important;
+}
+
+/* Remove gradient text animations */
+html[data-perf="low"] .gradient-text,
+html[data-perf="low"] .gradient-text-animated {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: rgb(var(--primary)) !important;
+  color: rgb(var(--primary)) !important;
+}
+
+/* Disable stagger animations */
+html[data-perf="low"] .stagger-children > * {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Remove route progress bar glow */
+html[data-perf="low"] .route-progress-bar {
+  box-shadow: none !important;
+  background-size: 100% 100% !important;
+}
+
+/* Simplify scrollbar */
+html[data-perf="low"] ::-webkit-scrollbar-thumb {
+  background: rgb(var(--primary)) !important;
+}
+
+/* Remove conic borders */
+html[data-perf="low"] .conic-border {
+  display: none !important;
+}
+
+/* Simplify sidebar items */
+html[data-perf="low"] .sidebar-item,
+html[data-perf="low"] .sidebar-item-active {
+  background: rgb(var(--surface-elevated) / 0.5) !important;
+  box-shadow: none !important;
+}
+
+html[data-perf="low"] .sidebar-item:hover {
+  transform: none !important;
+}
+
+html[data-perf="low"] .sidebar-item-active::before {
+  display: none !important;
+}
+
+/* Remove hover effects that cause repaints */
+html[data-perf="low"] .hover-lift-soft:hover,
+html[data-perf="low"] .card-animated:hover {
+  transform: none !important;
+}
+
+/* Simplify status indicators */
+html[data-perf="low"] .status-online {
+  animation: none !important;
+}
+
+/* Remove shimmer effects */
+html[data-perf="low"] .shimmer-soft::after,
+html[data-perf="low"] .btn-sheen::after,
+html[data-perf="low"] .status-badge__sheen {
+  display: none !important;
 }
 
 body>* {

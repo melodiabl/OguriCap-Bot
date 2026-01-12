@@ -22,6 +22,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { latency } = useConnectionHealth();
   const reduceMotion = useReducedMotion();
   const { performanceMode, viewport } = useDevicePerformance();
+  const isLiteMode = performanceMode && viewport === 'mobile';
   const pageKey = getPageKeyFromPathname(pathname);
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
 
@@ -86,34 +87,42 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         {/* Page content */}
         <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              className="relative page-perspective page-shell"
-              initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0.12 }
-                  : {
-                      duration: 0.42,
-                      ease: [0.16, 1, 0.3, 1],
-                    }
-              }
-            >
+          {isLiteMode ? (
+            <div className="relative page-shell">
               <div aria-hidden="true" className="page-backdrop" />
               <div aria-hidden="true" className="page-backdrop-grid" />
-              <motion.div
-                aria-hidden="true"
-                className="page-transition-overlay"
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-                animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
-                transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-              />
               <div className="relative z-10">{stagedChildren}</div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={pathname}
+                className="relative page-perspective page-shell"
+                initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0.12 }
+                    : {
+                        duration: 0.42,
+                        ease: [0.16, 1, 0.3, 1],
+                      }
+                }
+              >
+                <div aria-hidden="true" className="page-backdrop" />
+                <div aria-hidden="true" className="page-backdrop-grid" />
+                <motion.div
+                  aria-hidden="true"
+                  className="page-transition-overlay"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+                  animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                />
+                <div className="relative z-10">{stagedChildren}</div>
+              </motion.div>
+            </AnimatePresence>
+          )}
         </main>
 
         <FloatingSupportButton />
