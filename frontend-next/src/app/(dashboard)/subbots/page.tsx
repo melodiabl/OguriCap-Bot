@@ -345,8 +345,7 @@ export default function SubbotsPage() {
     
     if (subbot.isOnline) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
     if (subbot.connectionState === 'needs_auth') return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-    if (subbot.connectionState === 'missing_session') return 'bg-red-500/10 text-red-300 border-red-500/20';
-    const isPendingLegacy = Boolean(subbot.qr_data || subbot.pairingCode);
+    const isPendingLegacy = Boolean(!subbot.connectionState && (subbot.qr_data || subbot.pairingCode));
     if (isPendingLegacy) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     if (subbot.status === 'error') return 'bg-red-500/20 text-red-400 border-red-500/30';
     return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
@@ -358,13 +357,12 @@ export default function SubbotsPage() {
     
     if (subbot.isOnline) return 'Conectado';
     if (subbot.connectionState === 'needs_auth') return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
-    if (subbot.connectionState === 'missing_session') return 'Sesión no encontrada';
-    if (subbot.connectionState === 'disconnected') return 'Desconectado';
-    const isPendingLegacy = Boolean(subbot.qr_data || subbot.pairingCode);
+    const isPendingLegacy = Boolean(!subbot.connectionState && (subbot.qr_data || subbot.pairingCode));
     if (isPendingLegacy) return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
-    if (subbot.status === 'inactivo') return 'Inactivo';
+    if (subbot.connectionState === 'missing_session') return 'Inactivo (sin sesión)';
+    if (subbot.connectionState === 'disconnected') return 'Inactivo';
     if (subbot.status === 'error') return 'Error';
-    return 'Desconectado';
+    return 'Inactivo';
   };
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleString('es-ES');
@@ -434,7 +432,7 @@ export default function SubbotsPage() {
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard
             title="Esperando"
-            value={subbots.filter(s => !s.isOnline && (s.connectionState === 'needs_auth' || s.qr_data || s.pairingCode)).length}
+            value={subbots.filter(s => !s.isOnline && (s.connectionState === 'needs_auth' || (!s.connectionState && (s.qr_data || s.pairingCode)))).length}
             subtitle="Por conectar"
             icon={<Clock className="w-6 h-6" />}
             color="warning"
