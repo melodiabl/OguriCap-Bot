@@ -22,6 +22,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [maintenanceAccessAllowed, setMaintenanceAccessAllowed] = useState(false);
+  const [detectedIP, setDetectedIP] = useState<string | null>(null);
+  const [showMaintenanceLogin, setShowMaintenanceLogin] = useState(false);
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean; role?: boolean }>({});
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -64,6 +67,12 @@ export default function LoginPage() {
     []
   );
 
+  const rolesForLogin = useMemo<readonly LoginRoleOption[]>(() => {
+    if (!isMaintenanceMode) return roles;
+    if (maintenanceAccessAllowed) return roles;
+    return roles.filter((r) => r.value === 'owner' || r.value === 'admin');
+  }, [isMaintenanceMode, maintenanceAccessAllowed, roles]);
+
   const checkMaintenanceStatus = useCallback(async () => {
     try {
       setIsCheckingMaintenance(true);
@@ -72,13 +81,23 @@ export default function LoginPage() {
 
       if (data.maintenanceMode) {
         setIsMaintenanceMode(true);
-        notify.warning('El sistema está en modo de mantenimiento');
+        const allowed = !!(data.canAccessDuringMaintenance || data.ipAllowed);
+        setMaintenanceAccessAllowed(allowed);
+        setDetectedIP(typeof data.clientIP === 'string' ? data.clientIP : null);
+        setShowMaintenanceLogin(allowed);
+        if (!allowed) notify.warning('El sistema está en modo de mantenimiento');
       } else {
         setIsMaintenanceMode(false);
+        setMaintenanceAccessAllowed(true);
+        setDetectedIP(typeof data.clientIP === 'string' ? data.clientIP : null);
+        setShowMaintenanceLogin(true);
       }
     } catch (error) {
       console.error('Error checking maintenance status:', error);
       setIsMaintenanceMode(false);
+      setMaintenanceAccessAllowed(true);
+      setDetectedIP(null);
+      setShowMaintenanceLogin(true);
     } finally {
       setIsCheckingMaintenance(false);
     }
@@ -120,11 +139,18 @@ export default function LoginPage() {
 
   // checkMaintenanceStatus declared above (useCallback)
 
+  useEffect(() => {
+    if (!isMaintenanceMode || maintenanceAccessAllowed) return;
+    if (selectedRole && !['owner', 'admin', 'administrador'].includes(String(selectedRole).toLowerCase())) {
+      setSelectedRole('');
+    }
+  }, [isMaintenanceMode, maintenanceAccessAllowed, selectedRole]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Verificar modo de mantenimiento antes de proceder
-    if (isMaintenanceMode) {
+    if (isMaintenanceMode && !maintenanceAccessAllowed && selectedRole && !['owner', 'admin', 'administrador'].includes(String(selectedRole).toLowerCase())) {
       notify.warning('El sistema está en modo de mantenimiento. Solo los administradores pueden acceder.');
       return;
     }
@@ -230,7 +256,7 @@ export default function LoginPage() {
   }
 
   // Mostrar pantalla de mantenimiento si está activo
-  if (isMaintenanceMode) {
+  if (isMaintenanceMode && !maintenanceAccessAllowed && !showMaintenanceLogin) {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <motion.div
@@ -266,6 +292,21 @@ export default function LoginPage() {
               >
                 Verificar Estado
               </Button>
+
+              <Button
+                type="button"
+                onClick={() => setShowMaintenanceLogin(true)}
+                variant="secondary"
+                className="w-full"
+              >
+                Soy Owner/Admin, iniciar sesión
+              </Button>
+
+              {detectedIP && (
+                <p className="text-xs text-muted/80">
+                  IP detectada: <span className="font-semibold">{detectedIP}</span>
+                </p>
+              )}
 
               <p className="text-xs text-muted/80">
                 Si eres administrador y necesitas acceso urgente, contacta al equipo técnico.
@@ -414,6 +455,19 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
+                {isMaintenanceMode && (
+                  <div className="rounded-2xl border border-warning/25 bg-warning/10 p-3">
+                    <p className="text-xs font-semibold text-warning flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      Sistema en mantenimiento
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      {maintenanceAccessAllowed
+                        ? 'Acceso permitido por IP/token.'
+                        : 'Solo roles Owner/Administrador pueden iniciar sesión.'}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-muted mb-1.5">Usuario</label>
                   <div className="relative">
@@ -458,7 +512,7 @@ export default function LoginPage() {
                 </div>
 
                 <LoginRolesSelector
-                  roles={roles}
+                  roles={rolesForLogin}
                   selectedRole={selectedRole}
                   onChange={(value) => {
                     setSelectedRole(value);
