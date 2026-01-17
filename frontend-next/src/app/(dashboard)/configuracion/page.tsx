@@ -48,6 +48,7 @@ import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlo
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -80,6 +81,9 @@ export default function ConfiguracionPage() {
   const searchParams = useSearchParams();
   const { memoryUsage, uptime } = useSystemStats(5000);
   const { isConnected } = useBotStatus(5000);
+  const { user } = useAuth();
+  const currentRole = String((user as any)?.rol || '').toLowerCase();
+  const isOwner = currentRole === 'owner';
   
   // Bot Global State Context
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
@@ -118,6 +122,9 @@ export default function ConfiguracionPage() {
     adminIPs: [],
     allowLocalhost: true,
     currentIP: '',
+    currentIPAllowed: false,
+    adminIPsCount: 0,
+    autoAddAdminIPOnLogin: false,
     supportNotifyEmailTo: '',
     supportNotifyWhatsAppTo: '',
     supportNotifyIncludeAdmins: true,
@@ -289,7 +296,11 @@ export default function ConfiguracionPage() {
       if (msgRes?.message) setGlobalOffMessage(msgRes.message);
       
       if (systemConfigRes) {
-        setSystemConfig(prev => ({ ...prev, ...systemConfigRes }));
+        setSystemConfig(prev => ({ 
+          ...prev, 
+          ...systemConfigRes,
+          adminIPs: Array.isArray((systemConfigRes as any)?.adminIPs) ? (systemConfigRes as any).adminIPs : [],
+        }));
       }
       
       if (botConfigRes) {
@@ -315,11 +326,26 @@ export default function ConfiguracionPage() {
   const saveSystemConfig = async () => {
     setSaving(true);
     try {
-      const { currentIP, ...payload } = systemConfig as any;
+      const { currentIP, currentIPAllowed, adminIPsCount, adminIPs, ...payload } = systemConfig as any;
       await api.updateSystemConfig(payload);
       toast.success('Configuración del sistema guardada');
     } catch (err) {
       toast.error('Error al guardar configuración');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleAutoAddAdminIPOnLogin = async () => {
+    const next = !systemConfig.autoAddAdminIPOnLogin;
+    setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: next }));
+    setSaving(true);
+    try {
+      await api.updateSystemConfig({ autoAddAdminIPOnLogin: next });
+      toast.success(next ? 'Auto-guardado de IP activado' : 'Auto-guardado de IP desactivado');
+    } catch (err) {
+      setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: !next }));
+      toast.error('No se pudo actualizar auto-guardado de IP');
     } finally {
       setSaving(false);
     }
@@ -1442,21 +1468,43 @@ export default function ConfiguracionPage() {
               <h2 className="text-lg font-semibold text-white">IPs de Administradores</h2>
             </div>
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-white/5">
-                <p className="text-sm text-gray-400 mb-2">Tu IP actual:</p>
-                <p className="text-white font-mono text-lg">{systemConfig.currentIP || 'Cargando...'}</p>
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  className="mt-2" 
-                  onClick={addCurrentIP}
+	              <div className="p-4 rounded-xl bg-white/5">
+	                <p className="text-sm text-gray-400 mb-2">Tu IP actual:</p>
+	                <p className="text-white font-mono text-lg">{systemConfig.currentIP || 'Cargando...'}</p>
+	                <p className="text-xs mt-2">
+	                  Estado:{' '}
+	                  <span className={systemConfig.currentIPAllowed ? 'text-green-400' : 'text-yellow-400'}>
+	                    {systemConfig.currentIPAllowed ? 'Permitida' : 'No permitida'}
+	                  </span>
+	                </p>
+	                <Button 
+	                  variant="secondary" 
+	                  size="sm" 
+	                  className="mt-2" 
+	                  onClick={addCurrentIP}
                   loading={isSaving}
                 >
                   Agregar como IP de administrador
                 </Button>
               </div>
               
-              {systemConfig.adminIPs && systemConfig.adminIPs.length > 0 && (
+              <div className="p-4 rounded-xl bg-white/5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-gray-300 font-medium">Auto-guardar IP al iniciar sesión</p>
+                    <p className="text-xs text-gray-500">Agrega automáticamente la IP de Owner/Admin tras un login exitoso.</p>
+                  </div>
+                  <button
+                    onClick={toggleAutoAddAdminIPOnLogin}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.autoAddAdminIPOnLogin ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  >
+                    <motion.div animate={{ x: systemConfig.autoAddAdminIPOnLogin ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
+                  </button>
+                </div>
+              </div>
+
+              {isOwner && systemConfig.adminIPs && systemConfig.adminIPs.length > 0 && (
                 <div>
                   <p className="text-sm text-gray-400 mb-2">IPs permitidas durante mantenimiento:</p>
                   <div className="space-y-2">
@@ -1470,6 +1518,15 @@ export default function ConfiguracionPage() {
                 </div>
               )}
               
+              {!isOwner && (
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-xs text-gray-400">
+                    Lista de IPs oculta. Total:{' '}
+                    <span className="text-white font-mono">{Number(systemConfig.adminIPsCount || 0)}</span>
+                  </p>
+                </div>
+              )}
+
               <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                 <p className="text-xs text-yellow-400">
                   💡 Las IPs agregadas aquí podrán acceder al panel incluso durante el modo mantenimiento.
