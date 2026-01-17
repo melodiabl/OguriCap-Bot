@@ -29,6 +29,8 @@ const nextConfig = {
   
   // Configuración de imágenes
   images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24,
     domains: ['localhost', '127.0.0.1', 'melodiaauris.qzz.io'],
     remotePatterns: [
       {

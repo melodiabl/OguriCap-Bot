@@ -616,7 +616,7 @@ export default function SubbotsPage() {
       {/* QR Modal */}
       <Modal isOpen={showQR && !!selectedSubbot && !!qrImage} onClose={() => setShowQR(false)} className="text-center">
         <h3 className="text-xl font-semibold text-white mb-4">Código QR del Subbot</h3>
-        {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto mb-4 rounded-xl bg-white p-2" />}
+        {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto mb-4 rounded-xl bg-white p-2" decoding="async" />}
         <p className="text-sm text-gray-400 mb-4">Escanea este código con WhatsApp para conectar el subbot</p>
         <div className="flex gap-2 justify-center">
           <Button onClick={() => {

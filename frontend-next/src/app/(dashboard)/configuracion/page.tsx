@@ -101,6 +101,11 @@ export default function ConfiguracionPage() {
   const [showJsonEditor, setShowJsonEditor] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<any>(null);
+  const [testEmailTo, setTestEmailTo] = useState('');
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
 
   // Advanced configuration states
   const [botConfig, setBotConfig] = useState({
@@ -281,6 +286,62 @@ export default function ConfiguracionPage() {
       console.error('Error loading stats:', error);
     }
   };
+
+  const refreshEmailStatus = useCallback(async () => {
+    setIsCheckingEmail(true);
+    try {
+      const status = await api.getEmailStatus();
+      setEmailStatus(status || null);
+    } catch {
+      setEmailStatus(null);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  }, []);
+
+  const verifyEmailSmtp = useCallback(async () => {
+    setIsVerifyingEmail(true);
+    try {
+      const res = await api.verifyEmailSmtp();
+      if (res?.ok) {
+        toast.success('SMTP verificado');
+      } else if (res?.skipped) {
+        toast.error(res?.reason || 'SMTP no configurado');
+      } else {
+        toast.error(res?.reason || 'No se pudo verificar SMTP');
+      }
+    } catch {
+      toast.error('Error verificando SMTP');
+    } finally {
+      setIsVerifyingEmail(false);
+      refreshEmailStatus();
+    }
+  }, [refreshEmailStatus]);
+
+  const sendTestEmail = useCallback(async () => {
+    setIsTestingEmail(true);
+    try {
+      const res = await api.sendTestEmail(testEmailTo);
+      if (res?.ok) {
+        toast.success('Email de prueba enviado');
+      } else if (res?.skipped) {
+        toast.error(res?.reason || 'Email desactivado o SMTP no configurado');
+      } else {
+        toast.error(res?.reason || 'No se pudo enviar el email de prueba');
+      }
+    } catch {
+      toast.error('Error enviando email de prueba');
+    } finally {
+      setIsTestingEmail(false);
+      refreshEmailStatus();
+    }
+  }, [testEmailTo, refreshEmailStatus]);
+
+  useEffect(() => {
+    if (selectedConfig === 'notifications') {
+      refreshEmailStatus();
+    }
+  }, [selectedConfig, refreshEmailStatus]);
 
   const loadAdvancedConfigs = async () => {
     try {
@@ -958,6 +1019,92 @@ export default function ConfiguracionPage() {
                 <p className="text-xs text-gray-400 leading-relaxed">
                   Tip: para Gmail usá “App Password” y el host `smtp.gmail.com` (puerto `587` con TLS o `465` seguro).
                 </p>
+              </div>
+
+              <div className={`rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3 ${!emailEnabled ? 'opacity-60' : ''}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-white">DiagnÇüstico</p>
+                  <Button
+                    onClick={refreshEmailStatus}
+                    loading={isCheckingEmail}
+                    disabled={!emailEnabled}
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Actualizar
+                  </Button>
+                </div>
+
+                {emailStatus ? (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">
+                      Estado:{' '}
+                      <span className={emailStatus.configured ? 'text-emerald-300' : 'text-amber-300'}>
+                        {emailStatus.configured ? 'Listo' : 'Incompleto'}
+                      </span>
+                    </p>
+                    <p className="text-gray-400">
+                      Auth:{' '}
+                      <span className={emailStatus.hasAuth ? 'text-emerald-300' : 'text-amber-300'}>
+                        {emailStatus.hasAuth ? 'OK' : 'Falta'}
+                      </span>
+                    </p>
+                    <p className="text-gray-400 truncate" title={emailStatus.host || ''}>
+                      Host:{' '}
+                      <span className="text-gray-200">{emailStatus.host || '—'}</span>
+                    </p>
+                    <p className="text-gray-400">
+                      Puerto:{' '}
+                      <span className="text-gray-200">{emailStatus.port || '—'}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    No se pudo obtener el estado del servicio (requiere rol admin/owner).
+                  </p>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Email destino (prueba)</label>
+                  <input
+                    type="email"
+                    value={testEmailTo}
+                    onChange={(e) => setTestEmailTo(e.target.value)}
+                    className="input-glass"
+                    placeholder="admin@example.com"
+                    disabled={!emailEnabled}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    VacÇ­o = usa `ADMIN_EMAIL`/`NOTIFICATION_EMAIL`/`SECURITY_ALERT_EMAIL_TO`.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={verifyEmailSmtp}
+                    loading={isVerifyingEmail}
+                    disabled={!emailEnabled}
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Shield className="w-3 h-3" />
+                    Verificar SMTP
+                  </Button>
+                  <Button
+                    onClick={sendTestEmail}
+                    loading={isTestingEmail}
+                    disabled={!emailEnabled}
+                    variant="primary"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Mail className="w-3 h-3" />
+                    Enviar prueba
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

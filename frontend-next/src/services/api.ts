@@ -795,6 +795,22 @@ class ApiService {
     return response.data;
   }
 
+  // Email Service
+  async getEmailStatus() {
+    const response = await this.api.get('/api/email/status');
+    return response.data;
+  }
+
+  async verifyEmailSmtp() {
+    const response = await this.api.post('/api/email/verify');
+    return response.data;
+  }
+
+  async sendTestEmail(to?: string) {
+    const response = await this.api.post('/api/email/test', { to: to || '' });
+    return response.data;
+  }
+
   async getBotConfig() {
     const response = await this.api.get('/api/bot/config');
     return response.data;

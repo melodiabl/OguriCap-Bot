@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon } from 'lucide-react';
+import Image from 'next/image';
+import { Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon, AlertTriangle } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -43,10 +44,16 @@ export default function MultimediaPage() {
   const [uploading, setUploading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<number, boolean>>({});
+  const [modalImageError, setModalImageError] = useState(false);
 
   useEffect(() => {
     loadData();
   }, [currentPage, typeFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps -- loadData is defined below
+
+  useEffect(() => {
+    setModalImageError(false);
+  }, [selectedItem?.id]);
 
 
 
@@ -67,12 +74,19 @@ export default function MultimediaPage() {
           // Construir URL completa para archivos multimedia
           let imageUrl = item.url || item.path || item.src || '';
           if (imageUrl && !imageUrl.startsWith('http')) {
-            const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (envUrl || 'http://localhost:8080');
-            if (baseUrl) {
-              imageUrl = new URL(imageUrl, baseUrl).toString();
+            const normalizedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+
+            // Prefer same-origin URLs for /media so dev rewrites work and Next/Image can optimize.
+            if (normalizedPath.startsWith('/media/')) {
+              imageUrl = normalizedPath;
             } else {
-              imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+              const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+              const baseUrl = process.env.NODE_ENV === 'production' ? '' : (envUrl || 'http://localhost:8080');
+              if (baseUrl) {
+                imageUrl = new URL(normalizedPath, baseUrl).toString();
+              } else {
+                imageUrl = normalizedPath;
+              }
             }
           }
           
@@ -98,6 +112,7 @@ export default function MultimediaPage() {
       setItems(normalizedItems);
       setPagination(itemsData?.pagination);
       setStats(statsData);
+      setImageLoadErrors({});
     } catch (err) {
       console.error('Error loading multimedia:', err);
       toast.error('Error al cargar multimedia');
@@ -292,33 +307,29 @@ export default function MultimediaPage() {
                       >
                         {item.type === 'image' ? (
                           <div className="w-full h-full relative bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-                            <img
-                              src={item.url}
-                              alt={item.name}
-                              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-                              loading="lazy"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent && parent.querySelector('.fallback-icon') === null) {
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'fallback-icon absolute inset-0 flex items-center justify-center';
-                                  fallback.innerHTML = `
-                                <div class="text-center p-4">
-                                  <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-red-500/20 flex items-center justify-center">
-                                    <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                                    </svg>
+                            {imageLoadErrors[item.id] || !item.url ? (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center p-4">
+                                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-red-500/20 flex items-center justify-center">
+                                    <AlertTriangle className="w-8 h-8 text-red-400" />
                                   </div>
-                                  <p class="text-sm text-red-400 font-medium">Error al cargar</p>
-                                  <p class="text-xs text-gray-500 mt-1 break-all">${item.name}</p>
+                                  <p className="text-sm text-red-400 font-medium">Error al cargar</p>
+                                  <p className="text-xs text-gray-500 mt-1 break-all">{item.name}</p>
                                 </div>
-                              `;
-                                  parent.appendChild(fallback);
-                                }
-                              }}
-                            />
+                              </div>
+                            ) : (
+                              <Image
+                                src={item.thumbnail || item.url}
+                                alt={item.name}
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                                quality={70}
+                                className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                                onError={() => {
+                                  setImageLoadErrors((prev) => ({ ...prev, [item.id]: true }));
+                                }}
+                              />
+                            )}
                           </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -418,31 +429,28 @@ export default function MultimediaPage() {
           <div className="space-y-4">
             {/* Preview */}
             {selectedItem.type === 'image' && (
-              <div className="w-full max-h-96 overflow-hidden rounded-xl bg-white/5 flex items-center justify-center">
-                <img 
-                  src={selectedItem.url} 
-                  alt={selectedItem.name}
-                  className="max-w-full max-h-96 object-contain rounded-xl"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && parent.querySelector('.modal-fallback') === null) {
-                      const fallback = document.createElement('div');
-                      fallback.className = 'modal-fallback text-center p-8';
-                      fallback.innerHTML = `
-                        <div class="w-24 h-24 mx-auto mb-4 rounded-xl bg-red-500/20 flex items-center justify-center">
-                          <svg class="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                          </svg>
-                        </div>
-                        <p class="text-red-400 font-medium">No se pudo cargar la imagen</p>
-                        <p class="text-gray-500 text-sm mt-2 break-all">${selectedItem.url}</p>
-                      `;
-                      parent.appendChild(fallback);
-                    }
-                  }}
-                />
+              <div className="w-full overflow-hidden rounded-xl bg-white/5">
+                {modalImageError || !selectedItem.url ? (
+                  <div className="text-center p-8">
+                    <div className="w-24 h-24 mx-auto mb-4 rounded-xl bg-red-500/20 flex items-center justify-center">
+                      <AlertTriangle className="w-12 h-12 text-red-400" />
+                    </div>
+                    <p className="text-red-400 font-medium">No se pudo cargar la imagen</p>
+                    <p className="text-gray-500 text-sm mt-2 break-all">{selectedItem.url}</p>
+                  </div>
+                ) : (
+                  <div className="relative w-full h-96">
+                    <Image
+                      src={selectedItem.url}
+                      alt={selectedItem.name}
+                      fill
+                      sizes="(max-width: 640px) 90vw, 640px"
+                      quality={80}
+                      className="object-contain"
+                      onError={() => setModalImageError(true)}
+                    />
+                  </div>
+                )}
               </div>
             )}
             
