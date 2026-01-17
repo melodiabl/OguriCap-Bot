@@ -48,7 +48,6 @@ import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlo
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useNotifications } from '@/contexts/NotificationContext';
-import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -81,9 +80,6 @@ export default function ConfiguracionPage() {
   const searchParams = useSearchParams();
   const { memoryUsage, uptime } = useSystemStats(5000);
   const { isConnected } = useBotStatus(5000);
-  const { user } = useAuth();
-  const currentRole = String((user as any)?.rol || '').toLowerCase();
-  const isOwner = currentRole === 'owner';
   
   // Bot Global State Context
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
@@ -120,11 +116,12 @@ export default function ConfiguracionPage() {
     apiRateLimit: 100,
     fileUploadLimit: 10,
     adminIPs: [],
+    myAdminIPs: [] as string[],
     allowLocalhost: true,
     currentIP: '',
     currentIPAllowed: false,
     adminIPsCount: 0,
-    autoAddAdminIPOnLogin: false,
+    autoAddAdminIPOnLogin: true,
     supportNotifyEmailTo: '',
     supportNotifyWhatsAppTo: '',
     supportNotifyIncludeAdmins: true,
@@ -299,7 +296,8 @@ export default function ConfiguracionPage() {
         setSystemConfig(prev => ({ 
           ...prev, 
           ...systemConfigRes,
-          adminIPs: Array.isArray((systemConfigRes as any)?.adminIPs) ? (systemConfigRes as any).adminIPs : [],
+          adminIPs: Array.isArray((systemConfigRes as any)?.adminIPs) ? (systemConfigRes as any).adminIPs : prev.adminIPs,
+          myAdminIPs: Array.isArray((systemConfigRes as any)?.myAdminIPs) ? (systemConfigRes as any).myAdminIPs : [],
         }));
       }
       
@@ -326,7 +324,7 @@ export default function ConfiguracionPage() {
   const saveSystemConfig = async () => {
     setSaving(true);
     try {
-      const { currentIP, currentIPAllowed, adminIPsCount, adminIPs, ...payload } = systemConfig as any;
+      const { currentIP, currentIPAllowed, adminIPsCount, adminIPs, myAdminIPs, ...payload } = systemConfig as any;
       await api.updateSystemConfig(payload);
       toast.success('Configuración del sistema guardada');
     } catch (err) {
@@ -1504,11 +1502,11 @@ export default function ConfiguracionPage() {
                 </div>
               </div>
 
-              {isOwner && systemConfig.adminIPs && systemConfig.adminIPs.length > 0 && (
+              {systemConfig.myAdminIPs && systemConfig.myAdminIPs.length > 0 && (
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">IPs permitidas durante mantenimiento:</p>
+                  <p className="text-sm text-gray-400 mb-2">Mis IPs permitidas durante mantenimiento:</p>
                   <div className="space-y-2">
-                    {systemConfig.adminIPs.map((ip, index) => (
+                    {systemConfig.myAdminIPs.map((ip, index) => (
                       <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                         <span className="text-white font-mono">{ip}</span>
                         <span className="text-xs text-green-400">✓ Permitida</span>
@@ -1518,14 +1516,12 @@ export default function ConfiguracionPage() {
                 </div>
               )}
               
-              {!isOwner && (
-                <div className="p-3 rounded-lg bg-white/5">
-                  <p className="text-xs text-gray-400">
-                    Lista de IPs oculta. Total:{' '}
-                    <span className="text-white font-mono">{Number(systemConfig.adminIPsCount || 0)}</span>
-                  </p>
-                </div>
-              )}
+              <div className="p-3 rounded-lg bg-white/5">
+                <p className="text-xs text-gray-400">
+                  Total global de IPs permitidas:{' '}
+                  <span className="text-white font-mono">{Number(systemConfig.adminIPsCount || 0)}</span>
+                </p>
+              </div>
 
               <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                 <p className="text-xs text-yellow-400">

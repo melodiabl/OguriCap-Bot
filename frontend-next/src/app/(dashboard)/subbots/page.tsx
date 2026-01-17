@@ -22,6 +22,7 @@ import QRCode from 'qrcode';
 
 type SubbotType = 'qr' | 'code';
 type SubbotStatus = 'activo' | 'inactivo' | 'error';
+type SubbotConnectionState = 'connected' | 'needs_auth' | 'disconnected' | 'missing_session' | 'error';
 
 interface Subbot {
   id: number;
@@ -29,6 +30,7 @@ interface Subbot {
   codigo: string;
   type: SubbotType;
   status: SubbotStatus;
+  connectionState?: SubbotConnectionState;
   usuario: string;
   fecha_creacion: string;
   numero?: string | null;
@@ -105,25 +107,25 @@ export default function SubbotsPage() {
       setSubbots(prev => prev.filter(s => s.code !== data.subbotCode && s.codigo !== data.subbotCode));
     };
 
-    const handleSubbotDisconnected = (data: { subbotCode: string }) => {
-      setSubbots(prev => prev.map(s => {
-        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
-          return { ...s, isOnline: false, status: 'inactivo' as SubbotStatus };
-        }
-        return s;
-      }));
-    };
+	    const handleSubbotDisconnected = (data: { subbotCode: string }) => {
+	      setSubbots(prev => prev.map(s => {
+	        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
+	          return { ...s, isOnline: false, status: 'inactivo' as SubbotStatus, connectionState: 'disconnected' };
+	        }
+	        return s;
+	      }));
+	    };
 
-    const handleSubbotConnected = (data: { subbotCode: string; phone?: string }) => {
-      setSubbots(prev => prev.map(s => {
-        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
-          return { ...s, isOnline: true, status: 'activo' as SubbotStatus, numero: data.phone || s.numero };
-        }
-        return s;
-      }));
-    };
+	    const handleSubbotConnected = (data: { subbotCode: string; phone?: string }) => {
+	      setSubbots(prev => prev.map(s => {
+	        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
+	          return { ...s, isOnline: true, status: 'activo' as SubbotStatus, connectionState: 'connected', numero: data.phone || s.numero, qr_data: null, pairingCode: null };
+	        }
+	        return s;
+	      }));
+	    };
 
-    const handlePairingCode = (data: { subbotCode: string; pairingCode: string }) => {
+	    const handlePairingCode = (data: { subbotCode: string; pairingCode: string }) => {
       const isForPending = !!pendingPairingSubbotCode && pendingPairingSubbotCode === data.subbotCode;
       const shouldInterruptPhoneModal = !showPhoneModal || isForPending;
 
@@ -133,15 +135,20 @@ export default function SubbotsPage() {
         return;
       }
 
-      setPendingPairingSubbotCode(null);
-      setCurrentPairingCode(data.pairingCode);
-      setCurrentPairingSubbot(data.subbotCode);
-      setShowPairingModal(true);
-      setShowPhoneModal(false);
-      loadSubbots();
-    };
+	      setPendingPairingSubbotCode(null);
+	      setCurrentPairingCode(data.pairingCode);
+	      setCurrentPairingSubbot(data.subbotCode);
+	      setShowPairingModal(true);
+	      setShowPhoneModal(false);
+	      setSubbots(prev => prev.map(s => (
+	        (s.code === data.subbotCode || s.codigo === data.subbotCode)
+	          ? { ...s, pairingCode: data.pairingCode, connectionState: 'needs_auth', isOnline: false }
+	          : s
+	      )));
+	      loadSubbots();
+	    };
 
-    const handleQRCode = async (data: { subbotCode: string; qr: string }) => {
+	    const handleQRCode = async (data: { subbotCode: string; qr: string }) => {
       // No interrumpir la captura del número para CODE subbot.
       if (showPhoneModal) {
         loadSubbots();
@@ -155,11 +162,16 @@ export default function SubbotsPage() {
           setSelectedSubbot(subbot);
           setShowQR(true);
         }
-      } catch (err) {
-        console.error('Error generando QR:', err);
-      }
-      loadSubbots();
-    };
+	      } catch (err) {
+	        console.error('Error generando QR:', err);
+	      }
+	      setSubbots(prev => prev.map(s => (
+	        (s.code === data.subbotCode || s.codigo === data.subbotCode)
+	          ? { ...s, qr_data: data.qr, connectionState: 'needs_auth', isOnline: false }
+	          : s
+	      )));
+	      loadSubbots();
+	    };
 
     socket.on('subbot:deleted', handleSubbotDeleted);
     socket.on('subbot:disconnected', handleSubbotDisconnected);
@@ -176,26 +188,27 @@ export default function SubbotsPage() {
     };
   }, [socket, subbots, loadSubbots, pendingPairingSubbotCode, showPhoneModal]);
 
-  const normalizeSubbot = (raw: any): Subbot => {
-    const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
-    const type: SubbotType = raw?.type === 'code' || raw?.tipo === 'code' ? 'code' : 'qr';
-    const status: SubbotStatus = (raw?.status || raw?.estado || 'inactivo') as SubbotStatus;
-    return {
-      id: Number(raw?.id || 0),
-      code,
-      codigo: String(raw?.codigo || code),
-      type,
-      status,
-      usuario: String(raw?.usuario || raw?.owner || 'admin'),
-      fecha_creacion: String(raw?.fecha_creacion || raw?.created_at || new Date().toISOString()),
-      numero: raw?.numero ?? raw?.phoneNumber ?? null,
-      whatsappName: raw?.nombre_whatsapp ?? raw?.whatsappName ?? null,
-      aliasDir: raw?.alias_dir ?? raw?.aliasDir ?? null,
-      qr_data: raw?.qr_data ?? raw?.qr_code ?? null,
-      pairingCode: raw?.pairingCode ?? raw?.pairing_code ?? null,
-      isOnline: Boolean(raw?.isOnline || raw?.connected),
-    };
-  };
+	  const normalizeSubbot = (raw: any): Subbot => {
+	    const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
+	    const type: SubbotType = raw?.type === 'code' || raw?.tipo === 'code' ? 'code' : 'qr';
+	    const status: SubbotStatus = (raw?.status || raw?.estado || 'inactivo') as SubbotStatus;
+	    return {
+	      id: Number(raw?.id || 0),
+	      code,
+	      codigo: String(raw?.codigo || code),
+	      type,
+	      status,
+	      connectionState: (raw?.connectionState || raw?.connection_state || undefined) as SubbotConnectionState | undefined,
+	      usuario: String(raw?.usuario || raw?.owner || 'admin'),
+	      fecha_creacion: String(raw?.fecha_creacion || raw?.created_at || new Date().toISOString()),
+	      numero: raw?.numero ?? raw?.phoneNumber ?? null,
+	      whatsappName: raw?.nombre_whatsapp ?? raw?.whatsappName ?? null,
+	      aliasDir: raw?.alias_dir ?? raw?.aliasDir ?? null,
+	      qr_data: raw?.qr_data ?? raw?.qr_code ?? null,
+	      pairingCode: raw?.pairingCode ?? raw?.pairing_code ?? null,
+	      isOnline: Boolean(raw?.isOnline || raw?.connected),
+	    };
+	  };
 
   useEffect(() => {
     loadSubbots();
@@ -208,23 +221,24 @@ export default function SubbotsPage() {
     }
   }, [success]);
 
-  const getSubbotStatus = async () => {
-    try {
-      const data = await api.getSubbotStatus();
-      if (data) {
-        setSubbots(prev => prev.map(subbot => {
-          const status = data.subbots?.find((s: any) => s.subbotId === subbot.code || s.code === subbot.code);
-          return {
-            ...subbot,
-            isOnline: status?.isOnline || status?.connected || false,
-            status: (status?.status || subbot.status) as SubbotStatus
-          };
-        }));
-      }
-    } catch (err) {
-      console.error('Error obteniendo estado de subbots:', err);
-    }
-  };
+	  const getSubbotStatus = async () => {
+	    try {
+	      const data = await api.getSubbotStatus();
+	      if (data) {
+	        setSubbots(prev => prev.map(subbot => {
+	          const status = data.subbots?.find((s: any) => s.subbotId === subbot.code || s.code === subbot.code);
+	          return {
+	            ...subbot,
+	            isOnline: status?.isOnline || status?.connected || false,
+	            status: (status?.status || subbot.status) as SubbotStatus,
+	            connectionState: (status?.connectionState || subbot.connectionState) as SubbotConnectionState | undefined,
+	          };
+	        }));
+	      }
+	    } catch (err) {
+	      console.error('Error obteniendo estado de subbots:', err);
+	    }
+	  };
 
   const createQRSubbot = async () => {
     try {
@@ -330,8 +344,10 @@ export default function SubbotsPage() {
     if (!isGloballyOn) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     
     if (subbot.isOnline) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-    const isPending = Boolean(subbot.qr_data || subbot.pairingCode);
-    if (isPending) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+    if (subbot.connectionState === 'needs_auth') return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+    if (subbot.connectionState === 'missing_session') return 'bg-red-500/10 text-red-300 border-red-500/20';
+    const isPendingLegacy = Boolean(subbot.qr_data || subbot.pairingCode);
+    if (isPendingLegacy) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     if (subbot.status === 'error') return 'bg-red-500/20 text-red-400 border-red-500/30';
     return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   };
@@ -341,8 +357,11 @@ export default function SubbotsPage() {
     if (!isGloballyOn) return 'Bot Desactivado';
     
     if (subbot.isOnline) return 'Conectado';
-    const isPending = Boolean(subbot.qr_data || subbot.pairingCode);
-    if (isPending) return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
+    if (subbot.connectionState === 'needs_auth') return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
+    if (subbot.connectionState === 'missing_session') return 'Sesión no encontrada';
+    if (subbot.connectionState === 'disconnected') return 'Desconectado';
+    const isPendingLegacy = Boolean(subbot.qr_data || subbot.pairingCode);
+    if (isPendingLegacy) return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
     if (subbot.status === 'inactivo') return 'Inactivo';
     if (subbot.status === 'error') return 'Error';
     return 'Desconectado';
@@ -415,7 +434,7 @@ export default function SubbotsPage() {
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard
             title="Esperando"
-            value={subbots.filter(s => !s.isOnline && (s.qr_data || s.pairingCode)).length}
+            value={subbots.filter(s => !s.isOnline && (s.connectionState === 'needs_auth' || s.qr_data || s.pairingCode)).length}
             subtitle="Por conectar"
             icon={<Clock className="w-6 h-6" />}
             color="warning"
