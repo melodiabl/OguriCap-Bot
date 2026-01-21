@@ -610,7 +610,7 @@ export default function SubbotsPage() {
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      {subbot.type === 'qr' && (
+                      {subbot.type === 'qr' && !subbot.isOnline && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -620,11 +620,19 @@ export default function SubbotsPage() {
                           icon={<QrCode className="w-4 h-4" />}
                         />
                       )}
-                      {subbot.type === 'code' && subbot.pairingCode && (
+                      {subbot.type === 'code' && !subbot.isOnline && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => { setCurrentPairingCode(subbot.pairingCode!); setCurrentPairingSubbot(subbot.code); setShowPairingModal(true); }}
+                          onClick={() => {
+                            if (subbot.pairingCode) {
+                              setCurrentPairingCode(subbot.pairingCode);
+                              setCurrentPairingSubbot(subbot.code);
+                              setShowPairingModal(true);
+                            } else {
+                              toast.error('Generando código... espera un momento');
+                            }
+                          }}
                           title="Ver Código"
                           className="h-9 w-9 text-gray-400 hover:text-emerald-400"
                           icon={<Key className="w-4 h-4" />}
