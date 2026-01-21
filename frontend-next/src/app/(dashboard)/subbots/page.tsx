@@ -571,7 +571,7 @@ export default function SubbotsPage() {
         </p>
         <div className="mb-4">
           <label className="text-sm text-gray-400 mb-1 block">Número de WhatsApp</label>
-          <input type="tel" placeholder="Ejemplo: 595974154768" value={phoneNumber}
+          <input type="tel" placeholder="Ejemplo: 01231313" value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             className="input-glass w-full"
             data-autofocus />
