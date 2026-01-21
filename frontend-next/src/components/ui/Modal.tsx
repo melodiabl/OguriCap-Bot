@@ -138,13 +138,27 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     return Array.from(candidates).filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
   }, []);
 
+  const lastOpenRef = React.useRef(false);
+
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      lastOpenRef.current = false;
+      return;
+    }
+    
+    // Solo enfocar si el estado de 'isOpen' acaba de cambiar a true
+    const justOpened = !lastOpenRef.current;
+    lastOpenRef.current = true;
+
     previousFocusRef.current = document.activeElement as HTMLElement | null;
 
     const focusFirst = () => {
       const root = contentRef.current;
       if (!root) return;
+      
+      // Si ya hay algo enfocado dentro del modal (durante un re-render), no forzar el foco de nuevo
+      if (!justOpened && root.contains(document.activeElement)) return;
+
       const preferred = root.querySelector<HTMLElement>('[data-autofocus]');
       if (preferred?.focus) return preferred.focus();
       const focusables = getFocusable();

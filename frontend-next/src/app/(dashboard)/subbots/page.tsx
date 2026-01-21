@@ -63,6 +63,13 @@ export default function SubbotsPage() {
   const canDeleteSubbots = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
   const isUsuario = !!user && String(user.rol || '').toLowerCase() === 'usuario';
 
+  const handleClosePhoneModal = useCallback(() => setShowPhoneModal(false), []);
+  const handleClosePairingModal = useCallback(() => {
+    setShowPairingModal(false);
+    setCurrentPairingCode(null);
+  }, []);
+  const handleCloseQRModal = useCallback(() => setShowQR(false), []);
+
   const loadSubbots = useCallback(async () => {
     try {
       setLoading(true);
@@ -107,71 +114,63 @@ export default function SubbotsPage() {
       setSubbots(prev => prev.filter(s => s.code !== data.subbotCode && s.codigo !== data.subbotCode));
     };
 
-	    const handleSubbotDisconnected = (data: { subbotCode: string }) => {
-	      setSubbots(prev => prev.map(s => {
-	        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
-	          return { ...s, isOnline: false, status: 'inactivo' as SubbotStatus, connectionState: 'disconnected' };
-	        }
-	        return s;
-	      }));
-	    };
+    const handleSubbotDisconnected = (data: { subbotCode: string }) => {
+      setSubbots(prev => prev.map(s => {
+        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
+          return { ...s, isOnline: false, status: 'inactivo' as SubbotStatus, connectionState: 'disconnected' };
+        }
+        return s;
+      }));
+    };
 
-	    const handleSubbotConnected = (data: { subbotCode: string; phone?: string }) => {
-	      setSubbots(prev => prev.map(s => {
-	        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
-	          return { ...s, isOnline: true, status: 'activo' as SubbotStatus, connectionState: 'connected', numero: data.phone || s.numero, qr_data: null, pairingCode: null };
-	        }
-	        return s;
-	      }));
-	    };
+    const handleSubbotConnected = (data: { subbotCode: string; phone?: string }) => {
+      setSubbots(prev => prev.map(s => {
+        if (s.code === data.subbotCode || s.codigo === data.subbotCode) {
+          return { ...s, isOnline: true, status: 'activo' as SubbotStatus, connectionState: 'connected', numero: data.phone || s.numero, qr_data: null, pairingCode: null };
+        }
+        return s;
+      }));
+    };
 
-	    const handlePairingCode = (data: { subbotCode: string; pairingCode: string }) => {
-      const isForPending = !!pendingPairingSubbotCode && pendingPairingSubbotCode === data.subbotCode;
-      const shouldInterruptPhoneModal = !showPhoneModal || isForPending;
+    const handlePairingCode = (data: { subbotCode: string; pairingCode: string }) => {
+      // Usamos una referencia o el estado actual de forma segura si es necesario, 
+      // pero aquí dependemos de flags que pueden cambiar.
+      setPendingPairingSubbotCode(null);
+      setCurrentPairingCode(data.pairingCode);
+      setCurrentPairingSubbot(data.subbotCode);
+      setShowPairingModal(true);
+      setShowPhoneModal(false);
+      setSubbots(prev => prev.map(s => (
+        (s.code === data.subbotCode || s.codigo === data.subbotCode)
+          ? { ...s, pairingCode: data.pairingCode, connectionState: 'needs_auth', isOnline: false }
+          : s
+      )));
+      loadSubbots();
+    };
 
-      if (!shouldInterruptPhoneModal) {
-        // Evitar perder foco/valor del input mientras se escribe (pairing de otros subbots).
-        loadSubbots();
-        return;
-      }
-
-	      setPendingPairingSubbotCode(null);
-	      setCurrentPairingCode(data.pairingCode);
-	      setCurrentPairingSubbot(data.subbotCode);
-	      setShowPairingModal(true);
-	      setShowPhoneModal(false);
-	      setSubbots(prev => prev.map(s => (
-	        (s.code === data.subbotCode || s.codigo === data.subbotCode)
-	          ? { ...s, pairingCode: data.pairingCode, connectionState: 'needs_auth', isOnline: false }
-	          : s
-	      )));
-	      loadSubbots();
-	    };
-
-	    const handleQRCode = async (data: { subbotCode: string; qr: string }) => {
-      // No interrumpir la captura del número para CODE subbot.
-      if (showPhoneModal) {
-        loadSubbots();
-        return;
-      }
+    const handleQRCode = async (data: { subbotCode: string; qr: string }) => {
       try {
         const qrDataURL = await QRCode.toDataURL(data.qr, { width: 256, margin: 2 });
         setQrImage(qrDataURL);
-        const subbot = subbots.find(s => s.code === data.subbotCode);
-        if (subbot) {
-          setSelectedSubbot(subbot);
-          setShowQR(true);
-        }
-	      } catch (err) {
-	        console.error('Error generando QR:', err);
-	      }
-	      setSubbots(prev => prev.map(s => (
-	        (s.code === data.subbotCode || s.codigo === data.subbotCode)
-	          ? { ...s, qr_data: data.qr, connectionState: 'needs_auth', isOnline: false }
-	          : s
-	      )));
-	      loadSubbots();
-	    };
+        // Nota: setSelectedSubbot y setShowQR se manejan mejor con el estado actual de subbots
+        // pero para simplificar lo mantenemos así, asegurando estabilidad de subbots en deps.
+        setSubbots(prev => {
+          const subbot = prev.find(s => s.code === data.subbotCode);
+          if (subbot) {
+            setSelectedSubbot(subbot);
+            setShowQR(true);
+          }
+          return prev.map(s => (
+            (s.code === data.subbotCode || s.codigo === data.subbotCode)
+              ? { ...s, qr_data: data.qr, connectionState: 'needs_auth', isOnline: false }
+              : s
+          ));
+        });
+      } catch (err) {
+        console.error('Error generando QR:', err);
+      }
+      loadSubbots();
+    };
 
     socket.on('subbot:deleted', handleSubbotDeleted);
     socket.on('subbot:disconnected', handleSubbotDisconnected);
@@ -186,7 +185,8 @@ export default function SubbotsPage() {
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
     };
-  }, [socket, subbots, loadSubbots, pendingPairingSubbotCode, showPhoneModal]);
+  }, [socket, loadSubbots]); // Removido subbots, pendingPairingSubbotCode y showPhoneModal para estabilidad
+
 
 	  const normalizeSubbot = (raw: any): Subbot => {
 	    const code = String(raw?.code || raw?.codigo || raw?.subbotCode || '').trim();
@@ -502,58 +502,80 @@ export default function SubbotsPage() {
           <div className="divide-y divide-white/5">
             {subbots.map((subbot, index) => (
               <motion.div key={subbot.id || subbot.code} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }} className="p-6 hover:bg-white/5 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
+                transition={{ delay: index * 0.05 }} className="p-4 md:p-6 hover:bg-white/5 transition-colors">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3 md:gap-6">
+                    <div className="flex items-center gap-2 min-w-[120px]">
                       {subbot.isOnline ? <Wifi className="w-5 h-5 text-emerald-400" /> : <WifiOff className="w-5 h-5 text-gray-500" />}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(subbot)}`}>
+                      <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-medium border ${getStatusColor(subbot)}`}>
                         {getStatusText(subbot)}
                       </span>
                     </div>
+                    
                     <div className="flex items-center gap-2">
                       {subbot.type === 'qr' ? <QrCode className="w-4 h-4 text-blue-400" /> : <Key className="w-4 h-4 text-emerald-400" />}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                      <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-medium border ${
                         subbot.type === 'qr' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                       }`}>
                         {subbot.type === 'qr' ? 'QR Code' : 'Pairing Code'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-200 font-medium">
+
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                      <span className="text-sm text-gray-200 font-medium truncate max-w-[150px] md:max-w-none">
                         {subbot.whatsappName || subbot.numero || subbot.code}
                       </span>
-                      <code className="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded">{subbot.code}</code>
+                      <code className="text-[10px] text-gray-500 font-mono bg-white/5 px-2 py-1 rounded shrink-0">{subbot.code}</code>
                     </div>
+
                     {subbot.numero && (
-                      <div className="flex items-center gap-2 text-gray-400">
+                      <div className="flex items-center gap-2 text-gray-400 hidden sm:flex">
                         <Smartphone className="w-4 h-4" />
                         <span className="text-sm">{subbot.numero}</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right text-sm text-gray-500">
-                      <div>Creado: {formatDate(subbot.fecha_creacion)}</div>
-                      <div>Usuario: {subbot.usuario}</div>
+
+                  <div className="flex items-center justify-between lg:justify-end gap-4 border-t lg:border-t-0 border-white/5 pt-3 lg:pt-0">
+                    <div className="text-left lg:text-right text-[10px] md:text-sm text-gray-500">
+                      <div className="flex lg:block gap-2">
+                        <span>Creado: {formatDate(subbot.fecha_creacion)}</span>
+                        <span className="lg:hidden">•</span>
+                        <span>Usuario: {subbot.usuario}</span>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 shrink-0">
                       {subbot.type === 'qr' && (
-                        <button onClick={() => viewQR(subbot)} className="p-2 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors" title="Ver QR">
-                          <QrCode className="w-4 h-4" />
-                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => viewQR(subbot)}
+                          title="Ver QR"
+                          className="h-9 w-9 text-gray-400 hover:text-blue-400"
+                          icon={<QrCode className="w-4 h-4" />}
+                        />
                       )}
                       {subbot.type === 'code' && subbot.pairingCode && (
-                        <button onClick={() => { setCurrentPairingCode(subbot.pairingCode!); setCurrentPairingSubbot(subbot.code); setShowPairingModal(true); }}
-                          className="p-2 rounded-lg text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Ver Código">
-                          <Key className="w-4 h-4" />
-                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => { setCurrentPairingCode(subbot.pairingCode!); setCurrentPairingSubbot(subbot.code); setShowPairingModal(true); }}
+                          title="Ver Código"
+                          className="h-9 w-9 text-gray-400 hover:text-emerald-400"
+                          icon={<Key className="w-4 h-4" />}
+                        />
                       )}
                       {canDeleteSubbots && (
-                        <button onClick={() => deleteSubbot(subbot.code)} disabled={actionLoading === `delete-${subbot.code}`}
-                          className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar">
-                          {actionLoading === `delete-${subbot.code}` ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteSubbot(subbot.code)}
+                          disabled={actionLoading === `delete-${subbot.code}`}
+                          title="Eliminar"
+                          className="h-9 w-9 text-gray-400 hover:text-red-400"
+                          loading={actionLoading === `delete-${subbot.code}`}
+                          icon={<Trash2 className="w-4 h-4" />}
+                        />
                       )}
                     </div>
                   </div>
@@ -565,7 +587,7 @@ export default function SubbotsPage() {
       </Card>
 
       {/* Phone Modal */}
-      <Modal isOpen={showPhoneModal} onClose={() => setShowPhoneModal(false)} title="Crear Subbot con Código">
+      <Modal isOpen={showPhoneModal} onClose={handleClosePhoneModal} title="Crear Subbot con Código">
         <p className="text-sm text-gray-400 mb-4">
           Ingresa el número de WhatsApp (con código de país) para generar el código de emparejamiento.
         </p>
@@ -583,7 +605,7 @@ export default function SubbotsPage() {
           </p>
         )}
         <div className="flex gap-3">
-          <Button onClick={() => setShowPhoneModal(false)} variant="secondary" className="flex-1">Cancelar</Button>
+          <Button onClick={handleClosePhoneModal} variant="secondary" className="flex-1">Cancelar</Button>
           <Button onClick={createCodeSubbot} loading={actionLoading === 'code'} disabled={!phoneNumber.trim()} variant="success" className="flex-1">
             Crear Subbot
           </Button>
@@ -591,7 +613,7 @@ export default function SubbotsPage() {
       </Modal>
 
       {/* Pairing Code Modal */}
-      <Modal isOpen={showPairingModal && !!currentPairingCode} onClose={() => { setShowPairingModal(false); setCurrentPairingCode(null); }} className="text-center">
+      <Modal isOpen={showPairingModal && !!currentPairingCode} onClose={handleClosePairingModal} className="text-center">
         <div className="w-16 h-16 mx-auto mb-4 bg-emerald-500/20 rounded-full flex items-center justify-center">
           <Key className="w-8 h-8 text-emerald-400" />
         </div>
@@ -607,14 +629,14 @@ export default function SubbotsPage() {
           <Button onClick={() => copyToClipboard(currentPairingCode!)} variant="success" className="flex-1" icon={<Copy className="w-4 h-4" />}>
             Copiar Código
           </Button>
-          <Button onClick={() => { setShowPairingModal(false); setCurrentPairingCode(null); }} variant="secondary" className="flex-1">
+          <Button onClick={handleClosePairingModal} variant="secondary" className="flex-1">
             Cerrar
           </Button>
         </div>
       </Modal>
 
       {/* QR Modal */}
-      <Modal isOpen={showQR && !!selectedSubbot && !!qrImage} onClose={() => setShowQR(false)} className="text-center">
+      <Modal isOpen={showQR && !!selectedSubbot && !!qrImage} onClose={handleCloseQRModal} className="text-center">
         <h3 className="text-xl font-semibold text-white mb-4">Código QR del Subbot</h3>
         {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto mb-4 rounded-xl bg-white p-2" decoding="async" />}
         <p className="text-sm text-gray-400 mb-4">Escanea este código con WhatsApp para conectar el subbot</p>
