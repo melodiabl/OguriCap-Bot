@@ -1595,7 +1595,7 @@ export default function ConfiguracionPage() {
                     value={systemConfig.supportNotifyWhatsAppTo}
                     onChange={(e) => setSystemConfig({ ...systemConfig, supportNotifyWhatsAppTo: e.target.value })}
                     className="input-glass w-full"
-                    placeholder="51900373696, 573001112233"
+                    placeholder=""
                   />
                   <p className="text-xs text-gray-500 mt-1">Se ignoran símbolos; se usan solo números.</p>
                 </div>
