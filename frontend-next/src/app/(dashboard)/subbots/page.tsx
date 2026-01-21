@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   QrCode, Key, Trash2, RefreshCw, Wifi, WifiOff, Bot, AlertCircle,
-  Download, Copy, Zap, Radio, Clock, Smartphone, CheckCircle, XCircle
+  Download, Copy, Zap, Radio, Clock, Smartphone, CheckCircle, XCircle,
+  Settings, User, Image as ImageIcon, MessageSquare
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -39,6 +40,7 @@ interface Subbot {
   qr_data?: string | null;
   pairingCode?: string | null;
   isOnline?: boolean;
+  whatsapp_status?: string | null;
 }
 
 export default function SubbotsPage() {
@@ -56,6 +58,16 @@ export default function SubbotsPage() {
   const [currentPairingCode, setCurrentPairingCode] = useState<string | null>(null);
   const [currentPairingSubbot, setCurrentPairingSubbot] = useState<string | null>(null);
   const [pendingPairingSubbotCode, setPendingPairingSubbotCode] = useState<string | null>(null);
+  
+  // Settings Modal State
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsSubbot, setSettingsSubbot] = useState<Subbot | null>(null);
+  const [settingsForm, setSettingsForm] = useState({
+    alias: '',
+    name: '',
+    status: '',
+    pfp: ''
+  });
 
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
@@ -69,6 +81,56 @@ export default function SubbotsPage() {
     setCurrentPairingCode(null);
   }, []);
   const handleCloseQRModal = useCallback(() => setShowQR(false), []);
+
+  const handleCloseSettingsModal = useCallback(() => {
+    setShowSettingsModal(false);
+    setSettingsSubbot(null);
+    setSettingsForm({ alias: '', name: '', status: '', pfp: '' });
+  }, []);
+
+  const openSettings = (subbot: Subbot) => {
+    setSettingsSubbot(subbot);
+    setSettingsForm({
+      alias: subbot.aliasDir || '',
+      name: subbot.whatsappName || '',
+      status: subbot.whatsapp_status || '',
+      pfp: ''
+    });
+    setShowSettingsModal(true);
+  };
+
+  const handlePfpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen debe ser menor a 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSettingsForm(prev => ({ ...prev, pfp: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!settingsSubbot) return;
+
+    try {
+      setActionLoading('save-settings');
+      await api.updateSubbotSettings(settingsSubbot.code, settingsForm);
+      toast.success('Configuración actualizada correctamente');
+      handleCloseSettingsModal();
+      loadSubbots(); // Recargar para ver cambios
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || 'Error al actualizar configuración';
+      toast.error(errorMsg);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const loadSubbots = useCallback(async () => {
     try {
@@ -172,11 +234,18 @@ export default function SubbotsPage() {
       loadSubbots();
     };
 
+    const handleSubbotUpdated = (data: { subbot: any }) => {
+      if (!data?.subbot) return;
+      const updatedSubbot = normalizeSubbot(data.subbot);
+      setSubbots(prev => prev.map(s => (s.code === updatedSubbot.code || s.codigo === updatedSubbot.code) ? updatedSubbot : s));
+    };
+
     socket.on('subbot:deleted', handleSubbotDeleted);
     socket.on('subbot:disconnected', handleSubbotDisconnected);
     socket.on('subbot:connected', handleSubbotConnected);
     socket.on('subbot:pairingCode', handlePairingCode);
     socket.on('subbot:qr', handleQRCode);
+    socket.on('subbot:updated', handleSubbotUpdated);
 
     return () => {
       socket.off('subbot:deleted', handleSubbotDeleted);
@@ -184,6 +253,7 @@ export default function SubbotsPage() {
       socket.off('subbot:connected', handleSubbotConnected);
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
+      socket.off('subbot:updated', handleSubbotUpdated);
     };
   }, [socket, loadSubbots]); // Removido subbots, pendingPairingSubbotCode y showPhoneModal para estabilidad
 
@@ -207,6 +277,7 @@ export default function SubbotsPage() {
 	      qr_data: raw?.qr_data ?? raw?.qr_code ?? null,
 	      pairingCode: raw?.pairingCode ?? raw?.pairing_code ?? null,
 	      isOnline: Boolean(raw?.isOnline || raw?.connected),
+	      whatsapp_status: raw?.whatsapp_status ?? raw?.status_whatsapp ?? raw?.bio ?? null,
 	    };
 	  };
 
@@ -340,9 +411,6 @@ export default function SubbotsPage() {
   };
 
   const getStatusColor = (subbot: Subbot) => {
-    // Si el bot está globalmente desactivado, mostrar como deshabilitado
-    if (!isGloballyOn) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
     if (subbot.isOnline) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
     if (subbot.connectionState === 'needs_auth') return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     const isPendingLegacy = Boolean(!subbot.connectionState && (subbot.qr_data || subbot.pairingCode));
@@ -352,9 +420,6 @@ export default function SubbotsPage() {
   };
 
   const getStatusText = (subbot: Subbot) => {
-    // Si el bot está globalmente desactivado, mostrar estado global
-    if (!isGloballyOn) return 'Bot Desactivado';
-    
     if (subbot.isOnline) return 'Conectado';
     if (subbot.connectionState === 'needs_auth') return subbot.type === 'code' ? 'Esperando pairing' : 'Esperando QR';
     const isPendingLegacy = Boolean(!subbot.connectionState && (subbot.qr_data || subbot.pairingCode));
@@ -569,6 +634,16 @@ export default function SubbotsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => openSettings(subbot)}
+                          title="Configuración"
+                          className="h-9 w-9 text-gray-400 hover:text-white"
+                          icon={<Settings className="w-4 h-4" />}
+                        />
+                      )}
+                      {canDeleteSubbots && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => deleteSubbot(subbot.code)}
                           disabled={actionLoading === `delete-${subbot.code}`}
                           title="Eliminar"
@@ -654,6 +729,110 @@ export default function SubbotsPage() {
           <Button onClick={() => selectedSubbot?.qr_data && copyToClipboard(selectedSubbot.qr_data)} variant="secondary" icon={<Copy className="w-4 h-4" />}>
             Copiar Datos
           </Button>
+        </div>
+      </Modal>
+
+      {/* Settings Modal */}
+      <Modal isOpen={showSettingsModal} onClose={handleCloseSettingsModal} title="Configuración de Subbot">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+              <Zap className="w-4 h-4 text-blue-400" /> Alias Local (Solo Panel)
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: Bot Ventas 1"
+              value={settingsForm.alias}
+              onChange={(e) => setSettingsForm(prev => ({ ...prev, alias: e.target.value }))}
+              className="input-glass w-full text-white"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+              <User className="w-4 h-4 text-blue-400" /> Nombre de Perfil (WhatsApp)
+            </label>
+            <input
+              type="text"
+              placeholder="Nombre visible en WhatsApp"
+              value={settingsForm.name}
+              onChange={(e) => setSettingsForm(prev => ({ ...prev, name: e.target.value }))}
+              className="input-glass w-full text-white"
+            />
+            {!settingsSubbot?.isOnline && (
+              <p className="text-[10px] text-amber-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Requiere que el bot esté conectado para sincronizar con WhatsApp
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-blue-400" /> Bio / Estado (WhatsApp)
+            </label>
+            <textarea
+              placeholder="Estado de WhatsApp..."
+              value={settingsForm.status}
+              onChange={(e) => setSettingsForm(prev => ({ ...prev, status: e.target.value }))}
+              className="input-glass w-full text-white h-20 resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-blue-400" /> Foto de Perfil (WhatsApp)
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20 shrink-0">
+                {settingsForm.pfp ? (
+                  <img src={settingsForm.pfp} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-gray-600" />
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePfpChange}
+                  className="hidden"
+                  id="pfp-upload"
+                  disabled={!settingsSubbot?.isOnline}
+                />
+                <label
+                  htmlFor="pfp-upload"
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                    !settingsSubbot?.isOnline 
+                      ? 'bg-gray-500/10 text-gray-500 cursor-not-allowed' 
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  <Download className="w-3 h-3" /> Seleccionar Imagen
+                </label>
+                <p className="text-[10px] text-gray-500 mt-1">Máx: 2MB. Recomendado: 640x640px</p>
+              </div>
+            </div>
+            {!settingsSubbot?.isOnline && (
+              <p className="text-[10px] text-amber-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Debes estar conectado para cambiar la foto
+              </p>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleCloseSettingsModal} variant="secondary" className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveSettings}
+              loading={actionLoading === 'save-settings'}
+              variant="primary"
+              className="flex-1"
+              disabled={actionLoading === 'save-settings'}
+            >
+              Guardar Cambios
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

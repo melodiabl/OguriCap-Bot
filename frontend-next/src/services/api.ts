@@ -253,6 +253,11 @@ class ApiService {
     return response.data
   }
 
+  async updateSubbotSettings(subbotId: string, settings: { alias?: string; name?: string; status?: string; pfp?: string }) {
+    const response = await this.api.post('/api/subbot/settings', { subbotId, ...settings })
+    return response.data
+  }
+
   // Support chat (panel) - usado desde el botón flotante
   async getMySupportChat() {
     const response = await this.api.get('/api/support/my-chat')
