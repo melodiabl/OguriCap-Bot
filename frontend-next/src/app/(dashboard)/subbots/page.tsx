@@ -46,8 +46,6 @@ interface Subbot {
 export default function SubbotsPage() {
   const [subbots, setSubbots] = useState<Subbot[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [selectedSubbot, setSelectedSubbot] = useState<Subbot | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
@@ -121,12 +119,11 @@ export default function SubbotsPage() {
     try {
       setActionLoading('save-settings');
       await api.updateSubbotSettings(settingsSubbot.code, settingsForm);
-      toast.success('Configuración actualizada correctamente');
+      toast.success(`Configuración de "${settingsForm.alias || settingsSubbot.code}" actualizada`);
       handleCloseSettingsModal();
-      loadSubbots(); // Recargar para ver cambios
+      loadSubbots(); 
     } catch (err: any) {
-      const errorMsg = err?.response?.data?.error || 'Error al actualizar configuración';
-      toast.error(errorMsg);
+      toast.error(err?.response?.data?.error || 'No se pudo guardar la configuración');
     } finally {
       setActionLoading(null);
     }
@@ -138,10 +135,9 @@ export default function SubbotsPage() {
       const response = await api.getSubbots();
       if (response) {
         setSubbots((Array.isArray(response) ? response : response.subbots || []).map(normalizeSubbot));
-        setError(null);
       }
     } catch {
-      setError('Error de conexión');
+      toast.error('No se pudieron cargar los subbots');
     } finally {
       setLoading(false);
     }
@@ -285,14 +281,7 @@ export default function SubbotsPage() {
     loadSubbots();
   }, [loadSubbots]);
 
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-	  const getSubbotStatus = async () => {
+  const getSubbotStatus = async () => {
 	    try {
 	      const data = await api.getSubbotStatus();
 	      if (data) {
@@ -314,18 +303,15 @@ export default function SubbotsPage() {
   const createQRSubbot = async () => {
     try {
       setActionLoading('qr');
-      setError(null);
       setPendingPairingSubbotCode(null);
       const response = await api.createSubbot(1, 'qr');
       if (response) {
         const newSubbot = normalizeSubbot(response);
         setSubbots(prev => [newSubbot, ...prev]);
-        setSuccess('Subbot QR creado - Esperando código QR...');
-        toast.success('Subbot QR creado. El código QR aparecerá automáticamente.');
+        toast.success('¡Instancia QR creada! Escanea el código que aparecerá abajo.');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Error al crear subbot QR');
-      toast.error('Error al crear subbot QR');
+      toast.error(err?.response?.data?.error || 'Error al crear la instancia QR');
     } finally {
       setActionLoading(null);
     }
@@ -333,12 +319,11 @@ export default function SubbotsPage() {
 
   const createCodeSubbot = async () => {
     if (!phoneNumber.trim()) {
-      setError('Ingresa un número de teléfono válido');
+      toast.error('Por favor, ingresa un número de teléfono');
       return;
     }
     try {
       setActionLoading('code');
-      setError(null);
       const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
       const response = await api.createSubbot(1, 'code', cleanPhone);
       if (response) {
@@ -350,17 +335,15 @@ export default function SubbotsPage() {
           setCurrentPairingSubbot(newSubbot.code);
           setShowPairingModal(true);
           setShowPhoneModal(false);
-          toast.success('Código de pairing generado');
+          toast.success('Código de vinculación generado con éxito');
         } else {
           setPendingPairingSubbotCode(newSubbot.code);
-          setSuccess('Subbot CODE creado - Esperando código de pairing...');
-          toast.success('Subbot creado. El código de pairing aparecerá automáticamente.');
+          toast.success('Instancia creada. Generando código de vinculación...');
         }
         setPhoneNumber('');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Error al crear subbot CODE');
-      toast.error('Error al crear subbot CODE');
+      toast.error(err?.response?.data?.error || 'Error al crear la instancia por código');
     } finally {
       setActionLoading(null);
     }
@@ -373,11 +356,9 @@ export default function SubbotsPage() {
       setActionLoading(`delete-${key}`);
       await api.deleteSubbot(key);
       setSubbots(prev => prev.filter(s => String(s.id) !== key && s.code !== key && s.codigo !== key));
-      setSuccess('Subbot eliminado correctamente');
-      toast.success('Subbot eliminado');
+      toast.success('Subbot eliminado correctamente');
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Error al eliminar subbot');
-      toast.error('Error al eliminar subbot');
+      toast.error(err?.response?.data?.error || 'Error al eliminar subbot');
     } finally {
       setActionLoading(null);
     }
@@ -396,13 +377,13 @@ export default function SubbotsPage() {
           setQrImage(`data:image/png;base64,${response.qr}`);
           setSelectedSubbot(subbot);
           setShowQR(true);
-        } else {
-          setError('QR no disponible para este subbot');
-        }
-      }
-    } catch {
-      setError('Error obteniendo QR');
+    } else {
+      toast.error('QR no disponible para este subbot');
     }
+  }
+} catch {
+  toast.error('Error obteniendo QR');
+}
   };
 
   const copyToClipboard = (text: string) => {
@@ -456,27 +437,6 @@ export default function SubbotsPage() {
           </div>
         }
       />
-
-      {/* Alerts */}
-      <AnimatePresence>
-        {error && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="glass-card p-4 border-red-500/30 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-red-400">{error}</span>
-            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
-              <XCircle className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-        {success && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="glass-card p-4 border-emerald-500/30 flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-400" />
-            <span className="text-emerald-400">{success}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Stats */}
       <Stagger className="grid grid-cols-1 md:grid-cols-4 gap-6" delay={0.02} stagger={0.07}>
@@ -609,21 +569,22 @@ export default function SubbotsPage() {
                         <span>Usuario: {subbot.usuario}</span>
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex flex-wrap gap-2 shrink-0">
                       {subbot.type === 'qr' && !subbot.isOnline && (
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="primary"
+                          size="sm"
                           onClick={() => viewQR(subbot)}
-                          title="Ver QR"
-                          className="h-9 w-9 text-gray-400 hover:text-blue-400"
+                          className="px-3"
                           icon={<QrCode className="w-4 h-4" />}
-                        />
+                        >
+                          Ver QR
+                        </Button>
                       )}
                       {subbot.type === 'code' && !subbot.isOnline && (
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="success"
+                          size="sm"
                           onClick={() => {
                             if (subbot.pairingCode) {
                               setCurrentPairingCode(subbot.pairingCode);
@@ -633,21 +594,20 @@ export default function SubbotsPage() {
                               toast.error('Generando código... espera un momento');
                             }
                           }}
-                          title="Ver Código"
-                          className="h-9 w-9 text-gray-400 hover:text-emerald-400"
+                          className="px-3"
                           icon={<Key className="w-4 h-4" />}
-                        />
+                        >
+                          Ver Código
+                        </Button>
                       )}
-                      {canDeleteSubbots && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openSettings(subbot)}
-                          title="Configuración"
-                          className="h-9 w-9 text-gray-400 hover:text-white"
-                          icon={<Settings className="w-4 h-4" />}
-                        />
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openSettings(subbot)}
+                        title="Configuración"
+                        className="h-9 w-9 text-gray-400 hover:text-white"
+                        icon={<Settings className="w-4 h-4" />}
+                      />
                       {canDeleteSubbots && (
                         <Button
                           variant="ghost"

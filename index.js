@@ -973,5 +973,13 @@ process.on('unhandledRejection', (reason, promise) => {
 })
 
 console.log(chalk.magenta('🤖 OguriCap Bot completamente iniciado y listo para usar'))
+
+// Notificación de sistema reiniciado
+try {
+  if (typeof global.sendTemplateNotification === 'function') {
+    global.sendTemplateNotification('system_restart');
+  }
+} catch {}
+
 console.log(chalk.cyan(`📊 Panel disponible en: ${process.env.PANEL_URL || 'https://melodiaauris.qzz.io'}`))
 console.log(chalk.gray('💡 Usa Ctrl+C para detener el bot de forma segura'))

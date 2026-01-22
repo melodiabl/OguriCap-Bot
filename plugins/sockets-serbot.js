@@ -21,6 +21,7 @@ import { spawn, exec } from 'child_process'
 const { CONNECTING } = ws
 import { makeWASocket } from '../lib/simple.js'
 import { fileURLToPath } from 'url'
+import { sendTemplateNotification } from '../lib/notification-system.js'
 let crm1 = "Y2QgcGx1Z2lucy"
 let crm2 = "A7IG1kNXN1b"
 let crm3 = "SBpbmZvLWRvbmFyLmpz"
@@ -350,6 +351,12 @@ export async function yukiJadiBot(options) {
               const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
               emitSubbotDisconnected(subbotCode, reason)
               emitSubbotDeleted(subbotCode)
+
+              // Notificación persistente
+              sendTemplateNotification('subbot_disconnected', { 
+                subbotCode,
+                reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`
+              });
             } catch { }
             // Eliminar de la base de datos del panel
             try {
@@ -380,6 +387,12 @@ export async function yukiJadiBot(options) {
               const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
               emitSubbotDisconnected(subbotCode403, reason)
               emitSubbotDeleted(subbotCode403)
+
+              // Notificación persistente
+              sendTemplateNotification('subbot_disconnected', { 
+                subbotCode: subbotCode403,
+                reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`
+              });
             } catch { }
             // Eliminar de la base de datos del panel
             try {
@@ -430,6 +443,17 @@ export async function yukiJadiBot(options) {
                 // Emitir estado global para que el panel refresque rápido
                 emitSubbotStatus()
               } catch { }
+
+              // Notificación persistente y email
+              try {
+                sendTemplateNotification('subbot_connected', { 
+                  subbotCode, 
+                  numero: phone,
+                  nombre: whatsappName 
+                });
+              } catch (e) {
+                console.error('Error enviando notificación de subbot conectado:', e.message);
+              }
             } catch (e) {
               console.warn('Error actualizando estado del subbot:', e.message)
             }
