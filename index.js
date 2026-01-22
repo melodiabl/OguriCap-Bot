@@ -606,6 +606,10 @@ async function connectionUpdate(update) {
       const { emitBotConnected, emitBotStatus } = await import('./lib/socket-io.js')
       emitBotConnected(conn.user?.id)
       emitBotStatus()
+      
+      // Notificación persistente
+      const { sendTemplateNotification } = await import('./lib/notification-system.js')
+      sendTemplateNotification('bot_connected')
     } catch {}
 
     if (global.__panelLastConnState !== 'open') {
@@ -658,6 +662,10 @@ async function connectionUpdate(update) {
       const { emitBotDisconnected, emitBotStatus } = await import('./lib/socket-io.js')
       emitBotDisconnected(reason)
       emitBotStatus()
+
+      // Notificación persistente
+      const { sendTemplateNotification } = await import('./lib/notification-system.js')
+      sendTemplateNotification('bot_disconnected', { reason })
     } catch {}
 
     if (global.__panelLastConnState !== 'close') {
@@ -688,7 +696,25 @@ async function connectionUpdate(update) {
   if (connection) global.__panelLastConnState = connection
 }
 
-process.on('uncaughtException', console.error)
+process.on('uncaughtException', async (err) => {
+  console.error('❌ Uncaught Exception:', err)
+  try {
+    const { sendTemplateNotification } = await import('./lib/notification-system.js')
+    await sendTemplateNotification('system_error', { 
+      error: err?.message || String(err) 
+    })
+  } catch {}
+})
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason)
+  try {
+    const { sendTemplateNotification } = await import('./lib/notification-system.js')
+    await sendTemplateNotification('system_error', { 
+      error: reason?.message || String(reason) 
+    })
+  } catch {}
+})
 
 let isInit = true
 let handler = await import('./handler.js')
