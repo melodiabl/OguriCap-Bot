@@ -19,14 +19,14 @@ export const notify = {
   warning(message: string, options?: NotifyOptions) {
     return toast(message, {
       ...options,
-      icon: React.createElement(AlertTriangle, { className: 'w-5 h-5 text-amber-400' }),
+      icon: React.createElement(AlertTriangle, { className: 'w-5 h-5 text-warning' }),
       className: toastClass('toast-warning', options),
     });
   },
   info(message: string, options?: NotifyOptions) {
     return toast(message, {
       ...options,
-      icon: React.createElement(Info, { className: 'w-5 h-5 text-cyan-400' }),
+      icon: React.createElement(Info, { className: 'w-5 h-5 text-accent' }),
       className: toastClass('toast-info', options),
     });
   },

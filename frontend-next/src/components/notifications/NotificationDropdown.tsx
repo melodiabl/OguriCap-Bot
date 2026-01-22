@@ -57,11 +57,11 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
 
   const getTypeIcon = (tipo: string) => {
     const icons = {
-      info: <Info className="w-5 h-5 text-cyan-400" />,
-      success: <CheckCircle className="w-5 h-5 text-emerald-400" />,
-      warning: <AlertTriangle className="w-5 h-5 text-amber-400" />,
-      error: <AlertCircle className="w-5 h-5 text-red-400" />,
-      system: <Bell className="w-5 h-5 text-primary-400" />,
+      info: <Info className="w-5 h-5 text-accent" />,
+      success: <CheckCircle className="w-5 h-5 text-success" />,
+      warning: <AlertTriangle className="w-5 h-5 text-warning" />,
+      error: <AlertCircle className="w-5 h-5 text-danger" />,
+      system: <Bell className="w-5 h-5 text-primary" />,
     };
     return icons[tipo as keyof typeof icons] || icons.info;
   };
@@ -104,17 +104,17 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-60 rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden md:left-auto md:right-0"
           >
             {/* Header */}
-            <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary-500/10 to-violet-500/10">
+            <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-secondary/10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-primary-400" />
+                  <Bell className="w-5 h-5 text-primary" />
                   <h3 className="font-semibold text-white">Notificaciones</h3>
                 </div>
                 {unreadCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full"
+                    className="px-2 py-0.5 text-xs font-bold bg-danger text-white rounded-full"
                   >
                     {unreadCount} nuevas
                   </motion.span>
@@ -123,7 +123,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-xs text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1"
+                  className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
                 >
                   <CheckCheck className="w-3 h-3" />
                   Marcar todas como leídas
@@ -164,24 +164,24 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                         }}
                         className={cn(
                           'relative p-4 hover:bg-white/5 transition-colors cursor-pointer group',
-                          !notification.leida && 'bg-primary-500/5'
+                          !notification.leida && 'bg-primary/5'
                         )}
                         onClick={() => handleNotificationClick(notification)}
                       >
                         {/* Unread indicator */}
                         {!notification.leida && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500" />
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
                         )}
 
                         <div className="flex items-start gap-3">
                           {/* Icon */}
                           <div className={cn(
                             'p-2 rounded-lg flex-shrink-0',
-                            notification.tipo === 'error' && 'bg-red-500/10',
-                            notification.tipo === 'warning' && 'bg-amber-500/10',
-                            notification.tipo === 'success' && 'bg-emerald-500/10',
-                            notification.tipo === 'info' && 'bg-cyan-500/10',
-                            notification.tipo === 'system' && 'bg-primary-500/10',
+                            notification.tipo === 'error' && 'bg-danger/10',
+                            notification.tipo === 'warning' && 'bg-warning/10',
+                            notification.tipo === 'success' && 'bg-success/10',
+                            notification.tipo === 'info' && 'bg-accent/10',
+                            notification.tipo === 'system' && 'bg-primary/10',
                           )}>
                             {getTypeIcon(notification.tipo)}
                           </div>
@@ -191,7 +191,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <h4 className={cn(
                                 'font-medium text-sm leading-tight',
-                                !notification.leida ? 'text-white' : 'text-gray-300'
+                                !notification.leida ? 'text-white' : 'text-foreground/70'
                               )}>
                                 {notification.titulo}
                               </h4>
@@ -199,19 +199,19 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                                 <motion.span
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
-                                  className="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0 mt-1"
+                                  className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1"
                                 />
                               )}
                             </div>
-                            <p className="text-xs text-gray-400 line-clamp-2 mb-2">
+                            <p className="text-xs text-muted line-clamp-2 mb-2">
                               {notification.mensaje}
                             </p>
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted/60">
                                 {formatDate(notification.fecha_creacion)}
                               </span>
                               {notification.categoria && (
-                                <span className="px-2 py-0.5 text-xs rounded-full bg-white/5 text-gray-400 border border-white/10">
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-white/5 text-muted/80 border border-white/10">
                                   {notification.categoria}
                                 </span>
                               )}
@@ -226,7 +226,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                                   e.stopPropagation();
                                   markAsRead(notification.id);
                                 }}
-                                className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                className="p-1.5 rounded-lg text-success hover:bg-success/10 transition-colors"
                                 title="Marcar como leída"
                               >
                                 <Check className="w-4 h-4" />
@@ -237,7 +237,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                                 e.stopPropagation();
                                 deleteNotification(notification.id);
                               }}
-                              className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                              className="p-1.5 rounded-lg text-danger hover:bg-danger/10 transition-colors"
                               title="Eliminar"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -256,7 +256,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                   <button
                     onClick={loadMore}
                     disabled={isLoading}
-                    className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-2 text-sm text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isLoading ? (
                       <>
