@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
@@ -21,6 +21,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
@@ -90,6 +91,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           <div className="relative">
             <Tooltip content="Notificaciones" side="bottom">
               <Button
+                ref={buttonRef}
                 variant="ghost"
                 size="icon"
                 onClick={toggleOpen}
@@ -122,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               </Button>
             </Tooltip>
 
-            <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} />
+            <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} buttonRef={buttonRef} />
           </div>
 
           {/* Theme toggle */}

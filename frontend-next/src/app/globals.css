@@ -2506,27 +2506,33 @@ html[data-page="bot"] .glass-card::after {
 
 /* Toast notifications */
 .toast-custom {
-  @apply glass-card px-6 py-4 flex items-center gap-4 border-l-4 animate-slide-in-right text-foreground;
+  @apply glass-card px-6 py-4 flex items-center gap-4 border-l-0 animate-slide-in-right text-foreground relative overflow-hidden;
+}
+
+.toast-custom::before {
+  content: '';
+  @apply absolute left-0 top-0 bottom-0 w-1;
+  background: var(--toast-border-bg);
 }
 
 .toast-success {
   @apply toast-custom;
-  border-left-color: rgb(var(--success) / 0.9);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--success)), rgb(var(--page-a) / 0.5));
 }
 
 .toast-error {
   @apply toast-custom;
-  border-left-color: rgb(var(--danger) / 0.9);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--danger)), rgb(var(--page-a) / 0.5));
 }
 
 .toast-warning {
   @apply toast-custom;
-  border-left-color: rgb(var(--warning) / 0.95);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--warning)), rgb(var(--page-b) / 0.5));
 }
 
 .toast-info {
   @apply toast-custom;
-  border-left-color: rgb(var(--accent) / 0.9);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--page-a)), rgb(var(--page-c) / 0.8));
 }
 
 .toast-content {

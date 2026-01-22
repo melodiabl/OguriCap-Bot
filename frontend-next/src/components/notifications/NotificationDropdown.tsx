@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useNotifications, Notification } from '@/contexts/NotificationContext';
 import { Bell, Check, CheckCheck, Trash2, X, AlertCircle, CheckCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
@@ -9,9 +10,10 @@ import { cn } from '@/lib/utils';
 interface NotificationDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  buttonRef?: React.RefObject<HTMLButtonElement>;
 }
 
-export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownProps) {
+export function NotificationDropdown({ isOpen, onClose, buttonRef }: NotificationDropdownProps) {
   const {
     notifications,
     unreadCount,
@@ -25,12 +27,32 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
   const reduceMotion = useReducedMotion();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, right: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && buttonRef?.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [isOpen, buttonRef]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        // Only close if we didn't click the button that toggles it
+        if (buttonRef?.current && buttonRef.current.contains(e.target as Node)) {
+          return;
+        }
         onClose();
       }
     };
@@ -39,14 +61,26 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
       if (e.key === 'Escape') onClose();
     };
 
+    const handleResize = () => {
+      if (buttonRef?.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setCoords({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right,
+        });
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', handleResize);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', handleResize);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, buttonRef]);
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.leida) {
@@ -81,7 +115,9 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -90,7 +126,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[9998]"
             onClick={onClose}
           />
           
@@ -101,7 +137,12 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-60 rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden md:left-auto md:right-0"
+            style={{
+              position: 'fixed',
+              top: `${coords.top}px`,
+              right: `${coords.right}px`,
+            }}
+            className="w-96 max-w-[calc(100vw-2rem)] z-[9999] rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-secondary/10">
@@ -139,14 +180,14 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             >
               {isLoading && notifications.length === 0 ? (
                 <div className="p-8 flex flex-col items-center justify-center gap-3">
-                  <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
-                  <p className="text-sm text-gray-400">Cargando notificaciones...</p>
+                  <Loader2 className="w-6 h-6 text-muted animate-spin" />
+                  <p className="text-sm text-muted">Cargando notificaciones...</p>
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="p-8 flex flex-col items-center justify-center gap-3">
-                  <Bell className="w-10 h-10 text-gray-500 opacity-50" />
-                  <p className="text-sm text-gray-400 text-center">No hay notificaciones</p>
-                  <p className="text-xs text-gray-500 text-center">Las notificaciones nuevas aparecerán aquí</p>
+                  <Bell className="w-10 h-10 text-muted/40 opacity-50" />
+                  <p className="text-sm text-muted text-center">No hay notificaciones</p>
+                  <p className="text-xs text-muted/60 text-center">Las notificaciones nuevas aparecerán aquí</p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/5">
@@ -273,7 +314,8 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 
