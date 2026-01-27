@@ -2,9 +2,6 @@
 -- PostgreSQL Schema for OguriCap Bot
 -- ============================================
 
--- Extensiones necesarias
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Funcion para actualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -17,7 +14,7 @@ $$ language 'plpgsql';
 -- ============================================
 -- Usuarios del sistema (JWT/Panel)
 -- ============================================
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
   id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
@@ -36,20 +33,25 @@ CREATE TABLE usuarios (
 );
 
 -- ا?ndices para usuarios
-CREATE INDEX idx_usuarios_username ON usuarios(username);
-CREATE INDEX idx_usuarios_whatsapp ON usuarios(whatsapp_number);
-CREATE INDEX idx_usuarios_rol ON usuarios(rol);
-CREATE INDEX idx_usuarios_metadata_gin ON usuarios USING GIN(metadata);
+CREATE INDEX IF NOT EXISTS idx_usuarios_username ON usuarios(username);
+CREATE INDEX IF NOT EXISTS idx_usuarios_whatsapp ON usuarios(whatsapp_number);
+CREATE INDEX IF NOT EXISTS idx_usuarios_rol ON usuarios(rol);
+CREATE INDEX IF NOT EXISTS idx_usuarios_metadata_gin ON usuarios USING GIN(metadata);
 
 -- Trigger para updated_at
-CREATE TRIGGER update_usuarios_updated_at 
-    BEFORE UPDATE ON usuarios 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_usuarios_updated_at') THEN
+    CREATE TRIGGER update_usuarios_updated_at
+      BEFORE UPDATE ON usuarios
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- ============================================
 -- Usuarios de WhatsApp
 -- ============================================
-CREATE TABLE whatsapp_users (
+CREATE TABLE IF NOT EXISTS whatsapp_users (
   jid VARCHAR(100) PRIMARY KEY,
   name VARCHAR(255),
   stats JSONB DEFAULT '{"exp": 0, "coin": 0, "bank": 0, "level": 0, "health": 100}',
@@ -60,21 +62,26 @@ CREATE TABLE whatsapp_users (
 );
 
 -- ا?ndices para WhatsApp users
-CREATE INDEX idx_whatsapp_users_name ON whatsapp_users(name);
-CREATE INDEX idx_whatsapp_users_stats_gin ON whatsapp_users USING GIN(stats);
-CREATE INDEX idx_whatsapp_users_level ON whatsapp_users(((stats->>'level')::int));
-CREATE INDEX idx_whatsapp_users_banned ON whatsapp_users(((settings->>'banned')::boolean)) 
+CREATE INDEX IF NOT EXISTS idx_whatsapp_users_name ON whatsapp_users(name);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_users_stats_gin ON whatsapp_users USING GIN(stats);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_users_level ON whatsapp_users(((stats->>'level')::int));
+CREATE INDEX IF NOT EXISTS idx_whatsapp_users_banned ON whatsapp_users(((settings->>'banned')::boolean)) 
     WHERE (settings->>'banned')::boolean = true;
 
 -- Trigger para updated_at
-CREATE TRIGGER update_whatsapp_users_updated_at 
-    BEFORE UPDATE ON whatsapp_users 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_whatsapp_users_updated_at') THEN
+    CREATE TRIGGER update_whatsapp_users_updated_at
+      BEFORE UPDATE ON whatsapp_users
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- ============================================
 -- Chats y grupos
 -- ============================================
-CREATE TABLE chats (
+CREATE TABLE IF NOT EXISTS chats (
   jid VARCHAR(100) PRIMARY KEY,
   settings JSONB DEFAULT '{"is_banned": false, "antilink": false}',
   messages JSONB DEFAULT '{"welcome": null, "bye": null, "promote": null, "demote": null}',
@@ -84,19 +91,24 @@ CREATE TABLE chats (
 );
 
 -- ا?ndices para chats
-CREATE INDEX idx_chats_banned ON chats(((settings->>'is_banned')::boolean)) 
+CREATE INDEX IF NOT EXISTS idx_chats_banned ON chats(((settings->>'is_banned')::boolean)) 
     WHERE (settings->>'is_banned')::boolean = true;
-CREATE INDEX idx_chats_settings_gin ON chats USING GIN(settings);
+CREATE INDEX IF NOT EXISTS idx_chats_settings_gin ON chats USING GIN(settings);
 
 -- Trigger para updated_at
-CREATE TRIGGER update_chats_updated_at 
-    BEFORE UPDATE ON chats 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_chats_updated_at') THEN
+    CREATE TRIGGER update_chats_updated_at
+      BEFORE UPDATE ON chats
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- ============================================
 -- Configuraciاün del sistema
 -- ============================================
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
   key_name VARCHAR(100) PRIMARY KEY,
   value JSONB NOT NULL,
   description TEXT,
@@ -106,12 +118,12 @@ CREATE TABLE settings (
 );
 
 -- ا?ndices para settings
-CREATE INDEX idx_settings_value_gin ON settings USING GIN(value);
+CREATE INDEX IF NOT EXISTS idx_settings_value_gin ON settings USING GIN(value);
 
 -- ============================================
 -- Panel data (grupos, pedidos, etc.)
 -- ============================================
-CREATE TABLE panel_groups (
+CREATE TABLE IF NOT EXISTS panel_groups (
   id SERIAL PRIMARY KEY,
   wa_jid VARCHAR(100) UNIQUE NOT NULL,
   nombre VARCHAR(255),
@@ -123,21 +135,26 @@ CREATE TABLE panel_groups (
 );
 
 -- ا?ndices para panel_groups
-CREATE INDEX idx_panel_groups_search_text ON panel_groups 
+CREATE INDEX IF NOT EXISTS idx_panel_groups_search_text ON panel_groups 
     USING GIN (to_tsvector('spanish', nombre || ' ' || COALESCE(descripcion, '')));
-CREATE INDEX idx_panel_groups_config_gin ON panel_groups USING GIN(config);
-CREATE INDEX idx_panel_groups_proveedor ON panel_groups(((config->>'es_proveedor')::boolean)) 
+CREATE INDEX IF NOT EXISTS idx_panel_groups_config_gin ON panel_groups USING GIN(config);
+CREATE INDEX IF NOT EXISTS idx_panel_groups_proveedor ON panel_groups(((config->>'es_proveedor')::boolean)) 
     WHERE (config->>'es_proveedor')::boolean = true;
 
 -- Trigger para updated_at
-CREATE TRIGGER update_panel_groups_updated_at 
-    BEFORE UPDATE ON panel_groups 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_panel_groups_updated_at') THEN
+    CREATE TRIGGER update_panel_groups_updated_at
+      BEFORE UPDATE ON panel_groups
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- ============================================
 -- Tabla de auditorاًa
 -- ============================================
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   id SERIAL PRIMARY KEY,
   table_name VARCHAR(50) NOT NULL,
   record_id VARCHAR(100) NOT NULL,
@@ -149,9 +166,9 @@ CREATE TABLE audit_log (
 );
 
 -- ا?ndices para audit_log
-CREATE INDEX idx_audit_log_table_record ON audit_log(table_name, record_id);
-CREATE INDEX idx_audit_log_changed_at ON audit_log(changed_at);
-CREATE INDEX idx_audit_log_changed_by ON audit_log(changed_by);
+CREATE INDEX IF NOT EXISTS idx_audit_log_table_record ON audit_log(table_name, record_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_changed_at ON audit_log(changed_at);
+CREATE INDEX IF NOT EXISTS idx_audit_log_changed_by ON audit_log(changed_by);
 
 -- ============================================
 -- Usuario admin por defecto
@@ -166,6 +183,3 @@ INSERT INTO settings (key_name, value, description) VALUES
 ('migration_status', '{"completed": false, "version": "1.0.0"}', 'Estado de la migraciاün de base de datos'),
 ('system_config', '{"maintenance_mode": false, "debug_mode": false}', 'Configuraciاün general del sistema')
 ON CONFLICT (key_name) DO NOTHING;
-
-COMMIT;
-
