@@ -34,6 +34,28 @@ services:
       /bin/sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;"
 
   # ============================================
+  # PostgreSQL (Docker dependency, no host/IP)
+  # ============================================
+  postgres:
+    image: postgres:16
+    container_name: oguricap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-oguribot}
+      POSTGRES_USER: ${POSTGRES_USER:-bot_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-melodia}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oguricap-network
+
+  # ============================================
   # WhatsApp Bot (Backend)
   # ============================================
   whatsapp-bot:
@@ -44,7 +66,11 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-    network_mode: host
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -61,6 +87,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    networks:
+      - oguricap-network
 
   # ============================================
   # Panel Admin (Next.js Frontend)
@@ -86,5 +114,9 @@ services:
 
 volumes:
   nginx-logs:
+  postgres-data:
+
+networks:
+  oguricap-network:
 
 
