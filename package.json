@@ -120,9 +120,10 @@
     "npm": ">=9.0.0"
   },
   "os": [
-    "linux",
-    "darwin",
-    "win32"
+  "linux",
+  "darwin",
+  "win32",
+  "android"
   ],
   "cpu": [
     "x64",
