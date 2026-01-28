@@ -25,11 +25,11 @@ global.yukiJadibts = true
 
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
-global.botname = "Oguri-Cap"
-global.textbot = "Oguri, made with love by MELODIA"
-global.dev = "© Powered by MELODIA"
-global.author = "© Made with love by MELODIA"
-global.etiqueta = "MELODIA"
+global.botname = "Ꮻꮐꮜꭱꮖ-Ꮯꭺꮲ"
+global.textbot = "Ꮻꮐꮜꭱꮖ, ꮇꭺꭰꭼ ꮃꮖꭲꮋ ᏼꭹ ᎷᎬᏞᏫᎠᏆᎪ"
+global.dev = "© ⍴᥆ᥕᥱʳᥱძ ᑲᥡ ᴹᴱᴸᴼᴰᴵᴬ"
+global.author = "© ꮇᥲძᥱ ᥕі𝗍һ ᑲᥡ ᎷᎬᏞᏫᎠᏆᎪ"
+global.etiqueta = "M͟ᴇ͟ʟ͟ᴏ͟ᴅ͟ɪ͟ᴀ"
 global.currency = "¥enes"
 global.banner = "https://files.catbox.moe/ezrsc9.jpg"
 global.icono = "https://files.catbox.moe/yuiki1.jpg"
