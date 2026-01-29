@@ -8,7 +8,11 @@ RUN apk add --no-cache \
   make \
   g++ \
   wget \
-  curl
+  curl \
+  openjdk17-jre
+
+ENV JAVA_HOME=/usr/lib/jvm/default-jvm
+ENV PATH="$JAVA_HOME/bin:$PATH"
 
 WORKDIR /app
 
