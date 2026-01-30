@@ -34,6 +34,9 @@ certbot/
 *.backup
 
 # Entornos locales
+.env
+.env.*
+!.env.example
 .env.local
 frontend-next/.env.local
 
