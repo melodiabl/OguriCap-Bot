@@ -30,7 +30,7 @@ await m.react('✔️')
 } else throw new Error("No se pudo crear la imagen")
 break
 }
-case 'ia': case 'chatgpt': {
+case 'ia': case 'chatgpt': case 'openai': {
 if (!text) return conn.reply(m.chat, `❀ Ingrese una petición.`, m)
 await m.react('🕒')
 const basePrompt = `Tu nombre es ${botname} y parece haber sido creada por ${etiqueta}. Tu versión actual es ${vs}, Tú usas el idioma Español. Llamarás a las personas por su nombre ${username}, te gusta ser divertida, y te encanta aprender. Lo más importante es que debes ser amigable con la persona con la que estás hablando. ${username}`
