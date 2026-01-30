@@ -1,4 +1,46 @@
 /** @type {import('next').NextConfig} */
+const safeParseUrl = (value) => {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  try {
+    return new URL(raw)
+  } catch {
+    return null
+  }
+}
+
+const parsedApiUrl = safeParseUrl(process.env.NEXT_PUBLIC_API_URL || process.env.PANEL_URL || '')
+const apiHostname = parsedApiUrl?.hostname || null
+const apiProtocol = parsedApiUrl?.protocol ? parsedApiUrl.protocol.replace(':', '') : null
+const apiPort = parsedApiUrl?.port || ''
+
+const imageDomains = ['localhost', '127.0.0.1']
+if (apiHostname && !imageDomains.includes(apiHostname)) imageDomains.push(apiHostname)
+
+const remotePatterns = [
+  {
+    protocol: 'http',
+    hostname: 'localhost',
+    port: apiHostname === 'localhost' && apiProtocol === 'http' && apiPort ? apiPort : '8080',
+    pathname: '/media/**',
+  },
+  {
+    protocol: 'http',
+    hostname: '127.0.0.1',
+    port: apiHostname === '127.0.0.1' && apiProtocol === 'http' && apiPort ? apiPort : '8080',
+    pathname: '/media/**',
+  },
+]
+
+if (apiHostname && !['localhost', '127.0.0.1'].includes(apiHostname) && apiProtocol) {
+  remotePatterns.push({
+    protocol: apiProtocol,
+    hostname: apiHostname,
+    port: apiPort,
+    pathname: '/media/**',
+  })
+}
+
 const nextConfig = {
   reactStrictMode: true,
   
@@ -31,27 +73,8 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24,
-    domains: ['localhost', '127.0.0.1', 'melodiaauris.qzz.io'],
-    remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '8080',
-        pathname: '/media/**',
-      },
-      {
-        protocol: 'http',
-        hostname: '127.0.0.1',
-        port: '8080',
-        pathname: '/media/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'melodiaauris.qzz.io',
-        port: '',
-        pathname: '/media/**',
-      }
-    ],
+    domains: imageDomains,
+    remotePatterns,
   },
   
   // Configuración de rewrites para API

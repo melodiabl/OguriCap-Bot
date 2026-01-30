@@ -1007,5 +1007,8 @@ try {
   }
 } catch {}
 
-console.log(chalk.cyan(`📊 Panel disponible en: ${process.env.PANEL_URL || 'https://melodiaauris.qzz.io'}`))
+const panelUrlForLog =
+  (process.env.PANEL_URL || process.env.NEXT_PUBLIC_API_URL || '').trim() ||
+  'http://localhost:3000'
+console.log(chalk.cyan(`📊 Panel disponible en: ${panelUrlForLog}`))
 console.log(chalk.gray('💡 Usa Ctrl+C para detener el bot de forma segura'))

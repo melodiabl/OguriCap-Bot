@@ -78,7 +78,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
         `└ Node: ${process.version}`,
         ``,
         `🌐 *Panel Web*`,
-        `${process.env.PANEL_URL || 'https://melodiaauris.qzz.io'}`
+        `${(process.env.PANEL_URL || process.env.NEXT_PUBLIC_API_URL || '').trim() || 'http://localhost:3000'}`
       ].join('\n')
 
       return m.reply(msg)
