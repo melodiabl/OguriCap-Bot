@@ -80,68 +80,54 @@ function computeIsLowEnd(opts: {
 }
 
 export function DevicePerformanceProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<DevicePerformance>(() => {
-    const width = typeof window !== 'undefined' ? window.innerWidth : 1024;
-    const height = typeof window !== 'undefined' ? window.innerHeight : 768;
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const viewport = getTier(width);
-    const deviceMemoryGB = typeof navigator !== 'undefined' ? readNavigatorNumber(() => (navigator as any).deviceMemory) : null;
-    const hardwareConcurrency =
-      typeof navigator !== 'undefined' ? readNavigatorNumber(() => (navigator as any).hardwareConcurrency) : null;
-    const saveData = typeof navigator !== 'undefined' ? readSaveData() : false;
-    const reduceMotion = readReduceMotion();
-    const isLowEnd = computeIsLowEnd({ viewport, deviceMemoryGB, hardwareConcurrency, saveData });
-    const performanceMode = reduceMotion || isLowEnd;
-
-    return {
-      viewport,
-      width,
-      height,
-      dpr,
-      isMobile: viewport === 'mobile',
-      isTablet: viewport === 'tablet',
-      isDesktop: viewport === 'desktop',
-      deviceMemoryGB,
-      hardwareConcurrency,
-      saveData,
-      reduceMotion,
-      isLowEnd,
-      performanceMode,
-    };
-  });
+  // IMPORTANT: Initial state must be identical on server and client to avoid hydration errors.
+  // We compute real device metrics after mount (useEffect).
+  const [state, setState] = React.useState<DevicePerformance>(() => ({
+    viewport: 'desktop',
+    width: 1024,
+    height: 768,
+    dpr: 1,
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
+    deviceMemoryGB: null,
+    hardwareConcurrency: null,
+    saveData: false,
+    reduceMotion: false,
+    isLowEnd: false,
+    performanceMode: false,
+  }));
 
   React.useEffect(() => {
     let raf = 0;
     const onResize = () => {
       cancelAnimationFrame(raf);
       raf = window.requestAnimationFrame(() => {
-        setState((prev) => {
-          const width = window.innerWidth;
-          const height = window.innerHeight;
-          const dpr = window.devicePixelRatio || 1;
-          const viewport = getTier(width);
-          const reduceMotion = readReduceMotion();
-          const isLowEnd = computeIsLowEnd({
-            viewport,
-            deviceMemoryGB: prev.deviceMemoryGB,
-            hardwareConcurrency: prev.hardwareConcurrency,
-            saveData: prev.saveData,
-          });
-          const performanceMode = reduceMotion || isLowEnd;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        const viewport = getTier(width);
+        const deviceMemoryGB = readNavigatorNumber(() => (navigator as any).deviceMemory);
+        const hardwareConcurrency = readNavigatorNumber(() => (navigator as any).hardwareConcurrency);
+        const saveData = readSaveData();
+        const reduceMotion = readReduceMotion();
+        const isLowEnd = computeIsLowEnd({ viewport, deviceMemoryGB, hardwareConcurrency, saveData });
+        const performanceMode = reduceMotion || isLowEnd;
 
-          return {
-            ...prev,
-            width,
-            height,
-            dpr,
-            viewport,
-            isMobile: viewport === 'mobile',
-            isTablet: viewport === 'tablet',
-            isDesktop: viewport === 'desktop',
-            reduceMotion,
-            isLowEnd,
-            performanceMode,
-          };
+        setState({
+          viewport,
+          width,
+          height,
+          dpr,
+          isMobile: viewport === 'mobile',
+          isTablet: viewport === 'tablet',
+          isDesktop: viewport === 'desktop',
+          deviceMemoryGB,
+          hardwareConcurrency,
+          saveData,
+          reduceMotion,
+          isLowEnd,
+          performanceMode,
         });
       });
     };
@@ -152,6 +138,9 @@ export function DevicePerformanceProvider({ children }: { children: React.ReactN
     window.addEventListener('resize', onResize, { passive: true });
     window.addEventListener('orientationchange', onResize, { passive: true } as any);
     mq.addEventListener?.('change', onMotion);
+
+    // Compute real device metrics after mount.
+    onResize();
 
     return () => {
       cancelAnimationFrame(raf);
