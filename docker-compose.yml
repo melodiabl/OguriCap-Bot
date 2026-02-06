@@ -47,6 +47,7 @@ services:
       - ./logs:/app/logs
       - ./tmp:/app/tmp
       - ./.monitoring:/app/.monitoring
+      - ./.config:/app/.config
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health" ]
       interval: 30s
