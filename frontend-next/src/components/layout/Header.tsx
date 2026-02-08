@@ -1,18 +1,16 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-import { Bell, Search, Moon, Sun, RefreshCw, Menu, X, Volume2, VolumeX, Smartphone, Check, Trash2, Filter, Maximize2, Minimize2 } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { LiveIndicator } from '@/components/ui/LiveIndicator';
+import { RealTimeBadge } from '@/components/ui/StatusIndicator';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
@@ -40,344 +38,96 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
-  const [filterUnread, setFilterUnread] = useState(false);
-  const [expandedView, setExpandedView] = useState(false);
-
-  const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { isConnected: isSocketConnected } = useSocketConnection();
-  const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
-  const { unreadCount, isOpen, setIsOpen, toggleOpen, notifications } = useNotifications();
-  const reduceMotion = useReducedMotion();
-  const [preferences, setPreferences] = React.useState({ soundEnabled: true, hapticsEnabled: true });
+  const { isConnected: pollingConnected } = useBotStatus(5000);
+  const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const position = {
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right
-      };
-      setDropdownPosition(position);
-    }
-  }, [isOpen]);
-
-  const togglePreference = (key: 'soundEnabled' | 'hapticsEnabled') => {
-    setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const currentPage = menuItems.find(item => item.path === pathname);
-  const isConnected = pollingConnected;
-
-  // Filtrar notificaciones
-  const filteredNotifications = filterUnread
-    ? notifications?.filter((n: any) => !n.leida)
-    : notifications;
-
-  // Función para marcar todas como leídas
-  const markAllAsRead = () => {
-    // Aquí deberías llamar a tu API para marcar como leídas
-    console.log('Marcar todas como leídas');
-    // Ejemplo: await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-  };
-
-  // Función para limpiar todas
-  const clearAllNotifications = () => {
-    if (confirm('¿Estás seguro de que deseas eliminar todas las notificaciones?')) {
-      console.log('Limpiar todas las notificaciones');
-      // Aquí deberías llamar a tu API para eliminar
-      // Ejemplo: await fetch('/api/notifications/clear', { method: 'DELETE' });
-    }
-  };
 
   return (
-    <header className="sticky top-0 z-50 glass-dark border-b border-white/10 header-chrome">
-      <div className="flex items-center justify-between px-4 lg:px-6 h-16">
-        {/* Left side */}
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 bg-[#0a0a0f]/80 px-4 lg:px-8 backdrop-blur-xl">
+      <div className="flex h-full items-center justify-between">
+        <div className="flex items-center gap-6">
           <div className="lg:hidden">
-            <Tooltip content={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'} side="bottom">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onMenuClick}
-                aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
-                className="hover-glass-bright"
-              >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </Button>
-            </Tooltip>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMenuClick}
+              className="hover:bg-white/5 text-gray-400"
+            >
+              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
           </div>
 
           <div className="hidden sm:block">
-            <h2 className="text-2xl font-extrabold gradient-text-animated tracking-tight">
+            <h2 className="text-xl font-black text-white uppercase tracking-[0.15em]">
               {currentPage?.label || 'Panel'}
             </h2>
           </div>
         </div>
 
-        {/* Center - Search */}
-        <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <div className="relative w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <div className="hidden md:flex flex-1 max-w-md mx-12">
+          <div className="relative w-full group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
             <input
               type="text"
-              placeholder="Buscar..."
-              className="input-search w-full hover-glass-bright focus-ring-animated"
+              placeholder="Buscar en el panel..."
+              className="w-full h-11 pl-11 pr-4 rounded-xl bg-white/5 border border-white/5 focus:border-primary/50 focus:bg-white/10 outline-none text-sm text-white placeholder:text-gray-600 transition-all"
             />
           </div>
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3">
-          {/* Socket.IO status */}
-          <LiveIndicator
-            className="hidden sm:inline-flex"
-            state={isSocketConnected ? 'live' : 'danger'}
-            label={isSocketConnected ? 'Real-Time' : 'Offline'}
-          />
-
-          {/* Bot status */}
-          <LiveIndicator
-            className="hidden sm:inline-flex"
-            state={isConnecting ? 'warning' : isConnected ? 'live' : 'danger'}
-            label={isConnecting ? 'Bot Connecting' : isConnected ? 'Bot Online' : 'Bot Offline'}
-          />
-
-          {/* Notifications */}
-          <div className="relative">
-            <Tooltip content="Notificaciones" side="bottom">
-              <Button
-                ref={buttonRef}
-                variant="ghost"
-                size="icon"
-                onClick={toggleOpen}
-                aria-label="Abrir notificaciones"
-                className={cn('relative hover-glass-bright', unreadCount > 0 && 'pulse-on-alert')}
-              >
-                <motion.div
-                  animate={
-                    !reduceMotion && unreadCount > 0
-                      ? { rotate: [0, -10, 10, -6, 6, 0] }
-                      : { rotate: 0 }
-                  }
-                  transition={
-                    !reduceMotion && unreadCount > 0
-                      ? { duration: 0.6, ease: 'easeOut', repeat: Infinity, repeatDelay: 4 }
-                      : undefined
-                  }
-                >
-                  <Bell className="w-5 h-5" />
-                </motion.div>
-                {unreadCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center text-xs font-bold bg-red-500 text-white rounded-full border-2 border-background"
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </motion.span>
-                )}
-              </Button>
-            </Tooltip>
-
-            {/* Portal para el dropdown */}
-            {mounted && createPortal(
-              <AnimatePresence>
-                {isOpen && (
-                  <>
-                    {/* Overlay */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[9998]"
-                      onClick={() => setIsOpen(false)}
-                    />
-
-                    {/* Dropdown */}
-                    <motion.div
-                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      style={{
-                        position: 'fixed',
-                        top: `${dropdownPosition.top}px`,
-                        right: `${dropdownPosition.right}px`,
-                      }}
-                      className={`${expandedView ? 'w-[500px]' : 'w-96'} max-h-[80vh] bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[9999] flex flex-col transition-all duration-300`}
-                    >
-                      {/* Header con acciones */}
-                      <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-white">Notificaciones</h3>
-                          {unreadCount > 0 && (
-                            <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {/* Filtro */}
-                          <button
-                            onClick={() => setFilterUnread(!filterUnread)}
-                            title={filterUnread ? 'Mostrar todas' : 'Solo no leídas'}
-                            className={`p-1.5 rounded-lg transition-colors ${filterUnread
-                                ? 'bg-primary-500/20 text-primary-300'
-                                : 'text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            <Filter className="w-4 h-4" />
-                          </button>
-                          {/* Expandir/Contraer */}
-                          <button
-                            onClick={() => setExpandedView(!expandedView)}
-                            title={expandedView ? 'Vista normal' : 'Vista expandida'}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
-                          >
-                            {expandedView ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                          </button>
-                          {/* Marcar todas como leídas */}
-                          {unreadCount > 0 && (
-                            <button
-                              onClick={markAllAsRead}
-                              title="Marcar todas como leídas"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                          )}
-                          {/* Limpiar todas */}
-                          {notifications && notifications.length > 0 && (
-                            <button
-                              onClick={clearAllNotifications}
-                              title="Eliminar todas"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-y-auto" style={{
-                        scrollbarWidth: 'thin',
-                        scrollbarColor: 'rgba(255,255,255,0.3) transparent'
-                      }}>
-                        <style jsx>{`
-                          div::-webkit-scrollbar {
-                            width: 6px;
-                          }
-                          div::-webkit-scrollbar-track {
-                            background: transparent;
-                          }
-                          div::-webkit-scrollbar-thumb {
-                            background: rgba(255,255,255,0.3);
-                            border-radius: 3px;
-                          }
-                          div::-webkit-scrollbar-thumb:hover {
-                            background: rgba(255,255,255,0.5);
-                          }
-                        `}</style>
-                        {filteredNotifications && filteredNotifications.length > 0 ? (
-                          filteredNotifications.map((notif: any, index: number) => (
-                            <motion.div
-                              key={notif.id || index}
-                              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                              transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
-                              className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.leida ? 'bg-primary-500/5' : ''
-                                }`}
-                            >
-                              <p className="text-sm text-white font-medium truncate">
-                                {notif.titulo || notif.title || 'Notificación'}
-                              </p>
-                              <p className="text-xs text-gray-400 truncate mt-1">
-                                {notif.mensaje || notif.message || ''}
-                              </p>
-                            </motion.div>
-                          ))
-                        ) : (
-                          <div className="p-6 text-center text-gray-400">
-                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">
-                              {filterUnread ? 'No hay notificaciones sin leer' : 'No hay notificaciones'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3 border-t border-white/10 flex items-center justify-between flex-shrink-0">
-                        <span className="text-xs text-gray-400">Efectos</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreference('soundEnabled');
-                            }}
-                            title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
-                            className={`p-2 rounded-lg border transition-colors ${preferences.soundEnabled
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreference('hapticsEnabled');
-                            }}
-                            title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
-                            className={`p-2 rounded-lg border transition-colors ${preferences.hapticsEnabled
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            <Smartphone className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>,
-              document.body
-            )}
+        <div className="flex items-center gap-4">
+          <div className="hidden xl:flex items-center gap-3">
+            <RealTimeBadge isActive={isSocketConnected} />
           </div>
 
-          {/* Theme toggle */}
-          <Tooltip content={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} side="bottom">
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleOpen}
+              className={cn(
+                'relative p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300',
+                unreadCount > 0 && 'text-primary'
+              )}
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center text-[10px] font-black bg-primary text-white rounded-full border-2 border-[#0a0a0f] animate-pulse">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Button>
+            
+            <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} />
+          </div>
+
+          {mounted && (
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              aria-label="Cambiar tema"
-              className="hover-glass-bright"
+              className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-          </Tooltip>
+          )}
 
-          {/* Refresh */}
-          <Tooltip content="Refrescar" side="bottom">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => window.location.reload()}
-              aria-label="Refrescar"
-              className="hover-glass-bright group"
-            >
-              <RefreshCw className={cn('w-5 h-5 transition-transform duration-300', !reduceMotion && 'group-hover:rotate-180')} />
-            </Button>
-          </Tooltip>
+          <div className="h-8 w-[1px] bg-white/5 mx-1 hidden md:block" />
+
+          <div className="flex items-center gap-3 p-1 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-glow-sm group-hover:scale-105 transition-transform">
+              AD
+            </div>
+          </div>
         </div>
       </div>
     </header>
