@@ -3113,3 +3113,76 @@ html[data-theme="light"] .avatar {
     filter: none !important;
   }
 }
+
+/* Importar estilos centralizados de notificaciones */
+@import './notifications.css';
+
+/* Premium Toast Notifications - Added for consistency and high contrast */
+@layer components {
+  .notif-toast {
+    @apply flex items-center gap-4 p-4 rounded-[1.25rem] border backdrop-blur-xl shadow-2xl min-w-[320px] max-w-[420px] transition-all duration-300;
+  }
+
+  .notif-toast-info {
+    @apply bg-blue-500/10 border-blue-500/20 text-blue-400;
+    box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.2), 0 0 20px rgba(59, 130, 246, 0.05);
+  }
+
+  .notif-toast-success {
+    @apply bg-emerald-500/10 border-emerald-500/20 text-emerald-400;
+    box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.2), 0 0 20px rgba(16, 185, 129, 0.05);
+  }
+
+  .notif-toast-warning {
+    @apply bg-amber-500/10 border-amber-500/20 text-amber-400;
+    box-shadow: 0 10px 30px -10px rgba(245, 158, 11, 0.2), 0 0 20px rgba(245, 158, 11, 0.05);
+  }
+
+  .notif-toast-error {
+    @apply bg-red-500/10 border-red-500/20 text-red-400;
+    box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.2), 0 0 20px rgba(239, 68, 68, 0.05);
+  }
+
+  .notif-toast-system {
+    @apply bg-violet-500/10 border-violet-500/20 text-violet-400;
+    box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.2), 0 0 20px rgba(139, 92, 246, 0.05);
+  }
+
+  .notif-icon-container {
+    @apply flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10;
+  }
+
+  .notif-toast-title {
+    @apply block text-[11px] font-black uppercase tracking-[0.2em] opacity-80 mb-0.5;
+  }
+
+  .notif-toast-message {
+    @apply block text-sm font-bold text-white/90 leading-relaxed;
+  }
+
+  .animate-enter {
+    animation: enter 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+  }
+
+  .animate-leave {
+    animation: leave 0.25s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
+  }
+
+  @keyframes enter {
+    from { transform: translate3d(100%, 0, 0) scale(0.9); opacity: 0; }
+    to { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  }
+
+  @keyframes leave {
+    from { transform: scale(1); opacity: 1; }
+    to { transform: scale(0.9); opacity: 0; }
+  }
+}
+
+.shadow-glow-sm {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+.shadow-glow-md {
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+}

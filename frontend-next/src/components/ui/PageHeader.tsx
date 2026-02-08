@@ -16,58 +16,54 @@ export function PageHeader({ title, description, icon, actions, className }: Pag
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className={cn('ultra-card ultra-card--interactive p-6', className)}>
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-start gap-3">
-        {icon && (
+    <div className={cn('relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/80 p-8 backdrop-blur-xl', className)}>
+      {/* Background Accent */}
+      <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 blur-[100px] -ml-32 -mt-32" />
+      
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+        <div className="flex items-center gap-5">
+          {icon && (
+            <motion.div
+              className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary shadow-glow-sm"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.8, rotate: -10 }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              {icon}
+            </motion.div>
+          )}
+          <div className="min-w-0">
+            <motion.h1
+              className="text-3xl md:text-4xl font-black text-white tracking-tight"
+              initial={reduceMotion ? false : { opacity: 0, x: -20 }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {title}
+            </motion.h1>
+            {description && (
+              <motion.p
+                className="text-gray-500 font-bold text-sm mt-1 max-w-2xl"
+                initial={reduceMotion ? false : { opacity: 0, x: -20 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.1, ease: 'easeOut' }}
+              >
+                {description}
+              </motion.p>
+            )}
+          </div>
+        </div>
+
+        {actions && (
           <motion.div
-            className="p-3 rounded-3xl bg-white/5 border border-white/15 shadow-inner-glow"
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.85, rotate: -8 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, rotate: 0 }}
-            transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 28, mass: 0.7 }}
+            className="flex items-center gap-3"
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
           >
-            {icon}
+            {actions}
           </motion.div>
         )}
-        <div className="min-w-0">
-          <motion.h1
-            className="text-4xl md:text-5xl font-extrabold gradient-text-animated tracking-tight"
-            initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.99 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-            transition={reduceMotion ? { duration: 0.12 } : { duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {title}
-          </motion.h1>
-          {description && (
-            <motion.p
-              className="text-gray-300 mt-3 text-base max-w-3xl"
-              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-              transition={reduceMotion ? { duration: 0.12 } : { duration: 0.22, ease: 'easeOut', delay: 0.04 }}
-            >
-              {description}
-            </motion.p>
-          )}
-
-          <motion.div
-            className="mt-5 h-[3px] w-28 rounded-full bg-gradient-to-r from-primary-500 via-cyan-400 to-emerald-400 header-underline-animated shadow-glow-lg origin-left"
-            initial={reduceMotion ? false : { opacity: 0, scaleX: 0 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scaleX: 1 }}
-            transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 30, mass: 0.6 }}
-          />
-        </div>
-      </div>
-
-      {actions && (
-        <motion.div
-          className="flex items-center gap-3"
-          initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
-          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-          transition={reduceMotion ? { duration: 0.12 } : { duration: 0.26, ease: [0.16, 1, 0.3, 1], delay: 0.06 }}
-        >
-          {actions}
-        </motion.div>
-      )}
       </div>
     </div>
   );

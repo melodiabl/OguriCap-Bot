@@ -4,8 +4,7 @@ import React, { createContext, useContext, useEffect, useRef, useCallback, useSt
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { notify } from '@/lib/notify';
 
 export interface Notification {
   id: number;
@@ -30,7 +29,6 @@ export interface NotificationSettings {
 
 interface NotificationContextValue {
   notifications: Notification[];
-
   unreadCount: number;
   settings: NotificationSettings;
   isLoading: boolean;
@@ -107,15 +105,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const isOpenRef = useRef(false);
-  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
-  const toggleOpen = useCallback(() => { const next = !isOpenRef.current; setIsOpen(next); if (typeof window !== 'undefined') console.debug('Notificaciones: toggleOpen', next); }, []);
-
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  
   const { socket } = useSocketConnection();
   const { preferences } = usePreferences();
-  const router = useRouter();
   const loadingRef = useRef(false);
   const seenNotificationsRef = useRef<Set<number>>(new Set());
 
@@ -127,23 +121,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const parsed = JSON.parse(raw) as Partial<NotificationSettings>;
         setSettings(prev => ({ ...prev, ...parsed }));
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, []);
 
   // Save settings to localStorage
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [settings]);
 
   const shouldShowNotification = useCallback((notification: Notification): boolean => {
     if (!settings.enabled) return false;
-
     const categoryMap: Record<string, keyof NotificationSettings> = {
       sistema: 'general',
       bot: 'botEvents',
@@ -151,7 +140,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       tareas: 'tasks',
       error: 'critical',
     };
-
     const settingKey = categoryMap[notification.categoria] || 'general';
     return settings[settingKey] ?? true;
   }, [settings]);
@@ -163,7 +151,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     try {
       const data = await api.getNotificaciones(pageNum, 20);
-      const list = data?.notificaciones || data?.data || [];
+      const list = data?.notifications || data?.notificaciones || data?.data || [];
 
       if (append) {
         setNotifications(prev => [...prev, ...list]);
@@ -171,12 +159,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setNotifications(list);
       }
 
-      // Recalculate unread count
+      const unread = list.filter((n: Notification) => !n.leida).length;
       if (!append) {
-        const unread = list.filter((n: Notification) => !n.leida).length;
         setUnreadCount(unread);
       } else {
-        const unread = list.filter((n: Notification) => !n.leida).length;
         setUnreadCount(prev => prev + unread);
       }
 
@@ -199,26 +185,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     await loadNotifications(page + 1, true);
   }, [hasMore, isLoading, page, loadNotifications]);
 
-  // Register Service Worker for push notifications
-  useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('Service Worker registrado:', registration.scope);
-        })
-        .catch((err) => {
-          console.error('Error registrando Service Worker:', err);
-        });
-    }
-  }, []);
-
-  // Initial load
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Socket events
   useEffect(() => {
     if (!socket) return;
 
@@ -228,14 +198,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!shouldShowNotification(notification)) return;
 
-      // Add to list
       setNotifications(prev => [notification, ...prev].slice(0, 100));
       if (!notification.leida) {
         setUnreadCount(prev => prev + 1);
       }
 
-      // Show toast if enabled
       if (settings.enabled) {
+<<<<<<< HEAD
         const toastClass =
           notification.tipo === 'error'
             ? 'toast-custom toast-error'
@@ -265,14 +234,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (notification.tipo === 'error') toast.error(content, toastOptions);
         else if (notification.tipo === 'success') toast.success(content, toastOptions);
         else toast(content, toastOptions);
+=======
+        const type = notification.tipo || 'info';
+        const title = notification.titulo;
+        const message = notification.mensaje;
+        
+        if (type === 'success') notify.success(message, { title });
+        else if (type === 'error') notify.error(message, { title });
+        else if (type === 'warning') notify.warning(message, { title });
+        else if (type === 'system') notify.system(message, { title });
+        else notify.info(message, { title });
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
       }
 
-      // Play sound if enabled
       if (preferences.soundEnabled && notification.tipo !== 'info') {
         try {
           const audio = new Audio('/sounds/notification.mp3');
           audio.volume = 0.3;
           audio.play().catch(() => { });
+<<<<<<< HEAD
         } catch {
         }
       }
@@ -299,6 +279,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           });
         } catch {
         }
+=======
+        } catch { }
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
       }
     };
 
@@ -313,7 +296,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAsRead = useCallback(async (id: number) => {
     try {
-      await api.markAsRead(id);
+      await api.markNotificationRead(id);
       setNotifications(prev =>
         prev.map(n => (n.id === id ? { ...n, leida: true } : n))
       );
@@ -325,12 +308,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAllAsRead = useCallback(async () => {
     try {
-      await api.markAllAsRead();
+      await api.markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, leida: true })));
       setUnreadCount(0);
-      toast.success('Todas las notificaciones marcadas como leídas');
+      notify.success('Todas las notificaciones marcadas como leídas');
     } catch (err) {
-      toast.error('Error al marcar como leídas');
+      notify.error('Error al marcar como leídas');
     }
   }, []);
 
@@ -345,27 +328,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return prev.filter(n => n.id !== id);
       });
     } catch (err) {
-      toast.error('Error al eliminar notificación');
+      notify.error('Error al eliminar notificación');
     }
   }, []);
 
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
-
-    // If push is enabled, request permission
-    if (newSettings.push && 'Notification' in window && Notification.permission === 'default') {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          setSettings(prev => ({ ...prev, push: false }));
-        }
-      } catch {
-        setSettings(prev => ({ ...prev, push: false }));
-      }
-    }
   }, []);
 
-  const value = useMemo<NotificationContextValue>(() => ({
+  const value = useMemo(() => ({
     notifications,
     unreadCount,
     settings,
@@ -373,14 +344,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     isOpen,
     hasMore,
     setIsOpen,
-    toggleOpen,
+    toggleOpen: () => setIsOpen(prev => !prev),
     markAsRead,
     markAllAsRead,
     deleteNotification,
     loadMore,
     updateSettings,
     refresh,
-  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, setIsOpen, toggleOpen, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
+  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
@@ -390,6 +361,7 @@ export function useNotifications() {
   if (!ctx) throw new Error('useNotifications debe ser usado dentro de NotificationProvider');
   return ctx;
 }
+<<<<<<< HEAD
 
 function getNotificationIcon(tipo: string): string {
   const icons: Record<string, string> = {
@@ -401,3 +373,5 @@ function getNotificationIcon(tipo: string): string {
   };
   return icons[tipo] || '\u2139\uFE0F';
 }
+=======
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62

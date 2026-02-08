@@ -1,21 +1,16 @@
 // Service Worker para Push Notifications de Oguri Bot Panel
-const CACHE_NAME = 'oguricap-panel-v1';
-const STATIC_CACHE = 'oguricap-static-v1';
+const CACHE_NAME = 'oguricap-panel-v3';
+const STATIC_CACHE = 'oguricap-static-v3';
 
-// Install event - cache static assets
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/bot-icon.svg',
-      ]);
+      return cache.addAll(['/', '/bot-icon.svg']);
     })
   );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -29,8 +24,8 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim();
 });
 
-// Push event - handle push notifications
 self.addEventListener('push', (event) => {
+<<<<<<< HEAD
   const data = event.data ? event.data.json() : {};
   const title = data.title || 'Oguri Bot';
   const rawBody = data.body || data.message || 'Nueva notificación';
@@ -39,13 +34,34 @@ self.addEventListener('push', (event) => {
     : String(rawBody || '');
   const options = {
     body,
+=======
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'Oguri Bot', body: event.data ? event.data.text() : 'Nueva notificación' };
+  }
+
+  const title = data.title || data.titulo || 'Oguri Bot';
+  
+  const options = {
+    body: data.body || data.message || data.mensaje || 'Nueva notificación',
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
     icon: data.icon || '/bot-icon.svg',
     badge: '/bot-icon.svg',
     tag: data.tag || `notification-${Date.now()}`,
-    requireInteraction: data.requireInteraction || false,
-    vibrate: data.vibrate || [200, 100, 200],
-    data: data.data || {},
-    actions: data.actions || [],
+    renotify: true,
+    requireInteraction: data.type === 'error' || data.type === 'critical' || data.requireInteraction || false,
+    vibrate: data.vibrate || [100, 50, 100],
+    timestamp: Date.now(),
+    data: {
+      ...data.data,
+      url: data.url || data.data?.url || '/'
+    },
+    actions: data.actions || [
+      { action: 'open', title: 'Ver ahora' },
+      { action: 'close', title: 'Cerrar' }
+    ],
   };
 
   event.waitUntil(
@@ -53,33 +69,22 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Notification click event - handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if (event.action === 'close') return;
 
-  const urlToOpen = event.notification.data?.url || '/';
+  const urlToOpen = new URL(event.notification.data?.url || '/', self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Check if there's already a window/tab open with the target URL
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i];
+      for (const client of clientList) {
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // If not, open a new window/tab
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
     })
   );
 });
-
-// Message event - handle messages from the main thread
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
-

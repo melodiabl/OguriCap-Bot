@@ -70,6 +70,7 @@ export default function SubbotsPage() {
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
   const { user } = useAuth();
+  const phoneInputRef = React.useRef<HTMLInputElement>(null);
   const canDeleteSubbots = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
   const isUsuario = !!user && String(user.rol || '').toLowerCase() === 'usuario';
 
@@ -198,11 +199,16 @@ export default function SubbotsPage() {
       setCurrentPairingSubbot(data.subbotCode);
       setShowPairingModal(true);
       setShowPhoneModal(false);
+<<<<<<< HEAD
       setSubbots(prev => prev.map(s => (
         (s.code === data.subbotCode || s.codigo === data.subbotCode)
           ? { ...s, pairingCode: data.pairingCode, connectionState: 'needs_auth', isOnline: false }
           : s
       )));
+=======
+      // Usamos la versión funcional de setSubbots para no depender de la variable subbots
+      setSubbots(prev => prev); 
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
       loadSubbots();
     };
 
@@ -210,19 +216,26 @@ export default function SubbotsPage() {
       try {
         const qrDataURL = await QRCode.toDataURL(data.qr, { width: 256, margin: 2 });
         setQrImage(qrDataURL);
+<<<<<<< HEAD
         // Nota: setSelectedSubbot y setShowQR se manejan mejor con el estado actual de subbots
         // pero para simplificar lo mantenemos así, asegurando estabilidad de subbots en deps.
+=======
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
         setSubbots(prev => {
           const subbot = prev.find(s => s.code === data.subbotCode);
           if (subbot) {
             setSelectedSubbot(subbot);
             setShowQR(true);
           }
+<<<<<<< HEAD
           return prev.map(s => (
             (s.code === data.subbotCode || s.codigo === data.subbotCode)
               ? { ...s, qr_data: data.qr, connectionState: 'needs_auth', isOnline: false }
               : s
           ));
+=======
+          return [...prev]; // Retornamos una nueva referencia para forzar actualización visual
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
         });
       } catch (err) {
         console.error('Error generando QR:', err);
@@ -251,7 +264,11 @@ export default function SubbotsPage() {
       socket.off('subbot:qr', handleQRCode);
       socket.off('subbot:updated', handleSubbotUpdated);
     };
+<<<<<<< HEAD
   }, [socket, loadSubbots]); // Removido subbots, pendingPairingSubbotCode y showPhoneModal para estabilidad
+=======
+  }, [socket, loadSubbots]); // Re-añadimos loadSubbots ya que es un useCallback estable
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
 
 
 	  const normalizeSubbot = (raw: any): Subbot => {
@@ -636,10 +653,32 @@ export default function SubbotsPage() {
         </p>
         <div className="mb-4">
           <label className="text-sm text-gray-400 mb-1 block">Número de WhatsApp</label>
+<<<<<<< HEAD
           <input type="tel" placeholder="Ejemplo: 01231313" value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             className="input-glass w-full"
             data-autofocus />
+=======
+          <input 
+            ref={phoneInputRef}
+            type="tel" 
+            placeholder="Ejemplo: 595974154768" 
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            onBlur={(e) => {
+              // Si el foco se va a otro elemento dentro del mismo modal, no hacemos nada
+              if (e.relatedTarget && e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) {
+                return;
+              }
+              // Si el foco se pierde por un re-render (document.activeElement es el body o null)
+              if (showPhoneModal && (!document.activeElement || document.activeElement === document.body)) {
+                setTimeout(() => phoneInputRef.current?.focus(), 10);
+              }
+            }}
+            data-autofocus
+            className="input-glass w-full" 
+          />
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
         </div>
         {isSocketConnected && (
           <p className="text-sm text-emerald-400 mb-4 flex items-center gap-2">

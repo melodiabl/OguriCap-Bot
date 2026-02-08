@@ -43,4 +43,11 @@ frontend-next/.env.local
 # Storage y media
 storage/
 frontend-next/package-lock.json
+<<<<<<< HEAD
 package-lock.json
+=======
+
+.monitoring
+database/backups
+.env
+>>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62

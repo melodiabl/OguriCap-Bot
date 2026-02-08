@@ -101,9 +101,9 @@ cd && cd OguriCap-bot&& rm -rf sessions/Principal && npm run code
 <details>
 <summary><b>❀ Actualizar Oguri Cap-botMD</b></summary>
 
-> **Utiliza esta opción únicamente si deseas actualizar a la última versión de YukiBot. Hemos implementado un método ingenioso mediante comandos para realizar la actualización, pero ten en cuenta que al usarla se eliminarán todos los archivos de la versión actual y se reemplazarán con los de la nueva versión. Solo se conservará la base de datos, por lo que será necesario volver a vincular el Bot.**  
+> **Utiliza esta opción únicamente si deseas actualizar a la última version de OguriBot. Hemos implementado un método ingenioso mediante comandos para realizar la actualización, pero ten en cuenta que al usarla se eliminarán todos los archivos de la versión actual y se reemplazarán con los de la nueva versión. Solo se conservará la base de datos, por lo que será necesario volver a vincular el Bot.**  
 
-**Comandos para actualizar OguriC Cap bot de forma automática**
+**Comandos para actualizar OguriCap bot de forma automática**
 
 ```bash
 grep -q 'bash\|wget' <(dpkg -l) || apt install -y bash wget && wget -O - https://raw.githubusercontent.com/DevAlexJs/SakuraBot-MD/master/termux.sh | bash 
