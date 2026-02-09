@@ -1,23 +1,14 @@
 'use client';
 
-<<<<<<< HEAD
 import React, { useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
-=======
-import React, { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
 import { useTheme } from 'next-themes';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-<<<<<<< HEAD
 import { Bell, Search, Moon, Sun, RefreshCw, Menu, X } from 'lucide-react';
-=======
-import { Bell, Search, Moon, Sun, Menu, X } from 'lucide-react';
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { RealTimeBadge } from '@/components/ui/StatusIndicator';
@@ -30,7 +21,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
-<<<<<<< HEAD
   const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -42,20 +32,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
 
   const currentPage = NAV_ITEMS.find(item => item.path === pathname);
   const isConnected = pollingConnected;
-=======
-  const [mounted, setMounted] = useState(false);
-  const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
-  const { isConnected: isSocketConnected } = useSocketConnection();
-  const { isConnected: pollingConnected } = useBotStatus(5000);
-  const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const currentPage = menuItems.find(item => item.path === pathname);
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
 
   return (
     <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 bg-[#0a0a0f]/80 px-4 lg:px-8 backdrop-blur-xl">
@@ -73,27 +49,16 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           </div>
 
           <div className="hidden sm:block">
-<<<<<<< HEAD
             <h2 className="text-2xl font-extrabold gradient-text-animated tracking-tight">
               {currentPage?.headerLabel || currentPage?.label || 'Panel'}
-=======
-            <h2 className="text-xl font-black text-white uppercase tracking-[0.15em]">
-              {currentPage?.label || 'Panel'}
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
             </h2>
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* Center - Search */}
         <div className="hidden md:flex flex-1 max-w-md mx-8">
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
-=======
-        <div className="hidden md:flex flex-1 max-w-md mx-12">
-          <div className="relative w-full group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
             <input
               type="text"
               placeholder="Buscar en el panel..."
@@ -102,7 +67,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* Right side */}
         <div className="flex items-center gap-3">
           {/* Socket.IO status */}
@@ -157,11 +121,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
             </Tooltip>
 
             <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} buttonRef={buttonRef} />
-=======
-        <div className="flex items-center gap-4">
-          <div className="hidden xl:flex items-center gap-3">
-            <RealTimeBadge isActive={isSocketConnected} />
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
           </div>
 
           <div className="relative">
