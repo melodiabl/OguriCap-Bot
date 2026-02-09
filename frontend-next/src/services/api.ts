@@ -88,7 +88,6 @@ class ApiService {
     return response.data
   }
 
-<<<<<<< HEAD
   async getBotQR() {
     const response = await this.api.get('/api/bot/qr')
     return response.data
@@ -201,8 +200,6 @@ class ApiService {
     return response.data
   }
 
-=======
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
   // Dashboard
   async getStats(): Promise<DashboardStats> {
     const response = await this.api.get('/api/dashboard/stats')
@@ -229,7 +226,6 @@ class ApiService {
     const response = await this.api.get(`/api/usuarios?page=${page}&limit=${limit}`);
     return response.data;
   }
-<<<<<<< HEAD
 
   async deleteGrupo(idOrJid: number | string) {
     const response = await this.api.delete(`/api/grupos/${idOrJid}`);
@@ -531,15 +527,11 @@ class ApiService {
   }
 
   // System
-=======
-  
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
   async getSystemStats() {
     const response = await this.api.get('/api/system/stats');
     return response.data;
   }
 
-<<<<<<< HEAD
   async getSystemConfig() {
     const response = await this.api.get('/api/system/config');
     return response.data;
@@ -1014,10 +1006,6 @@ class ApiService {
   // Recent Activity
   async getRecentActivity(limit = 10) {
     const response = await this.api.get(`/api/dashboard/recent-activity?limit=${limit}`);
-=======
-  async getRecentActivity(limit = 5) {
-    const response = await this.api.get(`/api/logs/recent?limit=${limit}`);
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
     return response.data;
   }
 }
