@@ -204,7 +204,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
 
       if (settings.enabled) {
-<<<<<<< HEAD
         const toastClass =
           notification.tipo === 'error'
             ? 'toast-custom toast-error'
@@ -234,17 +233,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (notification.tipo === 'error') toast.error(content, toastOptions);
         else if (notification.tipo === 'success') toast.success(content, toastOptions);
         else toast(content, toastOptions);
-=======
-        const type = notification.tipo || 'info';
-        const title = notification.titulo;
-        const message = notification.mensaje;
-        
-        if (type === 'success') notify.success(message, { title });
-        else if (type === 'error') notify.error(message, { title });
-        else if (type === 'warning') notify.warning(message, { title });
-        else if (type === 'system') notify.system(message, { title });
-        else notify.info(message, { title });
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
       }
 
       if (preferences.soundEnabled && notification.tipo !== 'info') {
@@ -252,7 +240,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const audio = new Audio('/sounds/notification.mp3');
           audio.volume = 0.3;
           audio.play().catch(() => { });
-<<<<<<< HEAD
         } catch {
         }
       }
@@ -279,9 +266,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           });
         } catch {
         }
-=======
-        } catch { }
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
       }
     };
 
@@ -361,7 +345,6 @@ export function useNotifications() {
   if (!ctx) throw new Error('useNotifications debe ser usado dentro de NotificationProvider');
   return ctx;
 }
-<<<<<<< HEAD
 
 function getNotificationIcon(tipo: string): string {
   const icons: Record<string, string> = {
@@ -373,5 +356,3 @@ function getNotificationIcon(tipo: string): string {
   };
   return icons[tipo] || '\u2139\uFE0F';
 }
-=======
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
