@@ -59,28 +59,12 @@ class ApiService {
     return response.data
   }
 
-  // Notificaciones
-  async getNotificaciones(page = 1, limit = 20, filters = {}) {
-    const offset = (page - 1) * limit;
-    const params = new URLSearchParams({ offset: String(offset), limit: String(limit), ...filters });
-    const response = await this.api.get(`/api/notifications?${params}`);
+  async registerPublic(userData: { email: string; username: string; password: string; whatsapp_number?: string }) {
+    const response = await this.api.post('/api/auth/register-public', userData);
     return response.data;
   }
 
-  async markNotificationRead(id: number) {
-    const response = await this.api.patch(`/api/notifications/${id}/read`);
-    return response.data;
-  }
 
-  async markAllNotificationsRead() {
-    const response = await this.api.post('/api/notifications/mark-all-read');
-    return response.data;
-  }
-
-  async deleteNotification(id: number) {
-    const response = await this.api.delete(`/api/notifications/${id}`);
-    return response.data;
-  }
 
   // Bot
   async getBotStatus(): Promise<BotStatus> {
@@ -212,20 +196,7 @@ class ApiService {
     return response.data;
   }
   
-  async getAportes(page = 1, limit = 20) {
-    const response = await this.api.get(`/api/aportes?page=${page}&limit=${limit}`);
-    return response.data;
-  }
 
-  async getPedidos(page = 1, limit = 20) {
-    const response = await this.api.get(`/api/pedidos?page=${page}&limit=${limit}`);
-    return response.data;
-  }
-
-  async getUsuarios(page = 1, limit = 20) {
-    const response = await this.api.get(`/api/usuarios?page=${page}&limit=${limit}`);
-    return response.data;
-  }
 
   async deleteGrupo(idOrJid: number | string) {
     const response = await this.api.delete(`/api/grupos/${idOrJid}`);
@@ -603,6 +574,11 @@ class ApiService {
 
   async authorizeGroup(jid: string | number, enabled: boolean) {
     return this.updateGrupo(jid, { bot_enabled: enabled } as any);
+  }
+
+  async updateGrupo(jid: string | number, config: { bot_enabled?: boolean; nombre?: string; descripcion?: string; es_proveedor?: boolean }) {
+    const response = await this.api.patch(`/api/grupos/${encodeURIComponent(String(jid))}`, config);
+    return response.data;
   }
 
   async getAvailableGrupos() {
