@@ -17,7 +17,7 @@ import { RealTimeBadge } from '@/components/ui/StatusIndicator';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useLoadingOverlay } from '@/contexts/LoadingOverlayContext';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notify.tsx';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
 import { useGroups } from '@/contexts/GroupsContext';

@@ -17,7 +17,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { usePedidosSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notify.tsx';
 import { Pedido } from '@/types';
 
 const PENDING_LIBRARY_PROCESS_STORAGE_KEY = 'panel:pedidos:pending-library-process:v1';

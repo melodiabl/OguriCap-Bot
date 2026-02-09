@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useRef, useCallback, useSt
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notify.tsx';
 
 export interface Notification {
   id: number;
