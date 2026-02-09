@@ -24,6 +24,7 @@ import {
   Database,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Copy,
   Activity,
   CheckCircle,
@@ -38,6 +39,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/Select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';

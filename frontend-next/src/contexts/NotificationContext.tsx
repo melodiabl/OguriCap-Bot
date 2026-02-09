@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
 import api from '@/services/api';
@@ -110,8 +112,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   
   const { socket } = useSocketConnection();
   const { preferences } = usePreferences();
+  const router = useRouter();
   const loadingRef = useRef(false);
   const seenNotificationsRef = useRef<Set<number>>(new Set());
+
+  const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -328,14 +333,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     isOpen,
     hasMore,
     setIsOpen,
-    toggleOpen: () => setIsOpen(prev => !prev),
+    toggleOpen,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     loadMore,
     updateSettings,
     refresh,
-  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
+  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, toggleOpen, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }

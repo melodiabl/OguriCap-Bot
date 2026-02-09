@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
@@ -11,6 +11,7 @@ import { NotificationDropdown } from '@/components/notifications/NotificationDro
 import { Bell, Search, Moon, Sun, RefreshCw, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { RealTimeBadge } from '@/components/ui/StatusIndicator';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from '@/lib/navigation';
@@ -29,6 +30,11 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
   const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const currentPage = NAV_ITEMS.find(item => item.path === pathname);
   const isConnected = pollingConnected;
