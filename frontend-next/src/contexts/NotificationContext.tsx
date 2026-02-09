@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
 import api from '@/services/api';
-import { notify } from '@/lib/notify.tsx';
+import { notify } from '@/lib/notify';
 
 export interface Notification {
   id: number;

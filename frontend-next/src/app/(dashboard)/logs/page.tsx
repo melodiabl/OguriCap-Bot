@@ -59,7 +59,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
-import { notify } from '@/lib/notify.tsx';
+import { notify } from '@/lib/notify';
 
 interface LogEntry {
   timestamp: string;

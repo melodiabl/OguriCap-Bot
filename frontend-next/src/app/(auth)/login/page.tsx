@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { ForgotPasswordModal } from '@/components/ForgotPasswordModal';
 import { Bot, Eye, EyeOff, Lock, User, Sparkles, Zap, Shield, Crown, UserCheck, Users, Wrench, AlertTriangle } from 'lucide-react';
-import { notify } from '@/lib/notify.tsx';
+import { notify } from '@/lib/notify';
 import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 import { cn } from '@/lib/utils';
 import { LoginRolesSelector, type LoginRoleOption } from '@/components/auth/LoginRolesSelector';
