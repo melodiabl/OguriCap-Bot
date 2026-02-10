@@ -250,7 +250,7 @@ export function TerminalLogViewer() {
             </div>
           </div>
         ) : (
-          <div ref={containerRef} className="h-[600px] w-full bg-[#070b16]" />
+          <div ref={containerRef} className="h-[600px] w-full" style={{ backgroundColor: 'rgb(var(--bg-0) / 1)' }} />
         )}
       </div>
 

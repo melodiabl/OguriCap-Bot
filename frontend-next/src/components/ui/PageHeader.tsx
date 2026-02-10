@@ -16,7 +16,7 @@ export function PageHeader({ title, description, icon, actions, className }: Pag
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className={cn('relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/80 p-8 backdrop-blur-xl', className)}>
+    <div className={cn('relative overflow-hidden rounded-2xl border border-white/10 p-8 backdrop-blur-xl', className)} style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
       {/* Background Accent */}
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 blur-[100px] -ml-32 -mt-32" />
       

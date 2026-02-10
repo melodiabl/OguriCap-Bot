@@ -17,11 +17,12 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, animated = false, delay = 0, hover = true, glow = false, children, ...props }, ref) => {
     const reduceMotion = useReducedMotion();
     const cardClassName = cn(
-      'relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/80 backdrop-blur-xl',
-      hover && 'hover:border-primary/40 hover:bg-[#0a0a0f]/95 transition-all duration-300 hover:shadow-2xl',
+      'relative overflow-hidden rounded-2xl border border-white/10 backdrop-blur-xl',
+      hover && 'hover:border-primary/40 transition-all duration-300 hover:shadow-2xl',
       glow && 'shadow-[0_0_30px_-10px_rgba(var(--primary-rgb),0.3)]',
       className
     );
+    const cardStyle = { backgroundColor: 'rgb(var(--bg-0) / 0.80)' };
     if (animated) {
       return (
         <motion.div
@@ -31,6 +32,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
           viewport={{ once: true, amount: 0.25 }}
           transition={{ duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] }}
           className={cardClassName}
+          style={cardStyle}
           {...props}
         >
           {children}
@@ -39,7 +41,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     }
 
     return (
-      <div ref={ref} className={cardClassName} {...(props as any)}>
+      <div ref={ref} className={cardClassName} style={cardStyle} {...(props as any)}>
         {children}
       </div>
     );
@@ -123,7 +125,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   if (loading) {
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/80 p-5">
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 p-5" style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
         <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-4 w-24 rounded bg-white/5" />
           <Skeleton className="h-10 w-10 rounded-xl bg-white/5" />
@@ -137,10 +139,11 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/80 p-5 group transition-all duration-300',
-        'hover:border-primary/40 hover:bg-[#0a0a0f]/95 hover:shadow-2xl hover:-translate-y-1',
+        'relative overflow-hidden rounded-2xl border border-white/10 p-5 group transition-all duration-300',
+        'hover:border-primary/40 hover:shadow-2xl hover:-translate-y-1',
         active && 'animate-pulse-glow border-primary/50 shadow-glow-sm'
       )}
+      style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}
       initial={shouldAnimate ? { opacity: 0, y: 20, scale: 0.98 } : undefined}
       whileInView={shouldAnimate ? { opacity: 1, y: 0, scale: 1 } : undefined}
       viewport={shouldAnimate ? { once: true, amount: 0.35 } : undefined}
@@ -208,9 +211,10 @@ export const GlowCard: React.FC<GlowCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'relative rounded-2xl bg-[#0a0a0f]/80 border border-white/10 shadow-[0_0_30px_-10px_rgba(var(--primary-rgb),0.2)] overflow-hidden',
+        'relative rounded-2xl border border-white/10 shadow-[0_0_30px_-10px_rgba(var(--primary-rgb),0.2)] overflow-hidden',
         className
       )}
+      style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}
       initial={!reduceMotion && animated ? { opacity: 0, y: 20 } : undefined}
       whileInView={!reduceMotion && animated ? { opacity: 1, y: 0 } : undefined}
       viewport={!reduceMotion && animated ? { once: true, amount: 0.3 } : undefined}

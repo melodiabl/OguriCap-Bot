@@ -86,7 +86,7 @@ export const BotStatusCard: React.FC<BotStatusCardProps> = ({
   const status = isConnecting ? 'connecting' : isConnected ? 'online' : 'offline';
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/80 p-6 group">
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 p-6 group" style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-sm font-black text-white uppercase tracking-widest">Estado del Bot</h3>
         <StatusIndicator status={status} />

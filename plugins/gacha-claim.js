@@ -41,8 +41,9 @@ let handler = async (m, { conn, usedPrefix, command }) => {
     }
     
     const characterId = chatData.lastRolledCharacter?.id || ''
-    const canClaim = m.quoted?.id === chatData.lastRolledMsgId || 
-                    m.quoted?.text?.includes(characterId) && characterId
+    const quotedMsgId = m.quoted?.key?.id || m.quoted?.id
+    const canClaim = (quotedMsgId && quotedMsgId === chatData.lastRolledMsgId) || 
+                    (m.quoted?.text?.includes(characterId) && characterId)
     
     if (!canClaim) return m.reply('❀ Debes citar un personaje válido para reclamar.')
     

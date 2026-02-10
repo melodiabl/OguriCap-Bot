@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const isConnected = pollingConnected;
 
   return (
-    <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 bg-[#0a0a0f]/80 px-4 lg:px-8 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 backdrop-blur-xl" style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
       <div className="flex h-full items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="lg:hidden">
@@ -129,26 +129,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
             <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} buttonRef={buttonRef} />
           </div>
 
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleOpen}
-              className={cn(
-                'relative p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300',
-                unreadCount > 0 && 'text-primary'
-              )}
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center text-[10px] font-black bg-primary text-white rounded-full border-2 border-[#0a0a0f] animate-pulse">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </Button>
-            
-            <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} />
-          </div>
+
 
           {mounted && (
             <Button
