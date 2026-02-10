@@ -1,5 +1,4 @@
 import { promises as fs } from 'fs'
-
 const charactersFilePath = './lib/characters.json'
 
 async function loadCharacters() {
