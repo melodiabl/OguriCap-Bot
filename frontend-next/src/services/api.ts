@@ -196,8 +196,15 @@ class ApiService {
   }
 
   // Otros
-  async getGroups(page = 1, limit = 20) {
-    const response = await this.api.get(`/api/grupos?page=${page}&limit=${limit}`);
+  async getGroups(page = 1, limit = 20, search?: string, botEnabled?: boolean | string, esProveedor?: boolean | string) {
+    const params = new URLSearchParams();
+    params.append('page', String(page));
+    params.append('limit', String(limit));
+    if (search) params.append('search', search);
+    if (botEnabled !== undefined && botEnabled !== null) params.append('botEnabled', String(botEnabled));
+    if (esProveedor !== undefined && esProveedor !== null) params.append('es_proveedor', String(esProveedor));
+    
+    const response = await this.api.get(`/api/grupos?${params}`);
     return response.data;
   }
   
