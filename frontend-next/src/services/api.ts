@@ -69,7 +69,10 @@ class ApiService {
     return response.data;
   }
 
-
+  async requestPasswordResetEmail(identifier: string) {
+    const response = await this.api.post('/api/auth/password-reset/request', { identifier });
+    return response.data;
+  }
 
   // Bot
   async getBotStatus(): Promise<BotStatus> {
