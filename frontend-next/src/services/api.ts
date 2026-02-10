@@ -884,6 +884,11 @@ class ApiService {
     return response.data;
   }
 
+  async deleteBackup(backupId: string) {
+    const response = await this.api.delete(`/api/backups/${backupId}`);
+    return response.data;
+  }
+
   // Advanced notifications
   async markNotificationAsRead(id: number) {
     const response = await this.api.patch(`/api/notificaciones/${id}/read`);
