@@ -40,9 +40,11 @@ if (userData.lastClaim && now < userData.lastClaim) {
 }  
   
 const characterId = chatData.lastRolledCharacter?.id || ''  
-const canClaim = m.quoted?.id === chatData.lastRolledMsgId ||   
+// El ID del mensaje citado puede estar en m.quoted.id o m.quoted.stanzaId dependiendo de la versión de simple.js
+const quotedId = m.quoted?.id || m.quoted?.stanzaId || ''
+const canClaim = (quotedId && quotedId === chatData.lastRolledMsgId) ||   
                 (m.quoted?.text?.includes(characterId) && characterId) ||
-                (!m.quoted && characterId) // Permitir reclamar sin citar si hay un personaje reciente
+                (!m.quoted && characterId)
   
 if (!canClaim) return m.reply('❀ Debes citar un personaje válido para reclamar.')  
   
