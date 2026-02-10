@@ -893,6 +893,11 @@ class ApiService {
   }
 
   // Advanced notifications
+  async markNotificationRead(id: number) {
+    const response = await this.api.patch(`/api/notificaciones/${id}/read`);
+    return response.data;
+  }
+
   async markNotificationAsRead(id: number) {
     const response = await this.api.patch(`/api/notificaciones/${id}/read`);
     return response.data;
