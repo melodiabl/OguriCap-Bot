@@ -254,8 +254,6 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
     socket.on('stats:updated', handleStatsUpdate);
     socket.on('stats:update', handleStatsUpdate);
 
-    socket.on('notification:created', handleNotificationUpdate);
-
     socket.on('group:updated', handleGroupUpdate);
 
     socket.on('subbot:created', handleSubbotUpdate);
@@ -276,8 +274,6 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       socket.off('stats:updated', handleStatsUpdate);
       socket.off('stats:update', handleStatsUpdate);
-
-      socket.off('notification:created', handleNotificationUpdate);
 
       socket.off('group:updated', handleGroupUpdate);
 

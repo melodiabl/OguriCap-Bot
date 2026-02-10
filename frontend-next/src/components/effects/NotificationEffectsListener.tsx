@@ -99,11 +99,9 @@ export function NotificationEffectsListener() {
     };
 
     socket.on(SOCKET_EVENTS.NOTIFICATION, handle);
-    socket.on('notification:created', handle);
 
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handle);
-      socket.off('notification:created', handle);
     };
   }, [preferences.hapticsEnabled, preferences.soundEnabled, socket]);
 
