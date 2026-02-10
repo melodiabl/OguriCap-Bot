@@ -24,7 +24,7 @@ export const BroadcastTool: React.FC = () => {
     channels: true,
     communities: true
   });
-  const [selectedJids, setSelectedJids] = useState<Set<string>>(new Set());
+  const [selectedJids, setSelectedJids] = useState<Set<string>>(new Set<string>());
   const [targets, setTargets] = useState({
     groups: true,
     channels: true,
@@ -43,7 +43,7 @@ export const BroadcastTool: React.FC = () => {
       if (res.items) {
         setGroups(res.items);
         // Seleccionar todos por defecto
-        const allJids = new Set(res.items.map((g: Group) => g.wa_jid));
+        const allJids = new Set<string>(res.items.map((g: Group) => g.wa_jid));
         setSelectedJids(allJids);
       }
     } catch (error) {
