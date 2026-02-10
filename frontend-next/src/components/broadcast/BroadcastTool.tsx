@@ -11,10 +11,11 @@ export const BroadcastTool: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [targets, setTargets] = useState({
-    groups: true,
+    groups: false,
     channels: false,
     communities: false
   });
+  const [sendToAll, setSendToAll] = useState(true);
 
   const handleSend = async () => {
     if (!message.trim()) {
@@ -22,8 +23,9 @@ export const BroadcastTool: React.FC = () => {
       return;
     }
 
-    if (!targets.groups && !targets.channels && !targets.communities) {
-      toast.error('Selecciona al menos un destino');
+    // Si sendToAll está activado, no validar targets
+    if (!sendToAll && !targets.groups && !targets.channels && !targets.communities) {
+      toast.error('Selecciona al menos un destino o activa "Enviar a todos"');
       return;
     }
 
@@ -31,11 +33,14 @@ export const BroadcastTool: React.FC = () => {
     try {
       const res = await api.sendBroadcast({
         message,
-        targets
+        targets: sendToAll ? {} : targets
       });
       
       if (res.success) {
-        toast.success(`Envío masivo iniciado para aprox. ${res.estimatedTargets} destinatarios`);
+        const targetInfo = res.stats 
+          ? `Grupos: ${res.stats.groups}, Canales: ${res.stats.channels}, Comunidades: ${res.stats.communities}`
+          : `aprox. ${res.estimatedTargets} destinatarios`;
+        toast.success(`Envío masivo iniciado para ${targetInfo}`);
         setMessage('');
       }
     } catch (error: any) {
@@ -63,44 +68,60 @@ export const BroadcastTool: React.FC = () => {
       </div>
 
       <div className="space-y-6">
-        {/* Destinos */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            onClick={() => setTargets(prev => ({ ...prev, groups: !prev.groups }))}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
-              targets.groups 
-                ? 'bg-primary-500/20 border-primary-500/50 text-primary-200' 
-                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span className="text-sm font-medium">Grupos</span>
-          </button>
-
-          <button
-            onClick={() => setTargets(prev => ({ ...prev, channels: !prev.channels }))}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
-              targets.channels 
-                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200' 
-                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span className="text-sm font-medium">Canales</span>
-          </button>
-
-          <button
-            onClick={() => setTargets(prev => ({ ...prev, communities: !prev.communities }))}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
-              targets.communities 
-                ? 'bg-violet-500/20 border-violet-500/50 text-violet-200' 
-                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            <span className="text-sm font-medium">Comunidades</span>
-          </button>
+        {/* Opción de Enviar a Todos */}
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+          <input
+            type="checkbox"
+            checked={sendToAll}
+            onChange={(e) => setSendToAll(e.target.checked)}
+            className="w-4 h-4 rounded cursor-pointer"
+          />
+          <label className="flex-1 cursor-pointer">
+            <p className="text-sm font-medium text-blue-200">Enviar a todos los grupos, canales y comunidades</p>
+            <p className="text-xs text-blue-300/70">Desactiva esto para seleccionar destinos específicos</p>
+          </label>
         </div>
+
+        {/* Destinos (solo si no es enviar a todos) */}
+        {!sendToAll && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              onClick={() => setTargets(prev => ({ ...prev, groups: !prev.groups }))}
+              className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
+                targets.groups 
+                  ? 'bg-primary-500/20 border-primary-500/50 text-primary-200' 
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-medium">Grupos</span>
+            </button>
+
+            <button
+              onClick={() => setTargets(prev => ({ ...prev, channels: !prev.channels }))}
+              className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
+                targets.channels 
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200' 
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm font-medium">Canales</span>
+            </button>
+
+            <button
+              onClick={() => setTargets(prev => ({ ...prev, communities: !prev.communities }))}
+              className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
+                targets.communities 
+                  ? 'bg-violet-500/20 border-violet-500/50 text-violet-200' 
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <Globe className="w-4 h-4" />
+              <span className="text-sm font-medium">Comunidades</span>
+            </button>
+          </div>
+        )}
 
         {/* Mensaje */}
         <div className="space-y-2">
