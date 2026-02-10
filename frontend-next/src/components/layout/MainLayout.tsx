@@ -86,50 +86,52 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
         {/* Page content */}
-        <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
-          {isLiteMode ? (
-            <div className="relative page-shell">
-              <div aria-hidden="true" className="page-backdrop" />
-              <div aria-hidden="true" className="page-backdrop-grid" />
-              <div className="relative z-10">{stagedChildren}</div>
-            </div>
-          ) : (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={pathname}
-                className="relative page-perspective page-shell"
-                initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
-                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
-                transition={
-                  reduceMotion
-                    ? { duration: 0.12 }
-                    : {
-                        duration: 0.42,
-                        ease: [0.16, 1, 0.3, 1],
-                      }
-                }
-              >
+        <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
+          <div className="max-w-7xl mx-auto w-full">
+            {isLiteMode ? (
+              <div className="relative page-shell">
                 <div aria-hidden="true" className="page-backdrop" />
                 <div aria-hidden="true" className="page-backdrop-grid" />
-                <motion.div
-                  aria-hidden="true"
-                  className="page-transition-overlay"
-                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-                  animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                />
                 <div className="relative z-10">{stagedChildren}</div>
-              </motion.div>
-            </AnimatePresence>
-          )}
+              </div>
+            ) : (
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={pathname}
+                  className="relative page-perspective page-shell"
+                  initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.12 }
+                      : {
+                          duration: 0.42,
+                          ease: [0.16, 1, 0.3, 1],
+                        }
+                  }
+                >
+                  <div aria-hidden="true" className="page-backdrop" />
+                  <div aria-hidden="true" className="page-backdrop-grid" />
+                  <motion.div
+                    aria-hidden="true"
+                    className="page-transition-overlay"
+                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+                    animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                  <div className="relative z-10">{stagedChildren}</div>
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
         </main>
 
         <FloatingSupportButton />
 
         {/* Footer */}
-        <footer className="px-4 lg:px-6 py-4 border-t border-white/10 glass-dark">
-          <div className="flex items-center justify-between gap-4 text-sm text-gray-400">
+        <footer className="px-4 lg:px-8 py-4 border-t border-white/10 glass-dark">
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-4 text-sm text-gray-400">
             <span>© 2026 OguriCap Bot Panel</span>
             <div className="flex items-center gap-4">
               <span className="hidden sm:inline text-xs font-mono text-gray-500">v1.0.0</span>

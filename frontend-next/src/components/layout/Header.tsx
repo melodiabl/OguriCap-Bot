@@ -40,8 +40,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const isConnected = pollingConnected;
 
   return (
-    <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 backdrop-blur-xl" style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
-      <div className="flex h-full items-center justify-between">
+    <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 backdrop-blur-xl px-4 lg:px-8" style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
+      <div className="max-w-7xl mx-auto w-full flex h-full items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="lg:hidden">
             <Button

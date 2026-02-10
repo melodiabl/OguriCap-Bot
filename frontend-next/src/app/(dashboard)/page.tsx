@@ -154,7 +154,7 @@ export default function DashboardPage() {
       </Reveal>
 
       {/* Stats Grid */}
-      <Stagger className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" delay={0.08} stagger={0.06}>
+      <Stagger className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6" delay={0.08} stagger={0.06}>
         <StaggerItem>
           <Magnetic>
             <StatCard

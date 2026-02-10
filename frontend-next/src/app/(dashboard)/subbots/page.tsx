@@ -440,7 +440,7 @@ export default function SubbotsPage() {
       />
 
       {/* Stats */}
-      <Stagger className="grid grid-cols-1 md:grid-cols-4 gap-6" delay={0.02} stagger={0.07}>
+      <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" delay={0.02} stagger={0.07}>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard
             title="Total Subbots"
