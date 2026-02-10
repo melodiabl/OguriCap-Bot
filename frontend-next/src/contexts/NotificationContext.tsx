@@ -246,11 +246,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     socket.on(SOCKET_EVENTS.NOTIFICATION, handleNotification);
-    socket.on('notification:created', handleNotification);
 
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
-      socket.off('notification:created', handleNotification);
     };
   }, [socket, shouldShowNotification, settings, preferences]);
 

@@ -181,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center text-xs font-bold bg-red-500 text-white rounded-full border-2 border-background"
+                    className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center text-xs font-bold bg-red-500 text-white rounded-full border-2 border-background dark:border-background light:border-white"
                   >
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </motion.span>
@@ -190,166 +190,11 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
             </Tooltip>
 
             {/* Portal para el dropdown */}
-            {mounted && createPortal(
-              <AnimatePresence>
-                {isOpen && (
-                  <>
-                    {/* Overlay */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[9998]"
-                      onClick={() => setIsOpen(false)}
-                    />
-
-                    {/* Dropdown */}
-                    <motion.div
-                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      style={{
-                        position: 'fixed',
-                        top: `${dropdownPosition.top}px`,
-                        right: `${dropdownPosition.right}px`,
-                      }}
-                      className={`${expandedView ? 'w-[500px]' : 'w-96'} max-h-[80vh] bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[9999] flex flex-col transition-all duration-300`}
-                    >
-                      {/* Header con acciones */}
-                      <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-white">Notificaciones</h3>
-                          {unreadCount > 0 && (
-                            <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {/* Filtro */}
-                          <button
-                            onClick={() => setFilterUnread(!filterUnread)}
-                            title={filterUnread ? 'Mostrar todas' : 'Solo no leídas'}
-                            className={`p-1.5 rounded-lg transition-colors ${filterUnread
-                                ? 'bg-primary-500/20 text-primary-300'
-                                : 'text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            <Filter className="w-4 h-4" />
-                          </button>
-                          {/* Expandir/Contraer */}
-                          <button
-                            onClick={() => setExpandedView(!expandedView)}
-                            title={expandedView ? 'Vista normal' : 'Vista expandida'}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
-                          >
-                            {expandedView ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                          </button>
-                          {/* Marcar todas como leídas */}
-                          {unreadCount > 0 && (
-                            <button
-                              onClick={markAllAsRead}
-                              title="Marcar todas como leídas"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                          )}
-                          {/* Limpiar todas */}
-                          {notifications && notifications.length > 0 && (
-                            <button
-                              onClick={clearAllNotifications}
-                              title="Eliminar todas"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-y-auto" style={{
-                        scrollbarWidth: 'thin',
-                        scrollbarColor: 'rgba(255,255,255,0.3) transparent'
-                      }}>
-                        <style jsx>{`
-                          div::-webkit-scrollbar {
-                            width: 6px;
-                          }
-                          div::-webkit-scrollbar-track {
-                            background: transparent;
-                          }
-                          div::-webkit-scrollbar-thumb {
-                            background: rgba(255,255,255,0.3);
-                            border-radius: 3px;
-                          }
-                          div::-webkit-scrollbar-thumb:hover {
-                            background: rgba(255,255,255,0.5);
-                          }
-                        `}</style>
-                        {filteredNotifications && filteredNotifications.length > 0 ? (
-                          filteredNotifications.map((notif: any, index: number) => (
-                            <motion.div
-                              key={notif.id || index}
-                              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                              transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
-                              className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.leida ? 'bg-primary-500/5' : ''
-                                }`}
-                            >
-                              <p className="text-sm text-white font-medium truncate">
-                                {notif.titulo || notif.title || 'Notificación'}
-                              </p>
-                              <p className="text-xs text-gray-400 truncate mt-1">
-                                {notif.mensaje || notif.message || ''}
-                              </p>
-                            </motion.div>
-                          ))
-                        ) : (
-                          <div className="p-6 text-center text-gray-400">
-                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">
-                              {filterUnread ? 'No hay notificaciones sin leer' : 'No hay notificaciones'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3 border-t border-white/10 flex items-center justify-between flex-shrink-0">
-                        <span className="text-xs text-gray-400">Efectos</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreference('soundEnabled');
-                            }}
-                            title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
-                            className={`p-2 rounded-lg border transition-colors ${preferences.soundEnabled
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreference('hapticsEnabled');
-                            }}
-                            title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
-                            className={`p-2 rounded-lg border transition-colors ${preferences.hapticsEnabled
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            <Smartphone className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>,
-              document.body
+            {mounted && (
+              <NotificationDropdown 
+                isOpen={isOpen} 
+                onClose={() => setIsOpen(false)} 
+              />
             )}
           </div>
 

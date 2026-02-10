@@ -101,20 +101,20 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-60 rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden md:left-auto md:right-0"
+            className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-60 rounded-2xl glass-dark dark:glass-dark light:bg-white light:border-gray-200 shadow-2xl overflow-hidden md:left-auto md:right-0"
           >
             {/* Header */}
             <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary-500/10 to-violet-500/10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-primary-400" />
-                  <h3 className="font-semibold text-white">Notificaciones</h3>
+                  <h3 className="font-semibold text-white dark:text-white light:text-gray-900">Notificaciones</h3>
                 </div>
                 {unreadCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full"
+                    className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full shadow-sm"
                   >
                     {unreadCount} nuevas
                   </motion.span>
@@ -163,8 +163,8 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                           delay: reduceMotion ? 0 : index * 0.02,
                         }}
                         className={cn(
-                          'relative p-4 hover:bg-white/5 transition-colors cursor-pointer group',
-                          !notification.leida && 'bg-primary-500/5'
+                          'relative p-4 hover:bg-white/5 dark:hover:bg-white/5 light:hover:bg-gray-50 transition-colors cursor-pointer group',
+                          !notification.leida && 'bg-primary-500/5 dark:bg-primary-500/5 light:bg-primary-50'
                         )}
                         onClick={() => handleNotificationClick(notification)}
                       >
@@ -191,7 +191,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <h4 className={cn(
                                 'font-medium text-sm leading-tight',
-                                !notification.leida ? 'text-white' : 'text-gray-300'
+                                !notification.leida ? 'text-white dark:text-white light:text-gray-900' : 'text-gray-300 dark:text-gray-300 light:text-gray-600'
                               )}>
                                 {notification.titulo}
                               </h4>
@@ -203,7 +203,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                                 />
                               )}
                             </div>
-                            <p className="text-xs text-gray-400 line-clamp-2 mb-2">
+                            <p className="text-xs text-gray-400 dark:text-gray-400 light:text-gray-500 line-clamp-2 mb-2">
                               {notification.mensaje}
                             </p>
                             <div className="flex items-center justify-between gap-2">

@@ -2370,6 +2370,15 @@ html[data-page="bot"] .glass-card::after {
 /* Toast notifications */
 .toast-custom {
   @apply glass-card px-6 py-4 flex items-center gap-4 border-l-4 animate-slide-in-right;
+  background: rgb(var(--bg-1) / 0.95);
+  color: rgb(var(--text-primary) / 1);
+  border-color: rgb(var(--border) / 0.1);
+}
+
+html[data-theme="light"] .toast-custom {
+  background: rgb(var(--bg-0) / 0.98);
+  color: rgb(var(--text-primary) / 1);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.1);
 }
 
 .toast-success {
