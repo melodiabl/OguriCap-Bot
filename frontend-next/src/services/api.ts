@@ -130,6 +130,11 @@ class ApiService {
     return response.data
   }
 
+  async sendBroadcast(data: { message: string; targets: { groups: boolean; channels: boolean; communities: boolean; specific?: string[] } }) {
+    const response = await this.api.post('/api/broadcast', data)
+    return response.data
+  }
+
   // Subbots
   async getSubbots() {
     const response = await this.api.get('/api/subbot/list')

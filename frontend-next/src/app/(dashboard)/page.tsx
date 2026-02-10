@@ -18,6 +18,7 @@ import PerformanceIndicator from '@/components/ui/PerformanceIndicator';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DashboardCard } from '@/components/ui/DashboardCard';
+import { BroadcastTool } from '@/components/broadcast/BroadcastTool';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useDashboardStats, useBotStatus, useSystemStats, useSubbotsStatus, useRecentActivity } from '@/hooks/useRealTime';
@@ -231,6 +232,11 @@ export default function DashboardPage() {
           </Magnetic>
         </StaggerItem>
       </Stagger>
+
+      {/* Broadcast Tool */}
+      <Reveal delay={0.1}>
+        <BroadcastTool />
+      </Reveal>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

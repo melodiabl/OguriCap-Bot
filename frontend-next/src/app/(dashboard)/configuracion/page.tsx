@@ -894,6 +894,8 @@ export default function ConfiguracionPage() {
     const smtpPortValue = getConfigValue('email.smtp.port');
     const smtpPort = typeof smtpPortValue === 'number' ? String(smtpPortValue) : String(smtpPortValue || '');
     const smtpSecure = Boolean(getConfigValue('email.smtp.secure'));
+    const smtpUser = String(getConfigValue('email.smtp.user') || '').trim();
+    const smtpPass = String(getConfigValue('email.smtp.pass') || '').trim();
 
     const whatsappEnabled = Boolean(getConfigValue('whatsapp.enabled'));
     const adminNumbers = (getConfigValue('whatsapp.adminNumbers') || []) as string[];
@@ -986,6 +988,36 @@ export default function ConfiguracionPage() {
                       }
                       className="input-glass pl-10"
                       placeholder="587"
+                      disabled={!emailEnabled}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Usuario / Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={smtpUser}
+                      onChange={(e) => updateConfigValue('email.smtp.user', e.target.value)}
+                      className="input-glass pl-10"
+                      placeholder="usuario@gmail.com"
+                      disabled={!emailEnabled}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Contraseña / App Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="password"
+                      value={smtpPass}
+                      onChange={(e) => updateConfigValue('email.smtp.pass', e.target.value)}
+                      className="input-glass pl-10"
+                      placeholder="••••••••••••••••"
                       disabled={!emailEnabled}
                     />
                   </div>
