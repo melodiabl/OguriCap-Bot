@@ -17,10 +17,10 @@ return true // Eliminada verificación del repositorio
 
 let handler = async (m, { conn, usedPrefix, command }) => {
 // Verificación simplificada
-if (!await verifi()) return conn.reply(m.chat, ❀ El comando *${command}* está temporalmente deshabilitado., m)
+if (!await verifi()) return conn.reply(m.chat, `❀ El comando *${command}* está temporalmente deshabilitado.`, m)
 
 const chatData = global.db.data.chats?.[m.chat] || {}
-if (!chatData.gacha && m.isGroup) return m.reply(ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*)
+if (!chatData.gacha && m.isGroup) return m.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`)
 
 try {
 const userData = global.db.data.users[m.sender]
@@ -41,7 +41,8 @@ if (userData.lastClaim && now < userData.lastClaim) {
   
 const characterId = chatData.lastRolledCharacter?.id || ''  
 const canClaim = m.quoted?.id === chatData.lastRolledMsgId ||   
-                m.quoted?.text?.includes(characterId) && characterId  
+                (m.quoted?.text?.includes(characterId) && characterId) ||
+                (!m.quoted && characterId) // Permitir reclamar sin citar si hay un personaje reciente
   
 if (!canClaim) return m.reply('❀ Debes citar un personaje válido para reclamar.')  
   
@@ -96,7 +97,7 @@ const message = claimMessage ?
 await conn.reply(m.chat, `❀ ${message} (${expireTime}s)`, m)
 
 } catch (error) {
-await conn.reply(m.chat, ⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${error.message}, m)
+await conn.reply(m.chat, `⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${error.message}`, m)
 }
 }
 

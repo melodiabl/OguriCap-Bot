@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </motion.div>
             <div>
               <h1 className="text-xl font-bold gradient-text">Oguri Bot</h1>
-              <p className="text-xs text-gray-500">Panel de Control</p>
+              <p className="text-xs text-muted">Panel de Control</p>
             </div>
           </Link>
         </div>
@@ -159,12 +159,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               {!isGloballyOn ? 'OFF' : isConnecting ? 'SYNC' : isConnected ? 'LIVE' : 'DOWN'}
             </StatusBadge>
           </div>
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-muted">
             {!isGloballyOn ? 'Bot Desactivado' : 
              isConnected ? 'Bot Conectado' : 'Bot Desconectado'}
           </div>
           {dashboardStats && (
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-muted mt-1">
               <span>Grupos: {dashboardStats.totalGrupos || 0}</span>
               <span>Usuarios: {dashboardStats.comunidad?.usuariosWhatsApp || 0}</span>
             </div>
@@ -229,7 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <p className="text-sm font-semibold text-white truncate">
                 {user?.username || 'Usuario'}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-muted truncate">
                 {user?.rol || 'usuario'}
               </p>
             </div>
@@ -237,7 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={logout}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors press-scale focus-ring-animated"
+              className="p-2 rounded-lg text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors press-scale focus-ring-animated"
               title="Cerrar sesión"
             >
               <LogOut className="w-5 h-5" />

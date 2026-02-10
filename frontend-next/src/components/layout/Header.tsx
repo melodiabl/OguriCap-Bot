@@ -2,14 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-import { Bell, Search, Moon, Sun, RefreshCw, Menu, X, Volume2, VolumeX, Smartphone, Check, Trash2, Filter, Maximize2, Minimize2 } from 'lucide-react';
+import { Bell, Search, Moon, Sun, RefreshCw, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
@@ -40,63 +39,20 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
-  const [filterUnread, setFilterUnread] = useState(false);
-  const [expandedView, setExpandedView] = useState(false);
-
-  const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { isConnected: isSocketConnected } = useSocketConnection();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
-  const { unreadCount, isOpen, setIsOpen, toggleOpen, notifications } = useNotifications();
+  const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
   const reduceMotion = useReducedMotion();
-  const [preferences, setPreferences] = React.useState({ soundEnabled: true, hapticsEnabled: true });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const position = {
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right
-      };
-      setDropdownPosition(position);
-    }
-  }, [isOpen]);
-
-  const togglePreference = (key: 'soundEnabled' | 'hapticsEnabled') => {
-    setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const currentPage = menuItems.find(item => item.path === pathname);
   const isConnected = pollingConnected;
-
-  // Filtrar notificaciones
-  const filteredNotifications = filterUnread
-    ? notifications?.filter((n: any) => !n.leida)
-    : notifications;
-
-  // Función para marcar todas como leídas
-  const markAllAsRead = () => {
-    // Aquí deberías llamar a tu API para marcar como leídas
-    console.log('Marcar todas como leídas');
-    // Ejemplo: await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-  };
-
-  // Función para limpiar todas
-  const clearAllNotifications = () => {
-    if (confirm('¿Estás seguro de que deseas eliminar todas las notificaciones?')) {
-      console.log('Limpiar todas las notificaciones');
-      // Aquí deberías llamar a tu API para eliminar
-      // Ejemplo: await fetch('/api/notifications/clear', { method: 'DELETE' });
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 glass-dark border-b border-white/10 header-chrome">
@@ -156,7 +112,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           <div className="relative">
             <Tooltip content="Notificaciones" side="bottom">
               <Button
-                ref={buttonRef}
                 variant="ghost"
                 size="icon"
                 onClick={toggleOpen}
@@ -189,168 +144,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               </Button>
             </Tooltip>
 
-            {/* Portal para el dropdown */}
-            {mounted && createPortal(
-              <AnimatePresence>
-                {isOpen && (
-                  <>
-                    {/* Overlay */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[9998]"
-                      onClick={() => setIsOpen(false)}
-                    />
-
-                    {/* Dropdown */}
-                    <motion.div
-                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      style={{
-                        position: 'fixed',
-                        top: `${dropdownPosition.top}px`,
-                        right: `${dropdownPosition.right}px`,
-                      }}
-                      className={`${expandedView ? 'w-[500px]' : 'w-96'} max-h-[80vh] bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[9999] flex flex-col transition-all duration-300`}
-                    >
-                      {/* Header con acciones */}
-                      <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-white">Notificaciones</h3>
-                          {unreadCount > 0 && (
-                            <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {/* Filtro */}
-                          <button
-                            onClick={() => setFilterUnread(!filterUnread)}
-                            title={filterUnread ? 'Mostrar todas' : 'Solo no leídas'}
-                            className={`p-1.5 rounded-lg transition-colors ${filterUnread
-                                ? 'bg-primary-500/20 text-primary-300'
-                                : 'text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            <Filter className="w-4 h-4" />
-                          </button>
-                          {/* Expandir/Contraer */}
-                          <button
-                            onClick={() => setExpandedView(!expandedView)}
-                            title={expandedView ? 'Vista normal' : 'Vista expandida'}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
-                          >
-                            {expandedView ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                          </button>
-                          {/* Marcar todas como leídas */}
-                          {unreadCount > 0 && (
-                            <button
-                              onClick={markAllAsRead}
-                              title="Marcar todas como leídas"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                          )}
-                          {/* Limpiar todas */}
-                          {notifications && notifications.length > 0 && (
-                            <button
-                              onClick={clearAllNotifications}
-                              title="Eliminar todas"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-y-auto" style={{
-                        scrollbarWidth: 'thin',
-                        scrollbarColor: 'rgba(255,255,255,0.3) transparent'
-                      }}>
-                        <style jsx>{`
-                          div::-webkit-scrollbar {
-                            width: 6px;
-                          }
-                          div::-webkit-scrollbar-track {
-                            background: transparent;
-                          }
-                          div::-webkit-scrollbar-thumb {
-                            background: rgba(255,255,255,0.3);
-                            border-radius: 3px;
-                          }
-                          div::-webkit-scrollbar-thumb:hover {
-                            background: rgba(255,255,255,0.5);
-                          }
-                        `}</style>
-                        {filteredNotifications && filteredNotifications.length > 0 ? (
-                          filteredNotifications.map((notif: any, index: number) => (
-                            <motion.div
-                              key={notif.id || index}
-                              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                              transition={reduceMotion ? undefined : { duration: 0.2, delay: index * 0.03 }}
-                              className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.leida ? 'bg-primary-500/5' : ''
-                                }`}
-                            >
-                              <p className="text-sm text-white font-medium truncate">
-                                {notif.titulo || notif.title || 'Notificación'}
-                              </p>
-                              <p className="text-xs text-gray-400 truncate mt-1">
-                                {notif.mensaje || notif.message || ''}
-                              </p>
-                            </motion.div>
-                          ))
-                        ) : (
-                          <div className="p-6 text-center text-gray-400">
-                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">
-                              {filterUnread ? 'No hay notificaciones sin leer' : 'No hay notificaciones'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3 border-t border-white/10 flex items-center justify-between flex-shrink-0">
-                        <span className="text-xs text-gray-400">Efectos</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreference('soundEnabled');
-                            }}
-                            title={preferences.soundEnabled ? 'Sonido: activado' : 'Sonido: desactivado'}
-                            className={`p-2 rounded-lg border transition-colors ${preferences.soundEnabled
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreference('hapticsEnabled');
-                            }}
-                            title={preferences.hapticsEnabled ? 'Vibración: activada' : 'Vibración: desactivada'}
-                            className={`p-2 rounded-lg border transition-colors ${preferences.hapticsEnabled
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                              }`}
-                          >
-                            <Smartphone className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>,
-              document.body
-            )}
+            {mounted && <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} />}
           </div>
 
           {/* Theme toggle */}

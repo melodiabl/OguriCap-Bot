@@ -104,7 +104,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
             className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] z-60 rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden md:left-auto md:right-0"
           >
             {/* Header */}
-            <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary-500/10 to-violet-500/10">
+            <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-secondary/10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-primary-400" />
@@ -191,7 +191,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <h4 className={cn(
                                 'font-medium text-sm leading-tight',
-                                !notification.leida ? 'text-white' : 'text-gray-300'
+                                !notification.leida ? 'text-foreground' : 'text-muted'
                               )}>
                                 {notification.titulo}
                               </h4>
