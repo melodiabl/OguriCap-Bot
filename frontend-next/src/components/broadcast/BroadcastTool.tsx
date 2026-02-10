@@ -33,7 +33,7 @@ export const BroadcastTool: React.FC = () => {
     try {
       const res = await api.sendBroadcast({
         message,
-        targets: sendToAll ? {} : targets
+        targets: sendToAll ? { groups: false, channels: false, communities: false } : targets
       });
       
       if (res.success) {
