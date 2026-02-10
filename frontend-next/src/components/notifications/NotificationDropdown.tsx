@@ -233,8 +233,8 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2 mb-1">
                                 <h4 className={cn(
-                                  'font-medium text-sm leading-tight',
-                                  !notification.leida ? 'text-white' : 'text-foreground/70'
+                                  'font-semibold text-sm leading-tight',
+                                  !notification.leida ? 'text-white' : 'text-gray-300'
                                 )}>
                                   {notification.titulo}
                                 </h4>
@@ -246,15 +246,18 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                                   />
                                 )}
                               </div>
-                              <p className="text-xs text-muted line-clamp-2 mb-2">
+                              <p className={cn(
+                                "text-xs line-clamp-2 mb-2",
+                                !notification.leida ? "text-gray-200" : "text-gray-400"
+                              )}>
                                 {notification.mensaje}
                               </p>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs text-muted/60">
+                                <span className="text-[10px] font-medium text-gray-500">
                                   {formatDate(notification.fecha_creacion)}
                                 </span>
                                 {notification.categoria && (
-                                  <span className="px-2 py-0.5 text-xs rounded-full bg-white/5 text-muted/80 border border-white/10">
+                                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-white/5 text-gray-400 border border-white/10">
                                     {notification.categoria}
                                   </span>
                                 )}

@@ -98,13 +98,14 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       : (envUrl || 'http://localhost:8080');
     
     const newSocket = io(serverUrl, {
-      transports: ['polling', 'websocket'], // Polling primero, luego websocket
+      transports: ['websocket', 'polling'], // Priorizar websocket para menor latencia
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-      timeout: 30000,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
       autoConnect: true,
-      upgrade: true, // Permitir upgrade a websocket después de polling
+      upgrade: true,
     });
 
     newSocket.on('connect', () => {

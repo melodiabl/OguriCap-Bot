@@ -1023,7 +1023,7 @@ export default function ConfiguracionPage() {
 
               <div className={`rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3 ${!emailEnabled ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-white">DiagnÇüstico</p>
+                  <p className="font-semibold text-white">Diagnóstico</p>
                   <Button
                     onClick={refreshEmailStatus}
                     loading={isCheckingEmail}
@@ -1077,7 +1077,7 @@ export default function ConfiguracionPage() {
                     disabled={!emailEnabled}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    VacÇ­o = usa `ADMIN_EMAIL`/`NOTIFICATION_EMAIL`/`SECURITY_ALERT_EMAIL_TO`.
+                    Vacío = usa `ADMIN_EMAIL`/`NOTIFICATION_EMAIL`/`SECURITY_ALERT_EMAIL_TO`.
                   </p>
                 </div>
 
