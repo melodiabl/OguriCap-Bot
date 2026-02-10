@@ -554,7 +554,7 @@ export default function LogsPage() {
   };
 
   const getSystemStatusIcon = (systemName: string, isRunning: boolean) => {
-    const IconComponent = {
+    const systemIcons: Record<string, React.ComponentType<any>> = {
       metrics: Cpu,
       alerts: Bell,
       reporting: FileText,
@@ -562,7 +562,8 @@ export default function LogsPage() {
       logManager: Database,
       backupSystem: HardDrive,
       securityMonitor: Shield,
-    }[systemName as keyof typeof SystemStatus.systems] || Info;
+    };
+    const IconComponent = systemIcons[systemName] || Info;
 
     return <IconComponent className={`w-5 h-5 ${isRunning ? 'text-emerald-400' : 'text-red-400'}`} />;
   };
