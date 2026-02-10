@@ -903,6 +903,11 @@ class ApiService {
     return response.data;
   }
 
+  async markAllNotificationsRead() {
+    const response = await this.api.post('/api/notificaciones/mark-all-read');
+    return response.data;
+  }
+
   async markAllNotificationsAsRead() {
     const response = await this.api.post('/api/notificaciones/mark-all-read');
     return response.data;
