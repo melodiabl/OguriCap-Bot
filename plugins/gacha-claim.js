@@ -8,96 +8,131 @@ async function loadCharacters() {
 }
 
 function getCharacterById(id, characters) {
-  return Object.values(characters).flatMap(series => series.characters).find(char => char.id === id)
+  return Object.values(characters)
+    .flatMap(series => series.characters)
+    .find(char => char.id === id)
 }
 
-// Función de verificación simplificada - siempre retorna true
-const verifi = async () => {
-  return true // Eliminada verificación del repositorio
-}
+const verifi = async () => true
 
 let handler = async (m, { conn, usedPrefix, command }) => {
-  // Verificación simplificada
-  if (!await verifi()) return conn.reply(m.chat, `❀ El comando *${command}* está temporalmente deshabilitado.`, m)
-  
+  if (!await verifi()) {
+    return conn.reply(m.chat, `❀ El comando *${command}* está temporalmente deshabilitado.`, m)
+  }
+
   const chatData = global.db.data.chats?.[m.chat] || {}
-  if (!chatData.gacha && m.isGroup) return m.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`)
-  
+
+  if (m.isGroup && !chatData.gacha) {
+    return m.reply(
+      `ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\n` +
+      `Un *administrador* puede activarlos con:\n» *${usedPrefix}gacha on*`
+    )
+  }
+
   try {
     const userData = global.db.data.users[m.sender]
     const now = Date.now()
-    const cooldown = 30 * 60 * 1000 // 30 minutos
-    
+    const cooldown = 30 * 60 * 1000
+
     if (userData.lastClaim && now < userData.lastClaim) {
       const remaining = Math.ceil((userData.lastClaim - now) / 1000)
-      const minutes = Math.floor(remaining / 60)
-      const seconds = remaining % 60
-      
-      let timeStr = ''
-      if (minutes > 0) timeStr += minutes + ' minuto' + (minutes !== 1 ? 's' : '') + ' '
-      if (seconds > 0 || timeStr === '') timeStr += seconds + ' segundo' + (seconds !== 1 ? 's' : '')
-      
-      return m.reply(`ꕥ Debes esperar *${timeStr.trim()}* para usar *${usedPrefix + command}* de nuevo.`)
+      const min = Math.floor(remaining / 60)
+      const sec = remaining % 60
+
+      let t = ''
+      if (min) t += `${min} minuto${min !== 1 ? 's' : ''} `
+      if (sec || !t) t += `${sec} segundo${sec !== 1 ? 's' : ''}`
+
+      return m.reply(
+        `ꕥ Debes esperar *${t.trim()}* para usar *${usedPrefix + command}* nuevamente.`
+      )
     }
-    
-    const characterId = chatData.lastRolledCharacter?.id || ''
-    const canClaim = m.quoted?.id === chatData.lastRolledMsgId || 
-                    m.quoted?.text?.includes(characterId) && characterId
-    
-    if (!canClaim) return m.reply('❀ Debes citar un personaje válido para reclamar.')
-    
-    const rolledId = chatData.lastRolledId
+
+    if (!m.quoted) {
+      return m.reply('❀ Debes responder al mensaje del personaje para reclamarlo.')
+    }
+
+    if (!chatData.lastRolledMsgId || !chatData.lastRolledId) {
+      return m.reply('ꕥ No hay ningún personaje pendiente para reclamar.')
+    }
+
+    if (m.quoted.key?.id !== chatData.lastRolledMsgId) {
+      return m.reply('❀ Debes responder al *ÚLTIMO* personaje rolado.')
+    }
+
     const characters = await loadCharacters()
+    const rolledId = chatData.lastRolledId
     const character = getCharacterById(rolledId, characters)
-    
-    if (!character) return m.reply('ꕥ Personaje no encontrado en characters.json')
-    
-    if (!global.db.data.characters) global.db.data.characters = {}
-    if (!global.db.data.characters[rolledId]) global.db.data.characters[rolledId] = {}
-    
+
+    if (!character) {
+      return m.reply('ꕥ Personaje no encontrado en *characters.json*')
+    }
+
+    global.db.data.characters ||= {}
+    global.db.data.characters[rolledId] ||= {}
+
     const charData = global.db.data.characters[rolledId]
-    charData.name = charData.name || character.name
-    charData.value = typeof charData.value === 'number' ? charData.value : character.value || 0
-    charData.votes = charData.votes || 0
-    
-    if (charData.reservedBy && charData.reservedBy !== m.sender && now < charData.reservedUntil) {
-      let reservedByName = global.db.data.users[charData.reservedBy]?.name || charData.reservedBy.split('@')[0]
-      const remainingTime = ((charData.reservedUntil - now) / 1000).toFixed(1)
-      return m.reply(`ꕥ Este personaje está protegido por *${reservedByName}* durante *${remainingTime}s.*`)
+
+    charData.name ??= character.name
+    charData.value = typeof charData.value === 'number'
+      ? charData.value
+      : character.value || 0
+    charData.votes ||= 0
+
+    if (
+      charData.reservedBy &&
+      charData.reservedBy !== m.sender &&
+      now < charData.reservedUntil
+    ) {
+      const by = global.db.data.users[charData.reservedBy]?.name
+        || charData.reservedBy.split('@')[0]
+
+      const t = ((charData.reservedUntil - now) / 1000).toFixed(1)
+      return m.reply(`ꕥ Este personaje está protegido por *${by}* durante *${t}s*.`)
     }
-    
-    if (charData.expiresAt && now > charData.expiresAt && !charData.user && !(charData.reservedBy && now < charData.reservedUntil)) {
-      const expiredTime = ((now - charData.expiresAt) / 1000).toFixed(1)
-      return m.reply(`ꕥ El personaje ha expirado » ${expiredTime}s.`)
+
+    if (charData.expiresAt && now > charData.expiresAt && !charData.user) {
+      const t = ((now - charData.expiresAt) / 1000).toFixed(1)
+      return m.reply(`ꕥ El personaje ha expirado » ${t}s.`)
     }
-    
+
     if (charData.user) {
-      let ownerName = global.db.data.users[charData.user]?.name || charData.user.split('@')[0]
-      return m.reply(`ꕥ El personaje *${charData.name}* ya ha sido reclamado por *${ownerName}*`)
+      const owner = global.db.data.users[charData.user]?.name
+        || charData.user.split('@')[0]
+
+      return m.reply(`ꕥ El personaje *${charData.name}* ya fue reclamado por *${owner}*`)
     }
-    
+
     charData.user = m.sender
     charData.claimedAt = now
     delete charData.reservedBy
     delete charData.reservedUntil
+
     userData.lastClaim = now + cooldown
-    
-    if (!Array.isArray(userData.characters)) userData.characters = []
-    if (!userData.characters.includes(rolledId)) userData.characters.push(rolledId)
-    
-    let userName = global.db.data.users[m.sender]?.name || m.sender.split('@')[0]
-    const characterName = charData.name
-    const claimMessage = userData.claimMessage
-    const expireTime = typeof charData.expiresAt === 'number' ? ((now - charData.expiresAt + 60000) / 1000).toFixed(1) : '∞'
-    
-    const message = claimMessage ? 
-      claimMessage.replace(/€user/g, `*${userName}*`).replace(/€character/g, `*${characterName}*`) :
-      `*${characterName}* ha sido reclamado por *${userName}*`
-    
-    await conn.reply(m.chat, `❀ ${message} (${expireTime}s)`, m)
-    
-  } catch (error) {
-    await conn.reply(m.chat, `⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${error.message}`, m)
+    userData.characters ||= []
+
+    if (!userData.characters.includes(rolledId)) {
+      userData.characters.push(rolledId)
+    }
+
+    const userName = userData.name || m.sender.split('@')[0]
+    const charName = charData.name
+    const claimMsg = userData.claimMessage
+
+    const msg = claimMsg
+      ? claimMsg
+          .replace(/€user/g, `*${userName}*`)
+          .replace(/€character/g, `*${charName}*`)
+      : `*${charName}* ha sido reclamado por *${userName}*`
+
+    await conn.reply(m.chat, `❀ ${msg}`, m)
+
+  } catch (err) {
+    await conn.reply(
+      m.chat,
+      `⚠︎ Error inesperado.\nUsa *${usedPrefix}report*\n\n${err.message}`,
+      m
+    )
   }
 }
 
