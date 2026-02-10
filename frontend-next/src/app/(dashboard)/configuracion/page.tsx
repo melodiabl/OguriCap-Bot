@@ -1067,17 +1067,17 @@ export default function ConfiguracionPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Email destino (prueba)</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Email para Alertas (Admin)</label>
                   <input
                     type="email"
                     value={testEmailTo}
                     onChange={(e) => setTestEmailTo(e.target.value)}
                     className="input-glass"
-                    placeholder="admin@example.com"
+                    placeholder="tu-correo@ejemplo.com"
                     disabled={!emailEnabled}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Vacío = usa `ADMIN_EMAIL`/`NOTIFICATION_EMAIL`/`SECURITY_ALERT_EMAIL_TO`.
+                    Este es el correo donde recibirás las alertas críticas del sistema. Si lo dejas vacío, se usarán los correos configurados en las variables de entorno.
                   </p>
                 </div>
 
