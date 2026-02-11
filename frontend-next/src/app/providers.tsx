@@ -90,9 +90,35 @@ export function Providers({ children }: { children: React.ReactNode }) {
                         position="top-right"
                         toastOptions={{
                           duration: 4000,
-                          className: 'toast-custom',
-                          success: { className: 'toast-custom toast-success' },
-                          error: { className: 'toast-custom toast-error' },
+                          style: {
+                            background: 'rgb(var(--bg-1))',
+                            color: 'rgb(var(--text-primary))',
+                            border: '1px solid rgba(var(--border), 0.1)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '16px',
+                            padding: '12px 16px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.3)',
+                          },
+                          success: {
+                            iconTheme: {
+                              primary: 'rgb(var(--success))',
+                              secondary: 'white',
+                            },
+                            style: {
+                              borderLeft: '4px solid rgb(var(--success))',
+                            }
+                          },
+                          error: {
+                            iconTheme: {
+                              primary: 'rgb(var(--danger))',
+                              secondary: 'white',
+                            },
+                            style: {
+                              borderLeft: '4px solid rgb(var(--danger))',
+                            }
+                          },
                         }}
                       />
                     </LoadingOverlayProvider>

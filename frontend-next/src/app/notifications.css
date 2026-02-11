@@ -1,36 +1,37 @@
 /* ============================================================
    SISTEMA DE NOTIFICACIONES PREMIUM - OGURI BOT
    Coherencia Visual, Alto Contraste y Accesibilidad
+   Sincronizado con el Tema Dinámico
    ============================================================ */
 
 :root {
-  /* Paleta de colores de alto contraste */
-  --notif-bg-dark: rgba(10, 10, 15, 0.95);
-  --notif-border: rgba(255, 255, 255, 0.12);
+  /* Paleta de colores sincronizada con variables globales */
+  --notif-bg: rgb(var(--bg-1));
+  --notif-border: rgba(var(--border), 0.12);
   
-  --notif-info-color: #38bdf8; /* Cyan 400 */
-  --notif-info-bg: rgba(56, 189, 248, 0.15);
-  --notif-info-glow: rgba(56, 189, 248, 0.3);
+  --notif-info-color: rgb(var(--accent));
+  --notif-info-bg: rgba(var(--accent), 0.15);
+  --notif-info-glow: rgba(var(--accent), 0.3);
   
-  --notif-success-color: #34d399; /* Emerald 400 */
-  --notif-success-bg: rgba(52, 211, 153, 0.15);
-  --notif-success-glow: rgba(52, 211, 153, 0.3);
+  --notif-success-color: rgb(var(--success));
+  --notif-success-bg: rgba(var(--success), 0.15);
+  --notif-success-glow: rgba(var(--success), 0.3);
   
-  --notif-warning-color: #fbbf24; /* Amber 400 */
-  --notif-warning-bg: rgba(251, 191, 36, 0.15);
-  --notif-warning-glow: rgba(251, 191, 36, 0.3);
+  --notif-warning-color: rgb(var(--warning));
+  --notif-warning-bg: rgba(var(--warning), 0.15);
+  --notif-warning-glow: rgba(var(--warning), 0.3);
   
-  --notif-error-color: #f87171; /* Red 400 */
-  --notif-error-bg: rgba(248, 113, 113, 0.15);
-  --notif-error-glow: rgba(248, 113, 113, 0.3);
+  --notif-error-color: rgb(var(--danger));
+  --notif-error-bg: rgba(var(--danger), 0.15);
+  --notif-error-glow: rgba(var(--danger), 0.3);
   
-  --notif-system-color: #a78bfa; /* Violet 400 */
-  --notif-system-bg: rgba(167, 139, 250, 0.15);
-  --notif-system-glow: rgba(167, 139, 250, 0.3);
+  --notif-system-color: rgb(var(--primary));
+  --notif-system-bg: rgba(var(--primary), 0.15);
+  --notif-system-glow: rgba(var(--primary), 0.3);
 
-  --notif-title-color: #ffffff;
-  --notif-message-color: rgba(255, 255, 255, 0.85);
-  --notif-date-color: rgba(255, 255, 255, 0.5);
+  --notif-title-color: rgb(var(--text-primary));
+  --notif-message-color: rgb(var(--text-secondary));
+  --notif-date-color: rgb(var(--text-muted));
 }
 
 /* Toast Container (react-hot-toast) */
@@ -40,15 +41,16 @@
   gap: 14px;
   padding: 14px 18px;
   border-radius: 18px;
-  background: var(--notif-bg-dark);
+  background: var(--notif-bg);
   backdrop-filter: blur(16px);
   border: 1px solid var(--notif-border);
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 
-              0 0 0 1px rgba(255, 255, 255, 0.05),
-              inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 
+              0 0 0 1px rgba(var(--border), 0.05),
+              inset 0 1px 1px rgba(255, 255, 255, 0.05);
   max-width: 420px;
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--notif-title-color);
 }
 
 .notif-icon-container {
@@ -64,12 +66,11 @@
 
 .notif-toast-title {
   display: block;
-  font-weight: 900;
+  font-weight: 700;
   font-size: 0.95rem;
   color: var(--notif-title-color);
   margin-bottom: 2px;
   letter-spacing: -0.01em;
-  text-transform: uppercase;
 }
 
 .notif-toast-message {
@@ -85,7 +86,7 @@
 .notif-toast-info .notif-icon-container { 
   background: var(--notif-info-bg); 
   color: var(--notif-info-color); 
-  border-color: rgba(56, 189, 248, 0.3);
+  border-color: rgba(var(--accent), 0.3);
   box-shadow: 0 0 15px var(--notif-info-glow); 
 }
 
@@ -93,7 +94,7 @@
 .notif-toast-success .notif-icon-container { 
   background: var(--notif-success-bg); 
   color: var(--notif-success-color); 
-  border-color: rgba(52, 211, 153, 0.3);
+  border-color: rgba(var(--success), 0.3);
   box-shadow: 0 0 15px var(--notif-success-glow); 
 }
 
@@ -101,7 +102,7 @@
 .notif-toast-warning .notif-icon-container { 
   background: var(--notif-warning-bg); 
   color: var(--notif-warning-color); 
-  border-color: rgba(251, 191, 36, 0.3);
+  border-color: rgba(var(--warning), 0.3);
   box-shadow: 0 0 15px var(--notif-warning-glow); 
 }
 
@@ -109,7 +110,7 @@
 .notif-toast-error .notif-icon-container { 
   background: var(--notif-error-bg); 
   color: var(--notif-error-color); 
-  border-color: rgba(248, 113, 113, 0.3);
+  border-color: rgba(var(--danger), 0.3);
   box-shadow: 0 0 15px var(--notif-error-glow); 
 }
 
@@ -117,7 +118,7 @@
 .notif-toast-system .notif-icon-container { 
   background: var(--notif-system-bg); 
   color: var(--notif-system-color); 
-  border-color: rgba(167, 139, 250, 0.3);
+  border-color: rgba(var(--primary), 0.3);
   box-shadow: 0 0 15px var(--notif-system-glow); 
 }
 
@@ -135,13 +136,13 @@
 }
 
 .notif-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--text-primary), 0.06);
+  border-color: rgba(var(--text-primary), 0.1);
   transform: translateY(-1px);
 }
 
 .notif-item.unread {
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(var(--primary), 0.08);
 }
 
 .notif-item.unread::after {
@@ -152,9 +153,9 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #6366f1;
-  box-shadow: 0 0 12px #6366f1;
-  border: 2px solid var(--notif-bg-dark);
+  background: rgb(var(--primary));
+  box-shadow: 0 0 12px rgb(var(--primary));
+  border: 2px solid var(--notif-bg);
 }
 
 .notif-item-icon {
@@ -174,12 +175,10 @@
 }
 
 .notif-item-title {
-  font-weight: 900;
+  font-weight: 700;
   font-size: 0.95rem;
   color: var(--notif-title-color);
   line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .notif-item-message {
@@ -198,7 +197,7 @@
   font-size: 0.75rem;
   color: var(--notif-date-color);
   margin-top: 6px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }

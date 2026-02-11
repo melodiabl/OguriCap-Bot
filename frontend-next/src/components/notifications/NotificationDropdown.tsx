@@ -92,11 +92,11 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
 
   const getTypeIcon = (tipo: string) => {
     const icons = {
-      info: <Info className="w-5 h-5 text-accent" />,
-      success: <CheckCircle className="w-5 h-5 text-success" />,
-      warning: <AlertTriangle className="w-5 h-5 text-warning" />,
-      error: <AlertCircle className="w-5 h-5 text-danger" />,
-      system: <Bell className="w-5 h-5 text-primary" />,
+      info: <Info className="w-5 h-5 text-[rgb(var(--accent))]" />,
+      success: <CheckCircle className="w-5 h-5 text-[rgb(var(--success))]" />,
+      warning: <AlertTriangle className="w-5 h-5 text-[rgb(var(--warning))]" />,
+      error: <AlertCircle className="w-5 h-5 text-[rgb(var(--danger))]" />,
+      system: <Bell className="w-5 h-5 text-[rgb(var(--primary))]" />,
     };
     return icons[tipo as keyof typeof icons] || icons.info;
   };
@@ -147,17 +147,17 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
               className="w-96 max-w-[calc(100vw-2rem)] z-[9999] rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden flex flex-col"
             >
               {/* Header */}
-              <div className="p-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-secondary/10">
+              <div className="p-4 border-b border-white/10 bg-gradient-to-r from-[rgb(var(--primary)/0.1)] to-[rgb(var(--secondary)/0.1)]">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-primary" />
-                    <h3 className="font-semibold text-white">Notificaciones</h3>
+                    <Bell className="w-5 h-5 text-[rgb(var(--primary))]" />
+                    <h3 className="font-semibold text-[rgb(var(--text-primary))]">Notificaciones</h3>
                   </div>
                   {unreadCount > 0 && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="px-2 py-0.5 text-xs font-bold bg-danger text-white rounded-full"
+                      className="px-2 py-0.5 text-xs font-bold bg-[rgb(var(--danger))] text-white rounded-full"
                     >
                       {unreadCount} nuevas
                     </motion.span>
@@ -166,7 +166,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                    className="text-xs text-[rgb(var(--primary))] hover:text-[rgb(var(--primary)/0.8)] transition-colors flex items-center gap-1"
                   >
                     <CheckCheck className="w-3 h-3" />
                     Marcar todas como leídas
@@ -207,24 +207,24 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                           }}
                           className={cn(
                             'relative p-4 hover:bg-white/5 transition-colors cursor-pointer group',
-                            !notification.leida && 'bg-primary/5'
+                            !notification.leida && 'bg-[rgb(var(--primary)/0.05)]'
                           )}
                           onClick={() => handleNotificationClick(notification)}
                         >
                           {/* Unread indicator */}
                           {!notification.leida && (
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[rgb(var(--primary))]" />
                           )}
 
                           <div className="flex items-start gap-3">
                             {/* Icon */}
                             <div className={cn(
                               'p-2 rounded-lg flex-shrink-0',
-                              notification.tipo === 'error' && 'bg-danger/10',
-                              notification.tipo === 'warning' && 'bg-warning/10',
-                              notification.tipo === 'success' && 'bg-success/10',
-                              notification.tipo === 'info' && 'bg-accent/10',
-                              notification.tipo === 'system' && 'bg-primary/10',
+                              notification.tipo === 'error' && 'bg-[rgb(var(--danger)/0.1)]',
+                              notification.tipo === 'warning' && 'bg-[rgb(var(--warning)/0.1)]',
+                              notification.tipo === 'success' && 'bg-[rgb(var(--success)/0.1)]',
+                              notification.tipo === 'info' && 'bg-[rgb(var(--accent)/0.1)]',
+                              notification.tipo === 'system' && 'bg-[rgb(var(--primary)/0.1)]',
                             )}>
                               {getTypeIcon(notification.tipo)}
                             </div>
@@ -234,7 +234,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                               <div className="flex items-start justify-between gap-2 mb-1">
                                 <h4 className={cn(
                                   'font-semibold text-sm leading-tight',
-                                  !notification.leida ? 'text-white' : 'text-gray-300'
+                                  !notification.leida ? 'text-[rgb(var(--text-primary))]' : 'text-[rgb(var(--text-secondary))]'
                                 )}>
                                   {notification.titulo}
                                 </h4>
@@ -242,22 +242,22 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                                   <motion.span
                                     initial={{ scale: 0 }}
                                     animate={{ scale: 1 }}
-                                    className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1"
+                                    className="w-2 h-2 rounded-full bg-[rgb(var(--primary))] flex-shrink-0 mt-1"
                                   />
                                 )}
                               </div>
                               <p className={cn(
                                 "text-xs line-clamp-2 mb-2",
-                                !notification.leida ? "text-gray-200" : "text-gray-400"
+                                !notification.leida ? "text-[rgb(var(--text-primary)/0.9)]" : "text-[rgb(var(--text-muted))]"
                               )}>
                                 {notification.mensaje}
                               </p>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-[10px] font-medium text-gray-500">
+                                <span className="text-[10px] font-medium text-[rgb(var(--text-muted)/0.7)]">
                                   {formatDate(notification.fecha_creacion)}
                                 </span>
                                 {notification.categoria && (
-                                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-white/5 text-gray-400 border border-white/10">
+                                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-white/5 text-[rgb(var(--text-muted))] border border-white/10">
                                     {notification.categoria}
                                   </span>
                                 )}
