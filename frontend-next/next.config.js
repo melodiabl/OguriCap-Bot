@@ -75,6 +75,8 @@ const nextConfig = {
     minimumCacheTTL: 60 * 60 * 24,
     domains: imageDomains,
     remotePatterns,
+    // Deshabilitar optimización para archivos locales en /media/
+    unoptimized: true,
   },
   
   // Configuración de rewrites para API
