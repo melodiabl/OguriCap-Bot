@@ -5,19 +5,51 @@ function ensureBotHierarchy(parentJid = null) {
   try {
     if (!global.botHierarchy) {
       global.botHierarchy = { parent: null, subbots: [] }
+      console.log('[ANTIBOT] Inicializando jerarquía de bots')
     }
     if (parentJid && typeof parentJid === 'string') {
       // No sobreescribir con valores raros: sólo setear una vez o cuando sea el mismo bot
       if (!global.botHierarchy.parent || areJidsSameUser(global.botHierarchy.parent, parentJid)) {
         global.botHierarchy.parent = parentJid
+        console.log('[ANTIBOT] Bot padre registrado:', parentJid)
       }
     }
     const h = global.botHierarchy
     if (!Array.isArray(h.subbots)) {
       h.subbots = []
     }
+    
+    // Sincronizar subbots desde global.conns si existen
+    if (Array.isArray(global.conns)) {
+      for (const sock of global.conns) {
+        const sJid = sock?.user?.jid || sock?.user?.id
+        if (sJid && !h.subbots.some(j => areJidsSameUser(j, sJid))) {
+          h.subbots.push(sJid)
+          console.log('[ANTIBOT] Subbot registrado en jerarquía:', sJid)
+        }
+      }
+    }
+    
+    // Sincronizar desde panel DB
+    const panelSubbots = global.db?.data?.panel?.subbots
+    if (panelSubbots && typeof panelSubbots === 'object') {
+      for (const sb of Object.values(panelSubbots)) {
+        if (!sb) continue
+        const rawNumber = sb.numero || sb.jid || sb.id || sb.code
+        if (!rawNumber) continue
+        const num = String(rawNumber).replace(/\D/g, '')
+        if (!num) continue
+        const panelJid = `${num}@s.whatsapp.net`
+        if (!h.subbots.some(j => areJidsSameUser(j, panelJid))) {
+          h.subbots.push(panelJid)
+          console.log('[ANTIBOT] Subbot desde panel DB registrado:', panelJid)
+        }
+      }
+    }
+    
     return h
-  } catch {
+  } catch (err) {
+    console.error('[ANTIBOT] Error en ensureBotHierarchy:', err)
     global.botHierarchy = { parent: parentJid || null, subbots: [] }
     return global.botHierarchy
   }
@@ -31,13 +63,25 @@ function isSystemBotJid(jid, conn) {
     const selfLid = conn?.user?.lid || null
 
     // 1) El propio socket actual
-    if (selfJid && areJidsSameUser(selfJid, jid)) return true
-    if (selfLid && jid.endsWith('@lid') && selfLid === jid) return true
+    if (selfJid && areJidsSameUser(selfJid, jid)) {
+      console.log('[ANTIBOT-DEBUG] Detectado como socket actual:', jid)
+      return true
+    }
+    if (selfLid && jid.endsWith('@lid') && selfLid === jid) {
+      console.log('[ANTIBOT-DEBUG] Detectado como LID actual:', jid)
+      return true
+    }
 
     // 2) Jerarquía global (bot padre + todos los subbots registrados)
     const h = global.botHierarchy
-    if (h?.parent && areJidsSameUser(h.parent, jid)) return true
-    if (Array.isArray(h?.subbots) && h.subbots.some(j => j && areJidsSameUser(j, jid))) return true
+    if (h?.parent && areJidsSameUser(h.parent, jid)) {
+      console.log('[ANTIBOT-DEBUG] Detectado como bot padre en jerarquía:', jid)
+      return true
+    }
+    if (Array.isArray(h?.subbots) && h.subbots.some(j => j && areJidsSameUser(j, jid))) {
+      console.log('[ANTIBOT-DEBUG] Detectado como subbot en jerarquía:', jid)
+      return true
+    }
 
     // 3) Cualquier socket en global.conns (subbots creados por el sistema)
     if (Array.isArray(global.conns)) {
@@ -45,11 +89,20 @@ function isSystemBotJid(jid, conn) {
         const sJid = sock?.user?.jid || sock?.user?.id
         const sLid = sock?.user?.lid
         
-        if (sJid && areJidsSameUser(sJid, jid)) return true
-        if (sLid && jid.endsWith('@lid') && sLid === jid) return true
+        if (sJid && areJidsSameUser(sJid, jid)) {
+          console.log('[ANTIBOT-DEBUG] Detectado en global.conns:', jid)
+          return true
+        }
+        if (sLid && jid.endsWith('@lid') && sLid === jid) {
+          console.log('[ANTIBOT-DEBUG] Detectado LID en global.conns:', jid)
+          return true
+        }
         
         const parentJid = sock?.parentJid
-        if (parentJid && areJidsSameUser(parentJid, jid)) return true
+        if (parentJid && areJidsSameUser(parentJid, jid)) {
+          console.log('[ANTIBOT-DEBUG] Detectado como parentJid en global.conns:', jid)
+          return true
+        }
       }
     }
 
@@ -63,12 +116,24 @@ function isSystemBotJid(jid, conn) {
         const num = String(rawNumber).replace(/\D/g, '')
         if (!num) continue
         const panelJid = `${num}@s.whatsapp.net`
-        if (areJidsSameUser(panelJid, jid)) return true
+        if (areJidsSameUser(panelJid, jid)) {
+          console.log('[ANTIBOT-DEBUG] Detectado en panel subbots DB:', jid)
+          return true
+        }
       }
     }
 
+    // 5) Bot principal desde global.conn
+    const mainBotJid = global.conn?.user?.jid || global.conn?.user?.id
+    if (mainBotJid && areJidsSameUser(mainBotJid, jid)) {
+      console.log('[ANTIBOT-DEBUG] Detectado como bot principal (global.conn):', jid)
+      return true
+    }
+
+    console.log('[ANTIBOT-DEBUG] NO detectado como sistema:', jid)
     return false
-  } catch {
+  } catch (err) {
+    console.error('[ANTIBOT-DEBUG] Error en isSystemBotJid:', err)
     return false
   }
 }

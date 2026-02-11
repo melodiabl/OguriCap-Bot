@@ -12,6 +12,8 @@ interface Group {
   nombre: string;
   participantes?: number;
   tipo?: 'group' | 'channel' | 'community';
+  isCommunity?: boolean;
+  isChannel?: boolean;
 }
 
 export const BroadcastTool: React.FC = () => {
@@ -54,11 +56,14 @@ export const BroadcastTool: React.FC = () => {
     }
   };
 
-  const detectChatType = (jid: string): 'group' | 'channel' | 'community' => {
+  const detectChatType = (group: Group): 'group' | 'channel' | 'community' => {
+    // Usar metadata de la DB si está disponible
+    if (group.tipo) return group.tipo;
+    
+    // Fallback a detección por JID
+    const jid = group.wa_jid;
     if (jid.includes('@newsletter')) return 'channel';
     if (jid.includes('@broadcast')) return 'channel';
-    // Por ahora, todos los @g.us son grupos. 
-    // Si se añade soporte para metadatos de comunidad, se podría distinguir aquí.
     return 'group';
   };
 
@@ -93,7 +98,7 @@ export const BroadcastTool: React.FC = () => {
   };
 
   const getFilteredGroups = (type: 'group' | 'channel' | 'community') => {
-    return groups.filter(g => detectChatType(g.wa_jid) === type);
+    return groups.filter(g => detectChatType(g) === type);
   };
 
   const selectAllOfType = (type: 'group' | 'channel' | 'community') => {
