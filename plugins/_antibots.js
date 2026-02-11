@@ -27,10 +27,12 @@ function ensureBotHierarchy(parentJid = null) {
 function isSystemBotJid(jid, conn) {
   if (!jid) return false
   try {
-    const selfJid = conn?.user?.jid || null
+    const selfJid = conn?.user?.jid || conn?.user?.id || null
+    const selfLid = conn?.user?.lid || null
 
     // 1) El propio socket actual
     if (selfJid && areJidsSameUser(selfJid, jid)) return true
+    if (selfLid && jid.endsWith('@lid') && selfLid === jid) return true
 
     // 2) Jerarquía global (bot padre + todos los subbots registrados)
     const h = global.botHierarchy
@@ -40,8 +42,12 @@ function isSystemBotJid(jid, conn) {
     // 3) Cualquier socket en global.conns (subbots creados por el sistema)
     if (Array.isArray(global.conns)) {
       for (const sock of global.conns) {
-        const sJid = sock?.user?.jid
+        const sJid = sock?.user?.jid || sock?.user?.id
+        const sLid = sock?.user?.lid
+        
         if (sJid && areJidsSameUser(sJid, jid)) return true
+        if (sLid && jid.endsWith('@lid') && sLid === jid) return true
+        
         const parentJid = sock?.parentJid
         if (parentJid && areJidsSameUser(parentJid, jid)) return true
       }

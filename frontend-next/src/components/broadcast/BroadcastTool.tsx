@@ -55,9 +55,24 @@ export const BroadcastTool: React.FC = () => {
   };
 
   const detectChatType = (jid: string): 'group' | 'channel' | 'community' => {
-    if (jid.includes('@newsletter')) return 'community';
+    if (jid.includes('@newsletter')) return 'channel';
     if (jid.includes('@broadcast')) return 'channel';
+    // Por ahora, todos los @g.us son grupos. 
+    // Si se añade soporte para metadatos de comunidad, se podría distinguir aquí.
     return 'group';
+  };
+
+  const toggleTargetCategory = (type: 'groups' | 'channels' | 'communities') => {
+    const isNowActive = !targets[type];
+    setTargets(prev => ({ ...prev, [type]: isNowActive }));
+    
+    // Al activar/desactivar una categoría, seleccionamos/deseleccionamos todos sus JIDs
+    const categoryType = type === 'groups' ? 'group' : type === 'channels' ? 'channel' : 'community';
+    if (isNowActive) {
+      selectAllOfType(categoryType as any);
+    } else {
+      deselectAllOfType(categoryType as any);
+    }
   };
 
   const toggleJid = (jid: string) => {
@@ -101,7 +116,7 @@ export const BroadcastTool: React.FC = () => {
       return;
     }
 
-    if (selectedJids.size === 0) {
+    if (selectedJids.size === 0 && !targets.groups && !targets.channels && !targets.communities) {
       toast.error('Selecciona al menos un grupo, canal o comunidad');
       return;
     }
@@ -111,9 +126,9 @@ export const BroadcastTool: React.FC = () => {
       const res = await api.sendBroadcast({
         message,
         targets: {
-          groups: false,
-          channels: false,
-          communities: false,
+          groups: targets.groups,
+          channels: targets.channels,
+          communities: targets.communities,
           specific: Array.from(selectedJids)
         }
       });
@@ -157,7 +172,7 @@ export const BroadcastTool: React.FC = () => {
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
-              onClick={() => setTargets(prev => ({ ...prev, groups: !prev.groups }))}
+              onClick={() => toggleTargetCategory('groups')}
               className={`flex items-center justify-center gap-2 p-4 rounded-xl border transition-all ${
                 targets.groups 
                   ? 'bg-primary-500/20 border-primary-500/50 text-primary-200 shadow-lg shadow-primary-500/20' 
@@ -172,7 +187,7 @@ export const BroadcastTool: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setTargets(prev => ({ ...prev, channels: !prev.channels }))}
+              onClick={() => toggleTargetCategory('channels')}
               className={`flex items-center justify-center gap-2 p-4 rounded-xl border transition-all ${
                 targets.channels 
                   ? 'bg-primary-500/20 border-primary-500/50 text-primary-200 shadow-lg shadow-primary-500/20' 
@@ -187,7 +202,7 @@ export const BroadcastTool: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setTargets(prev => ({ ...prev, communities: !prev.communities }))}
+              onClick={() => toggleTargetCategory('communities')}
               className={`flex items-center justify-center gap-2 p-4 rounded-xl border transition-all ${
                 targets.communities 
                   ? 'bg-primary-500/20 border-primary-500/50 text-primary-200 shadow-lg shadow-primary-500/20' 
