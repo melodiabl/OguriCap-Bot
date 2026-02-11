@@ -216,6 +216,14 @@ class ApiService {
     return response.data;
   }
   
+  async getBroadcastTargets() {
+    const params = new URLSearchParams();
+    params.append('forBroadcast', 'true');
+    
+    const response = await this.api.get(`/api/grupos?${params}`);
+    return response.data;
+  }
+  
 
 
   async deleteGrupo(idOrJid: number | string) {
