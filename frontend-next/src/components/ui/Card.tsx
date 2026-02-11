@@ -99,13 +99,13 @@ interface StatCardProps {
 }
 
 const colorClasses = {
-  primary: 'text-primary bg-primary/15 border border-primary/25 shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]',
-  success: 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/25 shadow-[0_0_15px_rgba(52,211,153,0.2)]',
-  warning: 'text-amber-400 bg-amber-500/15 border border-amber-500/25 shadow-[0_0_15px_rgba(251,191,36,0.2)]',
-  danger: 'text-red-400 bg-red-500/15 border border-red-500/25 shadow-[0_0_15px_rgba(248,113,113,0.2)]',
-  info: 'text-cyan-400 bg-cyan-500/15 border border-cyan-500/25 shadow-[0_0_15px_rgba(34,211,238,0.2)]',
-  violet: 'text-violet-400 bg-violet-500/15 border border-violet-500/25 shadow-[0_0_15px_rgba(167,139,250,0.2)]',
-  cyan: 'text-cyan-400 bg-cyan-500/15 border border-cyan-500/25 shadow-[0_0_15px_rgba(34,211,238,0.2)]',
+  primary: 'text-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.15)] border border-[rgb(var(--primary)/0.25)] shadow-[0_0_15px_rgba(var(--primary),0.2)]',
+  success: 'text-[rgb(var(--success))] bg-[rgb(var(--success)/0.15)] border border-[rgb(var(--success)/0.25)] shadow-[0_0_15px_rgba(var(--success),0.2)]',
+  warning: 'text-[rgb(var(--warning))] bg-[rgb(var(--warning)/0.15)] border border-[rgb(var(--warning)/0.25)] shadow-[0_0_15px_rgba(var(--warning),0.2)]',
+  danger: 'text-[rgb(var(--danger))] bg-[rgb(var(--danger)/0.15)] border border-[rgb(var(--danger)/0.25)] shadow-[0_0_15px_rgba(var(--danger),0.2)]',
+  info: 'text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.15)] border border-[rgb(var(--accent)/0.25)] shadow-[0_0_15px_rgba(var(--accent),0.2)]',
+  violet: 'text-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.15)] border border-[rgb(var(--primary)/0.25)] shadow-[0_0_15px_rgba(var(--primary),0.2)]',
+  cyan: 'text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.15)] border border-[rgb(var(--accent)/0.25)] shadow-[0_0_15px_rgba(var(--accent),0.2)]',
 };
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -154,7 +154,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest group-hover:text-gray-300 transition-colors">
+          <h3 className="text-xs font-black text-[rgb(var(--text-muted))] uppercase tracking-widest group-hover:text-[rgb(var(--text-secondary))] transition-colors">
             {title}
           </h3>
           <div className={cn('p-2.5 rounded-xl transition-all duration-500 group-hover:scale-110 group-hover:shadow-glow-sm', colorClasses[color])}>
@@ -172,7 +172,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         
         <div className="flex items-center justify-between mt-2">
           {subtitle && (
-            <p className="text-[11px] font-bold text-gray-500 group-hover:text-gray-400 transition-colors">
+            <p className="text-[11px] font-bold text-[rgb(var(--text-muted))] group-hover:text-[rgb(var(--text-secondary))] transition-colors">
               {subtitle}
             </p>
           )}
@@ -180,7 +180,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           {trend !== undefined && (
             <div className={cn(
               'flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md',
-              trend > 0 ? 'text-emerald-400 bg-emerald-400/10' : trend < 0 ? 'text-red-400 bg-red-400/10' : 'text-gray-500 bg-white/5'
+              trend > 0 ? 'text-[rgb(var(--success))] bg-[rgb(var(--success)/0.1)]' : trend < 0 ? 'text-[rgb(var(--danger))] bg-[rgb(var(--danger)/0.1)]' : 'text-[rgb(var(--text-muted))] bg-white/5'
             )}>
               {trend > 0 ? '+' : ''}{trend}%
             </div>

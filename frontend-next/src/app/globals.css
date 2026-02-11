@@ -921,23 +921,33 @@ body::after {
   }
 
   .badge-success {
-    @apply badge bg-emerald-500/20 text-emerald-200 border-emerald-400/30 shadow-glow-emerald;
+    @apply badge border-emerald-400/30 shadow-glow-emerald;
+    background-color: rgb(var(--success) / 0.20);
+    color: rgb(var(--success) / 0.9);
   }
 
   .badge-warning {
-    @apply badge bg-amber-500/20 text-amber-200 border-amber-400/30;
+    @apply badge border-amber-400/30;
+    background-color: rgb(var(--warning) / 0.20);
+    color: rgb(var(--warning) / 0.9);
   }
 
   .badge-danger {
-    @apply badge bg-red-500/20 text-red-200 border-red-400/30;
+    @apply badge border-red-400/30;
+    background-color: rgb(var(--danger) / 0.20);
+    color: rgb(var(--danger) / 0.9);
   }
 
   .badge-info {
-    @apply badge bg-cyan-500/20 text-cyan-200 border-cyan-400/30 shadow-glow-cyan;
+    @apply badge border-cyan-400/30 shadow-glow-cyan;
+    background-color: rgb(var(--accent) / 0.20);
+    color: rgb(var(--accent) / 0.9);
   }
 
   .badge-primary {
-    @apply badge bg-primary-500/20 text-primary-200 border-primary-400/30 shadow-glow;
+    @apply badge border-primary-400/30 shadow-glow;
+    background-color: rgb(var(--primary) / 0.20);
+    color: rgb(var(--primary) / 0.9);
   }
 
   .status-dot {
@@ -1000,11 +1010,13 @@ body::after {
   }
 
   .table-glass th {
-    @apply px-6 py-4 text-left text-xs font-semibold text-slate-200 uppercase tracking-wider bg-white/5 border-b border-white/10;
+    @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider bg-white/5 border-b border-white/10;
+    color: rgb(var(--text-primary) / 0.9);
   }
 
   .table-glass td {
-    @apply px-6 py-4 text-sm text-slate-100 border-b border-white/5;
+    @apply px-6 py-4 text-sm border-b border-white/5;
+    color: rgb(var(--text-primary) / 0.8);
   }
 
   .table-glass tr {
