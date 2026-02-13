@@ -24,9 +24,11 @@ import {
   Filter,
   Download,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Trophy
 } from 'lucide-react';
 import { useSocketConnection } from '@/contexts/SocketContext';
+import { useOguriTheme } from '@/contexts/OguriThemeContext';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
@@ -69,6 +71,7 @@ export default function AnalyticsPage() {
   const [responseTimeData, setResponseTimeData] = useState<ChartData[]>([]);
 
   const { socket } = useSocketConnection();
+  const { isInZone } = useOguriTheme();
 
   // Colores para gráficos
   const colors = useMemo(

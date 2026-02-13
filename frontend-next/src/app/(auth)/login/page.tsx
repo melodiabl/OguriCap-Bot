@@ -39,7 +39,7 @@ export default function LoginPage() {
           value: 'owner',
           label: 'Owner',
           icon: Crown,
-          tone: 'violet',
+          tone: 'accent',
           description: 'Control absoluto del Aura',
         },
         {
@@ -53,7 +53,7 @@ export default function LoginPage() {
           value: 'moderador',
           label: 'Moderador',
           icon: UserCheck,
-          tone: 'info',
+          tone: 'secondary',
           description: 'Moderación de Competencia',
         },
         {

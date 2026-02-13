@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';

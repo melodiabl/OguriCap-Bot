@@ -164,7 +164,6 @@ export default function DashboardPage() {
               value={currentStats?.totalUsuarios || 0}
               subtitle={`${currentStats?.usuariosActivos || 0} activos`}
               icon={<Users className="w-6 h-6 text-oguri-purple" />}
-              className="glass-phantom border-oguri-purple/20 hover:border-oguri-purple/50 transition-all shadow-glow-oguri-purple animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.usuarios}
@@ -179,7 +178,6 @@ export default function DashboardPage() {
               value={currentStats?.comunidad?.usuariosWhatsApp || 0}
               subtitle={`${currentStats?.comunidad?.usuariosActivos || 0} activos`}
               icon={<MessageSquare className="w-6 h-6 text-oguri-cyan" />}
-              className="glass-phantom border-oguri-cyan/20 hover:border-oguri-cyan/50 transition-all shadow-glow-oguri-cyan animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.usuarios}
@@ -194,7 +192,6 @@ export default function DashboardPage() {
               value={currentStats?.totalGrupos || 0}
               subtitle={`${currentStats?.gruposActivos || 0} activos`}
               icon={<MessageSquare className="w-6 h-6 text-oguri-lavender" />}
-              className="glass-phantom border-oguri-lavender/20 hover:border-oguri-lavender/50 transition-all shadow-glow-oguri-lavender animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.grupos}
@@ -209,7 +206,6 @@ export default function DashboardPage() {
               value={currentStats?.totalAportes || 0}
               subtitle={`${currentStats?.aportesHoy || 0} hoy`}
               icon={<Package className="w-6 h-6 text-oguri-gold" />}
-              className="glass-phantom border-oguri-gold/20 hover:border-oguri-gold/50 transition-all shadow-glow-oguri-mixed animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.aportes}
@@ -224,7 +220,6 @@ export default function DashboardPage() {
               value={currentStats?.totalSubbots || totalCount}
               subtitle={`${onlineCount} online`}
               icon={<Zap className="w-6 h-6 text-oguri-blue" />}
-              className="glass-phantom border-oguri-blue/20 hover:border-oguri-blue/50 transition-all shadow-glow-oguri-blue animate-start-burst"
               delay={0}
               loading={statsLoading}
               active={onlineCount > 0}
