@@ -9,16 +9,25 @@
 
   /* Page atmosphere tokens (space-separated RGB for `rgb(var(--x) / a)`) */
   /* OguriCap base palette: morado traje, lavanda, azul ojos, cian cinta */
-  --page-a: 115 93 173;
-  /* oguri purple */
+  --page-a: 91 61 173;
+  /* oguri purple deep */
   --page-b: 183 166 230;
-  /* soft lavender */
+  /* oguri lavender */
   --page-c: 127 180 255;
-  /* eye blue */
+  /* oguri eye blue */
   --page-d: 70 195 207;
-  /* hairband cyan */
+  /* oguri hairband cyan */
   --page-e: 244 63 94;
   /* rose (alerts, se mantiene) */
+  
+  /* Oguri Cap extended palette */
+  --oguri-purple: 91 61 173;
+  --oguri-lavender: 183 166 230;
+  --oguri-blue: 127 180 255;
+  --oguri-cyan: 70 195 207;
+  --oguri-gold: 245 158 11;
+  --oguri-phantom-dark: 51 65 85;
+  --oguri-phantom-light: 71 85 105;
   --bg-0: 2 6 23;
   /* slate-950 */
   --bg-1: 15 23 42;
@@ -78,11 +87,11 @@ html[data-theme="dark"] {
 
 html[data-page="dashboard"] {
   /* OguriCap home: morado + lavanda + azul + cian */
-  --page-a: 115 93 173;
+  --page-a: 91 61 173;
   --page-b: 183 166 230;
   --page-c: 127 180 255;
   --page-d: 70 195 207;
-  --glow-boost: 1.2;
+  --glow-boost: 1.3;
 }
 
 html[data-page="bot"] {
@@ -3200,4 +3209,348 @@ html[data-theme="light"] .avatar {
 
 .shadow-glow-md {
   box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+}
+
+/* ============================================================
+   OGURI CAP THEMED ANIMATIONS & UTILITIES
+   Animaciones dinámicas y efectos visuales temáticos
+   ============================================================ */
+
+/* Animaciones de Glow Oguri */
+@keyframes pulseGlowOguri {
+  0%, 100% {
+    box-shadow: 
+      0 0 8px rgba(91, 61, 173, 0.6),
+      0 0 25px rgba(183, 166, 230, 0.4),
+      0 0 40px rgba(127, 180, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 15px rgba(91, 61, 173, 0.9),
+      0 0 35px rgba(183, 166, 230, 0.6),
+      0 0 55px rgba(127, 180, 255, 0.3);
+  }
+}
+
+@keyframes shimmerOguri {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes glowExpand {
+  0% {
+    box-shadow: 0 0 0 0 rgba(91, 61, 173, 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(183, 166, 230, 0.4);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 61, 173, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes oguriSparkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.95) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05) rotate(180deg);
+  }
+}
+
+@keyframes oguriFloat {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-8px) translateX(4px);
+  }
+  50% {
+    transform: translateY(-12px) translateX(-4px);
+  }
+  75% {
+    transform: translateY(-6px) translateX(2px);
+  }
+}
+
+/* Clases de utilidad para animaciones Oguri */
+.animate-pulse-glow-oguri {
+  animation: pulseGlowOguri 2.5s ease-in-out infinite;
+}
+
+.animate-shimmer-oguri {
+  background-size: 200% 100%;
+  animation: shimmerOguri 3s linear infinite;
+}
+
+.animate-glow-expand {
+  animation: glowExpand 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.4s ease-out;
+}
+
+.animate-oguri-sparkle {
+  animation: oguriSparkle 4s ease-in-out infinite;
+}
+
+.animate-oguri-float {
+  animation: oguriFloat 3.5s ease-in-out infinite;
+}
+
+/* Gradientes dinámicos Oguri */
+.bg-gradient-oguri-primary {
+  background: linear-gradient(135deg, rgb(91, 61, 173) 0%, rgb(183, 166, 230) 100%);
+}
+
+.bg-gradient-oguri-power {
+  background: linear-gradient(135deg, rgb(91, 61, 173) 0%, rgb(127, 180, 255) 100%);
+}
+
+.bg-gradient-oguri-speed {
+  background: linear-gradient(135deg, rgb(70, 195, 207) 0%, rgb(127, 180, 255) 100%);
+}
+
+.bg-gradient-oguri-victory {
+  background: linear-gradient(135deg, rgb(245, 158, 11) 0%, rgb(91, 61, 173) 100%);
+}
+
+.bg-gradient-oguri-phantom {
+  background: linear-gradient(135deg, rgb(51, 65, 85) 0%, rgb(71, 85, 105) 100%);
+}
+
+/* Efectos de hover mejorados */
+.hover-oguri-glow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-oguri-glow:hover {
+  box-shadow: 
+    0 0 15px rgba(91, 61, 173, 0.5),
+    0 0 30px rgba(183, 166, 230, 0.4),
+    0 0 45px rgba(127, 180, 255, 0.2);
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Bordes con glow dinámico */
+.border-oguri-glow {
+  border: 1px solid rgba(91, 61, 173, 0.3);
+  box-shadow: 
+    inset 0 0 10px rgba(183, 166, 230, 0.1),
+    0 0 15px rgba(91, 61, 173, 0.2);
+}
+
+/* Texto con gradiente Oguri */
+.text-gradient-oguri {
+  background: linear-gradient(135deg, rgb(183, 166, 230) 0%, rgb(127, 180, 255) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+/* Cards con efecto glass Oguri */
+.glass-oguri {
+  background: rgba(91, 61, 173, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 166, 230, 0.15);
+  box-shadow: 
+    0 8px 32px rgba(91, 61, 173, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Botones con efecto Oguri */
+.btn-oguri {
+  background: linear-gradient(135deg, rgb(91, 61, 173) 0%, rgb(183, 166, 230) 100%);
+  border: 1px solid rgba(183, 166, 230, 0.3);
+  box-shadow: 
+    0 4px 15px rgba(91, 61, 173, 0.4),
+    0 0 20px rgba(183, 166, 230, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-oguri:hover {
+  background: linear-gradient(135deg, rgb(183, 166, 230) 0%, rgb(127, 180, 255) 100%);
+  box-shadow: 
+    0 6px 25px rgba(91, 61, 173, 0.6),
+    0 0 35px rgba(183, 166, 230, 0.4);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.btn-oguri:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Indicadores de estado con tema Oguri */
+.status-oguri-active {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(183, 166, 230);
+  box-shadow: 
+    0 0 8px rgba(183, 166, 230, 0.8),
+    0 0 15px rgba(91, 61, 173, 0.5);
+  animation: pulseGlowOguri 2s ease-in-out infinite;
+}
+
+/* Separadores con gradiente */
+.divider-oguri {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(91, 61, 173, 0.3) 20%,
+    rgba(183, 166, 230, 0.5) 50%,
+    rgba(91, 61, 173, 0.3) 80%,
+    transparent 100%
+  );
+}
+
+/* Tooltips temáticos */
+.tooltip-oguri {
+  background: linear-gradient(135deg, rgba(91, 61, 173, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(183, 166, 230, 0.3);
+  box-shadow: 
+    0 4px 20px rgba(91, 61, 173, 0.4),
+    0 0 15px rgba(183, 166, 230, 0.2);
+  color: rgb(226, 232, 240);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Badges temáticos */
+.badge-oguri {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(91, 61, 173, 0.2) 0%, rgba(183, 166, 230, 0.15) 100%);
+  border: 1px solid rgba(183, 166, 230, 0.3);
+  color: rgb(183, 166, 230);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Efectos de partículas decorativas */
+.particles-oguri {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particles-oguri::before,
+.particles-oguri::after {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.15;
+  animation: oguriFloat 8s ease-in-out infinite;
+}
+
+.particles-oguri::before {
+  top: 10%;
+  left: 10%;
+  background: radial-gradient(circle, rgb(91, 61, 173) 0%, transparent 70%);
+  animation-delay: 0s;
+}
+
+.particles-oguri::after {
+  bottom: 10%;
+  right: 10%;
+  background: radial-gradient(circle, rgb(127, 180, 255) 0%, transparent 70%);
+  animation-delay: 2s;
+}
+
+/* Transiciones suaves para todos los elementos interactivos */
+.transition-oguri {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Efectos de focus mejorados */
+.focus-oguri:focus,
+.focus-oguri:focus-visible {
+  outline: none;
+  box-shadow: 
+    0 0 0 3px rgba(91, 61, 173, 0.3),
+    0 0 15px rgba(183, 166, 230, 0.4);
+  border-color: rgb(183, 166, 230);
+}
+
+/* Skeleton loaders temáticos */
+.skeleton-oguri {
+  background: linear-gradient(
+    90deg,
+    rgba(51, 65, 85, 0.3) 0%,
+    rgba(91, 61, 173, 0.2) 50%,
+    rgba(51, 65, 85, 0.3) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerOguri 2s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* Modo de rendimiento bajo - deshabilitar efectos Oguri */
+html[data-perf="low"] .animate-pulse-glow-oguri,
+html[data-perf="low"] .animate-shimmer-oguri,
+html[data-perf="low"] .animate-oguri-sparkle,
+html[data-perf="low"] .animate-oguri-float {
+  animation: none !important;
+}
+
+html[data-perf="low"] .glass-oguri {
+  backdrop-filter: none !important;
+  background: rgba(91, 61, 173, 0.1) !important;
+}
+
+html[data-perf="low"] .hover-oguri-glow:hover {
+  box-shadow: none !important;
+  transform: none !important;
 }
