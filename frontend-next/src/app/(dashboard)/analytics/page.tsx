@@ -370,16 +370,17 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6 transition-all duration-500", isInZone && "is-in-zone")}>
+      <div className="oguri-zone-overlay" />
       {/* Header */}
       <PageHeader
-        title="Analytics"
+        title="Logros de Carrera"
         description={
           lastUpdate
-            ? `Métricas y estadísticas en tiempo real • Última actualización: ${lastUpdate.toLocaleTimeString('es-ES')}`
-            : 'Métricas y estadísticas en tiempo real'
+            ? `Rendimiento y distancias recorridas por Oguri Cap • Última actualización: ${lastUpdate.toLocaleTimeString('es-ES')}`
+            : 'Rendimiento y distancias recorridas por Oguri Cap'
         }
-        icon={<Activity className="w-6 h-6 text-primary-400" />}
+        icon={<Trophy className="w-6 h-6 text-oguri-gold animate-bounce" />}
         actions={
           <>
             <div className="flex items-center gap-2">

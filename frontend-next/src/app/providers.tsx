@@ -8,6 +8,7 @@ import { SocketProvider } from '@/contexts/SocketContext';
 import { PreferencesProvider } from '@/contexts/PreferencesContext';
 import { LoadingOverlayProvider } from '@/contexts/LoadingOverlayContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { OguriThemeProvider } from '@/contexts/OguriThemeContext';
 import { useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { usePathname } from 'next/navigation';
@@ -83,9 +84,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
                   <NotificationProvider>
                     {/* Overlay global de loading */}
                     <LoadingOverlayProvider>
-                      {/* Efectos visuales ligados a notificaciones (desactivables por performanceMode) */}
-                      <EffectsGate />
-                      {children}
+                      <OguriThemeProvider>
+                        {/* Efectos visuales ligados a notificaciones (desactivables por performanceMode) */}
+                        <EffectsGate />
+                        {children}
+                      </OguriThemeProvider>
                       <Toaster
                         position="top-right"
                         toastOptions={{

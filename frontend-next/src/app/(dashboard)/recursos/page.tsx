@@ -385,33 +385,32 @@ export default function RecursosPage() {
       {/* Métricas principales */}
       {metrics && (
         <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" delay={0.02} stagger={0.06}>
-          {/* CPU */}
+          {/* CPU - Combustión */}
           <StaggerItem
-            className="glass-card p-6"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
+            className="glass-phantom p-6 border-oguri-purple/10 hover:border-oguri-lavender/30 transition-all group"
+            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 0 30px rgb(var(--oguri-purple) / 0.2)' }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <Cpu className="w-5 h-5 text-blue-400" />
+                <div className="p-2.5 rounded-xl bg-oguri-purple/20 shadow-glow-oguri-purple group-hover:animate-oguri-aura">
+                  <Flame className="w-5 h-5 text-oguri-lavender" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">CPU</p>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40">Combustión</p>
+                  <p className="text-xl font-black text-white tracking-tighter">
                     <AnimatedNumber value={metrics.cpu.usage} decimals={1} />%
                   </p>
                 </div>
               </div>
               
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getAlertColor(alertStates?.cpu || 'normal')}`}>
-                {getAlertIcon(alertStates?.cpu || 'normal')}
-                {alertStates?.cpu || 'normal'}
+              <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.cpu || 'normal'))}>
+                {alertStates?.cpu === 'normal' ? 'Aura Estable' : 'Aura Crítica'}
               </div>
             </div>
             
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Uso</span>
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-oguri-lavender/40">Potencia</span>
                 <span className="text-white">
                   <AnimatedNumber value={metrics.cpu.usage} decimals={1} />%
                 </span>
@@ -419,57 +418,51 @@ export default function RecursosPage() {
               <Progress
                 value={Math.min(metrics.cpu.usage, 100)}
                 max={100}
-                className="h-2 bg-gray-700 rounded-full ring-0"
+                className="h-2 bg-oguri-phantom-950 rounded-full"
                 fillClassName={getUsageColor(metrics.cpu.usage, thresholds?.cpu)}
               />
-              <div className="text-xs text-gray-500">
-                {metrics.cpu.cores} núcleos • {metrics.cpu.model}
-              </div>
-            </div>
-          </StaggerItem>
-
-          {/* Memoria */}
+              <div className="text-[9px] font-bold text-oguri-lavender/30 uppercase tracking-tighter truncate">
+                {metrics.cpu.cores} NÚCLEOS • {metrics.c          {/* Memoria - Nutrición */}
           <StaggerItem
-            className="glass-card p-6"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
+            className="glass-phantom p-6 border-oguri-purple/10 hover:border-oguri-lavender/30 transition-all group"
+            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 0 30px rgb(var(--oguri-gold) / 0.1)' }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <MemoryStick className="w-5 h-5 text-green-400" />
+                <div className="p-2.5 rounded-xl bg-oguri-gold/10 shadow-glow-oguri-mixed group-hover:animate-bounce">
+                  <Beef className="w-5 h-5 text-oguri-gold" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Memoria</p>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40">Nutrición</p>
+                  <p className="text-xl font-black text-white tracking-tighter">
                     <AnimatedNumber value={metrics.memory.usage} decimals={1} />%
                   </p>
                 </div>
               </div>
               
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getAlertColor(alertStates?.memory || 'normal')}`}>
-                {getAlertIcon(alertStates?.memory || 'normal')}
-                {alertStates?.memory || 'normal'}
+              <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.memory || 'normal'))}>
+                {metrics.memory.usage > 80 ? 'Hambrienta' : 'Satisfecha'}
               </div>
             </div>
             
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Usado</span>
-                <span className="text-white">{formatBytes(metrics.memory.used)}</span>
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-oguri-lavender/40">Saciedad</span>
+                <span className="text-white">
+                  {formatBytes(metrics.memory.used)} / {formatBytes(metrics.memory.total)}
+                </span>
               </div>
               <Progress
                 value={Math.min(metrics.memory.usage, 100)}
                 max={100}
-                className="h-2 bg-gray-700 rounded-full ring-0"
+                className="h-2 bg-oguri-phantom-950 rounded-full"
                 fillClassName={getUsageColor(metrics.memory.usage, thresholds?.memory)}
               />
-              <div className="text-xs text-gray-500">
-                {formatBytes(metrics.memory.free)} libre de {formatBytes(metrics.memory.total)}
+              <div className="text-[9px] font-bold text-oguri-lavender/30 uppercase tracking-tighter truncate">
+                RSS: {formatBytes(metrics.memory.process.rss)} • HEAP: {formatBytes(metrics.memory.process.heapUsed)}
               </div>
             </div>
-          </StaggerItem>
-
-          {/* Disco */}
+          </StaggerItem>sco */}
           <StaggerItem
             className="glass-card p-6"
             whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}

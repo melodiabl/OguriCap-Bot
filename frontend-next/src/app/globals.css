@@ -643,6 +643,62 @@ body::after {
   animation: eyeGlow 2s infinite ease-in-out;
 }
 
+/* MODO ZONA - Vibración y Velocidad Extrema */
+@keyframes zoneVibration {
+  0%, 100% { transform: translate(0, 0) scale(1); filter: brightness(1) saturate(1); }
+  25% { transform: translate(1px, -1px) scale(1.005); filter: brightness(1.2) saturate(1.2); }
+  50% { transform: translate(-1px, 1px) scale(0.995); filter: brightness(1.1) saturate(1.1); }
+  75% { transform: translate(1px, 1px) scale(1.005); filter: brightness(1.3) saturate(1.3); }
+}
+
+@keyframes zoneSpeedLines {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+.animate-oguri-zone {
+  animation: zoneVibration 0.15s linear infinite;
+  position: relative;
+  z-index: 10;
+}
+
+.oguri-zone-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 20px,
+    rgba(70, 195, 207, 0.03) 20px,
+    rgba(70, 195, 207, 0.03) 40px
+  );
+  background-size: 200% 200%;
+  animation: zoneSpeedLines 0.5s linear infinite;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.is-in-zone .oguri-zone-overlay {
+  opacity: 1;
+}
+
+/* SISTEMA DE AURAS PERSONALIZADAS */
+:root {
+  --current-aura: var(--oguri-purple);
+  --current-aura-light: var(--oguri-lavender);
+}
+
+.aura-purple { --current-aura: var(--oguri-purple); --current-aura-light: var(--oguri-lavender); }
+.aura-phantom { --current-aura: var(--oguri-phantom-dark); --current-aura-light: var(--oguri-phantom-light); }
+.aura-gold { --current-aura: var(--oguri-gold); --current-aura-light: 253 224 71; }
+.aura-cyan { --current-aura: var(--oguri-cyan); --current-aura-light: var(--oguri-blue); }
+
+.dynamic-aura-glow {
+  box-shadow: 0 0 20px rgb(var(--current-aura) / 0.3), 0 0 40px rgb(var(--current-aura-light) / 0.1);
+}
+
 /* Efecto de Vidrio Phantom */
 .glass-phantom {
   background: rgba(51, 65, 85, 0.4);

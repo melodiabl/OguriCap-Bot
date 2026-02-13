@@ -41,6 +41,36 @@ Se han creado clases de utilidad CSS específicas que imitan las habilidades del
 - **Unificación de Estilos**: Todos los componentes ahora comparten la misma estética "Cinderella Gray".
 - **Optimización de Flujos**: Se eliminaron elementos de UI que aparecían sin contexto (notificaciones fantasmas, barras de broadcast vacías).
 
+## 🚀 Expansión Avanzada: Habilidades de Élite
+
+Se han implementado funciones de gamificación y personalización profunda:
+
+### 1. **Modo Zona (Zone Mode)**
+Un estado visual intensivo que se activa manualmente o durante procesos de alta carga:
+- El panel vibra sutilmente imitando la concentración extrema de Oguri.
+- Aparecen "líneas de velocidad" dinámicas en el fondo.
+- El aura cian de competencia envuelve el panel.
+
+### 2. **Sistema de Auras Personalizables**
+Los administradores pueden elegir su estilo de aura desde el Header:
+- **Oguri (Púrpura)**: Estilo clásico y equilibrado.
+- **Phantom (Gris)**: Estilo sigiloso y elegante.
+- **Victoria (Dorado)**: Estilo de campeón para reportes de éxito.
+- **Cian (Velocidad)**: Estilo técnico y de enfoque.
+
+### 3. **Panel de Alimentación (Recursos)**
+Rediseño del monitor de sistema con terminología del anime:
+- **Combustión (CPU)**: Mide la potencia de procesamiento actual.
+- **Nutrición (RAM)**: Mide el consumo de energía del sistema (Hambrienta/Satisfecha).
+- **Paddock de Alimentación**: El lugar donde se gestiona la energía del bot.
+
+### 4. **Logros de Carrera (Analytics)**
+Las estadísticas ahora se presentan como resultados de competencia:
+- **Zancadas**: Total de comandos ejecutados.
+- **Espectadores**: Usuarios activos interactuando.
+- **Paddocks**: Grupos gestionados por el bot.
+- **Tropezones**: Tasa de errores del sistema.
+
 ## 🚀 Cómo Visualizar
 
 1. Cambiar a la rama: `git checkout oguri-theme-improvements`

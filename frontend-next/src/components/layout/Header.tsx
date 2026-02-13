@@ -8,7 +8,8 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-import { Bell, Search, Moon, Sun, RefreshCw, Menu, X } from 'lucide-react';
+import { Bell, Search, Moon, Sun, RefreshCw, Menu, X, Zap, Palette, Sparkles } from 'lucide-react';
+import { useOguriTheme } from '@/contexts/OguriThemeContext';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
@@ -29,6 +30,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const { isConnected: isSocketConnected } = useSocketConnection();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus(5000);
   const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
+  const { isInZone, toggleZone, currentAura, setCurrentAura } = useOguriTheme();
+  const [isAuraSelectorOpen, setIsAuraSelectorOpen] = useState(false);
+  const auraRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
 
@@ -40,7 +44,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const isConnected = pollingConnected;
 
   return (
-    <header className="sticky top-0 z-50 h-20 w-full border-b border-oguri-purple/10 glass-phantom px-4 lg:px-8">
+    <header className={cn(
+      "sticky top-0 z-50 h-20 w-full border-b border-oguri-purple/10 glass-phantom px-4 lg:px-8 transition-all duration-500",
+      isInZone && "animate-oguri-zone shadow-glow-oguri-cyan border-oguri-cyan/30"
+    )}>
       <div className="max-w-7xl mx-auto w-full flex h-full items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="lg:hidden">
@@ -88,6 +95,73 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
             state={isConnecting ? 'warning' : isConnected ? 'live' : 'danger'}
             label={isConnecting ? 'Bot Connecting' : isConnected ? 'Bot Online' : 'Bot Offline'}
           />
+
+          {/* Modo Zona Toggle */}
+          <Tooltip content={isInZone ? "Desactivar Modo Zona" : "Activar Modo Zona"}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleZone}
+              className={cn(
+                "p-2.5 rounded-xl transition-all duration-500 group relative overflow-hidden",
+                isInZone 
+                  ? "bg-oguri-cyan/20 text-oguri-cyan shadow-glow-oguri-cyan" 
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              )}
+            >
+              <Zap className={cn("w-5 h-5 transition-transform", isInZone && "fill-current scale-110 animate-pulse")} />
+            </Button>
+          </Tooltip>
+
+          {/* Aura Selector */}
+          <div className="relative" ref={auraRef}>
+            <Tooltip content="Personalizar Aura">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsAuraSelectorOpen(!isAuraSelectorOpen)}
+                className="p-2.5 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10 transition-all group"
+              >
+                <Palette className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+              </Button>
+            </Tooltip>
+
+            <AnimatePresence>
+              {isAuraSelectorOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-2 w-48 p-2 rounded-2xl glass-phantom border border-oguri-purple/20 shadow-2xl z-50"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40 px-2 py-1 mb-1">Elegir Aura</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { id: 'purple', name: 'Oguri', color: 'bg-oguri-purple' },
+                      { id: 'phantom', name: 'Phantom', color: 'bg-slate-700' },
+                      { id: 'gold', name: 'Victoria', color: 'bg-oguri-gold' },
+                      { id: 'cyan', name: 'Cian', color: 'bg-oguri-cyan' }
+                    ].map((aura) => (
+                      <button
+                        key={aura.id}
+                        onClick={() => {
+                          setCurrentAura(aura.id as any);
+                          setIsAuraSelectorOpen(false);
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-xl transition-all hover:bg-oguri-purple/10",
+                          currentAura === aura.id && "bg-oguri-purple/20 ring-1 ring-oguri-purple/30"
+                        )}
+                      >
+                        <div className={cn("w-3 h-3 rounded-full shadow-sm", aura.color)} />
+                        <span className="text-[10px] font-bold text-white uppercase">{aura.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Notifications */}
           <div className="relative">
