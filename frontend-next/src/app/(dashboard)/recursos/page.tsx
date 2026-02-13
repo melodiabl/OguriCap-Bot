@@ -22,7 +22,11 @@ import {
   Clock,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  Utensils,
+  Beef,
+  Flame,
+  Gauge
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -31,6 +35,8 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { Progress } from '@/components/ui/Progress';
 import { useSocketConnection } from '@/contexts/SocketContext';
+import { useOguriTheme } from '@/contexts/OguriThemeContext';
+import { cn } from '@/lib/utils';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -134,6 +140,7 @@ export default function RecursosPage() {
   const [updateInterval, setUpdateInterval] = useState(5000);
 
   const { socket } = useSocketConnection();
+  const { isInZone } = useOguriTheme();
 
   useEffect(() => {
     loadResourceStats();
@@ -145,8 +152,6 @@ export default function RecursosPage() {
 
     const handleMetricsUpdate = (data: ResourceMetrics) => {
       setMetrics(data);
-      
-      // Agregar al historial local (mantener últimos 60 puntos)
       setHistoricalData(prev => {
         const newData = [...prev, {
           timestamp: data.timestamp,
@@ -160,7 +165,7 @@ export default function RecursosPage() {
 
     const handleAlertStateChanged = (data: any) => {
       toast.error(`Alerta: ${data.resource} en estado ${data.newState}`);
-      loadResourceStats(); // Recargar stats para obtener estados actualizados
+      loadResourceStats();
     };
 
     socket.on('resource:metrics', handleMetricsUpdate);
@@ -186,14 +191,8 @@ export default function RecursosPage() {
         setUpdateInterval(Number((stats as any)?.updateInterval) || 5000);
         return;
       }
-
-      setMetrics(null);
-      setAlertStates(null);
-      setThresholds(null);
-      setIsMonitoring(false);
     } catch (error) {
       console.error('Error loading resource stats:', error);
-      toast.error('Error cargando estadísticas de recursos');
     } finally {
       setIsLoading(false);
     }
@@ -203,8 +202,7 @@ export default function RecursosPage() {
     try {
       const historyRes = await api.getResourcesHistory(60).catch(() => ({ history: [] }));
       const historyRaw = (historyRes as any)?.history;
-      const history = Array.isArray(historyRaw) ? historyRaw : [];
-      setHistoricalData(history);
+      setHistoricalData(Array.isArray(historyRaw) ? historyRaw : []);
     } catch (error) {
       console.error('Error loading historical data:', error);
     }
@@ -239,12 +237,11 @@ export default function RecursosPage() {
     try {
       const data = {
         timestamp: Date.now(),
-        metrics: metrics,
-        historicalData: historicalData,
-        alertStates: alertStates,
-        thresholds: thresholds
+        metrics,
+        historicalData,
+        alertStates,
+        thresholds
       };
-      
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -266,16 +263,6 @@ export default function RecursosPage() {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
   };
 
   const getAlertColor = (state: string) => {
@@ -311,43 +298,30 @@ export default function RecursosPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-oguri-lavender animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className={cn("space-y-6 transition-all duration-500", isInZone && "is-in-zone")}>
+      <div className="oguri-zone-overlay" />
+      
       <PageHeader
-        title="Monitoreo de Recursos"
-        description="Monitoreo en tiempo real del sistema y recursos"
-        icon={<Activity className="w-5 h-5 text-primary-400" />}
+        title="Paddock de Alimentación"
+        description="Estado de energía y recursos de Oguri Cap"
+        icon={<Utensils className="w-5 h-5 text-oguri-gold animate-bounce" />}
         actions={
           <>
-            <Button
-              onClick={() => setShowSettings(!showSettings)}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
+            <Button onClick={() => setShowSettings(!showSettings)} variant="secondary" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Configurar
             </Button>
-
-            <Button
-              onClick={() => exportMetrics('json')}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
+            <Button onClick={() => exportMetrics('json')} variant="secondary" className="flex items-center gap-2">
               <Download className="w-4 h-4" />
               Exportar
             </Button>
-
-            <Button
-              onClick={toggleMonitoring}
-              variant={isMonitoring ? "danger" : "primary"}
-              className="flex items-center gap-2"
-            >
+            <Button onClick={toggleMonitoring} variant={isMonitoring ? "danger" : "primary"} className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
               {isMonitoring ? 'Detener' : 'Iniciar'}
             </Button>
@@ -355,334 +329,124 @@ export default function RecursosPage() {
         }
       />
 
-      {/* Estado del monitoreo */}
       <Reveal>
-        <div className="glass-card p-4">
+        <div className="glass-phantom p-4 border-oguri-purple/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <motion.div
-                className={`w-3 h-3 rounded-full ${isMonitoring ? 'bg-green-400' : 'bg-red-400'}`}
-                animate={
-                  isMonitoring
-                    ? { scale: [1, 1.25, 1], opacity: [1, 0.7, 1] }
-                    : { scale: 1, opacity: 1 }
-                }
-                transition={isMonitoring ? { duration: 1.4, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
+                className={`w-3 h-3 rounded-full ${isMonitoring ? 'bg-green-400 shadow-glow-oguri-cyan' : 'bg-red-400'}`}
+                animate={isMonitoring ? { scale: [1, 1.2, 1], opacity: [1, 0.6, 1] } : {}}
+                transition={{ duration: 1.5, repeat: Infinity }}
               />
-              <span className="text-white font-medium">{isMonitoring ? 'Monitoreo Activo' : 'Monitoreo Detenido'}</span>
-              {isMonitoring && <span className="text-sm text-gray-400">(actualización cada {updateInterval / 1000}s)</span>}
+              <span className="text-white font-bold uppercase tracking-widest text-xs">
+                {isMonitoring ? 'Monitoreo de Aura Activo' : 'Monitoreo Detenido'}
+              </span>
             </div>
-
             {metrics && (
-              <div className="text-sm text-gray-400">
-                Última actualización: {new Date(metrics.timestamp).toLocaleTimeString()}
+              <div className="text-[10px] font-black text-oguri-lavender/40 uppercase tracking-widest">
+                Sincronización: {new Date(metrics.timestamp).toLocaleTimeString()}
               </div>
             )}
           </div>
         </div>
       </Reveal>
 
-      {/* Métricas principales */}
       {metrics && (
-        <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" delay={0.02} stagger={0.06}>
+        <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* CPU - Combustión */}
-          <StaggerItem
-            className="glass-phantom p-6 border-oguri-purple/10 hover:border-oguri-lavender/30 transition-all group"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 0 30px rgb(var(--oguri-purple) / 0.2)' }}
-          >
+          <StaggerItem className="glass-phantom p-6 border-oguri-purple/10 group">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-oguri-purple/20 shadow-glow-oguri-purple group-hover:animate-oguri-aura">
-                  <Flame className="w-5 h-5 text-oguri-lavender" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40">Combustión</p>
-                  <p className="text-xl font-black text-white tracking-tighter">
-                    <AnimatedNumber value={metrics.cpu.usage} decimals={1} />%
-                  </p>
-                </div>
+              <div className="p-2.5 rounded-xl bg-oguri-purple/20 shadow-glow-oguri-purple group-hover:animate-oguri-aura">
+                <Flame className="w-5 h-5 text-oguri-lavender" />
               </div>
-              
-              <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.cpu || 'normal'))}>
+              <div className={cn("px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.cpu || 'normal'))}>
                 {alertStates?.cpu === 'normal' ? 'Aura Estable' : 'Aura Crítica'}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                <span className="text-oguri-lavender/40">Potencia</span>
-                <span className="text-white">
-                  <AnimatedNumber value={metrics.cpu.usage} decimals={1} />%
-                </span>
-              </div>
-              <Progress
-                value={Math.min(metrics.cpu.usage, 100)}
-                max={100}
-                className="h-2 bg-oguri-phantom-950 rounded-full"
-                fillClassName={getUsageColor(metrics.cpu.usage, thresholds?.cpu)}
-              />
-              <div className="text-[9px] font-bold text-oguri-lavender/30 uppercase tracking-tighter truncate">
-                {metrics.cpu.cores} NÚCLEOS • {metrics.c          {/* Memoria - Nutrición */}
-          <StaggerItem
-            className="glass-phantom p-6 border-oguri-purple/10 hover:border-oguri-lavender/30 transition-all group"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 0 30px rgb(var(--oguri-gold) / 0.1)' }}
-          >
+            <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40 mb-1">Combustión</p>
+            <div className="flex items-end gap-2 mb-4">
+              <span className="text-3xl font-black text-white tracking-tighter">
+                <AnimatedNumber value={metrics.cpu.usage} decimals={1} />%
+              </span>
+              <div className="mb-1">{getTrendIcon(metrics.cpu.usage, historicalData[historicalData.length - 2]?.cpu || 0)}</div>
+            </div>
+            <Progress value={metrics.cpu.usage} className="h-2 bg-oguri-phantom-950" color={getUsageColor(metrics.cpu.usage, thresholds?.cpu)} />
+          </StaggerItem>
+
+          {/* Memoria - Nutrición */}
+          <StaggerItem className="glass-phantom p-6 border-oguri-purple/10 group">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-oguri-gold/10 shadow-glow-oguri-mixed group-hover:animate-bounce">
-                  <Beef className="w-5 h-5 text-oguri-gold" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40">Nutrición</p>
-                  <p className="text-xl font-black text-white tracking-tighter">
-                    <AnimatedNumber value={metrics.memory.usage} decimals={1} />%
-                  </p>
-                </div>
+              <div className="p-2.5 rounded-xl bg-oguri-gold/10 shadow-glow-oguri-mixed group-hover:animate-bounce">
+                <Beef className="w-5 h-5 text-oguri-gold" />
               </div>
-              
-              <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.memory || 'normal'))}>
+              <div className={cn("px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.memory || 'normal'))}>
                 {metrics.memory.usage > 80 ? 'Hambrienta' : 'Satisfecha'}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                <span className="text-oguri-lavender/40">Saciedad</span>
-                <span className="text-white">
-                  {formatBytes(metrics.memory.used)} / {formatBytes(metrics.memory.total)}
-                </span>
-              </div>
-              <Progress
-                value={Math.min(metrics.memory.usage, 100)}
-                max={100}
-                className="h-2 bg-oguri-phantom-950 rounded-full"
-                fillClassName={getUsageColor(metrics.memory.usage, thresholds?.memory)}
-              />
-              <div className="text-[9px] font-bold text-oguri-lavender/30 uppercase tracking-tighter truncate">
-                RSS: {formatBytes(metrics.memory.process.rss)} • HEAP: {formatBytes(metrics.memory.process.heapUsed)}
-              </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40 mb-1">Nutrición</p>
+            <div className="flex items-end gap-2 mb-4">
+              <span className="text-3xl font-black text-white tracking-tighter">
+                <AnimatedNumber value={metrics.memory.usage} decimals={1} />%
+              </span>
+              <div className="mb-1">{getTrendIcon(metrics.memory.usage, historicalData[historicalData.length - 2]?.memory || 0)}</div>
             </div>
-          </StaggerItem>sco */}
-          <StaggerItem
-            className="glass-card p-6"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
-          >
+            <Progress value={metrics.memory.usage} className="h-2 bg-oguri-phantom-950" color={getUsageColor(metrics.memory.usage, thresholds?.memory)} />
+          </StaggerItem>
+
+          {/* Disco */}
+          <StaggerItem className="glass-phantom p-6 border-oguri-purple/10 group">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <HardDrive className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Disco</p>
-                  <p className="text-xl font-bold text-white">
-                    <AnimatedNumber value={metrics.disk.usage} />%
-                  </p>
-                </div>
+              <div className="p-2.5 rounded-xl bg-oguri-cyan/10 text-oguri-cyan">
+                <HardDrive className="w-5 h-5" />
               </div>
-              
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getAlertColor(alertStates?.disk || 'normal')}`}>
-                {getAlertIcon(alertStates?.disk || 'normal')}
-                {alertStates?.disk || 'normal'}
+              <div className={cn("px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest", getAlertColor(alertStates?.disk || 'normal'))}>
+                {alertStates?.disk || 'Normal'}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Usado</span>
-                <span className="text-white">{metrics.disk.used}</span>
-              </div>
-              <Progress
-                value={Math.min(metrics.disk.usage, 100)}
-                max={100}
-                className="h-2 bg-gray-700 rounded-full ring-0"
-                fillClassName={getUsageColor(metrics.disk.usage, thresholds?.disk)}
-              />
-              <div className="text-xs text-gray-500">
-                {metrics.disk.available} disponible • {metrics.disk.filesystem}
-              </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40 mb-1">Almacenamiento</p>
+            <div className="flex items-end gap-2 mb-4">
+              <span className="text-3xl font-black text-white tracking-tighter">
+                <AnimatedNumber value={metrics.disk.usage} />%
+              </span>
             </div>
+            <Progress value={metrics.disk.usage} className="h-2 bg-oguri-phantom-950" color={getUsageColor(metrics.disk.usage, thresholds?.disk)} />
           </StaggerItem>
 
           {/* Bot Status */}
-          <StaggerItem
-            className="glass-card p-6"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
-          >
+          <StaggerItem className="glass-phantom p-6 border-oguri-purple/10 group">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-500/20">
-                  <Zap className="w-5 h-5 text-yellow-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Bot</p>
-                  <p className="text-xl font-bold text-white capitalize">{metrics.bot.connection.status}</p>
-                </div>
+              <div className="p-2.5 rounded-xl bg-oguri-lavender/10 text-oguri-lavender">
+                <Zap className="w-5 h-5" />
               </div>
-              
-              <div className={`w-3 h-3 rounded-full ${
-                metrics.bot.connection.status === 'connected' ? 'bg-green-400' : 
-                metrics.bot.connection.status === 'connecting' ? 'bg-yellow-400' : 'bg-red-400'
-              }`} />
+              <div className={cn("w-3 h-3 rounded-full", metrics.bot.connection.status === 'connected' ? 'bg-green-400' : 'bg-red-400')} />
             </div>
-            
-            <div className="space-y-2">
-              {metrics.bot.connection.phoneNumber && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Número</span>
-                  <span className="text-white">+{metrics.bot.connection.phoneNumber}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Chats</span>
-                <span className="text-white">
-                  <AnimatedNumber value={metrics.bot.database.chats} />
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">SubBots</span>
-                <span className="text-white">
-                  <AnimatedNumber value={metrics.bot.subbots.connected} />/<AnimatedNumber value={metrics.bot.subbots.total} />
-                </span>
-              </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40 mb-1">Estado del Bot</p>
+            <p className="text-xl font-black text-white uppercase tracking-tighter mb-4">{metrics.bot.connection.status}</p>
+            <div className="space-y-1 text-[10px] font-bold text-oguri-lavender/60 uppercase">
+              <div className="flex justify-between"><span>Chats</span><span>{metrics.bot.database.chats}</span></div>
+              <div className="flex justify-between"><span>Subbots</span><span>{metrics.bot.subbots.connected}/{metrics.bot.subbots.total}</span></div>
             </div>
           </StaggerItem>
         </Stagger>
       )}
 
-      {/* Información del sistema */}
-      {metrics && (
-        <Stagger className="grid grid-cols-1 lg:grid-cols-2 gap-6" delay={0.04} stagger={0.08}>
-          {/* Información del proceso */}
-          <StaggerItem
-            className="glass-card p-6"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
-          >
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Server className="w-5 h-5" />
-              Información del Proceso
-            </h3>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-400">Tiempo activo</p>
-                <p className="text-white font-medium">{formatUptime(metrics.process.uptime / 1000)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">PID</p>
-                <p className="text-white font-medium">{metrics.process.pid}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Versión Node.js</p>
-                <p className="text-white font-medium">{metrics.process.version}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Plataforma</p>
-                <p className="text-white font-medium">
-                  {metrics.process.platform} {metrics.process.arch}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Reinicios</p>
-                <p className="text-white font-medium">
-                  <AnimatedNumber value={metrics.process.restarts} />
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Errores</p>
-                <p className="text-white font-medium">
-                  <AnimatedNumber value={metrics.process.errors} />
-                </p>
-              </div>
-            </div>
-          </StaggerItem>
-
-          {/* Estadísticas de la base de datos */}
-          <StaggerItem
-            className="glass-card p-6"
-            whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}
-          >
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              Base de Datos
-            </h3>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-blue-400" />
-                  <span className="text-gray-400">Usuarios</span>
-                </div>
-                <span className="text-white font-medium">
-                  <AnimatedNumber value={metrics.bot.database.users} />
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-green-400" />
-                  <span className="text-gray-400">Grupos</span>
-                </div>
-                <span className="text-white font-medium">
-                  <AnimatedNumber value={metrics.bot.database.groups} />
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-purple-400" />
-                  <span className="text-gray-400">Total Chats</span>
-                </div>
-                <span className="text-white font-medium">
-                  <AnimatedNumber value={metrics.bot.database.chats} />
-                </span>
-              </div>
-            </div>
-          </StaggerItem>
-        </Stagger>
-      )}
-
-      {/* Configuración de umbrales */}
       <AnimatePresence>
         {showSettings && thresholds && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="glass-card p-6"
-          >
-            <h3 className="text-lg font-semibold text-white mb-4">Configuración de Umbrales</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="glass-phantom p-6 border-oguri-purple/20">
+            <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6">Ajustes de Umbrales de Aura</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {Object.entries(thresholds).map(([resource, values]) => (
                 <div key={resource} className="space-y-4">
-                  <h4 className="font-medium text-white capitalize">{resource}</h4>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Advertencia (%)</label>
-                    <input
-                      type="number"
-                      value={values.warning}
-                      onChange={(e) => updateThresholds({
-                        [resource]: { ...values, warning: parseInt(e.target.value) }
-                      })}
-                      className="input-glass w-full"
-                      min="0"
-                      max="100"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Crítico (%)</label>
-                    <input
-                      type="number"
-                      value={values.critical}
-                      onChange={(e) => updateThresholds({
-                        [resource]: { ...values, critical: parseInt(e.target.value) }
-                      })}
-                      className="input-glass w-full"
-                      min="0"
-                      max="100"
-                    />
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-oguri-gold">{resource}</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[9px] font-bold text-oguri-lavender/40 uppercase mb-1">Advertencia (%)</label>
+                      <input type="number" value={values.warning} onChange={(e) => updateThresholds({ [resource]: { ...values, warning: parseInt(e.target.value) } })} className="input-glass w-full text-xs" min="0" max="100" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-oguri-lavender/40 uppercase mb-1">Crítico (%)</label>
+                      <input type="number" value={values.critical} onChange={(e) => updateThresholds({ [resource]: { ...values, critical: parseInt(e.target.value) } })} className="input-glass w-full text-xs" min="0" max="100" />
+                    </div>
                   </div>
                 </div>
               ))}
