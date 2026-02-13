@@ -585,6 +585,78 @@ body::after {
   }
 }
 
+/* HABILIDADES DE OGURI CAP - ANIMACIONES EXCLUSIVAS */
+
+/* Estela de Velocidad (Cinderella Gray) */
+@keyframes speedStreak {
+  0% { transform: translateX(-100%) skewX(-20deg); opacity: 0; }
+  20% { opacity: 0.5; }
+  80% { opacity: 0.5; }
+  100% { transform: translateX(200%) skewX(-20deg); opacity: 0; }
+}
+
+/* Aura de Competencia (Glow pulsante intenso) */
+@keyframes oguriAura {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(183, 166, 230, 0.4)) brightness(1); }
+  50% { filter: drop-shadow(0 0 20px rgba(127, 180, 255, 0.8)) brightness(1.2); }
+}
+
+/* Explosión de Salida (Scale + Fade) */
+@keyframes startBurst {
+  0% { transform: scale(0.8); opacity: 0; filter: blur(10px); }
+  50% { transform: scale(1.05); opacity: 0.8; filter: blur(0px); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Brillo de Ojos (Destello cian) */
+@keyframes eyeGlow {
+  0%, 100% { opacity: 0.3; text-shadow: 0 0 5px rgba(70, 195, 207, 0.5); }
+  50% { opacity: 1; text-shadow: 0 0 15px rgba(70, 195, 207, 1), 0 0 25px rgba(127, 180, 255, 0.8); }
+}
+
+.animate-speed-streak {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-speed-streak::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(183, 166, 230, 0.2), transparent);
+  animation: speedStreak 2s infinite linear;
+  pointer-events: none;
+}
+
+.animate-oguri-aura {
+  animation: oguriAura 3s infinite ease-in-out;
+}
+
+.animate-start-burst {
+  animation: startBurst 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-eye-glow {
+  animation: eyeGlow 2s infinite ease-in-out;
+}
+
+/* Efecto de Vidrio Phantom */
+.glass-phantom {
+  background: rgba(51, 65, 85, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 166, 230, 0.1);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02), 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.glass-phantom:hover {
+  border-color: rgba(183, 166, 230, 0.3);
+  background: rgba(51, 65, 85, 0.5);
+  box-shadow: 0 0 20px rgba(91, 61, 173, 0.2);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -814,35 +886,34 @@ body::after {
 
   .glass-dark {
     @apply border;
-    border-color: rgb(var(--border) / 0.10);
+    border-color: rgb(var(--oguri-purple) / 0.15);
     background:
-      linear-gradient(135deg, rgb(var(--bg) / 0.78) 0%, rgb(var(--bg) / 0.55) 55%, rgb(var(--surface-elevated) / 0.65) 100%);
+      linear-gradient(135deg, rgb(var(--oguri-phantom-950) / 0.85) 0%, rgb(var(--oguri-phantom-900) / 0.75) 55%, rgb(var(--oguri-phantom-800) / 0.85) 100%);
     box-shadow:
-      var(--shadow),
-      inset 0 0 0 1px rgb(var(--shine) / 0.05);
+      0 10px 40px rgb(0 0 0 / 0.4),
+      inset 0 0 0 1px rgb(var(--oguri-lavender) / 0.05);
     backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
   }
 
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-accent-violet to-accent-cyan;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-oguri-purple via-oguri-lavender to-oguri-blue;
   }
 
   .gradient-text-animated {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-accent-violet to-accent-cyan;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-oguri-purple via-oguri-lavender to-oguri-blue;
     background-size: 200% auto;
     animation: gradient 3s ease infinite;
   }
 
   .btn-primary {
-    @apply relative overflow-hidden px-6 py-3 rounded-2xl font-semibold;
-    color: rgb(var(--text-on-accent) / 1);
-    background: linear-gradient(90deg, rgb(var(--primary) / 1), rgb(var(--secondary) / 1), rgb(var(--accent) / 1));
+    @apply relative overflow-hidden px-6 py-3 rounded-2xl font-black uppercase tracking-widest;
+    color: white;
+    background: linear-gradient(90deg, rgb(var(--oguri-purple) / 1), rgb(var(--oguri-lavender) / 1), rgb(var(--oguri-blue) / 1));
     background-size: 200% 100%;
     animation: gradient 5.2s ease infinite;
     box-shadow:
-      0 18px 44px rgb(var(--primary) / calc(0.20 * var(--glow-boost))),
-      0 10px 30px rgb(var(--shadow-rgb) / 0.22),
-      inset 0 0 0 1px rgb(var(--shine) / 0.10);
+      0 15px 35px rgb(var(--oguri-purple) / 0.3),
+      inset 0 0 0 1px rgb(255 255 255 / 0.1);
   }
 
   .btn-primary::before {
@@ -885,15 +956,15 @@ body::after {
   }
 
   .input-glass {
-    @apply w-full px-4 py-3 rounded-2xl border;
-    color: rgb(var(--text-primary) / 1);
-    border-color: rgb(var(--border) / 0.12);
-    background: linear-gradient(135deg, rgb(var(--bg) / 0.55), rgb(var(--surface-elevated) / 0.35));
+    @apply w-full px-4 py-3 rounded-2xl border font-medium;
+    color: white;
+    border-color: rgb(var(--oguri-purple) / 0.2);
+    background: linear-gradient(135deg, rgb(var(--oguri-phantom-950) / 0.6), rgb(var(--oguri-phantom-900) / 0.4));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     box-shadow:
-      0 12px 40px rgb(var(--shadow-rgb) / 0.18),
-      inset 0 0 0 1px rgb(var(--shine) / 0.04);
-    transition: transform 220ms ease, box-shadow 280ms ease, border-color 220ms ease, background-color 220ms ease;
+      0 8px 32px rgb(0 0 0 / 0.3),
+      inset 0 0 0 1px rgb(var(--oguri-lavender) / 0.05);
+    transition: all 280ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .input-glass::placeholder {
@@ -902,13 +973,13 @@ body::after {
 
   .input-glass:focus {
     outline: none;
-    border-color: rgb(var(--ring) / 0.55);
+    border-color: rgb(var(--oguri-lavender) / 0.5);
     box-shadow:
-      0 18px 60px rgb(var(--shadow-rgb) / 0.22),
-      0 0 0 2px rgb(var(--ring) / 0.22),
-      0 0 0 8px rgb(var(--accent) / 0.10),
-      inset 0 0 0 1px rgb(var(--shine) / 0.06);
-    transform: translate3d(0, -1px, 0);
+      0 15px 45px rgb(var(--oguri-purple) / 0.2),
+      0 0 0 2px rgb(var(--oguri-purple) / 0.3),
+      0 0 20px rgb(var(--oguri-lavender) / 0.2),
+      inset 0 0 0 1px rgb(var(--oguri-lavender) / 0.1);
+    transform: translate3d(0, -2px, 0);
   }
 
   .input-search {
@@ -1084,11 +1155,11 @@ body::after {
   }
 
   .avatar {
-    @apply w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-violet flex items-center justify-center text-white font-semibold ring-2 ring-white/20;
+    @apply w-10 h-10 rounded-full bg-gradient-oguri-primary flex items-center justify-center text-white font-black ring-2 ring-oguri-lavender/20 shadow-glow-oguri-purple;
   }
 
   .card-animated {
-    @apply glass-card p-6 transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-primary-400/30;
+    @apply glass-phantom p-6 transform transition-all duration-500 hover:scale-[1.02] hover:shadow-glow-oguri-mixed hover:border-oguri-lavender/30;
   }
 }
 

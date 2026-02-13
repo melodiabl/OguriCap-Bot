@@ -181,9 +181,9 @@ export const BroadcastTool: React.FC = () => {
   };
 
   return (
-    <Card className="p-6 border border-white/10 bg-gradient-to-br from-oguri-phantom-900/40 via-oguri-phantom-800/30 to-oguri-phantom-900/40 overflow-hidden relative backdrop-blur-xl animate-fade-in-up">
+    <Card className="p-6 border border-oguri-purple/20 bg-gradient-oguri-phantom overflow-hidden relative backdrop-blur-xl animate-start-burst">
       {/* Decoración de fondo con efecto Oguri */}
-      <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none animate-float">
+      <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none animate-oguri-float">
         <Sparkles className="w-32 h-32 text-oguri-lavender" />
       </div>
       <div className="absolute bottom-0 left-0 p-8 opacity-5 pointer-events-none">
@@ -192,17 +192,17 @@ export const BroadcastTool: React.FC = () => {
 
       {/* Header con gradiente Oguri */}
       <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="p-2.5 rounded-2xl bg-gradient-to-br from-oguri-purple to-oguri-lavender shadow-glow-oguri-mixed animate-pulse-glow-oguri">
+        <div className="p-2.5 rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-mixed animate-oguri-aura">
           <Send className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h3 className="text-lg font-black text-white flex items-center gap-2 tracking-tight">
             Mensaje Global Masivo
-            <span className="text-xs px-2 py-0.5 rounded-full bg-oguri-gold/20 text-oguri-gold border border-oguri-gold/30 animate-shimmer-oguri">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-oguri-gold/20 text-oguri-gold border border-oguri-gold/30 animate-shimmer-oguri font-black uppercase tracking-widest">
               Oguri Power
             </span>
           </h3>
-          <p className="text-sm text-gray-400">Envía avisos a múltiples grupos y comunidades simultáneamente.</p>
+          <p className="text-xs font-medium text-oguri-lavender/60">Envía avisos a múltiples grupos y comunidades simultáneamente.</p>
         </div>
       </div>
 

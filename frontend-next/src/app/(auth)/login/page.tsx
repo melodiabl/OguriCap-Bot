@@ -39,29 +39,29 @@ export default function LoginPage() {
           value: 'owner',
           label: 'Owner',
           icon: Crown,
-          tone: 'secondary',
-          description: 'Acceso completo al sistema',
+          tone: 'violet',
+          description: 'Control absoluto del Aura',
         },
         {
           value: 'admin',
           label: 'Administrador',
           icon: Shield,
           tone: 'danger',
-          description: 'Gestión avanzada del bot',
+          description: 'Gestión táctica Cinderella Gray',
         },
         {
           value: 'moderador',
           label: 'Moderador',
           icon: UserCheck,
-          tone: 'accent',
-          description: 'Moderación de contenido',
+          tone: 'info',
+          description: 'Moderación de Competencia',
         },
         {
           value: 'usuario',
           label: 'Usuario',
           icon: Users,
           tone: 'success',
-          description: 'Acceso básico al panel',
+          description: 'Acceso básico al Paddock',
         },
       ],
     []
@@ -238,18 +238,18 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 relative">
-            <div className="absolute inset-[3px] rounded-2xl bg-slate-950/90" />
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-oguri-primary flex items-center justify-center shadow-glow-oguri-mixed mb-4 relative animate-oguri-aura">
+            <div className="absolute inset-[3px] rounded-2xl bg-oguri-phantom-950/90" />
             <Image
               src="/oguricap-avatar.png"
               alt="Oguri Cap"
               width={40}
               height={40}
-              className="relative w-10 h-10 rounded-full border-2 border-white/70 object-cover animate-pulse"
+              className="relative w-10 h-10 rounded-full border-2 border-oguri-lavender/40 object-cover animate-pulse"
               priority
             />
           </div>
-          <p className="text-muted">Verificando estado del sistema...</p>
+          <p className="text-oguri-lavender/60 font-bold uppercase tracking-widest text-xs">Sincronizando Aura...</p>
         </div>
       </div>
     );

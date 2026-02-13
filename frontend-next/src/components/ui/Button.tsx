@@ -8,18 +8,18 @@ import { cn } from '@/lib/utils';
 import { NavParticlesHost } from '@/components/ui/NavParticles';
 
 const buttonVariants = cva(
-  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold tracking-wide transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--ring)/0.55)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg)/1)] disabled:pointer-events-none disabled:opacity-50 ring-1 ring-[rgb(var(--border)/0.35)] hover:ring-[rgb(var(--border)/0.6)] hover:-translate-y-0.5 active:translate-y-0',
+  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold tracking-wide transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oguri-lavender/50 focus-visible:ring-offset-2 focus-visible:ring-offset-oguri-phantom-950 disabled:pointer-events-none disabled:opacity-50 ring-1 ring-oguri-purple/20 hover:ring-oguri-lavender/40 hover:-translate-y-0.5 active:translate-y-0',
   {
     variants: {
       variant: {
-        primary: 'btn-primary',
-        secondary: 'btn-secondary',
-        danger: 'btn-danger',
-        success: 'btn-glow',
-        glow: 'btn-glow',
+        primary: 'btn-oguri bg-gradient-oguri-primary text-white shadow-glow-oguri-purple',
+        secondary: 'bg-oguri-phantom-800/60 text-oguri-lavender hover:bg-oguri-phantom-700/80 border border-oguri-purple/10',
+        danger: 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20',
+        success: 'bg-oguri-cyan/10 text-oguri-cyan hover:bg-oguri-cyan/20 border border-oguri-cyan/20 shadow-glow-oguri-cyan',
+        glow: 'btn-oguri bg-gradient-oguri-power text-white shadow-glow-oguri-mixed animate-oguri-aura',
         ghost: [
           'px-4 py-2',
-          'text-muted hover:text-foreground hover:bg-card/40 hover:shadow-inner-glow',
+          'text-oguri-lavender/60 hover:text-oguri-lavender hover:bg-oguri-purple/10',
         ],
       },
       size: {

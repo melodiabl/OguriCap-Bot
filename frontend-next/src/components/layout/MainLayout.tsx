@@ -45,13 +45,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="h-screen overflow-hidden mesh-bg" data-page={pageKey}>
       <RouteProgressBar />
-      {/* Animated background particles */}
+      {/* Animated background particles - OGURI CAP THEME */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         {performanceMode ? (
           <div
             className={cn(
               'absolute -top-16 -left-24 w-[420px] h-[420px] rounded-full',
-              'bg-gradient-to-br from-primary-500/10 via-cyan-500/8 to-transparent',
+              'bg-gradient-to-br from-oguri-purple/10 via-oguri-cyan/8 to-transparent',
               viewport === 'mobile' ? 'opacity-60' : 'opacity-70'
             )}
           />
@@ -59,22 +59,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <>
             <div
               className={cn(
-                'absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl',
+                'absolute top-1/4 left-1/4 w-96 h-96 bg-oguri-purple/15 rounded-full blur-[100px]',
                 !reduceMotion && 'animate-blob'
               )}
             />
             <div
               className={cn(
-                'absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl',
+                'absolute top-3/4 right-1/4 w-96 h-96 bg-oguri-lavender/15 rounded-full blur-[100px]',
                 !reduceMotion && 'animate-blob animation-delay-2000'
               )}
             />
             <div
               className={cn(
-                'absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl',
+                'absolute bottom-1/4 left-1/2 w-96 h-96 bg-oguri-blue/15 rounded-full blur-[100px]',
                 !reduceMotion && 'animate-blob animation-delay-4000'
               )}
             />
+            {/* Speed Streaks background effect */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-oguri-lavender to-transparent animate-speed-streak" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-2/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-oguri-blue to-transparent animate-speed-streak" style={{ animationDelay: '3s' }} />
+              <div className="absolute top-3/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-oguri-cyan to-transparent animate-speed-streak" style={{ animationDelay: '5s' }} />
+            </div>
           </>
         )}
       </div>
@@ -130,11 +136,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <FloatingSupportButton />
 
         {/* Footer */}
-        <footer className="px-4 lg:px-8 py-4 border-t border-white/10 glass-dark">
+        <footer className="px-4 lg:px-8 py-4 border-t border-white/10 glass-phantom">
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-4 text-sm text-gray-400">
-            <span>© 2026 OguriCap Bot Panel</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-oguri-lavender animate-pulse" />
+              <span className="font-medium">© 2026 OguriCap Bot Panel</span>
+            </div>
             <div className="flex items-center gap-4">
-              <span className="hidden sm:inline text-xs font-mono text-gray-500">v1.0.0</span>
+              <span className="hidden sm:inline text-xs font-mono text-oguri-lavender/60">CINDERELLA GRAY v1.0.0</span>
               <RealTimeBadge isActive={isConnected} latency={latency} />
             </div>
           </div>

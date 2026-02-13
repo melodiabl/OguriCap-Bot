@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const isConnected = pollingConnected;
 
   return (
-    <header className="sticky top-0 z-50 h-20 w-full border-b border-white/5 backdrop-blur-xl px-4 lg:px-8" style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}>
+    <header className="sticky top-0 z-50 h-20 w-full border-b border-oguri-purple/10 glass-phantom px-4 lg:px-8">
       <div className="max-w-7xl mx-auto w-full flex h-full items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="lg:hidden">
@@ -48,14 +48,14 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               variant="ghost"
               size="icon"
               onClick={onMenuClick}
-              className="hover:bg-white/5 text-gray-400"
+              className="hover:bg-oguri-purple/10 text-oguri-lavender/60"
             >
               {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
           </div>
 
           <div className="hidden sm:block">
-            <h2 className="text-2xl font-extrabold gradient-text-animated tracking-tight">
+            <h2 className="text-2xl font-black text-gradient-oguri tracking-tight animate-start-burst">
               {currentPage?.headerLabel || currentPage?.label || 'Panel'}
             </h2>
           </div>
@@ -64,11 +64,11 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
         {/* Center - Search */}
         <div className="hidden md:flex flex-1 max-w-md mx-8">
           <div className="relative w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-oguri-lavender/40" />
             <input
               type="text"
               placeholder="Buscar en el panel..."
-              className="w-full h-11 pl-11 pr-4 rounded-xl bg-white/5 border border-white/5 focus:border-primary/50 focus:bg-white/10 outline-none text-sm text-white placeholder:text-gray-600 transition-all"
+              className="w-full h-11 pl-11 pr-4 rounded-xl bg-oguri-phantom-900/40 border border-oguri-purple/10 focus:border-oguri-lavender/50 focus:bg-oguri-phantom-800/60 outline-none text-sm text-white placeholder:text-oguri-phantom-400 transition-all focus:shadow-glow-oguri-purple"
             />
           </div>
         </div>
@@ -144,8 +144,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
 
           <div className="h-8 w-[1px] bg-white/5 mx-1 hidden md:block" />
 
-          <div className="flex items-center gap-3 p-1 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-glow-sm group-hover:scale-105 transition-transform">
+          <div className="flex items-center gap-3 p-1 rounded-2xl bg-oguri-phantom-900/40 border border-oguri-purple/10 hover:bg-oguri-phantom-800/60 hover:border-oguri-lavender/30 transition-all cursor-pointer group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-oguri-primary flex items-center justify-center text-white font-black text-sm shadow-glow-oguri-purple group-hover:scale-105 transition-transform group-hover:animate-oguri-aura">
               AD
             </div>
           </div>

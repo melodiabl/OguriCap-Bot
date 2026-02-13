@@ -92,11 +92,11 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
 
   const getTypeIcon = (tipo: string) => {
     const icons = {
-      info: <Info className="w-5 h-5 text-[rgb(var(--accent))]" />,
-      success: <CheckCircle className="w-5 h-5 text-[rgb(var(--success))]" />,
-      warning: <AlertTriangle className="w-5 h-5 text-[rgb(var(--warning))]" />,
-      error: <AlertCircle className="w-5 h-5 text-[rgb(var(--danger))]" />,
-      system: <Bell className="w-5 h-5 text-[rgb(var(--primary))]" />,
+      info: <Info className="w-5 h-5 text-oguri-blue" />,
+      success: <CheckCircle className="w-5 h-5 text-oguri-cyan" />,
+      warning: <AlertTriangle className="w-5 h-5 text-oguri-gold" />,
+      error: <AlertCircle className="w-5 h-5 text-red-400" />,
+      system: <Bell className="w-5 h-5 text-oguri-purple" />,
     };
     return icons[tipo as keyof typeof icons] || icons.info;
   };
@@ -144,20 +144,20 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                 top: `${coords.top}px`,
                 right: `${coords.right}px`,
               }}
-              className="w-96 max-w-[calc(100vw-2rem)] z-[9999] rounded-2xl glass-dark border border-white/10 shadow-2xl overflow-hidden flex flex-col"
+              className="w-96 max-w-[calc(100vw-2rem)] z-[9999] rounded-2xl glass-phantom border border-oguri-purple/20 shadow-glow-oguri-mixed overflow-hidden flex flex-col"
             >
               {/* Header */}
-              <div className="p-4 border-b border-white/10 bg-gradient-to-r from-[rgb(var(--primary)/0.1)] to-[rgb(var(--secondary)/0.1)]">
+              <div className="p-4 border-b border-oguri-purple/10 bg-gradient-oguri-phantom">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-[rgb(var(--primary))]" />
-                    <h3 className="font-semibold text-[rgb(var(--text-primary))]">Notificaciones</h3>
+                    <Bell className="w-5 h-5 text-oguri-lavender animate-pulse" />
+                    <h3 className="font-bold text-white tracking-tight">Notificaciones</h3>
                   </div>
                   {unreadCount > 0 && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="px-2 py-0.5 text-xs font-bold bg-[rgb(var(--danger))] text-white rounded-full"
+                      className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-oguri-purple text-white rounded-full shadow-glow-oguri-purple"
                     >
                       {unreadCount} nuevas
                     </motion.span>
@@ -166,10 +166,10 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-[rgb(var(--primary))] hover:text-[rgb(var(--primary)/0.8)] transition-colors flex items-center gap-1"
+                    className="text-[10px] font-bold uppercase tracking-widest text-oguri-lavender/60 hover:text-oguri-lavender transition-colors flex items-center gap-1 group"
                   >
-                    <CheckCheck className="w-3 h-3" />
-                    Marcar todas como leídas
+                    <CheckCheck className="w-3 h-3 group-hover:animate-oguri-sparkle" />
+                    Sincronizar Aura (Leídas)
                   </button>
                 )}
               </div>
@@ -206,25 +206,25 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                             delay: reduceMotion ? 0 : index * 0.02,
                           }}
                           className={cn(
-                            'relative p-4 hover:bg-white/5 transition-colors cursor-pointer group',
-                            !notification.leida && 'bg-[rgb(var(--primary)/0.05)]'
+                            'relative p-4 hover:bg-oguri-purple/10 transition-all cursor-pointer group',
+                            !notification.leida && 'bg-oguri-purple/5'
                           )}
                           onClick={() => handleNotificationClick(notification)}
                         >
                           {/* Unread indicator */}
                           {!notification.leida && (
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[rgb(var(--primary))]" />
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-oguri-purple shadow-glow-oguri-purple" />
                           )}
 
                           <div className="flex items-start gap-3">
                             {/* Icon */}
                             <div className={cn(
-                              'p-2 rounded-lg flex-shrink-0',
-                              notification.tipo === 'error' && 'bg-[rgb(var(--danger)/0.1)]',
-                              notification.tipo === 'warning' && 'bg-[rgb(var(--warning)/0.1)]',
-                              notification.tipo === 'success' && 'bg-[rgb(var(--success)/0.1)]',
-                              notification.tipo === 'info' && 'bg-[rgb(var(--accent)/0.1)]',
-                              notification.tipo === 'system' && 'bg-[rgb(var(--primary)/0.1)]',
+                              'p-2 rounded-lg flex-shrink-0 transition-transform group-hover:scale-110',
+                              notification.tipo === 'error' && 'bg-red-500/10',
+                              notification.tipo === 'warning' && 'bg-oguri-gold/10',
+                              notification.tipo === 'success' && 'bg-oguri-cyan/10',
+                              notification.tipo === 'info' && 'bg-oguri-blue/10',
+                              notification.tipo === 'system' && 'bg-oguri-purple/10',
                             )}>
                               {getTypeIcon(notification.tipo)}
                             </div>

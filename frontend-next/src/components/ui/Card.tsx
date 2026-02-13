@@ -17,12 +17,12 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, animated = false, delay = 0, hover = true, glow = false, children, ...props }, ref) => {
     const reduceMotion = useReducedMotion();
     const cardClassName = cn(
-      'relative overflow-hidden rounded-2xl border border-white/10 backdrop-blur-xl',
-      hover && 'hover:border-primary/40 transition-all duration-300 hover:shadow-2xl',
-      glow && 'shadow-[0_0_30px_-10px_rgba(var(--primary-rgb),0.3)]',
+      'relative overflow-hidden rounded-2xl border border-oguri-purple/10 backdrop-blur-xl',
+      hover && 'hover:border-oguri-lavender/40 transition-all duration-300 hover:shadow-glow-oguri-mixed',
+      glow && 'shadow-glow-oguri-mixed',
       className
     );
-    const cardStyle = { backgroundColor: 'rgb(var(--bg-0) / 0.80)' };
+    const cardStyle = { backgroundColor: 'rgb(var(--oguri-phantom-950) / 0.80)' };
     if (animated) {
       return (
         <motion.div
@@ -99,13 +99,13 @@ interface StatCardProps {
 }
 
 const colorClasses = {
-  primary: 'text-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.15)] border border-[rgb(var(--primary)/0.25)] shadow-[0_0_15px_rgba(var(--primary),0.2)]',
-  success: 'text-[rgb(var(--success))] bg-[rgb(var(--success)/0.15)] border border-[rgb(var(--success)/0.25)] shadow-[0_0_15px_rgba(var(--success),0.2)]',
-  warning: 'text-[rgb(var(--warning))] bg-[rgb(var(--warning)/0.15)] border border-[rgb(var(--warning)/0.25)] shadow-[0_0_15px_rgba(var(--warning),0.2)]',
-  danger: 'text-[rgb(var(--danger))] bg-[rgb(var(--danger)/0.15)] border border-[rgb(var(--danger)/0.25)] shadow-[0_0_15px_rgba(var(--danger),0.2)]',
-  info: 'text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.15)] border border-[rgb(var(--accent)/0.25)] shadow-[0_0_15px_rgba(var(--accent),0.2)]',
-  violet: 'text-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.15)] border border-[rgb(var(--primary)/0.25)] shadow-[0_0_15px_rgba(var(--primary),0.2)]',
-  cyan: 'text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.15)] border border-[rgb(var(--accent)/0.25)] shadow-[0_0_15px_rgba(var(--accent),0.2)]',
+  primary: 'text-oguri-purple bg-oguri-purple/15 border border-oguri-purple/25 shadow-glow-oguri-purple',
+  success: 'text-oguri-cyan bg-oguri-cyan/15 border border-oguri-cyan/25 shadow-glow-oguri-cyan',
+  warning: 'text-oguri-gold bg-oguri-gold/15 border border-oguri-gold/25 shadow-glow-oguri-mixed',
+  danger: 'text-red-400 bg-red-500/15 border border-red-500/25',
+  info: 'text-oguri-blue bg-oguri-blue/15 border border-oguri-blue/25 shadow-glow-oguri-blue',
+  violet: 'text-oguri-lavender bg-oguri-lavender/15 border border-oguri-lavender/25 shadow-glow-oguri-lavender',
+  cyan: 'text-oguri-cyan bg-oguri-cyan/15 border border-oguri-cyan/25 shadow-glow-oguri-cyan',
 };
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -139,11 +139,11 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-white/10 p-5 group transition-all duration-300',
-        'hover:border-primary/40 hover:shadow-2xl hover:-translate-y-1',
-        active && 'animate-pulse-glow border-primary/50 shadow-glow-sm'
+        'relative overflow-hidden rounded-2xl border border-oguri-purple/10 p-5 group transition-all duration-300',
+        'hover:border-oguri-lavender/40 hover:shadow-glow-oguri-mixed hover:-translate-y-1',
+        active && 'animate-pulse-glow-oguri border-oguri-lavender/50 shadow-glow-oguri-mixed'
       )}
-      style={{ backgroundColor: 'rgb(var(--bg-0) / 0.80)' }}
+      style={{ backgroundColor: 'rgb(var(--oguri-phantom-950) / 0.80)' }}
       initial={shouldAnimate ? { opacity: 0, y: 20, scale: 0.98 } : undefined}
       whileInView={shouldAnimate ? { opacity: 1, y: 0, scale: 1 } : undefined}
       viewport={shouldAnimate ? { once: true, amount: 0.35 } : undefined}

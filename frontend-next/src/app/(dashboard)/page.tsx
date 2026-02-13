@@ -121,14 +121,15 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="Dashboard"
-        description="Vista general del sistema en tiempo real"
-        icon={<TrendingUp className="w-6 h-6 text-primary-400" />}
+        title="Oguri Dashboard"
+        description="Monitoreo de habilidades y estado del sistema Cinderella Gray"
+        icon={<TrendingUp className="w-6 h-6 text-oguri-lavender animate-oguri-aura" />}
         actions={
           <>
             <ActionButton
               tone="glow"
               onClick={handleRefresh}
+              className="bg-gradient-oguri-primary border-oguri-lavender/30 shadow-glow-oguri-purple hover:scale-105 transition-transform"
               icon={
                 <motion.div
                   animate={{ rotate: statsLoading ? 360 : 0 }}
@@ -138,11 +139,11 @@ export default function DashboardPage() {
                 </motion.div>
               }
             >
-              Actualizar
+              Sincronizar Aura
             </ActionButton>
 
-            <StatusBadge tone={isSocketConnected ? 'success' : 'danger'} pulse={isSocketConnected}>
-              {isSocketConnected ? 'Tiempo Real Activo' : 'Sin conexión'}
+            <StatusBadge tone={isSocketConnected ? 'success' : 'danger'} pulse={isSocketConnected} className="bg-oguri-phantom-900/40 border-oguri-cyan/20 text-oguri-cyan">
+              {isSocketConnected ? 'Conexión Estable' : 'Sin Aura'}
             </StatusBadge>
             <RealTimeBadge isActive={isConnected && isGloballyOn} />
           </>
@@ -162,8 +163,8 @@ export default function DashboardPage() {
               title="Admins Panel"
               value={currentStats?.totalUsuarios || 0}
               subtitle={`${currentStats?.usuariosActivos || 0} activos`}
-              icon={<Users className="w-6 h-6" />}
-              color="primary"
+              icon={<Users className="w-6 h-6 text-oguri-purple" />}
+              className="glass-phantom border-oguri-purple/20 hover:border-oguri-purple/50 transition-all shadow-glow-oguri-purple animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.usuarios}
@@ -177,8 +178,8 @@ export default function DashboardPage() {
               title="Comunidad"
               value={currentStats?.comunidad?.usuariosWhatsApp || 0}
               subtitle={`${currentStats?.comunidad?.usuariosActivos || 0} activos`}
-              icon={<MessageSquare className="w-6 h-6" />}
-              color="success"
+              icon={<MessageSquare className="w-6 h-6 text-oguri-cyan" />}
+              className="glass-phantom border-oguri-cyan/20 hover:border-oguri-cyan/50 transition-all shadow-glow-oguri-cyan animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.usuarios}
@@ -192,8 +193,8 @@ export default function DashboardPage() {
               title="Grupos"
               value={currentStats?.totalGrupos || 0}
               subtitle={`${currentStats?.gruposActivos || 0} activos`}
-              icon={<MessageSquare className="w-6 h-6" />}
-              color="violet"
+              icon={<MessageSquare className="w-6 h-6 text-oguri-lavender" />}
+              className="glass-phantom border-oguri-lavender/20 hover:border-oguri-lavender/50 transition-all shadow-glow-oguri-lavender animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.grupos}
@@ -207,8 +208,8 @@ export default function DashboardPage() {
               title="Aportes"
               value={currentStats?.totalAportes || 0}
               subtitle={`${currentStats?.aportesHoy || 0} hoy`}
-              icon={<Package className="w-6 h-6" />}
-              color="violet"
+              icon={<Package className="w-6 h-6 text-oguri-gold" />}
+              className="glass-phantom border-oguri-gold/20 hover:border-oguri-gold/50 transition-all shadow-glow-oguri-mixed animate-start-burst"
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.aportes}
@@ -222,8 +223,8 @@ export default function DashboardPage() {
               title="SubBots"
               value={currentStats?.totalSubbots || totalCount}
               subtitle={`${onlineCount} online`}
-              icon={<Zap className="w-6 h-6" />}
-              color="cyan"
+              icon={<Zap className="w-6 h-6 text-oguri-blue" />}
+              className="glass-phantom border-oguri-blue/20 hover:border-oguri-blue/50 transition-all shadow-glow-oguri-blue animate-start-burst"
               delay={0}
               loading={statsLoading}
               active={onlineCount > 0}
