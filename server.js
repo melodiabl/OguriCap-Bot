@@ -1,9 +1,10 @@
-const express = require('express');
-const cors = require('cors');
-const http = require('http');
-const { Server } = require('socket.io');
-const notificationRoutes = require('./routes/notifications-routes');
-const logger = require('./lib/log-manager');
+import express from 'express';
+import cors from 'cors';
+import http from 'http';
+import { Server } from 'socket.io';
+import notificationRoutes from './routes/notifications-routes.js';
+import emailRoutes from './routes/email-routes.js';
+import logger from './lib/log-manager.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -22,6 +23,7 @@ app.use(express.json());
 
 // Rutas
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/email', emailRoutes);
 
 // Manejo de errores global
 app.use((err, req, res, next) => {
@@ -41,3 +43,5 @@ io.on('connection', (socket) => {
         logger.info(`Cliente desconectado: ${socket.id}`);
     });
 });
+
+export default server;

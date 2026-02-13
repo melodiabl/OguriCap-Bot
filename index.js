@@ -78,7 +78,7 @@ global.loadDatabase = async function loadDatabase() {
     global.__pgDatabaseInstance ||= null
     global.__pgDatabaseInitPromise ||= null
 
-    if (!global.__pgDatabaseInstance) global.__pgDatabaseInstance = new Database()
+    if (!global.__pgDatabaseInstance) global.__pgDatabaseInstance = Database
     if (!global.__pgDatabaseInitPromise) {
       global.__pgDatabaseInitPromise = global.__pgDatabaseInstance.init().then(() => global.__pgDatabaseInstance)
     }
@@ -949,6 +949,9 @@ async function joinChannels(sock) {
 console.log(chalk.cyan('🚀 Inicializando sistemas avanzados...'))
 
 try {
+  console.log(chalk.cyan('🔧 Iniciando servidor API...'))
+  await import('./server.js')
+  
   console.log(chalk.cyan('🔧 Iniciando sistemas básicos...'))
   
   const { default: realTimeData } = await import('./lib/real-time-data.js')

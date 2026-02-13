@@ -1,20 +1,20 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const notificationsController = require('../controllers/notifications-controller');
+import notificationsController from '../controllers/notifications-controller.js';
 
 // Obtener todas las notificaciones
-router.get('/', notificationsController.getAll);
+router.get('/', (req, res) => notificationsController.getAll(req, res));
 
 // Crear una nueva notificación
-router.post('/', notificationsController.create);
+router.post('/', (req, res) => notificationsController.create(req, res));
 
 // Marcar todas como leídas
-router.post('/mark-all-read', notificationsController.markAllAsRead);
+router.post('/mark-all-read', (req, res) => notificationsController.markAllAsRead(req, res));
 
 // Marcar una como leída
-router.patch('/:id/read', notificationsController.markAsRead);
+router.patch('/:id/read', (req, res) => notificationsController.markAsRead(req, res));
 
 // Eliminar una notificación
-router.delete('/:id', notificationsController.delete);
+router.delete('/:id', (req, res) => notificationsController.delete(req, res));
 
-module.exports = router;
+export default router;

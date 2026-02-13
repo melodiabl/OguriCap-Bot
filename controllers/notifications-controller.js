@@ -1,5 +1,5 @@
-const db = require('../lib/database');
-const logger = require('../lib/log-manager');
+import db from '../lib/database.js';
+import logger from '../lib/log-manager.js';
 
 class NotificationsController {
     /**
@@ -137,4 +137,4 @@ class NotificationsController {
     }
 }
 
-module.exports = new NotificationsController();
+export default new NotificationsController();
