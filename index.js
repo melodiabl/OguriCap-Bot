@@ -949,9 +949,6 @@ async function joinChannels(sock) {
 console.log(chalk.cyan('🚀 Inicializando sistemas avanzados...'))
 
 try {
-  console.log(chalk.cyan('🔧 Iniciando servidor API...'))
-  await import('./server.js')
-  
   console.log(chalk.cyan('🔧 Iniciando sistemas básicos...'))
   
   const { default: realTimeData } = await import('./lib/real-time-data.js')
