@@ -22,7 +22,9 @@ app.use(cors());
 app.use(express.json());
 
 // Rutas
+console.log('Registrando rutas de notificaciones...');
 app.use('/api/notifications', notificationRoutes);
+console.log('Registrando rutas de email...');
 app.use('/api/email', emailRoutes);
 
 // Manejo de errores global
