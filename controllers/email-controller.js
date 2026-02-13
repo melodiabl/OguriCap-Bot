@@ -6,17 +6,27 @@ class EmailController {
         this.transporter = null;
     }
 
+    /**
+     * Obtener configuración de email priorizando variables de entorno
+     */
     getEmailConfig() {
         try {
-            const emailConfig = global.db?.data?.panel?.email || {};
+            // Prioridad: Variables de entorno específicas del usuario -> Configuración de DB -> Defaults
+            const envUser = process.env.EMAIL_USER || process.env.USER_EMAIL || '';
+            const envPass = process.env.EMAIL_PASS || process.env.APP_PASSWORD || '';
+            const envService = process.env.EMAIL_SERVICE || 'gmail'; // OguriServices suele referirse a Gmail/SMTP
+            
+            const dbConfig = global.db?.data?.panel?.email || {};
+            
             return {
-                enabled: !!emailConfig.enabled,
-                host: emailConfig.smtp?.host || '',
-                port: parseInt(emailConfig.smtp?.port) || 587,
-                secure: !!emailConfig.smtp?.secure,
-                user: emailConfig.smtp?.user || '',
-                pass: emailConfig.smtp?.pass || '',
-                from: emailConfig.from || global.gmail || 'noreply@oguribot.com'
+                enabled: true, // Asumimos habilitado si el usuario lo pide por env
+                service: envService,
+                host: dbConfig.smtp?.host || process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: parseInt(dbConfig.smtp?.port || process.env.SMTP_PORT) || 587,
+                secure: !!(dbConfig.smtp?.secure || process.env.SMTP_SECURE === 'true'),
+                user: envUser || dbConfig.smtp?.user || '',
+                pass: envPass || dbConfig.smtp?.pass || '',
+                from: dbConfig.from || envUser || global.gmail || 'noreply@oguribot.com'
             };
         } catch (error) {
             logger.error('Error obteniendo configuración de email:', error);
@@ -24,11 +34,26 @@ class EmailController {
         }
     }
 
+    /**
+     * Inicializar el transportador de nodemailer
+     */
     initTransporter(config) {
-        if (!config.host || !config.user || !config.pass) {
+        if (!config.user || !config.pass) {
             return null;
         }
 
+        // Si es Gmail o un servicio conocido, nodemailer lo maneja más fácil con 'service'
+        if (config.service && config.service.toLowerCase() === 'gmail') {
+            return nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: config.user,
+                    pass: config.pass
+                }
+            });
+        }
+
+        // Configuración SMTP genérica
         return nodemailer.createTransport({
             host: config.host,
             port: config.port,
@@ -40,12 +65,15 @@ class EmailController {
         });
     }
 
+    /**
+     * Obtener estado del servicio de email
+     */
     async getStatus(req, res) {
         try {
             const config = this.getEmailConfig();
             let connectionStatus = false;
 
-            if (config.enabled && config.host) {
+            if (config.user && config.pass) {
                 const transporter = this.initTransporter(config);
                 if (transporter) {
                     try {
@@ -59,11 +87,9 @@ class EmailController {
 
             res.json({
                 success: true,
-                configured: !!(config.host && config.user),
-                enabled: config.enabled,
-                hasAuth: !!(config.user && config.pass),
-                host: config.host,
-                port: config.port,
+                configured: !!(config.user && config.pass),
+                service: config.service,
+                user: config.user ? `${config.user.split('@')[0]}@...` : null, // Ocultar por seguridad
                 connection: connectionStatus
             });
         } catch (error) {
@@ -72,13 +98,16 @@ class EmailController {
         }
     }
 
+    /**
+     * Verificar configuración SMTP
+     */
     async verifySmtp(req, res) {
         try {
             const config = this.getEmailConfig();
             const transporter = this.initTransporter(config);
 
             if (!transporter) {
-                return res.status(400).json({ success: false, message: 'Configuración SMTP incompleta' });
+                return res.status(400).json({ success: false, message: 'Configuración de credenciales incompleta en .env o DB' });
             }
 
             await transporter.verify();
@@ -89,28 +118,31 @@ class EmailController {
         }
     }
 
+    /**
+     * Enviar email de prueba
+     */
     async sendTestEmail(req, res) {
         const { to } = req.body;
-        const targetEmail = to || global.gmail;
+        const config = this.getEmailConfig();
+        const targetEmail = to || config.user || global.gmail;
 
         if (!targetEmail) {
             return res.status(400).json({ success: false, message: 'No se especificó destinatario' });
         }
 
         try {
-            const config = this.getEmailConfig();
             const transporter = this.initTransporter(config);
 
             if (!transporter) {
-                return res.status(400).json({ success: false, message: 'Servicio de email no configurado' });
+                return res.status(400).json({ success: false, message: 'Servicio de email no configurado (faltan credenciales)' });
             }
 
             const info = await transporter.sendMail({
                 from: `"OguriCap Bot" <${config.user}>`,
                 to: targetEmail,
                 subject: "Prueba de Configuración - OguriCap Bot",
-                text: "Este es un email de prueba para verificar que la configuración SMTP de tu panel OguriCap Bot funciona correctamente.",
-                html: "<b>¡Hola!</b><br><p>Este es un email de prueba para verificar que la configuración SMTP de tu panel <b>OguriCap Bot</b> funciona correctamente.</p>"
+                text: "Este es un email de prueba para verificar que la configuración de tu panel OguriCap Bot funciona correctamente.",
+                html: "<b>¡Hola!</b><br><p>Este es un email de prueba para verificar que la configuración de tu panel <b>OguriCap Bot</b> funciona correctamente.</p>"
             });
 
             logger.info('Email de prueba enviado:', info.messageId);
