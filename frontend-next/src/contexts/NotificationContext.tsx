@@ -290,18 +290,24 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
 
       // Show browser notification if push enabled
+      // Las notificaciones push ahora comparten la misma lógica de deduplicación que los toasts
       if (settings.push && 'Notification' in window && Notification.permission === 'granted') {
         try {
           const title = formatNotificationTitle(notification);
           const body = formatNotificationBody(notification);
+          
+          // Usamos el tag para que el sistema operativo agrupe o reemplace duplicados si llegaran a pasar el filtro
+          const notificationTag = `oguri-notif-${contentHash.substring(0, 16)}`;
+          
           new Notification(title, {
             body,
             icon: '/bot-icon.svg',
-            tag: `notification-${notification.id}`,
+            tag: notificationTag,
             requireInteraction: notification.tipo === 'error',
             data: { url: notification?.data?.url || '/' },
           });
-        } catch {
+        } catch (err) {
+          console.error('Error showing push notification:', err);
         }
       }
     };
