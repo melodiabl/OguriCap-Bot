@@ -158,6 +158,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const data = await api.getNotificaciones(pageNum, 20);
       const list = data?.notifications || data?.notificaciones || data?.data || [];
 
+      // Agregar IDs al Set de vistos para evitar duplicados
+      list.forEach((n: Notification) => {
+        seenNotificationsRef.current.add(n.id);
+      });
+
       if (append) {
         setNotifications(prev => [...prev, ...list]);
       } else {

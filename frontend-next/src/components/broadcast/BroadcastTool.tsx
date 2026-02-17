@@ -41,7 +41,7 @@ export const BroadcastTool: React.FC = () => {
   const loadGroups = async () => {
     setLoadingGroups(true);
     try {
-      const res = await api.getGroups(1, 1000);
+      const res = await api.getBroadcastTargets();
       if (res.items) {
         setGroups(res.items);
       }

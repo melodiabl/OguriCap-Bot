@@ -40,7 +40,7 @@ export default function GruposPage() {
     try {
       setLoading(true);
       const response = await api.getGroups(page, 20, searchTerm, botFilter !== 'all' ? botFilter : undefined, proveedorFilter !== 'all' ? proveedorFilter : undefined);
-      setGroups(response?.grupos || response?.data || []);
+      setGroups(response?.items || response?.grupos || response?.data || []);
       setPagination(response?.pagination);
     } catch (err) {
       toast.error('Error al cargar grupos');
