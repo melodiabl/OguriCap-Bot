@@ -115,8 +115,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const router = useRouter();
   const loadingRef = useRef(false);
   const seenNotificationsRef = useRef<Set<number>>(new Set());
+  const recentContentHashesRef = useRef<Map<string, number>>(new Map());
 
   const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
+
+  const generateContentHash = useCallback((n: Notification) => {
+    return `${n.titulo}|${n.mensaje}|${n.categoria}`;
+  }, []);
+
+  const cleanupRecentHashes = useCallback(() => {
+    const now = Date.now();
+    for (const [hash, timestamp] of recentContentHashesRef.current.entries()) {
+      if (now - timestamp > 30000) { // 30 segundos de ventana
+        recentContentHashesRef.current.delete(hash);
+      }
+    }
+  }, []);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -204,7 +218,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const handleNotification = (notification: Notification) => {
       if (!notification || seenNotificationsRef.current.has(notification.id)) return;
+      
+      // Deduplicación por contenido en el frontend (evita spam visual idéntico)
+      const contentHash = generateContentHash(notification);
+      const now = Date.now();
+      const lastSeen = recentContentHashesRef.current.get(contentHash);
+      
+      if (lastSeen && now - lastSeen < 15000) { // 15 segundos para el mismo contenido
+        console.log('♻️ Notificación visual duplicada omitida en frontend');
+        return;
+      }
+      
+      recentContentHashesRef.current.set(contentHash, now);
       seenNotificationsRef.current.add(notification.id);
+      cleanupRecentHashes();
 
       if (!shouldShowNotification(notification)) return;
 
