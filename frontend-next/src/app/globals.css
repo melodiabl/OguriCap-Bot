@@ -289,24 +289,27 @@ body {
 
 /* Light mode tokens */
 html[data-theme="light"] {
-  --bg-0: 248 250 252;
-  --bg-1: 241 245 249;
+  --bg-0: 255 255 255;
+  --bg-1: 248 250 252;
   --bg: var(--bg-0);
   --background: var(--bg);
   --surface: var(--bg-1);
-  --surface-elevated: 226 232 240;
-  --border: 15 23 42;
+  --surface-elevated: 241 245 249;
+  --border: 203 213 225;
   --text-primary: 15 23 42;
-  --text-secondary: 51 65 85;
-  --text-muted: 100 116 139;
-  --text-on-accent: 248 250 252;
-  --card: var(--surface-elevated);
+  --text-secondary: 71 85 105;
+  --text-muted: 148 163 184;
+  --text-on-accent: 255 255 255;
+  --card: 255 255 255;
   --text: var(--text-primary);
   --muted: var(--text-muted);
-  --chrome-blur: 14px;
-  --grid-opacity: 0.08;
-  --noise-opacity: 0.08;
-  --glow-boost: 0.92;
+  --chrome-blur: 20px;
+  --grid-opacity: 0.05;
+  --noise-opacity: 0.03;
+  --glow-boost: 0.85;
+  --shadow-rgb: 0 0 0;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
 
   --primary: var(--page-a);
   --secondary: var(--page-b);
@@ -3164,38 +3167,62 @@ html[data-page="bot"] .glass-card::after {
 }
 
 /* Light theme compatibility (legacy Tailwind utilities) */
-html[data-theme="light"] .text-white {
+html[data-theme="light"] .text-white,
+html[data-theme="light"] .text-slate-100,
+html[data-theme="light"] .text-slate-200,
+html[data-theme="light"] .text-gray-100,
+html[data-theme="light"] .text-gray-200 {
   color: rgb(var(--text-primary) / 1) !important;
 }
 
-html[data-theme="light"] .text-gray-400 {
+html[data-theme="light"] .text-gray-400,
+html[data-theme="light"] .text-slate-400 {
   color: rgb(var(--text-secondary) / 1) !important;
 }
 
-html[data-theme="light"] .text-gray-500 {
+html[data-theme="light"] .text-gray-500,
+html[data-theme="light"] .text-slate-500 {
   color: rgb(var(--text-muted) / 1) !important;
 }
 
 html[data-theme="light"] .text-gray-300,
-html[data-theme="light"] .text-gray-200,
-html[data-theme="light"] .text-gray-100 {
-  color: rgb(var(--text-primary) / 1) !important;
+html[data-theme="light"] .text-slate-300 {
+  color: rgb(var(--text-secondary) / 0.8) !important;
 }
 
-html[data-theme="light"] .bg-white\/5 {
-  background-color: rgb(var(--shadow-rgb) / 0.035) !important;
+html[data-theme="light"] .bg-white\/5,
+html[data-theme="light"] .bg-slate-800\/50,
+html[data-theme="light"] .bg-slate-900\/50 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
 }
 
-html[data-theme="light"] .bg-white\/10 {
-  background-color: rgb(var(--shadow-rgb) / 0.06) !important;
+html[data-theme="light"] .bg-white\/10,
+html[data-theme="light"] .bg-slate-800,
+html[data-theme="light"] .bg-slate-900 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
-html[data-theme="light"] .border-white\/10 {
-  border-color: rgb(var(--border) / 0.20) !important;
+html[data-theme="light"] .border-white\/10,
+html[data-theme="light"] .border-slate-700,
+html[data-theme="light"] .border-slate-800 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .border-white\/20 {
-  border-color: rgb(var(--border) / 0.32) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Forzar fondos claros en contenedores que suelen ser oscuros */
+html[data-theme="light"] .bg-slate-950,
+html[data-theme="light"] .bg-gray-950,
+html[data-theme="light"] .bg-[#0b1020] {
+  background-color: rgb(var(--bg-0)) !important;
+}
+
+html[data-theme="light"] .bg-slate-900,
+html[data-theme="light"] .bg-gray-900,
+html[data-theme="light"] .bg-[#111827] {
+  background-color: rgb(var(--bg-1)) !important;
 }
 
 html[data-theme="light"] .hover\:bg-white\/5:hover {
