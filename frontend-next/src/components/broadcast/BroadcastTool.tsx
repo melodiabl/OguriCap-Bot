@@ -56,11 +56,14 @@ export const BroadcastTool: React.FC = () => {
   const detectChatType = (group: Group): 'group' | 'channel' | 'community' => {
     // Usar metadata de la DB si está disponible
     if (group.tipo) return group.tipo;
+    if (group.isCommunity) return 'community';
+    if (group.isChannel) return 'channel';
     
     // Fallback a detección por JID
     const jid = group.wa_jid;
     if (jid.includes('@newsletter')) return 'channel';
     if (jid.includes('@broadcast')) return 'channel';
+    if (jid.includes('@g.us') && group.isCommunity) return 'community';
     return 'group';
   };
 
