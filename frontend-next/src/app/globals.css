@@ -26,6 +26,9 @@
   --oguri-blue: 127 180 255;
   --oguri-cyan: 70 195 207;
   --oguri-gold: 245 158 11;
+  --oguri-silver: 203 213 225;
+  --oguri-chrome: 148 163 184;
+  --oguri-energy: 139 92 246;
   --oguri-phantom-dark: 51 65 85;
   --oguri-phantom-light: 71 85 105;
   --bg-0: 2 6 23;
@@ -3825,4 +3828,109 @@ html[data-perf="low"] .hover-oguri-glow:hover {
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+}
+
+@layer utilities {
+  /* =========================================================
+     OGURI CAP PREMIUM ANIMATIONS
+     ========================================================= */
+
+  /* Flotación suave y elegante */
+  @keyframes oguri-float {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+  }
+
+  /* Brillo pulsante (Aura) */
+  @keyframes oguri-aura {
+    0%, 100% { box-shadow: 0 0 20px rgb(var(--primary) / 0.2); border-color: rgb(var(--primary) / 0.3); }
+    50% { box-shadow: 0 0 40px rgb(var(--primary) / 0.5); border-color: rgb(var(--primary) / 0.6); }
+  }
+
+  /* Barrido de brillo premium */
+  @keyframes oguri-shimmer-sweep {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Aparición con deslizamiento */
+  @keyframes oguri-reveal {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* HABILIDAD: SPEED STAR (Velocidad pura) */
+  @keyframes oguri-speed-star {
+    0% { transform: translateX(-100%) skewX(-15deg); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(200%) skewX(-15deg); opacity: 0; }
+  }
+
+  /* HABILIDAD: VICTORY RUSH (Brillo de campeona) */
+  @keyframes oguri-victory-shimmer {
+    0% { text-shadow: 0 0 10px rgb(var(--oguri-gold) / 0); }
+    50% { text-shadow: 0 0 20px rgb(var(--oguri-gold) / 0.8), 0 0 30px rgb(var(--oguri-gold) / 0.4); }
+    100% { text-shadow: 0 0 10px rgb(var(--oguri-gold) / 0); }
+  }
+
+  /* HABILIDAD: GOURMET HUNGER (Pulso de carga pesada) */
+  @keyframes oguri-gourmet {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.05); filter: brightness(1.2); }
+  }
+
+  /* Pulso de escala */
+  @keyframes oguri-pulse-scale {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+
+  /* Clases de utilidad listas para usar */
+  .animate-oguri-speed {
+    position: relative;
+    overflow: hidden;
+  }
+  .animate-oguri-speed::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgb(var(--oguri-cyan) / 0.4), transparent);
+    animation: oguri-speed-star 1.5s infinite linear;
+  }
+
+  .animate-oguri-victory {
+    animation: oguri-victory-shimmer 2s infinite ease-in-out;
+    color: rgb(var(--oguri-gold));
+  }
+
+  .animate-oguri-gourmet {
+    animation: oguri-gourmet 3s infinite ease-in-out;
+  }
+
+  .animate-oguri-float {
+    animation: oguri-float 4s ease-in-out infinite;
+  }
+
+  .animate-oguri-aura {
+    animation: oguri-aura 3s ease-in-out infinite;
+  }
+
+  .animate-oguri-shimmer-fast {
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.1), transparent);
+    background-size: 200% 100%;
+    animation: oguri-shimmer-sweep 2s infinite;
+  }
+
+  .animate-oguri-reveal {
+    animation: oguri-reveal 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
+  .animate-oguri-pulse {
+    animation: oguri-pulse-scale 2s ease-in-out infinite;
+  }
+
+  /* Efecto de cristal interactivo (Hover) */
+  .oguri-glass-hover {
+    @apply transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-xl hover:-translate-y-1 active:scale-95;
+  }
 }
