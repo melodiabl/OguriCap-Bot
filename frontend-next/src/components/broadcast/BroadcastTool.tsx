@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Send, Users, MessageSquare, Globe, AlertCircle, CheckCircle2, Loader2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Send, Users, MessageSquare, Globe, AlertCircle, CheckCircle2, Loader2, ChevronDown, ChevronUp, Sparkles, RefreshCcw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
@@ -21,6 +21,7 @@ export const BroadcastTool: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     groups: false,
     channels: false,
@@ -50,6 +51,23 @@ export const BroadcastTool: React.FC = () => {
       toast.error('Error al cargar los grupos');
     } finally {
       setLoadingGroups(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      toast.loading('Sincronizando con WhatsApp...', { id: 'sync' });
+      const res = await api.syncWhatsAppGroups({ clearOld: false });
+      if (res.success) {
+        toast.success(`Sincronización completa: ${res.totalGroups} destinos encontrados`, { id: 'sync' });
+        await loadGroups();
+      }
+    } catch (error: any) {
+      console.error('Error en sync:', error);
+      toast.error(error.response?.data?.error || 'Error al sincronizar con WhatsApp', { id: 'sync' });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -194,19 +212,32 @@ export const BroadcastTool: React.FC = () => {
       </div>
 
       {/* Header con gradiente Oguri */}
-      <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="p-2.5 rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-mixed animate-oguri-aura">
-          <Send className="w-5 h-5 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-mixed animate-oguri-aura">
+            <Send className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-white flex items-center gap-2 tracking-tight">
+              Mensaje Global Masivo
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-oguri-gold/20 text-oguri-gold border border-oguri-gold/30 animate-shimmer-oguri font-black uppercase tracking-widest">
+                Oguri Power
+              </span>
+            </h3>
+            <p className="text-xs font-medium text-oguri-lavender/60">Envía avisos a múltiples grupos y comunidades simultáneamente.</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-black text-white flex items-center gap-2 tracking-tight">
-            Mensaje Global Masivo
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-oguri-gold/20 text-oguri-gold border border-oguri-gold/30 animate-shimmer-oguri font-black uppercase tracking-widest">
-              Oguri Power
-            </span>
-          </h3>
-          <p className="text-xs font-medium text-oguri-lavender/60">Envía avisos a múltiples grupos y comunidades simultáneamente.</p>
-        </div>
+
+        <button
+          onClick={handleSync}
+          disabled={isSyncing || loadingGroups}
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-oguri-purple/10 border border-oguri-purple/30 text-oguri-lavender hover:bg-oguri-purple/20 transition-all duration-300 disabled:opacity-50 group"
+        >
+          <RefreshCcw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+          <span className="text-xs font-bold uppercase tracking-wider">
+            {isSyncing ? 'Sincronizando...' : 'Actualizar WhatsApp'}
+          </span>
+        </button>
       </div>
 
       <div className="space-y-6 relative z-10">
