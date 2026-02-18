@@ -350,7 +350,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
     };
-  }, [socket, shouldShowNotification, settings, preferences, router, toggleOpen]);
+  }, [socket, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {
