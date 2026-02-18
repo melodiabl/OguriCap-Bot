@@ -67,7 +67,22 @@ function clampNotificationText(input: string, max = 220) {
 }
 
 function formatNotificationTitle(notification: Notification) {
-  return clampNotificationText(notification.titulo || 'Notificación', 80) || 'Notificación';
+  if (notification.titulo && notification.titulo !== 'Notificación' && notification.titulo !== 'Notificación General') {
+    return clampNotificationText(notification.titulo, 80);
+  }
+  
+  // Si el título es genérico, intentar generar uno basado en la categoría
+  const categoryTitles: Record<string, string> = {
+    sistema: '⚙️ Sistema',
+    bot: '🤖 Bot',
+    usuarios: '👤 Usuario',
+    tareas: '📅 Tarea',
+    error: '🚨 Error',
+    seguridad: '🛡️ Seguridad',
+    comando: '💻 Comando'
+  };
+  
+  return categoryTitles[notification.categoria] || '🔔 Notificación';
 }
 
 function formatNotificationBody(notification: Notification) {
