@@ -120,7 +120,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
 
   const generateContentHash = useCallback((n: Notification) => {
-    return `${n.titulo}|${n.mensaje}|${n.categoria}`;
+    // Normalizar texto para evitar duplicados por espacios o mayúsculas
+    const t = (n.titulo || '').trim().toLowerCase();
+    const m = (n.mensaje || '').trim().toLowerCase();
+    return `${t}|${m}|${n.categoria}`;
   }, []);
 
   const cleanupRecentHashes = useCallback(() => {
@@ -224,8 +227,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const now = Date.now();
       const lastSeen = recentContentHashesRef.current.get(contentHash);
       
-      if (lastSeen && now - lastSeen < 15000) { // 15 segundos para el mismo contenido
-        console.log('♻️ Notificación visual duplicada omitida en frontend');
+      if (lastSeen && now - lastSeen < 20000) { // Aumentado a 20 segundos para mayor seguridad
+        console.log(`♻️ Notificación visual duplicada omitida en frontend (Hash: ${contentHash})`);
         return;
       }
       
