@@ -8,6 +8,7 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { ThemePaletteSelector } from '@/components/ThemePaletteSelector';
 import { Bell, Search, Moon, Sun, RefreshCw, Menu, X, Zap, Palette, Sparkles } from 'lucide-react';
 import { useOguriTheme } from '@/contexts/OguriThemeContext';
 import { Button } from '@/components/ui/Button';
@@ -113,68 +114,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
             </Button>
           </Tooltip>
 
-          {/* Aura Selector */}
-          <div className="relative" ref={auraRef}>
-            <Tooltip content="Personalizar Aura">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsAuraSelectorOpen(!isAuraSelectorOpen)}
-                className="p-2.5 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10 transition-all group"
-              >
-                <Palette className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-              </Button>
-            </Tooltip>
-
-            <AnimatePresence>
-              {isAuraSelectorOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 mt-2 w-48 p-2 rounded-2xl glass-phantom border border-oguri-purple/20 shadow-2xl z-50"
-                >
-                  <p className="text-[10px] font-black uppercase tracking-widest text-oguri-lavender/40 px-2 py-1 mb-1">Elegir Aura</p>
-                  <div className="grid grid-cols-2 gap-1">
-                    {[
-                      { id: 'purple', name: 'Oguri' },
-                      { id: 'phantom', name: 'Phantom' },
-                      { id: 'gold', name: 'Victoria' },
-                      { id: 'cyan', name: 'Cian' }
-                    ].map((aura) => (
-                      <button
-                        key={aura.id}
-                        onClick={() => {
-                          setCurrentAura(aura.id as any);
-                          setIsAuraSelectorOpen(false);
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 p-2.5 rounded-xl transition-all hover:bg-white/10",
-                          currentAura === aura.id 
-                            ? "bg-white/15 ring-1 ring-white/30 shadow-lg" 
-                            : "bg-white/5"
-                        )}
-                      >
-                        <div 
-                          className="w-4 h-4 rounded-full border border-white/10" 
-                          style={{ 
-                            backgroundColor: `rgb(var(--aura-${aura.id}))`,
-                            boxShadow: `0 0 10px rgb(var(--aura-${aura.id}) / 0.5)`
-                          }} 
-                        />
-                        <span className={cn(
-                          "text-[10px] font-black uppercase tracking-tight",
-                          currentAura === aura.id ? "text-white" : "text-gray-400"
-                        )}>
-                          {aura.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Theme Palette Selector (Aura) */}
+          <ThemePaletteSelector />
 
           {/* Notifications */}
           <div className="relative">

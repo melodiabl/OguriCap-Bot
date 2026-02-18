@@ -144,7 +144,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                 top: `${coords.top}px`,
                 right: `${coords.right}px`,
               }}
-              className="w-96 max-w-[calc(100vw-2rem)] z-[9999] rounded-2xl glass-phantom border border-oguri-purple/20 shadow-glow-oguri-mixed overflow-hidden flex flex-col"
+              className="w-[calc(100vw-1rem)] max-w-md z-[9999] rounded-2xl glass-phantom border border-oguri-purple/20 shadow-glow-oguri-mixed overflow-hidden flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-oguri-purple/10 bg-gradient-oguri-phantom">
