@@ -17,9 +17,9 @@ const SelectTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'flex h-10 w-full items-center justify-between rounded-xl px-4 py-2',
-      'bg-card/60 border border-border/20 text-foreground backdrop-blur-sm',
-      'hover:bg-card/70 hover:border-border/30',
-      'focus:outline-none focus:border-primary/55 focus:ring-2 focus:ring-primary/25',
+      'bg-card/80 border border-border/30 text-white backdrop-blur-md',
+      'hover:bg-card/90 hover:border-border/50',
+      'focus:outline-none focus:border-white/40 focus:ring-2 focus:ring-white/10',
       'disabled:cursor-not-allowed disabled:opacity-50',
       'transition-all duration-200 shadow-sm',
       className
@@ -127,14 +127,14 @@ const SelectItem = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
-    className={cn(
-      'relative flex w-full cursor-pointer select-none items-center rounded-lg py-2.5 pl-8 pr-2',
-      'text-sm outline-none transition-all duration-150',
-      'text-foreground/90 hover:bg-card/55 hover:text-foreground focus:bg-card/55 focus:text-foreground',
-      'data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary',
-      'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      className
-    )}
+      className={cn(
+        'relative flex w-full cursor-pointer select-none items-center rounded-lg py-2.5 pl-8 pr-2',
+        'text-sm outline-none transition-all duration-150',
+        'text-foreground/80 hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white',
+        'data-[state=checked]:bg-white/15 data-[state=checked]:text-white data-[state=checked]:font-bold',
+        'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        className
+      )}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

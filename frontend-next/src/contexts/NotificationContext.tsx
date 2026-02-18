@@ -67,7 +67,19 @@ function clampNotificationText(input: string, max = 220) {
 }
 
 function formatNotificationTitle(notification: Notification) {
-  if (notification.titulo && notification.titulo !== 'Notificación' && notification.titulo !== 'Notificación General') {
+  const genericTitles = [
+    'notificación',
+    'notificación general',
+    'general notification',
+    'notification',
+    'aviso',
+    'alerta'
+  ];
+
+  const isGeneric = !notification.titulo || 
+    genericTitles.includes(notification.titulo.trim().toLowerCase());
+
+  if (!isGeneric) {
     return clampNotificationText(notification.titulo, 80);
   }
   
@@ -79,7 +91,10 @@ function formatNotificationTitle(notification: Notification) {
     tareas: '📅 Tarea',
     error: '🚨 Error',
     seguridad: '🛡️ Seguridad',
-    comando: '💻 Comando'
+    comando: '💻 Comando',
+    multimedia: '🖼️ Multimedia',
+    pago: '💳 Pago',
+    grupo: '👥 Grupo'
   };
   
   return categoryTitles[notification.categoria] || '🔔 Notificación';

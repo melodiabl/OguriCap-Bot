@@ -689,14 +689,19 @@ body::after {
 
 /* SISTEMA DE AURAS PERSONALIZADAS */
 :root {
-  --current-aura: var(--oguri-purple);
-  --current-aura-light: var(--oguri-lavender);
+  --aura-purple: 91 61 173;
+  --aura-phantom: 51 65 85;
+  --aura-gold: 245 158 11;
+  --aura-cyan: 70 195 207;
+  
+  --current-aura: var(--aura-purple);
+  --current-aura-light: 183 166 230;
 }
 
-.aura-purple { --current-aura: var(--oguri-purple); --current-aura-light: var(--oguri-lavender); }
-.aura-phantom { --current-aura: var(--oguri-phantom-dark); --current-aura-light: var(--oguri-phantom-light); }
-.aura-gold { --current-aura: var(--oguri-gold); --current-aura-light: 253 224 71; }
-.aura-cyan { --current-aura: var(--oguri-cyan); --current-aura-light: var(--oguri-blue); }
+.aura-purple { --current-aura: var(--aura-purple); --current-aura-light: 183 166 230; }
+.aura-phantom { --current-aura: var(--aura-phantom); --current-aura-light: 71 85 105; }
+.aura-gold { --current-aura: var(--aura-gold); --current-aura-light: 253 224 71; }
+.aura-cyan { --current-aura: var(--aura-cyan); --current-aura-light: 127 180 255; }
 
 .dynamic-aura-glow {
   box-shadow: 0 0 20px rgb(var(--current-aura) / 0.3), 0 0 40px rgb(var(--current-aura-light) / 0.1);
