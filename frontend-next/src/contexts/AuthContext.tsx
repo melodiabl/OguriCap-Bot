@@ -35,9 +35,6 @@ interface AuthContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   resetPassword: (username: string, whatsappNumber: string) => Promise<{ tempPassword: string }>;
   refreshUser: () => Promise<void>;
-  syncUserData: () => Promise<void>;
-  getSyncStatus: () => Promise<any>;
-  migrateUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -288,99 +285,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const syncUserData = async () => {
-    try {
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
-
-      const response = await fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al sincronizar datos');
-      }
-
-      toast.success('Sincronización de usuarios completada', {
-        icon: '🔄',
-        duration: 4000
-      });
-
-      return data.results;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Error al sincronizar datos de usuarios';
-      toast.error(errorMessage);
-      throw error;
-    }
-  };
-
-  const getSyncStatus = async () => {
-    try {
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
-
-      const response = await fetch('/api/auth/sync/status', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al obtener estado de sincronización');
-      }
-
-      return data.integrity;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Error al obtener estado de sincronización';
-      toast.error(errorMessage);
-      throw error;
-    }
-  };
-
-  const migrateUsers = async () => {
-    try {
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
-
-      const response = await fetch('/api/auth/migrate', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al migrar usuarios');
-      }
-
-      toast.success(`Migración completada: ${data.results.migrated} usuarios migrados`, {
-        icon: '📦',
-        duration: 4000
-      });
-
-      return data.results;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Error al migrar usuarios';
-      toast.error(errorMessage);
-      throw error;
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -393,9 +297,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         changePassword,
         resetPassword,
         refreshUser,
-        syncUserData,
-        getSyncStatus,
-        migrateUsers,
       }}
     >
       {children}

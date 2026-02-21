@@ -137,10 +137,7 @@ try {
   }
 } catch {}
 
-// Initialize user data synchronization
-import('./lib/startup-sync.js').catch(err => {
-  console.warn('Warning: Could not initialize user data synchronization:', err.message);
-});
+
 
 // Initialize admin user for JWT system
 import('./lib/init-admin.js').catch(err => {
