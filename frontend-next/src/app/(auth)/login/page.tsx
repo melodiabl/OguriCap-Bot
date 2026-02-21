@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -29,7 +29,7 @@ export default function LoginPage() {
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean; role?: boolean }>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const turnstileRef = useRef<any>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
@@ -227,11 +227,8 @@ export default function LoginPage() {
       }
 
       notify.error(errorMessage);
-      
-      if (turnstileRef.current) {
-        turnstileRef.current.reset();
-        setTurnstileToken(null);
-      }
+      setTurnstileToken(null);
+      setTurnstileKey(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -556,7 +553,7 @@ export default function LoginPage() {
 
                 <div className="flex justify-center py-3">
                   <Turnstile
-                    ref={turnstileRef}
+                    key={turnstileKey}
                     sitekey="0x4AAAAAACfeWuLoFAJ0dPkF"
                     onSuccess={(token) => setTurnstileToken(token)}
                     onError={() => {
