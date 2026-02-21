@@ -344,8 +344,8 @@ export async function yukiJadiBot(options) {
             try {
               if (sock?.sessionAliasPath) fs.rmSync(sock.sessionAliasPath, { recursive: false, force: true })
               if (sock?.phoneAliasPath) fs.rmSync(sock.phoneAliasPath, { recursive: false, force: true })
+              fs.rmSync(pathYukiJadiBot, { recursive: true, force: true })
             } catch { }
-            fs.rmdirSync(pathYukiJadiBot, { recursive: true })
             // Emitir evento de subbot eliminado al panel
             try {
               const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
@@ -380,8 +380,8 @@ export async function yukiJadiBot(options) {
             try {
               if (sock?.sessionAliasPath) fs.rmSync(sock.sessionAliasPath, { recursive: false, force: true })
               if (sock?.phoneAliasPath) fs.rmSync(sock.phoneAliasPath, { recursive: false, force: true })
+              fs.rmSync(pathYukiJadiBot, { recursive: true, force: true })
             } catch { }
-            fs.rmdirSync(pathYukiJadiBot, { recursive: true })
             // Emitir evento de subbot eliminado al panel
             try {
               const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
