@@ -39,10 +39,10 @@
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "@vitalets/google-translate-api": "^8.0.0",
-    "@whiskeysockets/baileys": "git+https://github.com/whiskeysockets/baileys.git#latest",
+    "@whiskeysockets/baileys": "git+https://github.com/whiskeysockets/baileys.git",
     "acrcloud": "^1.4.0",
     "adm-zip": "^0.5.12",
-    "aptoide-scraper": "git+https://github.com/DIEGO-OFC/dv-aptoide-scraper.git",
+    "aptoide-scraper": "github:DIEGO-OFC/dv-aptoide-scraper",
     "archiver": "^6.0.1",
     "awesome-phonenumber": "^3.4.0",
     "axios": "^1.1.2",
