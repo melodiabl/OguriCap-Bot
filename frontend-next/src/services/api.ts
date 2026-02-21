@@ -49,8 +49,8 @@ class ApiService {
   }
 
   // Auth
-  async login(username: string, password: string, role?: string) {
-    const response = await this.api.post('/api/auth/login', { username, password, role })
+  async login(username: string, password: string, role?: string, turnstileToken?: string) {
+    const response = await this.api.post('/api/auth/login', { username, password, role, turnstileToken })
     return response.data
   }
   

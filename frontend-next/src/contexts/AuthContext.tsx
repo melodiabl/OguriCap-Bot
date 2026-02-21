@@ -30,7 +30,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string, role?: string) => Promise<void>;
+  login: (username: string, password: string, role?: string, turnstileToken?: string) => Promise<void>;
   logout: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   resetPassword: (username: string, whatsappNumber: string) => Promise<{ tempPassword: string }>;
@@ -115,9 +115,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     void init();
   }, []);
 
-  const login = async (username: string, password: string, role?: string) => {
+  const login = async (username: string, password: string, role?: string, turnstileToken?: string) => {
     try {
-      const response = await api.login(username, password, role);
+      const response = await api.login(username, password, role, turnstileToken);
       const { 
         token: newToken, 
         user: newUser, 

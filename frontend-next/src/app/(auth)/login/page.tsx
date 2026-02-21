@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Turnstile from 'react-turnstile';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { ForgotPasswordModal } from '@/components/ForgotPasswordModal';
@@ -27,6 +28,8 @@ export default function LoginPage() {
   const [showMaintenanceLogin, setShowMaintenanceLogin] = useState(false);
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean; role?: boolean }>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<any>(null);
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
@@ -186,16 +189,20 @@ export default function LoginPage() {
       return;
     }
 
+    if (!turnstileToken) {
+      notify.error('Por favor completa la verificación de Turnstile');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await login(username.trim(), password, selectedRole);
+      await login(username.trim(), password, selectedRole, turnstileToken);
       const selectedRoleData = roles.find(r => r.value === selectedRole);
       notify.success(`¡Bienvenido como ${selectedRoleData?.label}!`);
       router.push('/');
     } catch (error: any) {
       console.error('Login error:', error);
 
-      // Manejo de errores mejorado
       let errorMessage = 'Error al iniciar sesión';
 
       if (error?.message) {
@@ -206,8 +213,9 @@ export default function LoginPage() {
         errorMessage = 'Credenciales incorrectas';
       } else if (error?.response?.status === 403) {
         errorMessage = 'No tienes permisos para este rol';
+      } else if (error?.response?.status === 429) {
+        errorMessage = 'Demasiados intentos de login. Intenta más tarde';
       } else if (error?.response?.status === 503) {
-        // Modo de mantenimiento activado durante el login
         if (error?.response?.data?.maintenanceMode) {
           setIsMaintenanceMode(true);
           errorMessage = 'El sistema está en modo de mantenimiento';
@@ -219,6 +227,11 @@ export default function LoginPage() {
       }
 
       notify.error(errorMessage);
+      
+      if (turnstileRef.current) {
+        turnstileRef.current.reset();
+        setTurnstileToken(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -541,12 +554,29 @@ export default function LoginPage() {
                   </button>
                 </div>
 
+                <div className="flex justify-center py-3">
+                  <Turnstile
+                    ref={turnstileRef}
+                    sitekey="0x4AAAAAACfeWuLoFAJ0dPkF"
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onError={() => {
+                      setTurnstileToken(null);
+                      notify.error('Error en la verificación de Turnstile');
+                    }}
+                    onExpire={() => {
+                      setTurnstileToken(null);
+                    }}
+                    theme="dark"
+                    size="normal"
+                  />
+                </div>
+
                 <Button
                   type="submit"
                   variant="primary"
-                  className={`w-full ${!selectedRole ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  className={`w-full ${!selectedRole || !turnstileToken ? 'opacity-75 cursor-not-allowed' : ''}`}
                   loading={isLoading}
-                  disabled={!selectedRole || isLoading}
+                  disabled={!selectedRole || !turnstileToken || isLoading}
                 >
                   {!selectedRole ? 'Selecciona un rol para continuar' : 'Iniciar Sesión'}
                 </Button>
