@@ -1,8 +1,8 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.1",
   "environment": "production",
   "createdAt": "2025-12-25T21:43:17.003Z",
-  "updatedAt": "2025-12-25T21:43:17.003Z",
+  "updatedAt": "2026-02-18T23:19:26.798Z",
   "system": {
     "name": "WhatsApp Bot Panel",
     "version": "2.0.0",
@@ -35,11 +35,13 @@
   },
   "notifications": {
     "email": {
-      "enabled": false,
+      "enabled": true,
       "smtp": {
         "host": "smtp.gmail.com",
         "port": 587,
-        "secure": false
+        "secure": false,
+        "pass": "itra tkkd fduw hkqt",
+        "user": "usuario@gmail.com"
       }
     },
     "webhook": {
@@ -51,5 +53,5 @@
       "adminNumbers": []
     }
   },
-  "checksum": "01823dc960506df28dab6c17bdbe07b7"
+  "checksum": "913531ea214a71e37518092bde9bd56a"
 }

@@ -42,6 +42,7 @@ export default function MultimediaPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<number, boolean>>({});
@@ -76,10 +77,16 @@ export default function MultimediaPage() {
           if (imageUrl && !imageUrl.startsWith('http')) {
             const normalizedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
 
-            // Prefer same-origin URLs for /media so dev rewrites work and Next/Image can optimize.
-            if (normalizedPath.startsWith('/media/')) {
-              imageUrl = normalizedPath;
+            // Para rutas /media/ y /library/, usar siempre URL completa del API
+            if (normalizedPath.startsWith('/media/') || normalizedPath.startsWith('/library/')) {
+              const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+              if (apiUrl) {
+                imageUrl = new URL(normalizedPath, apiUrl).toString();
+              } else {
+                imageUrl = normalizedPath;
+              }
             } else {
+              // Otros tipos de rutas
               const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
               const baseUrl = process.env.NODE_ENV === 'production' ? '' : (envUrl || 'http://localhost:8080');
               if (baseUrl) {
@@ -132,26 +139,31 @@ export default function MultimediaPage() {
     }
   };
 
-  const handleUpload = async (files: FileList) => {
+  const handleFileSelect = (files: FileList) => {
     if (!files.length) return;
+    const fileArray = Array.from(files);
+    setSelectedFiles(fileArray);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFiles.length) return;
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map(file => api.uploadMultimedia(file));
+      const uploadPromises = selectedFiles.map(file => api.uploadMultimedia(file));
       await Promise.all(uploadPromises);
       
-      // Crear notificación de éxito
       await api.createNotification({
         title: 'Archivos Multimedia Subidos',
-        message: `Se subieron ${files.length} archivo(s) multimedia correctamente`,
+        message: `Se subieron ${selectedFiles.length} archivo(s) multimedia correctamente`,
         type: 'success',
         category: 'multimedia'
       });
       
-      toast.success(`${files.length} archivo(s) subido(s) correctamente`);
+      toast.success(`${selectedFiles.length} archivo(s) subido(s) correctamente`);
       setShowUploadModal(false);
+      setSelectedFiles([]);
       loadData();
     } catch (err: any) {
-      // Crear notificación de error
       await api.createNotification({
         title: 'Error al Subir Archivos',
         message: err?.response?.data?.error || 'Error al subir archivos multimedia',
@@ -163,6 +175,10 @@ export default function MultimediaPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const clearSelectedFiles = () => {
+    setSelectedFiles([]);
   };
 
   const getTypeFromMime = (mimetype: string) => {
@@ -410,16 +426,81 @@ export default function MultimediaPage() {
       )}
 
       {/* Upload Modal */}
-      <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Subir Archivos Multimedia">
-        <div className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-pink-500/50 transition-colors">
-          <Upload className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-white mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
-          <p className="text-sm text-gray-400 mb-4">Soporta imágenes, videos, audio y documentos</p>
-          <input type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-            onChange={(e) => e.target.files && handleUpload(e.target.files)} className="hidden" id="file-upload" />
-          <Button variant="secondary" icon={<Upload className="w-4 h-4" />} onClick={() => document.getElementById('file-upload')?.click()} loading={uploading}>
-            {uploading ? 'Subiendo...' : 'Seleccionar Archivos'}
-          </Button>
+      <Modal isOpen={showUploadModal} onClose={() => { setShowUploadModal(false); setSelectedFiles([]); }} title="Subir Archivos Multimedia">
+        <div className="space-y-4">
+          {!selectedFiles.length ? (
+            <div className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-pink-500/50 transition-colors">
+              <Upload className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-white mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
+              <p className="text-sm text-gray-400 mb-4">Soporta imágenes, videos, audio y documentos</p>
+              <input type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                onChange={(e) => e.target.files && handleFileSelect(e.target.files)} className="hidden" id="file-upload" />
+              <Button variant="secondary" icon={<Upload className="w-4 h-4" />} onClick={() => document.getElementById('file-upload')?.click()}>
+                Seleccionar Archivos
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white font-medium">{selectedFiles.length} archivo(s) seleccionado(s)</p>
+                <button onClick={clearSelectedFiles} className="text-gray-400 hover:text-white text-sm">
+                  Cambiar archivos
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="relative bg-white/5 rounded-lg p-2 border border-white/10">
+                    {file.type.startsWith('image/') ? (
+                      <div className="aspect-square relative rounded-lg overflow-hidden mb-2">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-20 flex items-center justify-center bg-white/5 rounded-lg mb-2">
+                        {file.type.startsWith('video/') ? <Video className="w-8 h-8 text-purple-400" /> :
+                         file.type.startsWith('audio/') ? <Music className="w-8 h-8 text-emerald-400" /> :
+                         <File className="w-8 h-8 text-amber-400" />}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-300 truncate">{file.name}</p>
+                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                  </div>
+                ))}
+              </div>
+
+              {uploading && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-8 h-8 animate-spin text-pink-500 mr-2" />
+                  <span className="text-gray-300">Subiendo archivos...</span>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button 
+                  variant="secondary" 
+                  onClick={() => { setShowUploadModal(false); setSelectedFiles([]); }}
+                  disabled={uploading}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  loading={uploading}
+                  icon={<Upload className="w-4 h-4" />}
+                  className="flex-1"
+                >
+                  {uploading ? 'Subiendo...' : 'Subir Archivos'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
 
