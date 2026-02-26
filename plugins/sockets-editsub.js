@@ -1,5 +1,5 @@
 import fetch from 'node-fetch'
-import Jimp from 'jimp'
+import { Jimp } from 'jimp'
 
 const handler = async (m, { conn, command, usedPrefix, text }) => {
 const isSubBots = [conn.user.jid, ...global.owner.map(([number]) => `${number}@s.whatsapp.net`)].includes(m.sender)
@@ -14,7 +14,7 @@ if (!/image\/(png|jpe?g)/.test(mime)) return conn.reply(m.chat, `❀ Por favor, 
 const media = await q.download()
 if (!media) return conn.reply(m.chat, `ꕥ No se pudo obtener la imagen.`, m)
 const image = await Jimp.read(media)
-const buffer = await image.getBufferAsync(Jimp.MIME_JPEG)
+const buffer = await image.getBuffer(Jimp.MIME_JPEG)
 await conn.updateProfilePicture(conn.user.jid, buffer)
 conn.reply(m.chat, `❀ Se cambió la *foto de perfil* del Socket correctamente.`, m)
 break
