@@ -274,7 +274,7 @@ try {
   global.botHierarchy = { parent: null, subbots: [] }
 }
 
-conn.ev.on("creds.update", saveCreds)
+global.conn.ev.on("creds.update", saveCreds)
 
 // ============================================
 // INICIAR PANEL API
@@ -333,7 +333,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
           console.log(chalk.cyan('[ ✿ ] Solicitando código de emparejamiento...'))
           
           // Usar código fijo del socket (sin pasar segundo parámetro, usa el default)
-          let codeBot = await conn.requestPairingCode(addNumber)
+          let codeBot = await global.conn.requestPairingCode(addNumber)
           console.log(chalk.cyan('[ ✿ ] Usando código fijo del socket'))
           
           // Formatear el código si es necesario
@@ -354,9 +354,9 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
   }
 }
 
-conn.isInit = false
-conn.well = false
-conn.logger.info(`[ ✿ ] H E C H O\n`)
+global.conn.isInit = false
+global.conn.well = false
+global.conn.logger.info(`[ ✿ ] H E C H O\n`)
 
 if (!opts['test']) {
   if (global.db) setInterval(async () => {
@@ -541,7 +541,7 @@ async function connectionUpdate(update) {
     global.stopped = connection
   }
 
-  if (isNewLogin) conn.isInit = true
+  if (isNewLogin) global.conn.isInit = true
   const code = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode
 
   // Actualizar QR para el panel
@@ -574,7 +574,7 @@ async function connectionUpdate(update) {
 
     // Registrar bot principal como padre en la jerarquía global (si aún no está)
     try {
-      const mainJid = conn.user?.id || conn.user?.jid || null
+      const mainJid = global.conn.user?.id || global.conn.user?.jid || null
       if (mainJid) {
         global.botHierarchy = global.botHierarchy || { parent: null, subbots: [] }
         if (!Array.isArray(global.botHierarchy.subbots)) global.botHierarchy.subbots = []
@@ -587,7 +587,7 @@ async function connectionUpdate(update) {
     // Emitir conexión via Socket.IO
     try {
       const { emitBotConnected, emitBotStatus } = await import('./lib/socket-io.js')
-      emitBotConnected(conn.user?.id)
+      emitBotConnected(global.conn.user?.id)
       emitBotStatus()
       
       // Notificación persistente
@@ -599,8 +599,8 @@ async function connectionUpdate(update) {
       pushPanelLog({
         tipo: 'bot',
         titulo: 'Bot conectado',
-        detalles: conn.user?.id ? `Conectado como ${conn.user.id}` : 'Conexión abierta',
-        usuario: conn.user?.id || 'bot',
+        detalles: global.conn.user?.id ? `Conectado como ${global.conn.user.id}` : 'Conexión abierta',
+        usuario: global.conn.user?.id || 'bot',
         metadata: { event: 'connection_open' },
       })
     }
@@ -624,8 +624,8 @@ async function connectionUpdate(update) {
   }
   
   if (connection === "open") {
-    const userJid = jidNormalizedUser(conn.user.id)
-    const userName = conn.user.name || conn.user.verifiedName || "Desconocido"
+    const userJid = jidNormalizedUser(global.conn.user.id)
+    const userName = global.conn.user.name || global.conn.user.verifiedName || "Desconocido"
     await joinChannels(conn)
     console.log(chalk.green.bold(`[ ✿ ] Conectado a: ${userName}`))
     // Limpiar QR del panel
@@ -656,7 +656,7 @@ async function connectionUpdate(update) {
         tipo: 'bot',
         titulo: 'Bot desconectado',
         detalles: reason ? `Razón: ${reason}` : 'Conexión cerrada',
-        usuario: conn.user?.id || 'bot',
+        usuario: global.conn.user?.id || 'bot',
         nivel: 'error',
         metadata: { event: 'connection_close', reason: reason || null },
       })
@@ -718,7 +718,7 @@ global.reloadHandler = async function (restatConn) {
     try {
       global.conn.ws.close()
     } catch { }
-    conn.ev.removeAllListeners()
+    global.conn.ev.removeAllListeners()
     
     // Recargar configuración del panel antes de reconectar
     let currentOptions = { ...connectionOptions }
@@ -751,33 +751,33 @@ global.reloadHandler = async function (restatConn) {
   }
   
   if (!isInit) {
-    conn.ev.off('messages.upsert', conn.handler)
-    if (conn.providerMediaHandler) conn.ev.off('messages.upsert', conn.providerMediaHandler)
-    conn.ev.off('connection.update', conn.connectionUpdate)
-    conn.ev.off('creds.update', conn.credsUpdate)
+    global.conn.ev.off('messages.upsert', global.conn.handler)
+    if (global.conn.providerMediaHandler) global.conn.ev.off('messages.upsert', global.conn.providerMediaHandler)
+    global.conn.ev.off('connection.update', global.conn.connectionUpdate)
+    global.conn.ev.off('creds.update', global.conn.credsUpdate)
   }
   
-  conn.handler = handler.handler.bind(global.conn)
-  conn.connectionUpdate = connectionUpdate.bind(global.conn)
-  conn.credsUpdate = saveCreds.bind(global.conn, true)
+  global.conn.handler = handler.handler.bind(global.conn)
+  global.conn.connectionUpdate = connectionUpdate.bind(global.conn)
+  global.conn.credsUpdate = saveCreds.bind(global.conn, true)
   
   const currentDateTime = new Date()
-  const messageDateTime = new Date(conn.ev)
+  const messageDateTime = new Date(global.conn.ev)
   
   if (currentDateTime >= messageDateTime) {
-    const chats = Object.entries(conn.chats).filter(([jid, chat]) => !jid.endsWith('@g.us') && chat.isChats).map((v) => v[0])
+    const chats = Object.entries(global.conn.chats).filter(([jid, chat]) => !jid.endsWith('@g.us') && chat.isChats).map((v) => v[0])
   } else {
-    const chats = Object.entries(conn.chats).filter(([jid, chat]) => !jid.endsWith('@g.us') && chat.isChats).map((v) => v[0])
+    const chats = Object.entries(global.conn.chats).filter(([jid, chat]) => !jid.endsWith('@g.us') && chat.isChats).map((v) => v[0])
   }
   
-  conn.ev.on('messages.upsert', conn.handler)
+  global.conn.ev.on('messages.upsert', global.conn.handler)
   try {
     const { createProviderMediaCaptureHandler } = await import('./lib/provider-media-capture.js')
-    conn.providerMediaHandler = createProviderMediaCaptureHandler(conn)
-    conn.ev.on('messages.upsert', conn.providerMediaHandler)
+    global.conn.providerMediaHandler = createProviderMediaCaptureHandler(global.conn)
+    global.conn.ev.on('messages.upsert', global.conn.providerMediaHandler)
   } catch {}
-  conn.ev.on('connection.update', conn.connectionUpdate)
-  conn.ev.on('creds.update', conn.credsUpdate)
+  global.conn.ev.on('connection.update', global.conn.connectionUpdate)
+  global.conn.ev.on('creds.update', global.conn.credsUpdate)
   isInit = false
   return true
 }
@@ -828,7 +828,7 @@ async function filesInit() {
       const module = await import(file)
       global.plugins[filename] = module.default || module
     } catch (e) {
-      conn.logger.error(e)
+      if (global.conn?.logger) global.conn.logger.error(e)
       delete global.plugins[filename]
     }
   }
@@ -840,25 +840,25 @@ global.reload = async (_ev, filename) => {
   if (pluginFilter(filename)) {
     const dir = global.__filename(join(pluginFolder, filename), true)
     if (filename in global.plugins) {
-      if (existsSync(dir)) conn.logger.info(` updated plugin - '${filename}'`)
+      if (existsSync(dir)) global.conn?.logger?.info(` updated plugin - '${filename}'`)
       else {
-        conn.logger.warn(`deleted plugin - '${filename}'`)
+        global.conn?.logger?.warn(`deleted plugin - '${filename}'`)
         return delete global.plugins[filename]
       }
-    } else conn.logger.info(`new plugin - '${filename}'`)
+    } else global.conn?.logger?.info(`new plugin - '${filename}'`)
     
     const err = syntaxerror(readFileSync(dir), filename, {
       sourceType: 'module',
       allowAwaitOutsideFunction: true,
     })
     
-    if (err) conn.logger.error(`syntax error while loading '${filename}'\n${format(err)}`)
+    if (err) global.conn?.logger?.error(`syntax error while loading '${filename}'\n${format(err)}`)
     else {
       try {
         const module = (await import(`${global.__filename(dir)}?update=${Date.now()}`))
         global.plugins[filename] = module.default || module
       } catch (e) {
-        conn.logger.error(`error require plugin '${filename}\n${format(e)}'`)
+        global.conn?.logger?.error(`error require plugin '${filename}\n${format(e)}'`)
       } finally {
         global.plugins = Object.fromEntries(Object.entries(global.plugins).sort(([a], [b]) => a.localeCompare(b)))
       }

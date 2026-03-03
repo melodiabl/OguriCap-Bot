@@ -51,3 +51,6 @@ package-lock.json
 database/backups
 .env
 >>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
+
+# Config local runtime files
+.config/

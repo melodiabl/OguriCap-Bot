@@ -95,8 +95,29 @@ class ApiService {
     return response.data
   }
 
+  // Auth on-demand endpoints
+  async getAuthStatus() {
+    const response = await this.api.get('/api/bot/auth/status')
+    return response.data
+  }
+
+  async startQrAuth() {
+    const response = await this.api.post('/api/bot/auth/qr')
+    return response.data
+  }
+
+  async startPairingAuth(phoneNumber: string) {
+    const response = await this.api.post('/api/bot/auth/pair', { phoneNumber })
+    return response.data
+  }
+
+  async disconnectAuth() {
+    const response = await this.api.post('/api/bot/auth/disconnect')
+    return response.data
+  }
+
   async getMainBotStatus(): Promise<BotStatus> {
-    const response = await this.api.get('/api/bot/main/status')
+    const response = await this.api.get('/api/bot/auth/status')
     return response.data
   }
 
@@ -116,12 +137,15 @@ class ApiService {
   }
 
   async connectMainBot(method: 'qr' | 'pairing', phoneNumber?: string) {
-    const response = await this.api.post('/api/bot/main/connect', { method, phoneNumber })
-    return response.data
+    if (method === 'qr') {
+      return await this.startQrAuth()
+    } else {
+      return await this.startPairingAuth(phoneNumber || '')
+    }
   }
 
   async disconnectMainBot() {
-    const response = await this.api.post('/api/bot/main/disconnect')
+    const response = await this.api.post('/api/bot/auth/disconnect')
     return response.data
   }
 

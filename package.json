@@ -42,13 +42,13 @@
     "@whiskeysockets/baileys": "github:Kone457/bails",
     "acrcloud": "^1.4.0",
     "adm-zip": "^0.5.12",
-    "archiver": "^6.0.1",
     "aptoide-scraper": "^1.0.1",
+    "archiver": "^6.0.1",
     "awesome-phonenumber": "^3.4.0",
     "axios": "^1.1.2",
     "bcryptjs": "^2.4.3",
     "cfonts": "^3.3.0",
-    "chalk": "^5.1.0",
+    "chalk": "^5.6.2",
     "cheerio": "npm:cheerio@1.0.0-rc.12",
     "chokidar": "^3.5.3",
     "commander": "^11.1.0",
@@ -59,10 +59,10 @@
     "express-rate-limit": "^7.1.5",
     "file-type": "^18.0.0",
     "fluent-ffmpeg": "^2.1.2",
-    "fs-extra": "^11.3.2",
-    "fuse.js": "^7.1.0",
     "form-data": "^4.0.0",
     "formdata-node": "^5.0.0",
+    "fs-extra": "^11.3.2",
+    "fuse.js": "^7.1.0",
     "geoip-lite": "^1.4.10",
     "google-libphonenumber": "3.2.38",
     "helmet": "^7.1.0",
@@ -120,10 +120,10 @@
     "npm": ">=9.0.0"
   },
   "os": [
-  "linux",
-  "darwin",
-  "win32",
-  "android"
+    "linux",
+    "darwin",
+    "win32",
+    "android"
   ],
   "cpu": [
     "x64",
