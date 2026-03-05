@@ -1,9 +1,29 @@
-let handler = async (m, { conn, args, text }) => {
+import axios from 'axios'
+import cheerio from 'cheerio'
+
+let handler = async (m, { conn, args, text, usedPrefix }) => {
 if (!text) {
 return conn.reply(m.chat, `❀ Te faltó el link de una imagen/video de twitter.`, m)
 }
 try {
 await m.react('🕒')
+
+ // MelodyApi first
+ try {
+  const mel = global.APIs.melodia?.url
+  if (mel) {
+   const r = await axios.get(`${mel}/download/twitter?url=${encodeURIComponent(text)}`, { timeout: 20000 })
+   const out = r.data?.result
+   const direct = Array.isArray(out) ? (out[0]?.url || out[0]) : (out?.url || out)
+   if (r.data?.status && direct) {
+    const caption = `❀ Twitter - Download ❀\n\n> 🜸 URL » ${text}`
+    await conn.sendFile(m.chat, direct, "video.mp4", caption, m)
+    await m.react('✔️')
+    return
+   }
+  }
+ } catch {}
+
 const result = await twitterScraper(text);
 if (!result.status) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido de Twitter`, m)
 if (result.data.type === 'video') {

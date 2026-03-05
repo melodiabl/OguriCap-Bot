@@ -19,8 +19,11 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 if (['play', 'yta', 'ytmp3', 'playaudio'].includes(command)) {
 const audio = await getAud(url)
 if (!audio?.url) throw '⚠ No se pudo obtener el audio.'
+ const isM4a = typeof audio.url === 'string' && (/mime=audio%2Fmp4/i.test(audio.url) || /mime=audio\/mp4/i.test(audio.url) || /\.m4a(\?|$)/i.test(audio.url))
+ const mimetype = isM4a ? 'audio/mp4' : 'audio/mpeg'
+ const fileName = `${title}.${isM4a ? 'm4a' : 'mp3'}`
 m.reply(`> ❀ *Audio procesado. Servidor:* \`${audio.api}\``)
-await conn.sendMessage(m.chat, { audio: { url: audio.url }, fileName: `${title}.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
+await conn.sendMessage(m.chat, { audio: { url: audio.url }, fileName, mimetype }, { quoted: m })
 await m.react('✔️')
 } else if (['play2', 'ytv', 'ytmp4', 'mp4'].includes(command)) {
 const video = await getVid(url)
@@ -41,6 +44,9 @@ export default handler
 
 async function getAud(url) {
 const apis = [
+{ api: 'MelodyApi', endpoint: `${global.APIs.melodia.url}/download/ytmp3?url=${encodeURIComponent(url)}`, extractor: res => res.result?.url || res.result },
+{ api: 'MelodyApi', endpoint: `${global.APIs.melodia.url}/download/ytdl-v2?url=${encodeURIComponent(url)}`, extractor: res => res.result?.download?.mp3 || res.result?.mp3 },
+{ api: 'MelodyApi', endpoint: `${global.APIs.melodia.url}/download/ytdl?url=${encodeURIComponent(url)}`, extractor: res => res.result?.mp3 },
 { api: 'Adonix', endpoint: `${global.APIs.adonix.url}/download/ytaudio?apikey=${global.APIs.adonix.key}&url=${encodeURIComponent(url)}`, extractor: res => res.data?.url },
 { api: 'ZenzzXD', endpoint: `${global.APIs.zenzxz.url}/downloader/ytmp3?url=${encodeURIComponent(url)}`, extractor: res => res.data?.download_url },
 { api: 'ZenzzXD v2', endpoint: `${global.APIs.zenzxz.url}/downloader/ytmp3v2?url=${encodeURIComponent(url)}`, extractor: res => res.data?.download_url },
@@ -53,6 +59,9 @@ return await fetchFromApis(apis)
 }
 async function getVid(url) {
 const apis = [
+{ api: 'MelodyApi', endpoint: `${global.APIs.melodia.url}/download/ytmp4?url=${encodeURIComponent(url)}&quality=360`, extractor: res => res.result?.url || res.result },
+{ api: 'MelodyApi', endpoint: `${global.APIs.melodia.url}/download/ytdl-v2?url=${encodeURIComponent(url)}`, extractor: res => res.result?.download?.mp4 || res.result?.mp4 },
+{ api: 'MelodyApi', endpoint: `${global.APIs.melodia.url}/download/ytdl?url=${encodeURIComponent(url)}`, extractor: res => res.result?.mp4 },
 { api: 'Adonix', endpoint: `${global.APIs.adonix.url}/download/ytvideo?apikey=${global.APIs.adonix.key}&url=${encodeURIComponent(url)}`, extractor: res => res.data?.url },
 { api: 'ZenzzXD', endpoint: `${global.APIs.zenzxz.url}/downloader/ytmp4?url=${encodeURIComponent(url)}&resolution=360p`, extractor: res => res.data?.download_url },
 { api: 'ZenzzXD v2', endpoint: `${global.APIs.zenzxz.url}/downloader/ytmp4v2?url=${encodeURIComponent(url)}&resolution=360`, extractor: res => res.data?.download_url },

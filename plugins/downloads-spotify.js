@@ -5,6 +5,22 @@ const handler = async (m, { conn, text, usedPrefix }) => {
 if (!text) return m.reply("❀ Por favor, proporciona el nombre de una canción o artista.")
 try {
 await m.react('🕒')
+
+ // MelodyApi first for Spotify URLs
+ try {
+  const mel = global.APIs.melodia?.url
+  const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
+  if (mel && isSpotifyUrl) {
+   const r = await axios.get(`${mel}/download/spotify?url=${encodeURIComponent(text)}`, { timeout: 20000 })
+   if (r.data?.status && r.data?.result) {
+    const dl = r.data.result
+    await conn.sendMessage(m.chat, { audio: { url: dl }, fileName: `spotify.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
+    await m.react('✔️')
+    return
+   }
+  }
+ } catch {}
+
 const res = await axios.get(`${global.APIs.adonix.url}/download/spotify?apikey=${global.APIs.adonix.key}&q=${encodeURIComponent(text)}`)
 if (!res.data?.status || !res.data?.song || !res.data?.downloadUrl) throw new Error("No se encontró la canción en Adonix.")
 const s = res.data.song
