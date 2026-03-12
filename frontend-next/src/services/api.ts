@@ -165,6 +165,11 @@ class ApiService {
     return response.data
   }
 
+  async getSubbotsCapacity() {
+    const response = await this.api.get('/api/subbot/capacity')
+    return response.data
+  }
+
   async getSubbotStatus() {
     const response = await this.api.get('/api/subbot/status')
     return response.data
@@ -185,7 +190,7 @@ class ApiService {
     return response.data
   }
 
-  async updateSubbotSettings(subbotId: string, settings: { alias?: string; name?: string; status?: string; pfp?: string }) {
+  async updateSubbotSettings(subbotId: string, settings: { alias?: string; name?: string; status?: string; pfp?: string; customName?: string; customPrefix?: string; customBanner?: string; customVideo?: string }) {
     const response = await this.api.post('/api/subbot/settings', { subbotId, ...settings })
     return response.data
   }

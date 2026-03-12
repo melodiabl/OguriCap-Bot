@@ -1,6 +1,9 @@
 import fetch from 'node-fetch'
 
 let handler = async (m, { conn, args }) => {
+let cfg = conn?.subbotRuntimeConfig || {}
+let botDisplayName = (cfg && typeof cfg.name === 'string' && cfg.name.trim()) ? cfg.name.trim() : botname
+let bannerUrl = (cfg && typeof cfg.banner === 'string' && cfg.banner.trim()) ? cfg.banner.trim() : banner
 let mentionedJid = await m.mentionedJid
 let userId = mentionedJid && mentionedJid[0] ? mentionedJid[0] : m.sender
 let totalreg = Object.keys(global.db.data.users).length
@@ -8,7 +11,7 @@ let totalCommands = Object.values(global.plugins).filter((v) => v.help && v.tags
 
 let txt = `̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮
 ︶•︶°︶•︶°︶•︶°︶•︶°︶•︶°︶
-> ❀ hola! @${userId.split('@')[0]}, Soy ${botname}, Aquí tienes la lista de comandos.
+> ❀ hola! @${userId.split('@')[0]}, Soy ${botDisplayName}, Aquí tienes la lista de comandos.
 
 ╭┈ࠢ͜┅ࠦ͜͜╾݊͜─ؕ͜─ׄ͜─֬͜─֟͜─֫͜─ׄ͜─ؕ͜─݊͜┈ࠦ͜┅ࠡ͜͜┈࠭͜͜۰۰͜۰
 │✦ *Tipo* » ${(conn.user.jid == global.conn.user.jid ? 'Principal' : 'Sub-Bot')}
@@ -447,16 +450,16 @@ serverMessageId: '',
 newsletterName: channelRD.name
 },
 externalAdReply: {
-title: botname,
-body: textbot,
-mediaType: 1,
-mediaUrl: redes,
-sourceUrl: redes,
-thumbnail: await (await fetch(banner)).buffer(),
-showAdAttribution: false,
-containsAutoReply: true,
-renderLargerThumbnail: true
-}}}, { quoted: m })
+ title: botDisplayName,
+ body: textbot,
+ mediaType: 1,
+ mediaUrl: redes,
+ sourceUrl: redes,
+ thumbnail: await (await fetch(bannerUrl)).buffer(),
+ showAdAttribution: false,
+ containsAutoReply: true,
+ renderLargerThumbnail: true
+ }}}, { quoted: m })
 }
 
 handler.help = ['menu']

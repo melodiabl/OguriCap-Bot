@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
+import { useAuth } from './AuthContext';
 import api from '@/services/api';
 import { notify } from '@/lib/notify';
 
@@ -142,6 +143,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   
   const { socket } = useSocketConnection();
   const { preferences } = usePreferences();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const loadingRef = useRef(false);
   const seenNotificationsRef = useRef<Set<number>>(new Set());
@@ -197,6 +199,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [settings]);
 
   const loadNotifications = useCallback(async (pageNum = 1, append = false) => {
+    if (authLoading || !isAuthenticated) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
     setIsLoading(true);
@@ -231,7 +234,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setIsLoading(false);
       loadingRef.current = false;
     }
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   const refresh = useCallback(async () => {
     await loadNotifications(1, false);
@@ -243,11 +246,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [hasMore, isLoading, page, loadNotifications]);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      loadingRef.current = false;
+      setIsLoading(false);
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(false);
+      setPage(1);
+      return;
+    }
     refresh();
-  }, [refresh]);
+  }, [authLoading, isAuthenticated, refresh]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || authLoading || !isAuthenticated) return;
 
     const handleNotification = (notification: Notification) => {
       if (!notification || seenNotificationsRef.current.has(notification.id)) return;
@@ -350,7 +362,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
     };
-  }, [socket, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash]);
+  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {

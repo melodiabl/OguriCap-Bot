@@ -20,6 +20,7 @@ import * as ws from 'ws'
 import { spawn, exec } from 'child_process'
 const { CONNECTING } = ws
 import { makeWASocket } from '../lib/simple.js'
+import { getSubbotCapacityInfo } from '../lib/subbot-capacity.js'
 import { fileURLToPath } from 'url'
 import { sendTemplateNotification } from '../lib/notification-system.js'
 let crm1 = "Y2QgcGx1Z2lucy"
@@ -32,6 +33,42 @@ let rtx = "*❀ SER BOT • MODE QR*\n\n✰ Con otro celular o en la PC escanea 
 let rtx2 = "*❀ SER BOT • MODE CODE*\n\n✰ Usa este Código para convertirte en un *Sub-Bot* Temporal.\n\n\`1\` » Haga clic en los tres puntos en la esquina superior derecha\n\n\`2\` » Toque dispositivos vinculados\n\n\`3\` » Selecciona Vincular con el número de teléfono\n\n\`4\` » Escriba el Código para iniciar sesion con el bot\n\n✧ No es recomendable usar tu cuenta principal."
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+function readJsonSafe(filePath) {
+  try {
+    if (!filePath) return null
+    if (!fs.existsSync(filePath)) return null
+    const raw = fs.readFileSync(filePath, 'utf8')
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function normalizePrefixConfig(prefix) {
+  const raw = String(prefix || '').trim()
+  if (!raw) return null
+  if (raw.toLowerCase() === 'multi') {
+    return ['#', '!', '/', '.', '$', '@', '*', '&', '?', '+', '-', '_', ',', ';', ':']
+  }
+  return raw
+}
+
+function applySubbotRuntimeConfig(sock, sessionDir) {
+  try {
+    const cfgPath = sessionDir ? path.join(sessionDir, 'config.json') : null
+    const cfg = readJsonSafe(cfgPath) || {}
+    sock.subbotRuntimeConfig = {
+      name: typeof cfg.name === 'string' ? cfg.name.trim() : '',
+      prefix: typeof cfg.prefix === 'string' ? cfg.prefix.trim() : '',
+      banner: typeof cfg.banner === 'string' ? cfg.banner.trim() : '',
+      video: typeof cfg.video === 'string' ? cfg.video.trim() : '',
+    }
+    const pref = normalizePrefixConfig(sock.subbotRuntimeConfig.prefix)
+    if (pref) sock.prefix = pref
+  } catch { }
+}
 const yukiJBOptions = {}
 if (global.conns instanceof Array) console.log()
 else global.conns = []
@@ -91,8 +128,21 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner }) => {
   let time = global.db.data.users[m.sender].Subs + 120000
   if (new Date - global.db.data.users[m.sender].Subs < 120000) return conn.reply(m.chat, `ꕥ Debes esperar ${msToTime(time - new Date())} para volver a vincular un *Sub-Bot.*`, m)
   let socklimit = global.conns.filter(sock => sock?.user).length
-  if (socklimit >= 50) {
-    return m.reply(`ꕥ No se han encontrado espacios para *Sub-Bots* disponibles.`)
+  const capCfg = global.db?.data?.panel?.whatsapp?.subbots || {}
+  const cap = getSubbotCapacityInfo({
+    hardMax: capCfg.hardMax ?? capCfg.hard_max,
+    autoLimit: capCfg.autoLimit ?? capCfg.auto_limit,
+    maxSubbots: capCfg.maxSubbots ?? capCfg.max_subbots,
+    reserveMB: capCfg.reserveMB ?? capCfg.reserve_mb,
+    perBotMB: capCfg.perBotMB ?? capCfg.per_bot_mb,
+  })
+  if (socklimit >= cap.effectiveMax) {
+    return m.reply(
+      `ꕥ No hay espacios para *Sub-Bots*.\n\n` +
+      `✦ Conectados: *${socklimit}*\n` +
+      `✦ Límite: *${cap.effectiveMax}*\n` +
+      `✦ Recomendado (RAM): *${cap.recommendedMax}*`
+    )
   }
   let mentionedJid = await m.mentionedJid
   let who = mentionedJid && mentionedJid[0] ? mentionedJid[0] : m.fromMe ? conn.user.jid : m.sender
@@ -178,6 +228,9 @@ export async function yukiJadiBot(options) {
       sock.subbotCode = sessionCode
       sock.sessionPath = resolvedSessionPath
       sock.isInit = false
+
+       // ─────────── CONFIG SUBBOT (name/prefix/banner/video)
+       applySubbotRuntimeConfig(sock, resolvedSessionPath)
       let isInit = true
       setTimeout(async () => {
         if (!sock.user) {
@@ -405,7 +458,8 @@ export async function yukiJadiBot(options) {
         if (global.db.data == null) loadDatabase()
         if (connection == `open`) {
           if (!global.db.data?.users) loadDatabase()
-          await joinChannels(conn)
+          // Asegurar que el SUBBOT (su propia cuenta) siga los canales configurados
+          await joinChannels(sock)
           let userName, userJid
           userName = sock.authState.creds.me.name || 'Anónimo'
           userJid = sock.authState.creds.me.jid || `${path.basename(pathYukiJadiBot)}@s.whatsapp.net`
@@ -598,7 +652,10 @@ export async function yukiJadiBot(options) {
           sock.subbotCode = sessionCode
           sock.sessionPath = resolvedSessionPath
           isInit = true
-        }
+
+           // ─────────── CONFIG SUBBOT (name/prefix/banner/video)
+           applySubbotRuntimeConfig(sock, resolvedSessionPath)
+         }
         if (!isInit) {
           sock.ev.off("messages.upsert", sock.handler)
           sock.ev.off("connection.update", sock.connectionUpdate)
@@ -641,4 +698,3 @@ async function joinChannels(sock) {
     }
   }
 }
-

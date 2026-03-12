@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/services/api';
 import { DashboardStats, BotStatus } from '@/types';
 import { SOCKET_EVENTS, useSocketBotStatus, useSocketConnection } from '@/contexts/SocketContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useDashboardStats(_interval = 10000) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -257,8 +258,10 @@ export function useNotifications(_interval = 30000) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const { socket } = useSocketConnection();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const fetchNotifications = useCallback(async () => {
+    if (authLoading || !isAuthenticated) return;
     try {
       const data = await api.getNotificaciones(1, 10);
       setNotifications(data.data || []);
@@ -266,14 +269,19 @@ export function useNotifications(_interval = 30000) {
     } catch (err) {
       // Silent fail
     }
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, [authLoading, isAuthenticated, fetchNotifications]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || authLoading || !isAuthenticated) return;
 
     const handleNotification = (n: any) => {
       if (!n) return;
@@ -288,7 +296,7 @@ export function useNotifications(_interval = 30000) {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
       socket.off('notification:created', handleNotification);
     };
-  }, [socket]);
+  }, [socket, authLoading, isAuthenticated]);
 
   useEffect(() => {
     const onFocus = () => fetchNotifications();

@@ -30,6 +30,10 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean; role?: boolean }>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const [turnstileRequired, setTurnstileRequired] = useState(true);
+
+  const effectiveTurnstileSiteKey = turnstileSiteKey || '';
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
@@ -82,6 +86,10 @@ export default function LoginPage() {
       const response = await fetch('/api/health');
       const data = await response.json();
 
+      const siteKey = typeof data?.turnstileSiteKey === 'string' && data.turnstileSiteKey.trim() ? data.turnstileSiteKey.trim() : null;
+      setTurnstileSiteKey(siteKey);
+      if (typeof data?.turnstileRequired === 'boolean') setTurnstileRequired(data.turnstileRequired);
+
       if (data.maintenanceMode) {
         setIsMaintenanceMode(true);
         const allowed = !!(data.canAccessDuringMaintenance || data.ipAllowed);
@@ -101,6 +109,8 @@ export default function LoginPage() {
       setMaintenanceAccessAllowed(true);
       setDetectedIP(null);
       setShowMaintenanceLogin(true);
+      setTurnstileSiteKey(null);
+      setTurnstileRequired(true);
     } finally {
       setIsCheckingMaintenance(false);
     }
@@ -189,14 +199,14 @@ export default function LoginPage() {
       return;
     }
 
-    if (!turnstileToken) {
+    if (turnstileRequired && (!effectiveTurnstileSiteKey || !turnstileToken)) {
       notify.error('Por favor completa la verificación de Turnstile');
       return;
     }
 
     setIsLoading(true);
     try {
-      await login(username.trim(), password, selectedRole, turnstileToken);
+      await login(username.trim(), password, selectedRole, turnstileRequired ? turnstileToken : undefined);
       const selectedRoleData = roles.find(r => r.value === selectedRole);
       notify.success(`¡Bienvenido como ${selectedRoleData?.label}!`);
       router.push('/');
@@ -551,29 +561,31 @@ export default function LoginPage() {
                   </button>
                 </div>
 
-                <div className="flex justify-center py-3">
-                  <Turnstile
-                    key={turnstileKey}
-                    sitekey="0x4AAAAAACfeWuLoFAJ0dPkF"
-                    onSuccess={(token) => setTurnstileToken(token)}
-                    onError={() => {
-                      setTurnstileToken(null);
-                      notify.error('Error en la verificación de Turnstile');
-                    }}
-                    onExpire={() => {
-                      setTurnstileToken(null);
-                    }}
-                    theme="dark"
-                    size="normal"
-                  />
-                </div>
+                {turnstileRequired && effectiveTurnstileSiteKey && (
+                  <div className="flex justify-center py-3">
+                    <Turnstile
+                      key={turnstileKey}
+                      sitekey={effectiveTurnstileSiteKey}
+                      onSuccess={(token) => setTurnstileToken(token)}
+                      onError={() => {
+                        setTurnstileToken(null);
+                        notify.error('Error en la verificación de Turnstile');
+                      }}
+                      onExpire={() => {
+                        setTurnstileToken(null);
+                      }}
+                      theme="dark"
+                      size="normal"
+                    />
+                  </div>
+                )}
 
                 <Button
                   type="submit"
                   variant="primary"
-                  className={`w-full ${!selectedRole || !turnstileToken ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  className={`w-full ${!selectedRole || (turnstileRequired && !turnstileToken) ? 'opacity-75 cursor-not-allowed' : ''}`}
                   loading={isLoading}
-                  disabled={!selectedRole || !turnstileToken || isLoading}
+                  disabled={!selectedRole || (turnstileRequired && (!turnstileToken || !effectiveTurnstileSiteKey)) || isLoading}
                 >
                   {!selectedRole ? 'Selecciona un rol para continuar' : 'Iniciar Sesión'}
                 </Button>

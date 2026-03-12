@@ -37,6 +37,11 @@ interface Subbot {
   numero?: string | null;
   whatsappName?: string | null;
   aliasDir?: string | null;
+  customName?: string | null;
+  customPrefix?: string | null;
+  customBanner?: string | null;
+  customVideo?: string | null;
+  displayName?: string | null;
   qr_data?: string | null;
   pairingCode?: string | null;
   isOnline?: boolean;
@@ -56,6 +61,8 @@ export default function SubbotsPage() {
   const [currentPairingCode, setCurrentPairingCode] = useState<string | null>(null);
   const [currentPairingSubbot, setCurrentPairingSubbot] = useState<string | null>(null);
   const [pendingPairingSubbotCode, setPendingPairingSubbotCode] = useState<string | null>(null);
+
+  const [capacity, setCapacity] = useState<any | null>(null);
   
   // Settings Modal State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -64,7 +71,11 @@ export default function SubbotsPage() {
     alias: '',
     name: '',
     status: '',
-    pfp: ''
+    pfp: '',
+    customName: '',
+    customPrefix: '',
+    customBanner: '',
+    customVideo: ''
   });
 
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
@@ -84,7 +95,7 @@ export default function SubbotsPage() {
   const handleCloseSettingsModal = useCallback(() => {
     setShowSettingsModal(false);
     setSettingsSubbot(null);
-    setSettingsForm({ alias: '', name: '', status: '', pfp: '' });
+    setSettingsForm({ alias: '', name: '', status: '', pfp: '', customName: '', customPrefix: '', customBanner: '', customVideo: '' });
   }, []);
 
   const openSettings = (subbot: Subbot) => {
@@ -93,7 +104,11 @@ export default function SubbotsPage() {
       alias: subbot.aliasDir || '',
       name: subbot.whatsappName || '',
       status: subbot.whatsapp_status || '',
-      pfp: ''
+      pfp: '',
+      customName: subbot.customName || '',
+      customPrefix: subbot.customPrefix || '',
+      customBanner: subbot.customBanner || '',
+      customVideo: subbot.customVideo || ''
     });
     setShowSettingsModal(true);
   };
@@ -141,6 +156,15 @@ export default function SubbotsPage() {
       toast.error('No se pudieron cargar los subbots');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadCapacity = useCallback(async () => {
+    try {
+      const res = await api.getSubbotsCapacity();
+      if (res?.capacity) setCapacity(res.capacity);
+    } catch {
+      // silencioso
     }
   }, []);
 
@@ -271,6 +295,11 @@ export default function SubbotsPage() {
 	      numero: raw?.numero ?? raw?.phoneNumber ?? null,
 	      whatsappName: raw?.nombre_whatsapp ?? raw?.whatsappName ?? null,
 	      aliasDir: raw?.alias_dir ?? raw?.aliasDir ?? null,
+	      customName: raw?.custom_name ?? raw?.customName ?? null,
+	      customPrefix: raw?.custom_prefix ?? raw?.customPrefix ?? null,
+	      customBanner: raw?.custom_banner ?? raw?.customBanner ?? null,
+	      customVideo: raw?.custom_video ?? raw?.customVideo ?? null,
+	      displayName: raw?.displayName ?? raw?.display_name ?? null,
 	      qr_data: raw?.qr_data ?? raw?.qr_code ?? null,
 	      pairingCode: raw?.pairingCode ?? raw?.pairing_code ?? null,
 	      isOnline: Boolean(raw?.isOnline || raw?.connected),
@@ -280,7 +309,8 @@ export default function SubbotsPage() {
 
   useEffect(() => {
     loadSubbots();
-  }, [loadSubbots]);
+    loadCapacity();
+  }, [loadSubbots, loadCapacity]);
 
   const getSubbotStatus = async () => {
 	    try {
@@ -483,6 +513,14 @@ export default function SubbotsPage() {
       <Reveal>
         <Card animated delay={0.2} className="p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Crear Nuevo Subbot</h2>
+          {capacity && (
+            <div className="mb-4 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 flex flex-wrap gap-x-4 gap-y-1">
+              <span><span className="text-gray-400">Capacidad:</span> {capacity.effectiveMax}</span>
+              <span><span className="text-gray-400">Disponibles:</span> {capacity.remaining}</span>
+              <span><span className="text-gray-400">Recomendado:</span> {capacity.recommendedMax}</span>
+              <span><span className="text-gray-400">Auto:</span> {capacity.autoLimit ? 'Si' : 'No'}</span>
+            </div>
+          )}
           <div className="flex gap-4">
             <Button onClick={createQRSubbot} loading={actionLoading === 'qr'} variant="primary" icon={<QrCode className="w-5 h-5" />}>
               Crear QR Subbot
@@ -548,8 +586,15 @@ export default function SubbotsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 w-full md:w-auto">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/15 overflow-hidden shrink-0 flex items-center justify-center">
+                        {subbot.customBanner ? (
+                          <img src={subbot.customBanner} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Bot className="w-4 h-4 text-gray-500" />
+                        )}
+                      </div>
                       <span className="text-sm text-gray-200 font-medium truncate max-w-[150px] md:max-w-none">
-                        {subbot.whatsappName || subbot.numero || subbot.code}
+                        {subbot.displayName || subbot.customName || subbot.whatsappName || subbot.numero || subbot.code}
                       </span>
                       <code className="text-[10px] text-gray-500 font-mono bg-white/5 px-2 py-1 rounded shrink-0">{subbot.code}</code>
                     </div>
@@ -704,6 +749,61 @@ export default function SubbotsPage() {
       {/* Settings Modal */}
       <Modal isOpen={showSettingsModal} onClose={handleCloseSettingsModal} title="Configuración de Subbot">
         <div className="space-y-4">
+          <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+            <div className="text-xs text-gray-400 mb-2">Identidad del SubBot (Menu)</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">Nombre (menu)</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Shadow SubBot"
+                  value={settingsForm.customName}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, customName: e.target.value }))}
+                  className="input-glass w-full text-white"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">Prefijo</label>
+                <input
+                  type="text"
+                  placeholder="Ej: .  |  !  |  multi"
+                  value={settingsForm.customPrefix}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, customPrefix: e.target.value }))}
+                  className="input-glass w-full text-white"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">Usa &quot;multi&quot; para varios prefijos</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 mb-1 block">Banner URL (miniatura)</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={settingsForm.customBanner}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, customBanner: e.target.value }))}
+                  className="input-glass w-full text-white"
+                />
+                {settingsForm.customBanner ? (
+                  <div className="mt-2 w-full h-28 rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                    <img src={settingsForm.customBanner} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : null}
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 mb-1 block">Video URL (opcional)</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={settingsForm.customVideo}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, customVideo: e.target.value }))}
+                  className="input-glass w-full text-white"
+                />
+              </div>
+            </div>
+            <div className="text-[10px] text-gray-500 mt-2">
+              Esto actualiza lo que ves en el menu del SubBot. Si el SubBot esta online, se aplica al instante.
+            </div>
+          </div>
+
           <div>
             <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
               <Zap className="w-4 h-4 text-blue-400" /> Alias Local (Solo Panel)

@@ -7,7 +7,7 @@ import chalk from "chalk"
 import fetch from "node-fetch"
 import ws from "ws"
 
-const { proto } = (await import("@whiskeysockets/baileys")).default
+const { proto, areJidsSameUser } = (await import("@whiskeysockets/baileys")).default
 const isNumber = x => typeof x === "number" && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function () {
   clearTimeout(this)
@@ -20,6 +20,7 @@ const getDayKey = (d = new Date()) => new Date(d).toISOString().slice(0, 10)
 export async function handler(chatUpdate) {
   this.msgqueque = this.msgqueque || []
   this.uptime = this.uptime || Date.now()
+  const conn = this
   if (!chatUpdate) return
   this.pushMessage(chatUpdate.messages).catch(console.error)
   let m = chatUpdate.messages[chatUpdate.messages.length - 1]
@@ -52,6 +53,11 @@ export async function handler(chatUpdate) {
         if (!("afk" in user) || !isNumber(user.afk)) user.afk = -1
         if (!("afkReason" in user)) user.afkReason = ""
         if (!("warn" in user) || !isNumber(user.warn)) user.warn = 0
+        if (!('channelVerified' in user)) user.channelVerified = false
+        if (!('channelVerifiedAt' in user)) user.channelVerifiedAt = null
+        if (!('channelGateLastNotice' in user) || !isNumber(user.channelGateLastNotice)) user.channelGateLastNotice = 0
+        if (!('privateBlockLastNotice' in user) || !isNumber(user.privateBlockLastNotice)) user.privateBlockLastNotice = 0
+        if (!('privateBlockWarns' in user) || !isNumber(user.privateBlockWarns)) user.privateBlockWarns = 0
       } else global.db.data.users[m.sender] = {
         name: m.name,
         exp: 0,
@@ -71,7 +77,12 @@ export async function handler(chatUpdate) {
         commands: 0,
         afk: -1,
         afkReason: "",
-        warn: 0
+        warn: 0,
+        channelVerified: false,
+        channelVerifiedAt: null,
+        channelGateLastNotice: 0,
+        privateBlockLastNotice: 0,
+        privateBlockWarns: 0
       }
       let chat = global.db.data.chats[m.chat]
       if (typeof chat !== "object") global.db.data.chats[m.chat] = {}
@@ -115,9 +126,21 @@ export async function handler(chatUpdate) {
       if (settings) {
         if (!("self" in settings)) settings.self = false
         if (!("jadibotmd" in settings)) settings.jadibotmd = true
+        if (!('antiPrivate' in settings)) settings.antiPrivate = false
+        if (!('antiPrivateBlock' in settings)) settings.antiPrivateBlock = true
+        if (!Array.isArray(settings.antiPrivateAllowlist)) settings.antiPrivateAllowlist = []
+        if (!Array.isArray(settings.antiBotGlobalAllowJids)) settings.antiBotGlobalAllowJids = []
+        if (!Array.isArray(settings.antiBotGlobalAllowPrefixes)) settings.antiBotGlobalAllowPrefixes = []
+        if (typeof settings.antiBotDetected !== 'object' || settings.antiBotDetected == null) settings.antiBotDetected = {}
       } else global.db.data.settings[this.user.jid] = {
         self: false,
-        jadibotmd: true
+        jadibotmd: true,
+        antiPrivate: false,
+        antiPrivateBlock: true,
+        antiPrivateAllowlist: [],
+        antiBotGlobalAllowJids: [],
+        antiBotGlobalAllowPrefixes: [],
+        antiBotDetected: {},
       }
     } catch (e) {
       console.error(e)
@@ -200,10 +223,179 @@ export async function handler(chatUpdate) {
     } catch { }
     const chat = global.db.data.chats[m.chat]
     const settings = global.db.data.settings[this.user.jid]
-    const isROwner = [...global.owner.map((number) => number)].map(v => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net").includes(m.sender)
+    const ownerJids = [...global.owner.map((number) => number)]
+      .map(v => String(v || '').replace(/[^0-9]/g, "") + "@s.whatsapp.net")
+      .filter(j => j !== '@s.whatsapp.net')
+    const isROwner = ownerJids.some(j => areJidsSameUser(j, m.sender))
     const isOwner = isROwner || m.fromMe
     const isPrems = isROwner || global.prems.map(v => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net").includes(m.sender) || user.premium == true
-    const isOwners = [this.user.jid, ...global.owner.map((number) => number + "@s.whatsapp.net")].includes(m.sender)
+    const isOwners = [this.user.jid, ...ownerJids].some(j => areJidsSameUser(j, m.sender))
+
+    // ============================================
+    // ANTI-PRIVADO (bloquea DM)
+    // ============================================
+    try {
+      const antiPrivateEnabled = Boolean(settings?.antiPrivate)
+      if (antiPrivateEnabled && !m.isGroup && !m.fromMe && !isOwner && !m.isBaileys) {
+        // Allowlist (colaboradores/devs)
+        try {
+          const allow = Array.isArray(settings?.antiPrivateAllowlist) ? settings.antiPrivateAllowlist : []
+          if (allow.some(j => j && areJidsSameUser(j, m.sender))) return
+        } catch { }
+
+        // Anti-Privado: por defecto bloquea TODO en privado,
+        // solo deja pasar comandos de verificacion/canal.
+        const allowCmd = new Set(['verificar', 'verify', 'canal', 'channel'])
+
+        const getUsedPrefix = (prefixLike, text) => {
+          if (typeof text !== 'string' || !text) return ''
+          if (prefixLike instanceof RegExp) {
+            const mm = text.match(prefixLike)
+            return (mm && mm[0]) ? mm[0] : ''
+          }
+          if (Array.isArray(prefixLike)) {
+            for (const p of prefixLike) {
+              const used = getUsedPrefix(p, text)
+              if (used) return used
+            }
+            return ''
+          }
+          if (typeof prefixLike === 'string' && text.startsWith(prefixLike)) return prefixLike
+          return ''
+        }
+
+        let isAllowed = false
+        const basePrefix = conn.prefix || global.prefix
+        const raw = String(m.text || '').trim()
+        if (raw && allowCmd.has(raw.toLowerCase())) isAllowed = true
+        const used = getUsedPrefix(basePrefix, raw)
+        if (!isAllowed && used) {
+          const noPrefix = raw.slice(used.length).trim()
+          const cmd = (noPrefix.split(/\s+/)[0] || '').toLowerCase()
+          if (cmd && allowCmd.has(cmd)) isAllowed = true
+        }
+        if (!isAllowed) {
+          // Anti-Privado solo aplica a comandos. Si no es comando, no intervenimos.
+          if (!used) {
+            // DM normal (sin prefijo): permitirlo
+          } else {
+            const now = Date.now()
+            const minNoticeMs = Number(process.env.ANTIPRIVADO_NOTICE_MIN_MS || 15000)
+            const canNotify = !user.privateBlockLastNotice || (now - user.privateBlockLastNotice) > minNoticeMs
+
+            user.privateBlockWarns = (Number(user.privateBlockWarns) || 0) + 1
+            const warns = Number(user.privateBlockWarns) || 0
+
+            const msgWarn =
+              `⚠️ *[ALERTA ${warns}/2]*\n` +
+              `══════════════════════\n` +
+              `✧ No uses comandos por privado.\n\n` +
+              `Ej: */menu*, */help*, */ping*\n` +
+              `══════════════════════`
+
+            const msgFinal =
+              `🌌 *[BLOQUEO FINAL]*\n` +
+              `══════════════════════\n` +
+              `📛 Infracción: Comandos por privado (2/2)\n\n` +
+              `🔒 Estado: *Contacto bloqueado*\n` +
+              `══════════════════════`
+
+            if (warns >= 2) {
+              try { await conn.sendMessage(m.chat, { text: msgFinal }) } catch { }
+              if (Boolean(settings?.antiPrivateBlock)) {
+                try { await conn.updateBlockStatus(m.sender, 'block') } catch { }
+              }
+              user.privateBlockWarns = 0
+              user.privateBlockLastNotice = now
+              if (global.db?.write) void global.db.write().catch(() => {})
+              return
+            }
+
+            if (canNotify) {
+              user.privateBlockLastNotice = now
+              if (global.db?.write) void global.db.write().catch(() => {})
+              try {
+                await conn.sendMessage(m.chat, {
+                  text:
+                    `ꕥ *Anti-Privado activado*\n\n` +
+                    `✧ Los comandos por privado están restringidos.\n` +
+                    `❀ Úsalo en un *grupo* o verifica el canal.\n\n` +
+                    msgWarn
+                })
+              } catch { }
+            }
+            return
+          }
+        }
+      }
+    } catch { }
+
+    // ============================================
+    // REQUIERE SEGUIR CANAL (GATE)
+    // Nota: WhatsApp no expone un check fiable de "seguidor"; se valida por reenvio de un post del canal.
+    // ============================================
+    try {
+      const requiredNewsletters = Object.values(global.ch || {}).filter(v => typeof v === 'string' && v.endsWith('@newsletter'))
+      const requireChannel = requiredNewsletters.length > 0 && typeof global.channel === 'string' && global.channel.startsWith('http')
+      const channelUrl = String(global.channel || '').trim()
+      const allowCmd = new Set(['verificar', 'verify', 'canal', 'channel'])
+
+      const getUsedPrefix = (prefixLike, text) => {
+        if (typeof text !== 'string' || !text) return ''
+        if (prefixLike instanceof RegExp) {
+          const m = text.match(prefixLike)
+          return (m && m[0]) ? m[0] : ''
+        }
+        if (Array.isArray(prefixLike)) {
+          for (const p of prefixLike) {
+            const used = getUsedPrefix(p, text)
+            if (used) return used
+          }
+          return ''
+        }
+        if (typeof prefixLike === 'string' && text.startsWith(prefixLike)) return prefixLike
+        return ''
+      }
+
+      if (requireChannel && !m.fromMe && !isOwner && !m.isBaileys) {
+        const basePrefix = conn.prefix || global.prefix
+        const used = getUsedPrefix(basePrefix, m.text)
+        if (used) {
+          const noPrefix = m.text.slice(used.length).trim()
+          const command = (noPrefix.split(/\s+/)[0] || '').toLowerCase()
+          if (command && !allowCmd.has(command) && !user.channelVerified) {
+            const now = Date.now()
+            const cooldownMs = Number(process.env.CHANNEL_GATE_COOLDOWN_MS || (4 * 60 * 60 * 1000))
+            const shouldNotify = !user.channelGateLastNotice || (now - user.channelGateLastNotice) > cooldownMs
+
+            const gateText =
+`ꕥ *Canal requerido*
+
+✧ Debes seguir el canal de la desarrolladora para actualizaciones y nuevos proyectos.
+
+❀ Canal: ${channelUrl}
+
+✦ Para verificar: reenvia (forward) aqui un post del canal y escribe: ${used}verificar`
+
+            if (shouldNotify) {
+              user.channelGateLastNotice = now
+              if (global.db?.write) void global.db.write().catch(() => {})
+              try {
+                // En grupos, avisar al privado. En privado, responder ahi mismo.
+                const target = m.isGroup ? m.sender : m.chat
+                await conn.sendMessage(target, { text: gateText })
+              } catch {
+                try { if (m.isGroup) await m.reply('Te envie las instrucciones al privado. Si no te llega, escribe al bot en privado.') } catch { }
+              }
+            }
+
+            // Bloquear ejecucion de comandos
+            return
+          }
+        }
+      }
+    } catch { }
+
     if (opts["queque"] && m.text && !(isPrems)) {
       const queque = this.msgqueque, time = 1000 * 5
       const previousID = queque[queque.length - 1]
