@@ -40,7 +40,7 @@
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "@vitalets/google-translate-api": "^8.0.0",
-    "@whiskeysockets/baileys": "github:Kone457/bails",
+    "@whiskeysockets/baileys": "npm:wileys@0.5.1",
     "acrcloud": "^1.4.0",
     "adm-zip": "^0.5.12",
     "aptoide-scraper": "^1.0.1",
@@ -69,7 +69,7 @@
     "google-libphonenumber": "3.2.38",
     "helmet": "^7.1.0",
     "human-readable": "^0.2.1",
-    "jimp": "^1.6.0",
+    "jimp": "^0.16.13",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "megajs": "^1.1.3",
