@@ -5,8 +5,7 @@ let handler = async (m, { conn, usedPrefix }) => {
     m.chat,
     `Canal de la desarrolladora:
 ${channelUrl}
-
-Si el bot te lo pide, reenvia un post del canal y escribe: ${usedPrefix}verificar`,
+`,
     m
   )
 }

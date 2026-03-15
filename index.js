@@ -177,17 +177,25 @@ let panelAuthMethod = 'qr'
 let panelPairingPhone = null
 
 try {
-  const dbPath = path.join(__dirname, 'database.json')
-  if (fs.existsSync(dbPath)) {
-    const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
-    const whatsappConfig = dbData?.panel?.whatsapp || dbData?.whatsapp || {}
-    panelAuthMethod = whatsappConfig?.authMethod || 'qr'
-    panelPairingPhone = whatsappConfig?.pairingPhone || null
-    
-    console.log(chalk.cyan(`[ ✿ ] Método de auth del panel: ${panelAuthMethod}`))
-    if (panelAuthMethod === 'pairing' && panelPairingPhone) {
-      console.log(chalk.cyan(`[ ✿ ] Número de pairing: ${panelPairingPhone}`))
+  // Preferir configuracion real (Postgres / global.db)
+  const cfg = global.db?.data?.panel?.whatsapp || null
+  if (cfg) {
+    panelAuthMethod = cfg?.authMethod === 'pairing' ? 'pairing' : 'qr'
+    panelPairingPhone = cfg?.pairingPhone ? String(cfg.pairingPhone).replace(/[^0-9]/g, '') : null
+  } else {
+    // Fallback legacy (si existe database.json)
+    const dbPath = path.join(__dirname, 'database.json')
+    if (fs.existsSync(dbPath)) {
+      const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+      const whatsappConfig = dbData?.panel?.whatsapp || dbData?.whatsapp || {}
+      panelAuthMethod = whatsappConfig?.authMethod || 'qr'
+      panelPairingPhone = whatsappConfig?.pairingPhone || null
     }
+  }
+
+  console.log(chalk.cyan(`[ ✿ ] Método de auth del panel: ${panelAuthMethod}`))
+  if (panelAuthMethod === 'pairing' && panelPairingPhone) {
+    console.log(chalk.cyan(`[ ✿ ] Número de pairing: ${panelPairingPhone}`))
   }
 } catch (e) {
   console.warn(chalk.yellow('⚠️  No se pudo leer configuración del panel, usando valores por defecto'))
@@ -386,6 +394,159 @@ global.__panelLastConnState ||= null
 // Controla si el backend tiene permiso para emitir QR al panel
 global.panelAllowQr = false
 
+// Estado de autenticacion on-demand (usado por panel-api.js)
+global.botAuthState = global.botAuthState || 'IDLE'
+global.botAuthMethod = global.botAuthMethod || null
+global.botAuthPhone = global.botAuthPhone || null
+global.authRequestId = global.authRequestId || null
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const newAuthRequestId = (prefix = 'auth') => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
+
+// Permite al panel iniciar auth QR bajo demanda
+global.startQrAuth = async function startQrAuth() {
+  try {
+    // Si ya esta conectado, no hacer nada
+    if (global.stopped === 'open' && global.conn?.user?.id) {
+      global.botAuthState = 'CONNECTED'
+      return { success: true, state: 'CONNECTED', phoneNumber: global.conn.user.id }
+    }
+
+    global.botAuthState = 'AUTHENTICATING'
+    global.botAuthMethod = 'qr'
+    global.botAuthPhone = null
+    global.authRequestId = newAuthRequestId('qr')
+
+    // Persistir preferencia en DB (in-memory)
+    try {
+      if (global.db?.data) {
+        global.db.data.panel ||= {}
+        global.db.data.panel.whatsapp ||= {}
+        global.db.data.panel.whatsapp.authMethod = 'qr'
+        global.db.data.panel.whatsapp.pairingPhone = null
+        global.db.data.panel.whatsapp.pairingCode = null
+        global.db.data.panel.whatsapp.pairingUpdatedAt = null
+        if (global.db?.write) await global.db.write().catch(() => {})
+      }
+    } catch {}
+
+    global.panelAuthMethod = 'qr'
+    global.panelPairingPhone = null
+    global.panelPairingCode = null
+    global.panelApiMainDisconnect = false
+    global.panelApiMainQr = null
+    global.panelAllowQr = true
+
+    // Reiniciar socket con metodo QR
+    if (typeof global.reloadHandler === 'function') {
+      await global.reloadHandler(true).catch(() => {})
+    }
+
+    return { success: true }
+  } catch (e) {
+    global.botAuthState = 'IDLE'
+    return { success: false, error: e?.message || String(e) }
+  }
+}
+
+// Permite al panel iniciar auth pairing bajo demanda
+global.startPairingAuth = async function startPairingAuth(phoneNumber) {
+  try {
+    const digits = String(phoneNumber || '').replace(/[^0-9]/g, '')
+    if (!digits) return { success: false, error: 'phoneNumber invalido' }
+
+    // Si ya esta conectado, no hacer nada
+    if (global.stopped === 'open' && global.conn?.user?.id) {
+      global.botAuthState = 'CONNECTED'
+      return { success: true, state: 'CONNECTED', phoneNumber: global.conn.user.id }
+    }
+
+    global.botAuthState = 'AUTHENTICATING'
+    global.botAuthMethod = 'pairing'
+    global.botAuthPhone = digits
+    global.authRequestId = newAuthRequestId('pair')
+
+    // Persistir preferencia en DB (in-memory)
+    try {
+      if (global.db?.data) {
+        global.db.data.panel ||= {}
+        global.db.data.panel.whatsapp ||= {}
+        global.db.data.panel.whatsapp.authMethod = 'pairing'
+        global.db.data.panel.whatsapp.pairingPhone = digits
+        global.db.data.panel.whatsapp.pairingCode = null
+        global.db.data.panel.whatsapp.pairingUpdatedAt = null
+        if (global.db?.write) await global.db.write().catch(() => {})
+      }
+    } catch {}
+
+    global.panelAuthMethod = 'pairing'
+    global.panelPairingPhone = digits
+    global.panelApiMainDisconnect = false
+    global.panelAllowQr = false
+    global.panelApiMainQr = null
+    global.panelPairingCode = null
+
+    // Reiniciar socket con metodo pairing
+    if (typeof global.reloadHandler === 'function') {
+      await global.reloadHandler(true).catch(() => {})
+    }
+
+    // Dar tiempo a que el socket inicialice
+    await sleep(1200)
+
+    if (!global.conn || typeof global.conn.requestPairingCode !== 'function') {
+      return { success: false, error: 'Conexion no disponible para pairing' }
+    }
+
+    const raw = await global.conn.requestPairingCode(digits)
+    let pairingCode = raw
+    if (typeof pairingCode === 'string' && pairingCode.length > 4) {
+      pairingCode = pairingCode.match(/.{1,4}/g)?.join('-') || pairingCode
+    }
+
+    global.panelPairingCode = pairingCode
+
+    try {
+      if (global.db?.data) {
+        global.db.data.panel ||= {}
+        global.db.data.panel.whatsapp ||= {}
+        global.db.data.panel.whatsapp.pairingCode = pairingCode
+        global.db.data.panel.whatsapp.pairingUpdatedAt = new Date().toISOString()
+        if (global.db?.write) await global.db.write().catch(() => {})
+      }
+    } catch {}
+
+    try {
+      const { emitBotPairingCode } = await import('./lib/socket-io.js')
+      if (typeof emitBotPairingCode === 'function') emitBotPairingCode(pairingCode, digits)
+    } catch {}
+
+    return { success: true, pairingCode, displayCode: pairingCode, phoneNumber: digits }
+  } catch (e) {
+    global.botAuthState = 'IDLE'
+    return { success: false, error: e?.message || String(e) }
+  }
+}
+
+// Permite al panel cerrar el proceso de auth y quedar en IDLE
+global.closeAuthConnection = async function closeAuthConnection() {
+  try {
+    global.panelApiMainDisconnect = true
+    try { global.panelAllowQr = false } catch {}
+    try { global.panelApiMainQr = null } catch {}
+    try { global.panelPairingCode = null } catch {}
+    try { global.botAuthState = 'IDLE' } catch {}
+    try { global.botAuthMethod = null } catch {}
+    try { global.botAuthPhone = null } catch {}
+    try { global.authRequestId = null } catch {}
+    try { global.conn?.ws?.close?.() } catch {}
+    try { global.conn?.ev?.removeAllListeners?.() } catch {}
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: e?.message || String(e) }
+  }
+}
+
 function pushPanelLog(entry) {
   try {
     if (!global.db?.data) return
@@ -551,6 +712,13 @@ async function connectionUpdate(update) {
       console.log(chalk.yellow('⚠️  QR recibido pero método es pairing, ignorando...'))
       return
     }
+
+    // Estado de autenticacion para el panel
+    try {
+      global.botAuthState = 'AUTHENTICATING'
+      global.botAuthMethod = 'qr'
+      if (!global.authRequestId) global.authRequestId = newAuthRequestId('qr')
+    } catch {}
     
     // Guardar siempre el último QR generado
     global.panelApiMainQr = qr
@@ -582,6 +750,13 @@ async function connectionUpdate(update) {
       }
     } catch {}
 
+    try {
+      global.botAuthState = 'CONNECTED'
+      global.botAuthMethod = null
+      global.botAuthPhone = global.conn?.user?.id || null
+      global.authRequestId = null
+    } catch {}
+
     // Limpiar código de pairing
     global.panelPairingCode = null
     // Emitir conexión via Socket.IO
@@ -608,6 +783,11 @@ async function connectionUpdate(update) {
 
   if (connection === 'connecting') {
     global.stopped = 'connecting'
+    try {
+      if (global.botAuthState !== 'AUTHENTICATING' && global.botAuthState !== 'CONNECTED') {
+        global.botAuthState = 'AUTHENTICATING'
+      }
+    } catch {}
   }
 
   if (code && code !== DisconnectReason.loggedOut && conn?.ws.socket == null) {
@@ -665,6 +845,12 @@ async function connectionUpdate(update) {
     // Si el panel solicitó desconexión, no reconectar
     if (global.panelApiMainDisconnect) {
       console.log(chalk.yellow("→ Bot desconectado desde el panel"))
+      try {
+        global.botAuthState = 'IDLE'
+        global.botAuthMethod = null
+        global.botAuthPhone = null
+        global.authRequestId = null
+      } catch {}
       return
     }
     
@@ -720,27 +906,22 @@ global.reloadHandler = async function (restatConn) {
     } catch { }
     global.conn.ev.removeAllListeners()
     
-    // Recargar configuración del panel antes de reconectar
+    // Recargar configuración del panel antes de reconectar (preferir in-memory/DB)
     let currentOptions = { ...connectionOptions }
     try {
-      const dbPath = path.join(__dirname, 'database.json')
-      if (fs.existsSync(dbPath)) {
-        const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
-        const whatsappConfig = dbData?.panel?.whatsapp || dbData?.whatsapp || {}
-        const inMemoryWhatsapp = global.db?.data?.panel?.whatsapp || null
-        
-        global.panelAuthMethod = inMemoryWhatsapp?.authMethod || whatsappConfig?.authMethod || 'qr'
-        global.panelPairingPhone = inMemoryWhatsapp?.pairingPhone || whatsappConfig?.pairingPhone || null
-        
-        if (global.panelAuthMethod === 'pairing') {
-          currentOptions.browser = ["Ubuntu", "Chrome", "20.0.04"]
-          currentOptions.printQRInTerminal = false
-          console.log(chalk.cyan('[ ✿ ] Reconectando con método pairing'))
-        } else {
-          currentOptions.browser = ["MacOs", "Safari", "10.0"]
-          currentOptions.printQRInTerminal = (opcion == '1' || methodCodeQR)
-          console.log(chalk.cyan('[ ✿ ] Reconectando con método QR'))
-        }
+      const inMemoryWhatsapp = global.db?.data?.panel?.whatsapp || null
+      const method = inMemoryWhatsapp?.authMethod === 'pairing' ? 'pairing' : 'qr'
+      global.panelAuthMethod = method
+      global.panelPairingPhone = inMemoryWhatsapp?.pairingPhone ? String(inMemoryWhatsapp.pairingPhone).replace(/[^0-9]/g, '') : null
+
+      if (method === 'pairing') {
+        currentOptions.browser = ["Ubuntu", "Chrome", "20.0.04"]
+        currentOptions.printQRInTerminal = false
+        console.log(chalk.cyan('[ ✿ ] Reconectando con método pairing'))
+      } else {
+        currentOptions.browser = ["MacOs", "Safari", "10.0"]
+        currentOptions.printQRInTerminal = (opcion == '1' || methodCodeQR)
+        console.log(chalk.cyan('[ ✿ ] Reconectando con método QR'))
       }
     } catch (e) {
       console.warn(chalk.yellow('⚠️  Error leyendo config del panel en reload'))

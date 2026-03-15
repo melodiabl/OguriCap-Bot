@@ -17,26 +17,7 @@ const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function (
 const strRegex = (str) => str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&")
 const getDayKey = (d = new Date()) => new Date(d).toISOString().slice(0, 10)
 
-function extractNewsletterJidFromContextInfo(ci) {
-  try {
-    if (!ci || typeof ci !== 'object') return ''
-    const direct =
-      ci?.forwardedNewsletterMessageInfo?.newsletterJid ||
-      ci?.forwardedNewsletterMessageInfo?.newsletterId ||
-      ci?.forwardedNewsletterMessageInfo?.jid ||
-      ''
-    if (typeof direct === 'string' && direct.endsWith('@newsletter')) return direct
-    try {
-      const raw = JSON.stringify(ci)
-      const m = raw.match(/(\d{5,}@newsletter)/)
-      return m ? m[1] : ''
-    } catch {
-      return ''
-    }
-  } catch {
-    return ''
-  }
-}
+// Canal gate/verificacion removido
 
 export async function handler(chatUpdate) {
   this.msgqueque = this.msgqueque || []
@@ -74,11 +55,7 @@ export async function handler(chatUpdate) {
         if (!("afk" in user) || !isNumber(user.afk)) user.afk = -1
         if (!("afkReason" in user)) user.afkReason = ""
         if (!("warn" in user) || !isNumber(user.warn)) user.warn = 0
-        if (!('channelVerified' in user)) user.channelVerified = false
-        if (!('channelVerifiedAt' in user)) user.channelVerifiedAt = null
-        if (!('channelGateLastNotice' in user) || !isNumber(user.channelGateLastNotice)) user.channelGateLastNotice = 0
-        if (!('lastForwardedNewsletterJid' in user)) user.lastForwardedNewsletterJid = null
-        if (!('lastForwardedNewsletterAt' in user) || !isNumber(user.lastForwardedNewsletterAt)) user.lastForwardedNewsletterAt = 0
+        // Campos legacy de canal quedan en DB si existian, pero ya no se usan
         if (!('privateBlockLastNotice' in user) || !isNumber(user.privateBlockLastNotice)) user.privateBlockLastNotice = 0
         if (!('privateBlockWarns' in user) || !isNumber(user.privateBlockWarns)) user.privateBlockWarns = 0
       } else global.db.data.users[m.sender] = {
@@ -101,11 +78,7 @@ export async function handler(chatUpdate) {
         afk: -1,
         afkReason: "",
         warn: 0,
-        channelVerified: false,
-        channelVerifiedAt: null,
-        channelGateLastNotice: 0,
-        lastForwardedNewsletterJid: null,
-        lastForwardedNewsletterAt: 0,
+        // Campos legacy de canal removidos (ya no se usan)
         privateBlockLastNotice: 0,
         privateBlockWarns: 0
       }
@@ -240,31 +213,6 @@ export async function handler(chatUpdate) {
     })
     const user = global.db.data.users[m.sender]
 
-    // Guardar el ultimo reenviado desde canal (para que el comando "verificar" funcione aunque se envie en un mensaje aparte)
-    try {
-      let ci = m?.msg?.contextInfo || null
-      if (!ci) {
-        const msgObj = (m?.message && typeof m.message === 'object') ? m.message : null
-        if (msgObj) {
-          const firstKey = Object.keys(msgObj)[0]
-          ci = msgObj?.[firstKey]?.contextInfo || null
-        }
-      }
-      if (!ci) {
-        const msgObj = (m?.message && typeof m.message === 'object') ? m.message : null
-        const inner = msgObj?.viewOnceMessage?.message || msgObj?.viewOnceMessageV2?.message || msgObj?.viewOnceMessageV2Extension?.message || null
-        if (inner && typeof inner === 'object') {
-          const firstKey = Object.keys(inner)[0]
-          ci = inner?.[firstKey]?.contextInfo || null
-        }
-      }
-      const jid = extractNewsletterJidFromContextInfo(ci)
-      if (jid) {
-        user.lastForwardedNewsletterJid = jid
-        user.lastForwardedNewsletterAt = Date.now()
-      }
-    } catch { }
-
     try {
       const actual = user.name || ""
       const nuevo = m.pushName || await this.getName(m.sender)
@@ -294,9 +242,9 @@ export async function handler(chatUpdate) {
           if (allow.some(j => j && areJidsSameUser(j, m.sender))) return
         } catch { }
 
-        // Anti-Privado: por defecto bloquea TODO en privado,
-        // solo deja pasar comandos de verificacion/canal.
-        const allowCmd = new Set(['verificar', 'verify', 'canal', 'channel'])
+        // Anti-Privado: por defecto bloquea comandos en privado,
+        // pero permite comandos informativos.
+        const allowCmd = new Set(['canal', 'channel'])
 
         const getUsedPrefix = (prefixLike, text) => {
           if (typeof text !== 'string' || !text) return ''
@@ -375,74 +323,6 @@ export async function handler(chatUpdate) {
                 })
               } catch { }
             }
-            return
-          }
-        }
-      }
-    } catch { }
-
-    // ============================================
-    // REQUIERE SEGUIR CANAL (GATE)
-    // Nota: WhatsApp no expone un check fiable de "seguidor"; se valida por reenvio de un post del canal.
-    // ============================================
-    try {
-      const requiredNewsletters = Object.values(global.ch || {}).filter(v => typeof v === 'string' && v.endsWith('@newsletter'))
-      const requireChannel = requiredNewsletters.length > 0 && typeof global.channel === 'string' && global.channel.startsWith('http')
-      const channelUrl = String(global.channel || '').trim()
-      const allowCmd = new Set(['verificar', 'verify', 'canal', 'channel'])
-
-      const getUsedPrefix = (prefixLike, text) => {
-        if (typeof text !== 'string' || !text) return ''
-        if (prefixLike instanceof RegExp) {
-          const m = text.match(prefixLike)
-          return (m && m[0]) ? m[0] : ''
-        }
-        if (Array.isArray(prefixLike)) {
-          for (const p of prefixLike) {
-            const used = getUsedPrefix(p, text)
-            if (used) return used
-          }
-          return ''
-        }
-        if (typeof prefixLike === 'string' && text.startsWith(prefixLike)) return prefixLike
-        return ''
-      }
-
-      if (requireChannel && !m.fromMe && !isOwner && !m.isBaileys) {
-        const basePrefix = conn.prefix || global.prefix
-        const used = getUsedPrefix(basePrefix, m.text)
-        if (used) {
-          const noPrefix = m.text.slice(used.length).trim()
-          const command = (noPrefix.split(/\s+/)[0] || '').toLowerCase()
-          if (command && !allowCmd.has(command) && !user.channelVerified) {
-            const now = Date.now()
-            const cooldownMs = Number(process.env.CHANNEL_GATE_COOLDOWN_MS || (4 * 60 * 60 * 1000))
-            const shouldNotify = !user.channelGateLastNotice || (now - user.channelGateLastNotice) > cooldownMs
-
-            const gateText =
-`ꕥ *Canal requerido*
-
-✧ Debes seguir el canal de la desarrolladora para actualizaciones y nuevos proyectos.
-
-❀ Canal: ${channelUrl}
-
-✦ Para verificar:
-1) Reenvia (forward) aqui un post del canal
-2) Luego escribe: ${used}verificar (puede ser en un mensaje aparte)`
-
-            if (shouldNotify) {
-              user.channelGateLastNotice = now
-              if (global.db?.write) void global.db.write().catch(() => {})
-              try {
-                // En grupos, avisar al privado. En privado, responder ahi mismo.
-                const target = m.isGroup ? m.sender : m.chat
-                await conn.sendMessage(target, { text: gateText })
-              } catch {
-                try { if (m.isGroup) await m.reply('Te envie las instrucciones al privado. Si no te llega, escribe al bot en privado.') } catch { }
-              }
-            }
-
-            // Bloquear ejecucion de comandos
             return
           }
         }
