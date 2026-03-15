@@ -17,6 +17,27 @@ const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function (
 const strRegex = (str) => str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&")
 const getDayKey = (d = new Date()) => new Date(d).toISOString().slice(0, 10)
 
+function extractNewsletterJidFromContextInfo(ci) {
+  try {
+    if (!ci || typeof ci !== 'object') return ''
+    const direct =
+      ci?.forwardedNewsletterMessageInfo?.newsletterJid ||
+      ci?.forwardedNewsletterMessageInfo?.newsletterId ||
+      ci?.forwardedNewsletterMessageInfo?.jid ||
+      ''
+    if (typeof direct === 'string' && direct.endsWith('@newsletter')) return direct
+    try {
+      const raw = JSON.stringify(ci)
+      const m = raw.match(/(\d{5,}@newsletter)/)
+      return m ? m[1] : ''
+    } catch {
+      return ''
+    }
+  } catch {
+    return ''
+  }
+}
+
 export async function handler(chatUpdate) {
   this.msgqueque = this.msgqueque || []
   this.uptime = this.uptime || Date.now()
@@ -56,6 +77,8 @@ export async function handler(chatUpdate) {
         if (!('channelVerified' in user)) user.channelVerified = false
         if (!('channelVerifiedAt' in user)) user.channelVerifiedAt = null
         if (!('channelGateLastNotice' in user) || !isNumber(user.channelGateLastNotice)) user.channelGateLastNotice = 0
+        if (!('lastForwardedNewsletterJid' in user)) user.lastForwardedNewsletterJid = null
+        if (!('lastForwardedNewsletterAt' in user) || !isNumber(user.lastForwardedNewsletterAt)) user.lastForwardedNewsletterAt = 0
         if (!('privateBlockLastNotice' in user) || !isNumber(user.privateBlockLastNotice)) user.privateBlockLastNotice = 0
         if (!('privateBlockWarns' in user) || !isNumber(user.privateBlockWarns)) user.privateBlockWarns = 0
       } else global.db.data.users[m.sender] = {
@@ -81,6 +104,8 @@ export async function handler(chatUpdate) {
         channelVerified: false,
         channelVerifiedAt: null,
         channelGateLastNotice: 0,
+        lastForwardedNewsletterJid: null,
+        lastForwardedNewsletterAt: 0,
         privateBlockLastNotice: 0,
         privateBlockWarns: 0
       }
@@ -214,6 +239,32 @@ export async function handler(chatUpdate) {
       } catch { }
     })
     const user = global.db.data.users[m.sender]
+
+    // Guardar el ultimo reenviado desde canal (para que el comando "verificar" funcione aunque se envie en un mensaje aparte)
+    try {
+      let ci = m?.msg?.contextInfo || null
+      if (!ci) {
+        const msgObj = (m?.message && typeof m.message === 'object') ? m.message : null
+        if (msgObj) {
+          const firstKey = Object.keys(msgObj)[0]
+          ci = msgObj?.[firstKey]?.contextInfo || null
+        }
+      }
+      if (!ci) {
+        const msgObj = (m?.message && typeof m.message === 'object') ? m.message : null
+        const inner = msgObj?.viewOnceMessage?.message || msgObj?.viewOnceMessageV2?.message || msgObj?.viewOnceMessageV2Extension?.message || null
+        if (inner && typeof inner === 'object') {
+          const firstKey = Object.keys(inner)[0]
+          ci = inner?.[firstKey]?.contextInfo || null
+        }
+      }
+      const jid = extractNewsletterJidFromContextInfo(ci)
+      if (jid) {
+        user.lastForwardedNewsletterJid = jid
+        user.lastForwardedNewsletterAt = Date.now()
+      }
+    } catch { }
+
     try {
       const actual = user.name || ""
       const nuevo = m.pushName || await this.getName(m.sender)
@@ -375,7 +426,9 @@ export async function handler(chatUpdate) {
 
 ❀ Canal: ${channelUrl}
 
-✦ Para verificar: reenvia (forward) aqui un post del canal y escribe: ${used}verificar`
+✦ Para verificar:
+1) Reenvia (forward) aqui un post del canal
+2) Luego escribe: ${used}verificar (puede ser en un mensaje aparte)`
 
             if (shouldNotify) {
               user.channelGateLastNotice = now
