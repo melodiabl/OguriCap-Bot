@@ -8,16 +8,29 @@
   --shine: 255 255 255;
 
   /* Page atmosphere tokens (space-separated RGB for `rgb(var(--x) / a)`) */
-  --page-a: 99 102 241;
-  /* indigo */
-  --page-b: 139 92 246;
-  /* violet */
-  --page-c: 6 182 212;
-  /* cyan */
-  --page-d: 16 185 129;
-  /* emerald */
+  /* OguriCap base palette: morado traje, lavanda, azul ojos, cian cinta */
+  --page-a: 91 61 173;
+  /* oguri purple deep */
+  --page-b: 183 166 230;
+  /* oguri lavender */
+  --page-c: 127 180 255;
+  /* oguri eye blue */
+  --page-d: 70 195 207;
+  /* oguri hairband cyan */
   --page-e: 244 63 94;
-  /* rose */
+  /* rose (alerts, se mantiene) */
+  
+  /* Oguri Cap extended palette */
+  --oguri-purple: 91 61 173;
+  --oguri-lavender: 183 166 230;
+  --oguri-blue: 127 180 255;
+  --oguri-cyan: 70 195 207;
+  --oguri-gold: 245 158 11;
+  --oguri-silver: 203 213 225;
+  --oguri-chrome: 148 163 184;
+  --oguri-energy: 139 92 246;
+  --oguri-phantom-dark: 51 65 85;
+  --oguri-phantom-light: 71 85 105;
   --bg-0: 2 6 23;
   /* slate-950 */
   --bg-1: 15 23 42;
@@ -55,7 +68,7 @@ html[data-theme="dark"] {
 
   --text-primary: 226 232 240;
   --text-secondary: 148 163 184;
-  --text-muted: 100 116 139;
+  --text-muted: 148 163 184;
   --text-on-accent: 245 247 255;
   --text: var(--text-primary);
   --muted: var(--text-muted);
@@ -76,11 +89,12 @@ html[data-theme="dark"] {
 }
 
 html[data-page="dashboard"] {
-  --page-a: 99 102 241;
-  --page-b: 139 92 246;
-  --page-c: 6 182 212;
-  --page-d: 16 185 129;
-  --glow-boost: 1.15;
+  /* OguriCap home: morado + lavanda + azul + cian */
+  --page-a: 91 61 173;
+  --page-b: 183 166 230;
+  --page-c: 127 180 255;
+  --page-d: 70 195 207;
+  --glow-boost: 1.3;
 }
 
 html[data-page="bot"] {
@@ -169,10 +183,11 @@ html[data-page="ai-chat"] {
 }
 
 html[data-page="auth"] {
-  --page-a: 99 102 241;
-  --page-b: 244 63 94;
-  --page-c: 6 182 212;
-  --page-d: 16 185 129;
+  /* Pantallas de login/register con el mismo mood OguriCap */
+  --page-a: 115 93 173;
+  --page-b: 183 166 230;
+  --page-c: 127 180 255;
+  --page-d: 70 195 207;
   --glow-boost: 1.25;
 }
 
@@ -277,24 +292,27 @@ body {
 
 /* Light mode tokens */
 html[data-theme="light"] {
-  --bg-0: 248 250 252;
-  --bg-1: 241 245 249;
+  --bg-0: 255 255 255;
+  --bg-1: 248 250 252;
   --bg: var(--bg-0);
   --background: var(--bg);
   --surface: var(--bg-1);
-  --surface-elevated: 226 232 240;
-  --border: 15 23 42;
+  --surface-elevated: 241 245 249;
+  --border: 203 213 225;
   --text-primary: 15 23 42;
-  --text-secondary: 51 65 85;
-  --text-muted: 71 85 105;
-  --text-on-accent: 248 250 252;
-  --card: var(--surface-elevated);
+  --text-secondary: 71 85 105;
+  --text-muted: 148 163 184;
+  --text-on-accent: 255 255 255;
+  --card: 255 255 255;
   --text: var(--text-primary);
   --muted: var(--text-muted);
-  --chrome-blur: 14px;
-  --grid-opacity: 0.08;
-  --noise-opacity: 0.08;
-  --glow-boost: 0.92;
+  --chrome-blur: 20px;
+  --grid-opacity: 0.05;
+  --noise-opacity: 0.03;
+  --glow-boost: 0.85;
+  --shadow-rgb: 0 0 0;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
 
   --primary: var(--page-a);
   --secondary: var(--page-b);
@@ -318,66 +336,200 @@ html[data-theme="light"] {
   --glass-border: rgb(var(--border) / 0.14);
 }
 
-/* Adaptive performance mode (automatic) */
+/* Adaptive performance mode (automatic) - AGGRESSIVE for mobile */
 html[data-perf="low"] {
   --chrome-blur: 0px;
-  --chrome-sat: 112%;
-  --grid-opacity: 0.08;
-  --noise-opacity: 0.06;
-  --glow-boost: 0.78;
+  --chrome-sat: 100%;
+  --grid-opacity: 0;
+  --noise-opacity: 0;
+  --glow-boost: 0;
 }
 
-html[data-perf="low"] .mesh-bg,
-html[data-perf="low"] .mesh-bg::after,
-html[data-perf="low"] .bg-animated,
-html[data-perf="low"] .animate-blob,
-html[data-perf="low"] .tabs-indicator {
+/* Kill ALL animations in performance mode */
+html[data-perf="low"] *,
+html[data-perf="low"] *::before,
+html[data-perf="low"] *::after {
   animation: none !important;
+  transition-duration: 0.1s !important;
 }
 
-html[data-perf="low"] .gradient-text-animated,
-html[data-perf="low"] .btn-primary,
-html[data-perf="low"] .btn-danger,
-html[data-perf="low"] .btn-glow,
-html[data-perf="low"] .glass-card::before {
-  animation: none !important;
-}
-
-html[data-perf="low"] .page-backdrop {
-  opacity: 0.22 !important;
-  filter: none !important;
-  mix-blend-mode: normal !important;
-}
-
-html[data-perf="low"] .page-backdrop-grid {
-  opacity: 0.18 !important;
-}
-
+/* Remove ALL blur effects - very expensive on mobile */
 html[data-perf="low"] .glass,
 html[data-perf="low"] .glass-card,
 html[data-perf="low"] .glass-dark,
 html[data-perf="low"] .tooltip-panel,
 html[data-perf="low"] .dropdown,
-html[data-perf="low"] .chart-frame {
+html[data-perf="low"] .chart-frame,
+html[data-perf="low"] .modal-overlay,
+html[data-perf="low"] .overlay-scrim,
+html[data-perf="low"] .input-glass,
+html[data-perf="low"] .btn-secondary,
+html[data-perf="low"] .badge,
+html[data-perf="low"] .live-indicator,
+html[data-perf="low"] .status-badge,
+html[data-perf="low"] .ultra-card {
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
+/* Simplify backgrounds */
+html[data-perf="low"] body {
+  background: rgb(var(--bg-0)) !important;
+}
+
+html[data-perf="low"] body::before,
+html[data-perf="low"] body::after {
+  display: none !important;
+}
+
+html[data-perf="low"] .mesh-bg {
+  background: rgb(var(--bg-0)) !important;
+}
+
+html[data-perf="low"] .mesh-bg::before,
+html[data-perf="low"] .mesh-bg::after {
+  display: none !important;
+}
+
+/* Remove decorative overlays */
+html[data-perf="low"] .page-backdrop,
+html[data-perf="low"] .page-backdrop-grid,
+html[data-perf="low"] .page-transition-overlay {
+  display: none !important;
+}
+
+/* Simplify cards */
+html[data-perf="low"] .glass-card::before,
+html[data-perf="low"] .glass-card::after,
+html[data-perf="low"] .ultra-card::before,
+html[data-perf="low"] .ultra-card::after {
+  display: none !important;
+}
+
+html[data-perf="low"] .glass-card,
+html[data-perf="low"] .ultra-card {
+  background: rgb(var(--surface-elevated)) !important;
+  border: 1px solid rgb(var(--border) / 0.2) !important;
+  box-shadow: 0 4px 12px rgb(var(--shadow-rgb) / 0.15) !important;
+}
+
+/* Remove glow effects */
+html[data-perf="low"] .shadow-glow,
+html[data-perf="low"] .shadow-glow-lg,
+html[data-perf="low"] .shadow-glow-cyan,
+html[data-perf="low"] .shadow-glow-emerald,
+html[data-perf="low"] .shadow-inner-glow {
+  box-shadow: none !important;
+}
+
+/* Simplify buttons */
+html[data-perf="low"] .btn-primary,
+html[data-perf="low"] .btn-danger,
+html[data-perf="low"] .btn-glow {
+  background-size: 100% 100% !important;
+  box-shadow: 0 2px 8px rgb(var(--shadow-rgb) / 0.2) !important;
+}
+
+html[data-perf="low"] .btn-primary::before,
+html[data-perf="low"] .btn-danger::before {
+  display: none !important;
+}
+
+/* Remove nav particles */
+html[data-perf="low"] .nav-particles,
 html[data-perf="low"] .nav-particle {
-  filter: none !important;
-  box-shadow: none !important;
+  display: none !important;
 }
 
+/* Simplify progress elements */
 html[data-perf="low"] .progress-ring__glow {
-  filter: none !important;
-  opacity: 0.22 !important;
+  display: none !important;
 }
 
-html[data-perf="low"] .progress-ring__arc {
-  filter: none !important;
-}
-
+html[data-perf="low"] .progress-ring__arc,
 html[data-perf="low"] .bar {
+  filter: none !important;
   box-shadow: none !important;
+}
+
+/* Remove chart decorations */
+html[data-perf="low"] .chart-frame::before {
+  display: none !important;
+}
+
+/* Simplify header/sidebar chrome */
+html[data-perf="low"] .header-chrome::before,
+html[data-perf="low"] .header-chrome::after,
+html[data-perf="low"] .sidebar-chrome::before,
+html[data-perf="low"] .sidebar-chrome::after {
+  display: none !important;
+}
+
+/* Remove gradient text animations */
+html[data-perf="low"] .gradient-text,
+html[data-perf="low"] .gradient-text-animated {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: rgb(var(--primary)) !important;
+  color: rgb(var(--primary)) !important;
+}
+
+/* Disable stagger animations */
+html[data-perf="low"] .stagger-children > * {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Remove route progress bar glow */
+html[data-perf="low"] .route-progress-bar {
+  box-shadow: none !important;
+  background-size: 100% 100% !important;
+}
+
+/* Simplify scrollbar */
+html[data-perf="low"] ::-webkit-scrollbar-thumb {
+  background: rgb(var(--primary)) !important;
+}
+
+/* Remove conic borders */
+html[data-perf="low"] .conic-border {
+  display: none !important;
+}
+
+/* Simplify sidebar items */
+html[data-perf="low"] .sidebar-item,
+html[data-perf="low"] .sidebar-item-active {
+  background: rgb(var(--surface-elevated) / 0.5) !important;
+  box-shadow: none !important;
+}
+
+html[data-perf="low"] .sidebar-item:hover {
+  transform: none !important;
+}
+
+html[data-perf="low"] .sidebar-item-active::before {
+  display: none !important;
+}
+
+/* Remove hover effects that cause repaints */
+html[data-perf="low"] .hover-lift-soft:hover,
+html[data-perf="low"] .card-animated:hover {
+  transform: none !important;
+}
+
+/* Simplify status indicators */
+html[data-perf="low"] .status-online {
+  animation: none !important;
+}
+
+/* Remove shimmer effects */
+html[data-perf="low"] .shimmer-soft::after,
+html[data-perf="low"] .btn-sheen::after,
+html[data-perf="low"] .status-badge__sheen {
+  display: none !important;
 }
 
 body>* {
@@ -437,6 +589,139 @@ body::after {
   100% {
     transform: translate3d(-2%, -1%, 0) rotate(-1deg) scale(1.06);
   }
+}
+
+/* HABILIDADES DE OGURI CAP - ANIMACIONES EXCLUSIVAS */
+
+/* Estela de Velocidad (Cinderella Gray) */
+@keyframes speedStreak {
+  0% { transform: translateX(-100%) skewX(-20deg); opacity: 0; }
+  20% { opacity: 0.5; }
+  80% { opacity: 0.5; }
+  100% { transform: translateX(200%) skewX(-20deg); opacity: 0; }
+}
+
+/* Aura de Competencia (Glow pulsante intenso) */
+@keyframes oguriAura {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(183, 166, 230, 0.4)) brightness(1); }
+  50% { filter: drop-shadow(0 0 20px rgba(127, 180, 255, 0.8)) brightness(1.2); }
+}
+
+/* Explosión de Salida (Scale + Fade) */
+@keyframes startBurst {
+  0% { transform: scale(0.8); opacity: 0; filter: blur(10px); }
+  50% { transform: scale(1.05); opacity: 0.8; filter: blur(0px); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Brillo de Ojos (Destello cian) */
+@keyframes eyeGlow {
+  0%, 100% { opacity: 0.3; text-shadow: 0 0 5px rgba(70, 195, 207, 0.5); }
+  50% { opacity: 1; text-shadow: 0 0 15px rgba(70, 195, 207, 1), 0 0 25px rgba(127, 180, 255, 0.8); }
+}
+
+.animate-speed-streak {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-speed-streak::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(183, 166, 230, 0.2), transparent);
+  animation: speedStreak 2s infinite linear;
+  pointer-events: none;
+}
+
+.animate-oguri-aura {
+  animation: oguriAura 3s infinite ease-in-out;
+}
+
+.animate-start-burst {
+  animation: startBurst 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-eye-glow {
+  animation: eyeGlow 2s infinite ease-in-out;
+}
+
+/* MODO ZONA - Vibración y Velocidad Extrema */
+@keyframes zoneVibration {
+  0%, 100% { transform: translate(0, 0) scale(1); filter: brightness(1) saturate(1); }
+  25% { transform: translate(1px, -1px) scale(1.005); filter: brightness(1.2) saturate(1.2); }
+  50% { transform: translate(-1px, 1px) scale(0.995); filter: brightness(1.1) saturate(1.1); }
+  75% { transform: translate(1px, 1px) scale(1.005); filter: brightness(1.3) saturate(1.3); }
+}
+
+@keyframes zoneSpeedLines {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+.animate-oguri-zone {
+  animation: zoneVibration 0.15s linear infinite;
+  position: relative;
+  z-index: 10;
+}
+
+.oguri-zone-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 20px,
+    rgba(70, 195, 207, 0.03) 20px,
+    rgba(70, 195, 207, 0.03) 40px
+  );
+  background-size: 200% 200%;
+  animation: zoneSpeedLines 0.5s linear infinite;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.is-in-zone .oguri-zone-overlay {
+  opacity: 1;
+}
+
+/* SISTEMA DE AURAS PERSONALIZADAS */
+:root {
+  --aura-purple: 91 61 173;
+  --aura-phantom: 51 65 85;
+  --aura-gold: 245 158 11;
+  --aura-cyan: 70 195 207;
+  
+  --current-aura: var(--aura-purple);
+  --current-aura-light: 183 166 230;
+}
+
+.aura-purple { --current-aura: var(--aura-purple); --current-aura-light: 183 166 230; }
+.aura-phantom { --current-aura: var(--aura-phantom); --current-aura-light: 71 85 105; }
+.aura-gold { --current-aura: var(--aura-gold); --current-aura-light: 253 224 71; }
+.aura-cyan { --current-aura: var(--aura-cyan); --current-aura-light: 127 180 255; }
+
+.dynamic-aura-glow {
+  box-shadow: 0 0 20px rgb(var(--current-aura) / 0.3), 0 0 40px rgb(var(--current-aura-light) / 0.1);
+}
+
+/* Efecto de Vidrio Phantom */
+.glass-phantom {
+  background: rgba(51, 65, 85, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 166, 230, 0.1);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02), 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.glass-phantom:hover {
+  border-color: rgba(183, 166, 230, 0.3);
+  background: rgba(51, 65, 85, 0.5);
+  box-shadow: 0 0 20px rgba(91, 61, 173, 0.2);
 }
 
 /* Scrollbar */
@@ -668,35 +953,34 @@ body::after {
 
   .glass-dark {
     @apply border;
-    border-color: rgb(var(--border) / 0.10);
+    border-color: rgb(var(--oguri-purple) / 0.15);
     background:
-      linear-gradient(135deg, rgb(var(--bg) / 0.78) 0%, rgb(var(--bg) / 0.55) 55%, rgb(var(--surface-elevated) / 0.65) 100%);
+      linear-gradient(135deg, rgb(var(--oguri-phantom-950) / 0.85) 0%, rgb(var(--oguri-phantom-900) / 0.75) 55%, rgb(var(--oguri-phantom-800) / 0.85) 100%);
     box-shadow:
-      var(--shadow),
-      inset 0 0 0 1px rgb(var(--shine) / 0.05);
+      0 10px 40px rgb(0 0 0 / 0.4),
+      inset 0 0 0 1px rgb(var(--oguri-lavender) / 0.05);
     backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
   }
 
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-accent-violet to-accent-cyan;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-oguri-purple via-oguri-lavender to-oguri-blue;
   }
 
   .gradient-text-animated {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-accent-violet to-accent-cyan;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-oguri-purple via-oguri-lavender to-oguri-blue;
     background-size: 200% auto;
     animation: gradient 3s ease infinite;
   }
 
   .btn-primary {
-    @apply relative overflow-hidden px-6 py-3 rounded-2xl font-semibold;
-    color: rgb(var(--text-on-accent) / 1);
-    background: linear-gradient(90deg, rgb(var(--primary) / 1), rgb(var(--secondary) / 1), rgb(var(--accent) / 1));
+    @apply relative overflow-hidden px-6 py-3 rounded-2xl font-black uppercase tracking-widest;
+    color: white;
+    background: linear-gradient(90deg, rgb(var(--oguri-purple) / 1), rgb(var(--oguri-lavender) / 1), rgb(var(--oguri-blue) / 1));
     background-size: 200% 100%;
     animation: gradient 5.2s ease infinite;
     box-shadow:
-      0 18px 44px rgb(var(--primary) / calc(0.20 * var(--glow-boost))),
-      0 10px 30px rgb(var(--shadow-rgb) / 0.22),
-      inset 0 0 0 1px rgb(var(--shine) / 0.10);
+      0 15px 35px rgb(var(--oguri-purple) / 0.3),
+      inset 0 0 0 1px rgb(255 255 255 / 0.1);
   }
 
   .btn-primary::before {
@@ -739,15 +1023,15 @@ body::after {
   }
 
   .input-glass {
-    @apply w-full px-4 py-3 rounded-2xl border;
-    color: rgb(var(--text-primary) / 1);
-    border-color: rgb(var(--border) / 0.12);
-    background: linear-gradient(135deg, rgb(var(--bg) / 0.55), rgb(var(--surface-elevated) / 0.35));
+    @apply w-full px-4 py-3 rounded-2xl border font-medium;
+    color: white;
+    border-color: rgb(var(--oguri-purple) / 0.2);
+    background: linear-gradient(135deg, rgb(var(--oguri-phantom-950) / 0.6), rgb(var(--oguri-phantom-900) / 0.4));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     box-shadow:
-      0 12px 40px rgb(var(--shadow-rgb) / 0.18),
-      inset 0 0 0 1px rgb(var(--shine) / 0.04);
-    transition: transform 220ms ease, box-shadow 280ms ease, border-color 220ms ease, background-color 220ms ease;
+      0 8px 32px rgb(0 0 0 / 0.3),
+      inset 0 0 0 1px rgb(var(--oguri-lavender) / 0.05);
+    transition: all 280ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .input-glass::placeholder {
@@ -756,13 +1040,13 @@ body::after {
 
   .input-glass:focus {
     outline: none;
-    border-color: rgb(var(--ring) / 0.55);
+    border-color: rgb(var(--oguri-lavender) / 0.5);
     box-shadow:
-      0 18px 60px rgb(var(--shadow-rgb) / 0.22),
-      0 0 0 2px rgb(var(--ring) / 0.22),
-      0 0 0 8px rgb(var(--accent) / 0.10),
-      inset 0 0 0 1px rgb(var(--shine) / 0.06);
-    transform: translate3d(0, -1px, 0);
+      0 15px 45px rgb(var(--oguri-purple) / 0.2),
+      0 0 0 2px rgb(var(--oguri-purple) / 0.3),
+      0 0 20px rgb(var(--oguri-lavender) / 0.2),
+      inset 0 0 0 1px rgb(var(--oguri-lavender) / 0.1);
+    transform: translate3d(0, -2px, 0);
   }
 
   .input-search {
@@ -784,23 +1068,33 @@ body::after {
   }
 
   .badge-success {
-    @apply badge bg-emerald-500/20 text-emerald-200 border-emerald-400/30 shadow-glow-emerald;
+    @apply badge border-emerald-400/30 shadow-glow-emerald;
+    background-color: rgb(var(--success) / 0.20);
+    color: rgb(var(--success) / 0.9);
   }
 
   .badge-warning {
-    @apply badge bg-amber-500/20 text-amber-200 border-amber-400/30;
+    @apply badge border-amber-400/30;
+    background-color: rgb(var(--warning) / 0.20);
+    color: rgb(var(--warning) / 0.9);
   }
 
   .badge-danger {
-    @apply badge bg-red-500/20 text-red-200 border-red-400/30;
+    @apply badge border-red-400/30;
+    background-color: rgb(var(--danger) / 0.20);
+    color: rgb(var(--danger) / 0.9);
   }
 
   .badge-info {
-    @apply badge bg-cyan-500/20 text-cyan-200 border-cyan-400/30 shadow-glow-cyan;
+    @apply badge border-cyan-400/30 shadow-glow-cyan;
+    background-color: rgb(var(--accent) / 0.20);
+    color: rgb(var(--accent) / 0.9);
   }
 
   .badge-primary {
-    @apply badge bg-primary-500/20 text-primary-200 border-primary-400/30 shadow-glow;
+    @apply badge border-primary-400/30 shadow-glow;
+    background-color: rgb(var(--primary) / 0.20);
+    color: rgb(var(--primary) / 0.9);
   }
 
   .status-dot {
@@ -863,11 +1157,13 @@ body::after {
   }
 
   .table-glass th {
-    @apply px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider bg-white/5 border-b border-white/10;
+    @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider bg-white/5 border-b border-white/10;
+    color: rgb(var(--text-primary) / 0.9);
   }
 
   .table-glass td {
-    @apply px-6 py-4 text-sm text-gray-300 border-b border-white/5;
+    @apply px-6 py-4 text-sm border-b border-white/5;
+    color: rgb(var(--text-primary) / 0.8);
   }
 
   .table-glass tr {
@@ -926,11 +1222,11 @@ body::after {
   }
 
   .avatar {
-    @apply w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-violet flex items-center justify-center text-white font-semibold ring-2 ring-white/20;
+    @apply w-10 h-10 rounded-full bg-gradient-oguri-primary flex items-center justify-center text-white font-black ring-2 ring-oguri-lavender/20 shadow-glow-oguri-purple;
   }
 
   .card-animated {
-    @apply glass-card p-6 transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-primary-400/30;
+    @apply glass-phantom p-6 transform transition-all duration-500 hover:scale-[1.02] hover:shadow-glow-oguri-mixed hover:border-oguri-lavender/30;
   }
 }
 
@@ -2369,27 +2665,65 @@ html[data-page="bot"] .glass-card::after {
 
 /* Toast notifications */
 .toast-custom {
-  @apply glass-card px-6 py-4 flex items-center gap-4 border-l-4 animate-slide-in-right;
+  @apply glass-card px-6 py-4 flex items-center gap-4 border-l-0 animate-slide-in-right text-white relative overflow-hidden;
+  background-color: rgb(var(--bg-1) / 0.95);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.toast-custom::before {
+  content: '';
+  @apply absolute left-0 top-0 bottom-0 w-1;
+  background: var(--toast-border-bg);
 }
 
 .toast-success {
   @apply toast-custom;
-  border-left-color: rgb(var(--success) / 0.9);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--success)), rgb(var(--page-a) / 0.5));
 }
 
 .toast-error {
   @apply toast-custom;
-  border-left-color: rgb(var(--danger) / 0.9);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--danger)), rgb(var(--page-a) / 0.5));
 }
 
 .toast-warning {
   @apply toast-custom;
-  border-left-color: rgb(var(--warning) / 0.95);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--warning)), rgb(var(--page-b) / 0.5));
 }
 
 .toast-info {
   @apply toast-custom;
-  border-left-color: rgb(var(--accent) / 0.9);
+  --toast-border-bg: linear-gradient(to bottom, rgb(var(--page-a)), rgb(var(--page-c) / 0.8));
+}
+
+.toast-content {
+  @apply w-full text-left bg-transparent border-0 p-0;
+}
+
+.toast-text {
+  @apply flex flex-col gap-1 min-w-0;
+}
+
+.toast-title {
+  @apply font-bold text-white leading-snug truncate;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.toast-message {
+  @apply text-sm text-gray-200 leading-snug;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.toast-meta {
+  @apply text-[11px] text-gray-400 uppercase tracking-wide font-medium;
+}
+
+.toast-custom {
+  max-width: min(520px, 92vw);
 }
 
 /* Ripple effect */
@@ -2841,38 +3175,62 @@ html[data-page="bot"] .glass-card::after {
 }
 
 /* Light theme compatibility (legacy Tailwind utilities) */
-html[data-theme="light"] .text-white {
+html[data-theme="light"] .text-white,
+html[data-theme="light"] .text-slate-100,
+html[data-theme="light"] .text-slate-200,
+html[data-theme="light"] .text-gray-100,
+html[data-theme="light"] .text-gray-200 {
   color: rgb(var(--text-primary) / 1) !important;
 }
 
-html[data-theme="light"] .text-gray-400 {
+html[data-theme="light"] .text-gray-400,
+html[data-theme="light"] .text-slate-400 {
   color: rgb(var(--text-secondary) / 1) !important;
 }
 
-html[data-theme="light"] .text-gray-500 {
+html[data-theme="light"] .text-gray-500,
+html[data-theme="light"] .text-slate-500 {
   color: rgb(var(--text-muted) / 1) !important;
 }
 
 html[data-theme="light"] .text-gray-300,
-html[data-theme="light"] .text-gray-200,
-html[data-theme="light"] .text-gray-100 {
-  color: rgb(var(--text-primary) / 1) !important;
+html[data-theme="light"] .text-slate-300 {
+  color: rgb(var(--text-secondary) / 0.8) !important;
 }
 
-html[data-theme="light"] .bg-white\/5 {
-  background-color: rgb(var(--shadow-rgb) / 0.035) !important;
+html[data-theme="light"] .bg-white\/5,
+html[data-theme="light"] .bg-slate-800\/50,
+html[data-theme="light"] .bg-slate-900\/50 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
 }
 
-html[data-theme="light"] .bg-white\/10 {
-  background-color: rgb(var(--shadow-rgb) / 0.06) !important;
+html[data-theme="light"] .bg-white\/10,
+html[data-theme="light"] .bg-slate-800,
+html[data-theme="light"] .bg-slate-900 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
-html[data-theme="light"] .border-white\/10 {
-  border-color: rgb(var(--border) / 0.20) !important;
+html[data-theme="light"] .border-white\/10,
+html[data-theme="light"] .border-slate-700,
+html[data-theme="light"] .border-slate-800 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .border-white\/20 {
-  border-color: rgb(var(--border) / 0.32) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Forzar fondos claros en contenedores que suelen ser oscuros */
+html[data-theme="light"] .bg-slate-950,
+html[data-theme="light"] .bg-gray-950,
+html[data-theme="light"] .bg-[#0b1020] {
+  background-color: rgb(var(--bg-0)) !important;
+}
+
+html[data-theme="light"] .bg-slate-900,
+html[data-theme="light"] .bg-gray-900,
+html[data-theme="light"] .bg-[#111827] {
+  background-color: rgb(var(--bg-1)) !important;
 }
 
 html[data-theme="light"] .hover\:bg-white\/5:hover {
@@ -2939,5 +3297,640 @@ html[data-theme="light"] .avatar {
   .chart-shadow,
   .chart-shadow-soft {
     filter: none !important;
+  }
+}
+
+/* Importar estilos centralizados de notificaciones */
+@import './notifications.css';
+
+/* Premium Toast Notifications - Added for consistency and high contrast */
+@layer components {
+  .notif-toast {
+    @apply flex items-center gap-4 p-4 rounded-[1.25rem] border backdrop-blur-xl shadow-2xl min-w-[320px] max-w-[420px] transition-all duration-300;
+  }
+
+  .notif-toast-info {
+    @apply bg-blue-500/10 border-blue-500/20 text-blue-400;
+    box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.2), 0 0 20px rgba(59, 130, 246, 0.05);
+  }
+
+  .notif-toast-success {
+    @apply bg-emerald-500/10 border-emerald-500/20 text-emerald-400;
+    box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.2), 0 0 20px rgba(16, 185, 129, 0.05);
+  }
+
+  .notif-toast-warning {
+    @apply bg-amber-500/10 border-amber-500/20 text-amber-400;
+    box-shadow: 0 10px 30px -10px rgba(245, 158, 11, 0.2), 0 0 20px rgba(245, 158, 11, 0.05);
+  }
+
+  .notif-toast-error {
+    @apply bg-red-500/10 border-red-500/20 text-red-400;
+    box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.2), 0 0 20px rgba(239, 68, 68, 0.05);
+  }
+
+  .notif-toast-system {
+    @apply bg-violet-500/10 border-violet-500/20 text-violet-400;
+    box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.2), 0 0 20px rgba(139, 92, 246, 0.05);
+  }
+
+  .notif-icon-container {
+    @apply flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10;
+  }
+
+  .notif-toast-title {
+    @apply block text-[11px] font-black uppercase tracking-[0.2em] opacity-80 mb-0.5;
+  }
+
+  .notif-toast-message {
+    @apply block text-sm font-bold text-white/90 leading-relaxed;
+  }
+
+  .animate-enter {
+    animation: enter 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+  }
+
+  .animate-leave {
+    animation: leave 0.25s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
+  }
+
+  @keyframes enter {
+    from { transform: translate3d(100%, 0, 0) scale(0.9); opacity: 0; }
+    to { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  }
+
+  @keyframes leave {
+    from { transform: scale(1); opacity: 1; }
+    to { transform: scale(0.9); opacity: 0; }
+  }
+}
+
+.shadow-glow-sm {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+.shadow-glow-md {
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+}
+
+/* ============================================================
+   OGURI CAP THEMED ANIMATIONS & UTILITIES
+   Animaciones dinámicas y efectos visuales temáticos
+   ============================================================ */
+
+/* Animaciones de Glow Oguri */
+@keyframes pulseGlowOguri {
+  0%, 100% {
+    box-shadow: 
+      0 0 8px rgba(91, 61, 173, 0.6),
+      0 0 25px rgba(183, 166, 230, 0.4),
+      0 0 40px rgba(127, 180, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 15px rgba(91, 61, 173, 0.9),
+      0 0 35px rgba(183, 166, 230, 0.6),
+      0 0 55px rgba(127, 180, 255, 0.3);
+  }
+}
+
+@keyframes shimmerOguri {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes glowExpand {
+  0% {
+    box-shadow: 0 0 0 0 rgba(91, 61, 173, 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(183, 166, 230, 0.4);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 61, 173, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes oguriSparkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.95) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05) rotate(180deg);
+  }
+}
+
+@keyframes oguriFloat {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-8px) translateX(4px);
+  }
+  50% {
+    transform: translateY(-12px) translateX(-4px);
+  }
+  75% {
+    transform: translateY(-6px) translateX(2px);
+  }
+}
+
+/* Clases de utilidad para animaciones Oguri */
+.animate-pulse-glow-oguri {
+  animation: pulseGlowOguri 2.5s ease-in-out infinite;
+}
+
+.animate-shimmer-oguri {
+  background-size: 200% 100%;
+  animation: shimmerOguri 3s linear infinite;
+}
+
+.animate-glow-expand {
+  animation: glowExpand 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.4s ease-out;
+}
+
+.animate-oguri-sparkle {
+  animation: oguriSparkle 4s ease-in-out infinite;
+}
+
+.animate-oguri-float {
+  animation: oguriFloat 3.5s ease-in-out infinite;
+}
+
+/* Gradientes dinámicos Oguri */
+.bg-gradient-oguri-primary {
+  background: linear-gradient(135deg, rgb(91, 61, 173) 0%, rgb(183, 166, 230) 100%);
+}
+
+.bg-gradient-oguri-power {
+  background: linear-gradient(135deg, rgb(91, 61, 173) 0%, rgb(127, 180, 255) 100%);
+}
+
+.bg-gradient-oguri-speed {
+  background: linear-gradient(135deg, rgb(70, 195, 207) 0%, rgb(127, 180, 255) 100%);
+}
+
+.bg-gradient-oguri-victory {
+  background: linear-gradient(135deg, rgb(245, 158, 11) 0%, rgb(91, 61, 173) 100%);
+}
+
+.bg-gradient-oguri-phantom {
+  background: linear-gradient(135deg, rgb(51, 65, 85) 0%, rgb(71, 85, 105) 100%);
+}
+
+/* Efectos de hover mejorados */
+.hover-oguri-glow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-oguri-glow:hover {
+  box-shadow: 
+    0 0 15px rgba(91, 61, 173, 0.5),
+    0 0 30px rgba(183, 166, 230, 0.4),
+    0 0 45px rgba(127, 180, 255, 0.2);
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Bordes con glow dinámico */
+.border-oguri-glow {
+  border: 1px solid rgba(91, 61, 173, 0.3);
+  box-shadow: 
+    inset 0 0 10px rgba(183, 166, 230, 0.1),
+    0 0 15px rgba(91, 61, 173, 0.2);
+}
+
+/* Texto con gradiente Oguri */
+.text-gradient-oguri {
+  background: linear-gradient(135deg, rgb(183, 166, 230) 0%, rgb(127, 180, 255) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+/* Cards con efecto glass Oguri */
+.glass-oguri {
+  background: rgba(91, 61, 173, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 166, 230, 0.15);
+  box-shadow: 
+    0 8px 32px rgba(91, 61, 173, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Botones con efecto Oguri */
+.btn-oguri {
+  background: linear-gradient(135deg, rgb(91, 61, 173) 0%, rgb(183, 166, 230) 100%);
+  border: 1px solid rgba(183, 166, 230, 0.3);
+  box-shadow: 
+    0 4px 15px rgba(91, 61, 173, 0.4),
+    0 0 20px rgba(183, 166, 230, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-oguri:hover {
+  background: linear-gradient(135deg, rgb(183, 166, 230) 0%, rgb(127, 180, 255) 100%);
+  box-shadow: 
+    0 6px 25px rgba(91, 61, 173, 0.6),
+    0 0 35px rgba(183, 166, 230, 0.4);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.btn-oguri:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Indicadores de estado con tema Oguri */
+.status-oguri-active {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(183, 166, 230);
+  box-shadow: 
+    0 0 8px rgba(183, 166, 230, 0.8),
+    0 0 15px rgba(91, 61, 173, 0.5);
+  animation: pulseGlowOguri 2s ease-in-out infinite;
+}
+
+/* Separadores con gradiente */
+.divider-oguri {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(91, 61, 173, 0.3) 20%,
+    rgba(183, 166, 230, 0.5) 50%,
+    rgba(91, 61, 173, 0.3) 80%,
+    transparent 100%
+  );
+}
+
+/* Tooltips temáticos */
+.tooltip-oguri {
+  background: linear-gradient(135deg, rgba(91, 61, 173, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(183, 166, 230, 0.3);
+  box-shadow: 
+    0 4px 20px rgba(91, 61, 173, 0.4),
+    0 0 15px rgba(183, 166, 230, 0.2);
+  color: rgb(226, 232, 240);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Badges temáticos */
+.badge-oguri {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(91, 61, 173, 0.2) 0%, rgba(183, 166, 230, 0.15) 100%);
+  border: 1px solid rgba(183, 166, 230, 0.3);
+  color: rgb(183, 166, 230);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Efectos de partículas decorativas */
+.particles-oguri {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particles-oguri::before,
+.particles-oguri::after {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.15;
+  animation: oguriFloat 8s ease-in-out infinite;
+}
+
+.particles-oguri::before {
+  top: 10%;
+  left: 10%;
+  background: radial-gradient(circle, rgb(91, 61, 173) 0%, transparent 70%);
+  animation-delay: 0s;
+}
+
+.particles-oguri::after {
+  bottom: 10%;
+  right: 10%;
+  background: radial-gradient(circle, rgb(127, 180, 255) 0%, transparent 70%);
+  animation-delay: 2s;
+}
+
+/* Transiciones suaves para todos los elementos interactivos */
+.transition-oguri {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Efectos de focus mejorados */
+.focus-oguri:focus,
+.focus-oguri:focus-visible {
+  outline: none;
+  box-shadow: 
+    0 0 0 3px rgba(91, 61, 173, 0.3),
+    0 0 15px rgba(183, 166, 230, 0.4);
+  border-color: rgb(183, 166, 230);
+}
+
+/* Skeleton loaders temáticos */
+.skeleton-oguri {
+  background: linear-gradient(
+    90deg,
+    rgba(51, 65, 85, 0.3) 0%,
+    rgba(91, 61, 173, 0.2) 50%,
+    rgba(51, 65, 85, 0.3) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerOguri 2s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* Modo de rendimiento bajo - deshabilitar efectos Oguri */
+html[data-perf="low"] .animate-pulse-glow-oguri,
+html[data-perf="low"] .animate-shimmer-oguri,
+html[data-perf="low"] .animate-oguri-sparkle,
+html[data-perf="low"] .animate-oguri-float {
+  animation: none !important;
+}
+
+html[data-perf="low"] .glass-oguri {
+  backdrop-filter: none !important;
+  background: rgba(91, 61, 173, 0.1) !important;
+}
+
+html[data-perf="low"] .hover-oguri-glow:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* =========================
+   RESPONSIVE IMPROVEMENTS
+========================= */
+
+/* Mejoras generales para móviles */
+@media (max-width: 640px) {
+  /* Reducir padding en móviles */
+  .glass-dark,
+  .glass-light,
+  .card-glass,
+  .glass-phantom {
+    padding: 1rem !important;
+  }
+
+  /* Mejorar legibilidad de texto en móviles */
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  h1 { font-size: 1.75rem !important; }
+  h2 { font-size: 1.5rem !important; }
+  h3 { font-size: 1.25rem !important; }
+
+  /* Botones más grandes para touch */
+  button, .btn, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Inputs más grandes */
+  input, select, textarea {
+    font-size: 16px !important; /* Previene zoom en iOS */
+    min-height: 44px;
+  }
+
+  /* Tablas responsive */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Grids más compactos */
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+}
+
+/* Tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid-cols-2, .grid-cols-3, .grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Mejoras para notificaciones en móviles */
+@media (max-width: 640px) {
+  /* Notificaciones toast centradas */
+  .toast-container {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 2rem) !important;
+    max-width: 100% !important;
+  }
+
+  /* Items de notificación más espaciados */
+  .notification-item {
+    padding: 1rem !important;
+    min-height: 60px;
+  }
+}
+
+/* Mejoras para header en móviles */
+@media (max-width: 640px) {
+  header {
+    padding: 0.5rem 0.75rem !important;
+    height: 70px !important;
+  }
+
+  header h2 { font-size: 1.125rem !important; }
+
+  /* Iconos del header */
+  header button { padding: 0.5rem !important; }
+  header svg { width: 1.25rem !important; height: 1.25rem !important; }
+
+  /* Búsqueda oculta en móviles pequeños */
+  .header-search, .hidden-mobile { display: none !important; }
+}
+
+/* Safe area para dispositivos con notch */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  header {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+}
+
+/* Prevenir zoom en inputs en iOS */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* Scroll suave en toda la app */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+@layer utilities {
+  /* =========================================================
+     OGURI CAP PREMIUM ANIMATIONS
+     ========================================================= */
+
+  /* Flotación suave y elegante */
+  @keyframes oguri-float {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+  }
+
+  /* Brillo pulsante (Aura) */
+  @keyframes oguri-aura {
+    0%, 100% { box-shadow: 0 0 20px rgb(var(--primary) / 0.2); border-color: rgb(var(--primary) / 0.3); }
+    50% { box-shadow: 0 0 40px rgb(var(--primary) / 0.5); border-color: rgb(var(--primary) / 0.6); }
+  }
+
+  /* Barrido de brillo premium */
+  @keyframes oguri-shimmer-sweep {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Aparición con deslizamiento */
+  @keyframes oguri-reveal {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* HABILIDAD: SPEED STAR (Velocidad pura) */
+  @keyframes oguri-speed-star {
+    0% { transform: translateX(-100%) skewX(-15deg); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(200%) skewX(-15deg); opacity: 0; }
+  }
+
+  /* HABILIDAD: VICTORY RUSH (Brillo de campeona) */
+  @keyframes oguri-victory-shimmer {
+    0% { text-shadow: 0 0 10px rgb(var(--oguri-gold) / 0); }
+    50% { text-shadow: 0 0 20px rgb(var(--oguri-gold) / 0.8), 0 0 30px rgb(var(--oguri-gold) / 0.4); }
+    100% { text-shadow: 0 0 10px rgb(var(--oguri-gold) / 0); }
+  }
+
+  /* HABILIDAD: GOURMET HUNGER (Pulso de carga pesada) */
+  @keyframes oguri-gourmet {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.05); filter: brightness(1.2); }
+  }
+
+  /* Pulso de escala */
+  @keyframes oguri-pulse-scale {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+
+  /* Clases de utilidad listas para usar */
+  .animate-oguri-speed {
+    position: relative;
+    overflow: hidden;
+  }
+  .animate-oguri-speed::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgb(var(--oguri-cyan) / 0.4), transparent);
+    animation: oguri-speed-star 1.5s infinite linear;
+  }
+
+  .animate-oguri-victory {
+    animation: oguri-victory-shimmer 2s infinite ease-in-out;
+    color: rgb(var(--oguri-gold));
+  }
+
+  .animate-oguri-gourmet {
+    animation: oguri-gourmet 3s infinite ease-in-out;
+  }
+
+  .animate-oguri-float {
+    animation: oguri-float 4s ease-in-out infinite;
+  }
+
+  .animate-oguri-aura {
+    animation: oguri-aura 3s ease-in-out infinite;
+  }
+
+  .animate-oguri-shimmer-fast {
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.1), transparent);
+    background-size: 200% 100%;
+    animation: oguri-shimmer-sweep 2s infinite;
+  }
+
+  .animate-oguri-reveal {
+    animation: oguri-reveal 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
+  .animate-oguri-pulse {
+    animation: oguri-pulse-scale 2s ease-in-out infinite;
+  }
+
+  /* Efecto de cristal interactivo (Hover) */
+  .oguri-glass-hover {
+    @apply transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-xl hover:-translate-y-1 active:scale-95;
   }
 }

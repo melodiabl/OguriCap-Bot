@@ -37,7 +37,7 @@ export const MaintenanceBanner: React.FC = () => {
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -50 }}
-        className="bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-xl relative z-50 w-full"
+        className="bg-oguri-gold/10 border-b border-oguri-gold/20 glass-phantom relative z-50 w-full"
       >
         <div className="lg:pl-72">
           <div className="px-4 sm:px-6 lg:px-8 py-3">
@@ -46,15 +46,15 @@ export const MaintenanceBanner: React.FC = () => {
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="flex-shrink-0"
+                  className="flex-shrink-0 p-2 rounded-xl bg-oguri-gold/20 shadow-glow-oguri-mixed"
                 >
-                  <Wrench className="w-5 h-5 text-white" />
+                  <Wrench className="w-5 h-5 text-oguri-gold" />
                 </motion.div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-white font-semibold text-sm sm:text-base truncate">
+                  <p className="text-white font-black text-sm sm:text-base truncate uppercase tracking-tight">
                     Modo Mantenimiento Activo
                   </p>
-                  <p className="text-amber-200 text-xs sm:text-sm truncate">
+                  <p className="text-oguri-gold/80 text-[10px] sm:text-xs font-bold uppercase tracking-widest truncate">
                     Solo los administradores pueden acceder al panel
                   </p>
                 </div>
@@ -63,7 +63,7 @@ export const MaintenanceBanner: React.FC = () => {
               <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
                 <button
                   onClick={() => window.location.href = '/configuracion'}
-                  className="flex items-center space-x-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap font-medium"
+                  className="flex items-center space-x-1 bg-oguri-gold/20 hover:bg-oguri-gold/30 border border-oguri-gold/30 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm transition-all whitespace-nowrap font-black uppercase tracking-widest shadow-glow-oguri-mixed hover:scale-105"
                 >
                   <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">Configurar</span>

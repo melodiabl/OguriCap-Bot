@@ -12,15 +12,30 @@ if (json.status && (json.lyrics || json.lyrics === '')) {
 return { title: json.title || json.name || 'Desconocido', artists: json.artist || json.artists || 'Desconocido', lyrics: json.lyrics, image: json.image || null, url: json.url || null }}
 return null
 }
-let primaryRes = null
-try {
-const res = await fetch(`${global.APIs.delirius.url}/search/lyrics?query=${encodeURIComponent(text)}`)
-if (!res.ok) throw new Error(`Delirius HTTP: ${res.status}`)
-const json = await res.json()
-primaryRes = normalize(json)
-} catch (e) {
-primaryRes = null
-}
+ let primaryRes = null
+ // MelodyApi first
+ try {
+ const mel = global.APIs?.MelodyApi?.url
+ if (mel) {
+ const res0 = await fetch(`${mel}/search/lyrics?q=${encodeURIComponent(text)}`)
+ if (!res0.ok) throw new Error(`MelodyApi HTTP: ${res0.status}`)
+ const json0 = await res0.json()
+ if (json0 && json0.status && typeof json0.result === 'string') {
+ primaryRes = { title: text, artists: 'Desconocido', lyrics: json0.result, image: null, url: null }
+ }
+ }
+ } catch (e) {
+ primaryRes = null
+ }
+
+ try {
+ const res = await fetch(`${global.APIs.delirius.url}/search/lyrics?query=${encodeURIComponent(text)}`)
+ if (!res.ok) throw new Error(`Delirius HTTP: ${res.status}`)
+ const json = await res.json()
+ if (!primaryRes) primaryRes = normalize(json)
+ } catch (e) {
+ if (!primaryRes) primaryRes = null
+ }
 let final = primaryRes
 if (!final) {
 try {

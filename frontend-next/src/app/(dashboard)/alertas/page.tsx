@@ -259,21 +259,21 @@ export default function AlertasPage() {
 
   const getSeverityIcon = (severity: number) => {
     switch (severity) {
-      case 5: return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 4: return <XCircle className="w-4 h-4 text-red-400" />;
-      case 3: return <AlertTriangle className="w-4 h-4 text-orange-400" />;
-      case 2: return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
-      default: return <AlertTriangle className="w-4 h-4 text-blue-400" />;
+      case 5: return <AlertTriangle className="w-4 h-4 text-[rgb(var(--danger))]" />;
+      case 4: return <XCircle className="w-4 h-4 text-[rgb(var(--danger)/0.8)]" />;
+      case 3: return <AlertTriangle className="w-4 h-4 text-[rgb(var(--warning))]" />;
+      case 2: return <AlertTriangle className="w-4 h-4 text-[rgb(var(--warning)/0.8)]" />;
+      default: return <AlertTriangle className="w-4 h-4 text-[rgb(var(--accent))]" />;
     }
   };
 
   const getSeverityColor = (severity: number) => {
     switch (severity) {
-      case 5: return 'text-red-500 bg-red-500/20 border-red-500/30';
-      case 4: return 'text-red-400 bg-red-400/20 border-red-400/30';
-      case 3: return 'text-orange-400 bg-orange-400/20 border-orange-400/30';
-      case 2: return 'text-yellow-400 bg-yellow-400/20 border-yellow-400/30';
-      default: return 'text-blue-400 bg-blue-400/20 border-blue-400/30';
+      case 5: return 'text-[rgb(var(--danger))] bg-[rgb(var(--danger)/0.2)] border-[rgb(var(--danger)/0.3)]';
+      case 4: return 'text-[rgb(var(--danger)/0.8)] bg-[rgb(var(--danger)/0.15)] border-[rgb(var(--danger)/0.25)]';
+      case 3: return 'text-[rgb(var(--warning))] bg-[rgb(var(--warning)/0.2)] border-[rgb(var(--warning)/0.3)]';
+      case 2: return 'text-[rgb(var(--warning)/0.8)] bg-[rgb(var(--warning)/0.15)] border-[rgb(var(--warning)/0.25)]';
+      default: return 'text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.2)] border-[rgb(var(--accent)/0.3)]';
     }
   };
 
@@ -289,21 +289,21 @@ export default function AlertasPage() {
 
   const getStateIcon = (state: string) => {
     switch (state) {
-      case 'active': return <Bell className="w-4 h-4 text-red-400" />;
-      case 'acknowledged': return <Eye className="w-4 h-4 text-yellow-400" />;
-      case 'resolved': return <CheckCircle className="w-4 h-4 text-green-400" />;
-      case 'suppressed': return <BellOff className="w-4 h-4 text-gray-400" />;
-      default: return <Clock className="w-4 h-4 text-gray-400" />;
+      case 'active': return <Bell className="w-4 h-4 text-[rgb(var(--danger))]" />;
+      case 'acknowledged': return <Eye className="w-4 h-4 text-[rgb(var(--warning))]" />;
+      case 'resolved': return <CheckCircle className="w-4 h-4 text-[rgb(var(--success))]" />;
+      case 'suppressed': return <BellOff className="w-4 h-4 text-[rgb(var(--text-muted))]" />;
+      default: return <Clock className="w-4 h-4 text-[rgb(var(--text-muted))]" />;
     }
   };
 
   const getStateColor = (state: string) => {
     switch (state) {
-      case 'active': return 'text-red-400 bg-red-500/20';
-      case 'acknowledged': return 'text-yellow-400 bg-yellow-500/20';
-      case 'resolved': return 'text-green-400 bg-green-500/20';
-      case 'suppressed': return 'text-gray-400 bg-gray-500/20';
-      default: return 'text-gray-400 bg-gray-500/20';
+      case 'active': return 'text-[rgb(var(--danger))] bg-[rgb(var(--danger)/0.2)]';
+      case 'acknowledged': return 'text-[rgb(var(--warning))] bg-[rgb(var(--warning)/0.2)]';
+      case 'resolved': return 'text-[rgb(var(--success))] bg-[rgb(var(--success)/0.2)]';
+      case 'suppressed': return 'text-[rgb(var(--text-muted))] bg-[rgb(var(--text-muted)/0.2)]';
+      default: return 'text-[rgb(var(--text-muted))] bg-[rgb(var(--text-muted)/0.2)]';
     }
   };
 

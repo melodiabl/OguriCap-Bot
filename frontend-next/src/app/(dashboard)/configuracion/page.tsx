@@ -101,6 +101,11 @@ export default function ConfiguracionPage() {
   const [showJsonEditor, setShowJsonEditor] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<any>(null);
+  const [testEmailTo, setTestEmailTo] = useState('');
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
 
   // Advanced configuration states
   const [botConfig, setBotConfig] = useState({
@@ -116,8 +121,12 @@ export default function ConfiguracionPage() {
     apiRateLimit: 100,
     fileUploadLimit: 10,
     adminIPs: [],
+    myAdminIPs: [] as string[],
     allowLocalhost: true,
     currentIP: '',
+    currentIPAllowed: false,
+    adminIPsCount: 0,
+    autoAddAdminIPOnLogin: true,
     supportNotifyEmailTo: '',
     supportNotifyWhatsAppTo: '',
     supportNotifyIncludeAdmins: true,
@@ -278,6 +287,62 @@ export default function ConfiguracionPage() {
     }
   };
 
+  const refreshEmailStatus = useCallback(async () => {
+    setIsCheckingEmail(true);
+    try {
+      const status = await api.getEmailStatus();
+      setEmailStatus(status || null);
+    } catch {
+      setEmailStatus(null);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  }, []);
+
+  const verifyEmailSmtp = useCallback(async () => {
+    setIsVerifyingEmail(true);
+    try {
+      const res = await api.verifyEmailSmtp();
+      if (res?.ok) {
+        toast.success('SMTP verificado');
+      } else if (res?.skipped) {
+        toast.error(res?.reason || 'SMTP no configurado');
+      } else {
+        toast.error(res?.reason || 'No se pudo verificar SMTP');
+      }
+    } catch {
+      toast.error('Error verificando SMTP');
+    } finally {
+      setIsVerifyingEmail(false);
+      refreshEmailStatus();
+    }
+  }, [refreshEmailStatus]);
+
+  const sendTestEmail = useCallback(async () => {
+    setIsTestingEmail(true);
+    try {
+      const res = await api.sendTestEmail(testEmailTo);
+      if (res?.ok) {
+        toast.success('Email de prueba enviado');
+      } else if (res?.skipped) {
+        toast.error(res?.reason || 'Email desactivado o SMTP no configurado');
+      } else {
+        toast.error(res?.reason || 'No se pudo enviar el email de prueba');
+      }
+    } catch {
+      toast.error('Error enviando email de prueba');
+    } finally {
+      setIsTestingEmail(false);
+      refreshEmailStatus();
+    }
+  }, [testEmailTo, refreshEmailStatus]);
+
+  useEffect(() => {
+    if (selectedConfig === 'notifications') {
+      refreshEmailStatus();
+    }
+  }, [selectedConfig, refreshEmailStatus]);
+
   const loadAdvancedConfigs = async () => {
     try {
       const [msgRes, botConfigRes, systemConfigRes] = await Promise.all([
@@ -289,7 +354,12 @@ export default function ConfiguracionPage() {
       if (msgRes?.message) setGlobalOffMessage(msgRes.message);
       
       if (systemConfigRes) {
-        setSystemConfig(prev => ({ ...prev, ...systemConfigRes }));
+        setSystemConfig(prev => ({ 
+          ...prev, 
+          ...systemConfigRes,
+          adminIPs: Array.isArray((systemConfigRes as any)?.adminIPs) ? (systemConfigRes as any).adminIPs : prev.adminIPs,
+          myAdminIPs: Array.isArray((systemConfigRes as any)?.myAdminIPs) ? (systemConfigRes as any).myAdminIPs : [],
+        }));
       }
       
       if (botConfigRes) {
@@ -315,11 +385,26 @@ export default function ConfiguracionPage() {
   const saveSystemConfig = async () => {
     setSaving(true);
     try {
-      const { currentIP, ...payload } = systemConfig as any;
+      const { currentIP, currentIPAllowed, adminIPsCount, adminIPs, myAdminIPs, ...payload } = systemConfig as any;
       await api.updateSystemConfig(payload);
       toast.success('Configuración del sistema guardada');
     } catch (err) {
       toast.error('Error al guardar configuración');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleAutoAddAdminIPOnLogin = async () => {
+    const next = !systemConfig.autoAddAdminIPOnLogin;
+    setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: next }));
+    setSaving(true);
+    try {
+      await api.updateSystemConfig({ autoAddAdminIPOnLogin: next });
+      toast.success(next ? 'Auto-guardado de IP activado' : 'Auto-guardado de IP desactivado');
+    } catch (err) {
+      setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: !next }));
+      toast.error('No se pudo actualizar auto-guardado de IP');
     } finally {
       setSaving(false);
     }
@@ -809,6 +894,8 @@ export default function ConfiguracionPage() {
     const smtpPortValue = getConfigValue('email.smtp.port');
     const smtpPort = typeof smtpPortValue === 'number' ? String(smtpPortValue) : String(smtpPortValue || '');
     const smtpSecure = Boolean(getConfigValue('email.smtp.secure'));
+    const smtpUser = String(getConfigValue('email.smtp.user') || '').trim();
+    const smtpPass = String(getConfigValue('email.smtp.pass') || '').trim();
 
     const whatsappEnabled = Boolean(getConfigValue('whatsapp.enabled'));
     const adminNumbers = (getConfigValue('whatsapp.adminNumbers') || []) as string[];
@@ -905,6 +992,36 @@ export default function ConfiguracionPage() {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Usuario / Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={smtpUser}
+                      onChange={(e) => updateConfigValue('email.smtp.user', e.target.value)}
+                      className="input-glass pl-10"
+                      placeholder="usuario@gmail.com"
+                      disabled={!emailEnabled}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Contraseña / App Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="password"
+                      value={smtpPass}
+                      onChange={(e) => updateConfigValue('email.smtp.pass', e.target.value)}
+                      className="input-glass pl-10"
+                      placeholder="••••••••••••••••"
+                      disabled={!emailEnabled}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className={`flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 ${!emailEnabled ? 'opacity-60' : ''}`}>
@@ -934,6 +1051,92 @@ export default function ConfiguracionPage() {
                 <p className="text-xs text-gray-400 leading-relaxed">
                   Tip: para Gmail usá “App Password” y el host `smtp.gmail.com` (puerto `587` con TLS o `465` seguro).
                 </p>
+              </div>
+
+              <div className={`rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3 ${!emailEnabled ? 'opacity-60' : ''}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-white">Diagnóstico</p>
+                  <Button
+                    onClick={refreshEmailStatus}
+                    loading={isCheckingEmail}
+                    disabled={!emailEnabled}
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Actualizar
+                  </Button>
+                </div>
+
+                {emailStatus ? (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">
+                      Estado:{' '}
+                      <span className={emailStatus.configured ? 'text-emerald-300' : 'text-amber-300'}>
+                        {emailStatus.configured ? 'Listo' : 'Incompleto'}
+                      </span>
+                    </p>
+                    <p className="text-gray-400">
+                      Auth:{' '}
+                      <span className={emailStatus.hasAuth ? 'text-emerald-300' : 'text-amber-300'}>
+                        {emailStatus.hasAuth ? 'OK' : 'Falta'}
+                      </span>
+                    </p>
+                    <p className="text-gray-400 truncate" title={emailStatus.host || ''}>
+                      Host:{' '}
+                      <span className="text-gray-200">{emailStatus.host || '—'}</span>
+                    </p>
+                    <p className="text-gray-400">
+                      Puerto:{' '}
+                      <span className="text-gray-200">{emailStatus.port || '—'}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    No se pudo obtener el estado del servicio (requiere rol admin/owner).
+                  </p>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Email para Alertas (Admin)</label>
+                  <input
+                    type="email"
+                    value={testEmailTo}
+                    onChange={(e) => setTestEmailTo(e.target.value)}
+                    className="input-glass"
+                    placeholder="tu-correo@ejemplo.com"
+                    disabled={!emailEnabled}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Este es el correo donde recibirás las alertas críticas del sistema. Si lo dejas vacío, se usarán los correos configurados en las variables de entorno.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={verifyEmailSmtp}
+                    loading={isVerifyingEmail}
+                    disabled={!emailEnabled}
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Shield className="w-3 h-3" />
+                    Verificar SMTP
+                  </Button>
+                  <Button
+                    onClick={sendTestEmail}
+                    loading={isTestingEmail}
+                    disabled={!emailEnabled}
+                    variant="primary"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Mail className="w-3 h-3" />
+                    Enviar prueba
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
@@ -1424,7 +1627,7 @@ export default function ConfiguracionPage() {
                     value={systemConfig.supportNotifyWhatsAppTo}
                     onChange={(e) => setSystemConfig({ ...systemConfig, supportNotifyWhatsAppTo: e.target.value })}
                     className="input-glass w-full"
-                    placeholder="51900373696, 573001112233"
+                    placeholder=""
                   />
                   <p className="text-xs text-gray-500 mt-1">Se ignoran símbolos; se usan solo números.</p>
                 </div>
@@ -1442,25 +1645,47 @@ export default function ConfiguracionPage() {
               <h2 className="text-lg font-semibold text-white">IPs de Administradores</h2>
             </div>
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-white/5">
-                <p className="text-sm text-gray-400 mb-2">Tu IP actual:</p>
-                <p className="text-white font-mono text-lg">{systemConfig.currentIP || 'Cargando...'}</p>
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  className="mt-2" 
-                  onClick={addCurrentIP}
+	              <div className="p-4 rounded-xl bg-white/5">
+	                <p className="text-sm text-gray-400 mb-2">Tu IP actual:</p>
+	                <p className="text-white font-mono text-lg">{systemConfig.currentIP || 'Cargando...'}</p>
+	                <p className="text-xs mt-2">
+	                  Estado:{' '}
+	                  <span className={systemConfig.currentIPAllowed ? 'text-green-400' : 'text-yellow-400'}>
+	                    {systemConfig.currentIPAllowed ? 'Permitida' : 'No permitida'}
+	                  </span>
+	                </p>
+	                <Button 
+	                  variant="secondary" 
+	                  size="sm" 
+	                  className="mt-2" 
+	                  onClick={addCurrentIP}
                   loading={isSaving}
                 >
                   Agregar como IP de administrador
                 </Button>
               </div>
               
-              {systemConfig.adminIPs && systemConfig.adminIPs.length > 0 && (
+              <div className="p-4 rounded-xl bg-white/5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-gray-300 font-medium">Auto-guardar IP al iniciar sesión</p>
+                    <p className="text-xs text-gray-500">Agrega automáticamente la IP de Owner/Admin tras un login exitoso.</p>
+                  </div>
+                  <button
+                    onClick={toggleAutoAddAdminIPOnLogin}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.autoAddAdminIPOnLogin ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                  >
+                    <motion.div animate={{ x: systemConfig.autoAddAdminIPOnLogin ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
+                  </button>
+                </div>
+              </div>
+
+              {systemConfig.myAdminIPs && systemConfig.myAdminIPs.length > 0 && (
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">IPs permitidas durante mantenimiento:</p>
+                  <p className="text-sm text-gray-400 mb-2">Mis IPs permitidas durante mantenimiento:</p>
                   <div className="space-y-2">
-                    {systemConfig.adminIPs.map((ip, index) => (
+                    {systemConfig.myAdminIPs.map((ip, index) => (
                       <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                         <span className="text-white font-mono">{ip}</span>
                         <span className="text-xs text-green-400">✓ Permitida</span>
@@ -1470,6 +1695,13 @@ export default function ConfiguracionPage() {
                 </div>
               )}
               
+              <div className="p-3 rounded-lg bg-white/5">
+                <p className="text-xs text-gray-400">
+                  Total global de IPs permitidas:{' '}
+                  <span className="text-white font-mono">{Number(systemConfig.adminIPsCount || 0)}</span>
+                </p>
+              </div>
+
               <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                 <p className="text-xs text-yellow-400">
                   💡 Las IPs agregadas aquí podrán acceder al panel incluso durante el modo mantenimiento.

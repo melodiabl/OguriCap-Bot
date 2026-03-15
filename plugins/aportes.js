@@ -1,12 +1,95 @@
 import fs from 'fs'
 import path from 'path'
+import { classifyProviderLibraryContent } from '../lib/provider-content-classifier.js'
+
+const MEDIA_TYPE_MAP = {
+  imageMessage: 'image',
+  videoMessage: 'video',
+  audioMessage: 'audio',
+  documentMessage: 'document',
+  stickerMessage: 'sticker',
+}
+
+const safeString = (v) => (v == null ? '' : typeof v === 'string' ? v : String(v))
+
+const clampInt = (value, { min, max, fallback }) => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(Math.max(Math.floor(n), min), max)
+}
+
+const normalizeSeason = (value) => {
+  const raw = safeString(value).trim()
+  if (!raw) return null
+  const m = raw.match(/(\d{1,2})/)
+  if (!m) return null
+  const n = Number(m[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  return String(n)
+}
+
+const normalizeChapter = (value) => {
+  const raw = safeString(value).trim()
+  if (!raw) return null
+  const m = raw.match(/(\d{1,4})/)
+  if (!m) return null
+  const n = Number(m[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  return String(n)
+}
+
+const sanitizePathSegment = (input, maxLen = 60) => {
+  const s = safeString(input)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/[^a-zA-Z0-9 _.-]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const trimmed = s.slice(0, Math.max(1, maxLen)).trim()
+  return trimmed || 'sin_titulo'
+}
+
+const sanitizeFilename = (input) =>
+  safeString(input)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, '_')
+    .slice(0, 140)
+
+const oneLine = (v) => safeString(v).replace(/\s+/g, ' ').trim()
+
+const truncateText = (v, max = 140) => {
+  const s = oneLine(v)
+  if (s.length <= max) return s
+  return `${s.slice(0, Math.max(0, max - 1)).trimEnd()}…`
+}
+
+const waSafeInline = (v) => oneLine(v).replace(/[*_~`]/g, '').trim()
+
+// Normalización de títulos compatible con pedidos.js
+const normalizeText = (s) => safeString(s || '')
+  .toLowerCase()
+  .normalize('NFKC')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
 
 const ensureStore = () => {
   if (!global.db.data.aportes) global.db.data.aportes = []
   if (!global.db.data.aportesCounter) {
-    const lastId = global.db.data.aportes.reduce((max, item) => Math.max(max, item.id || 0), 0)
+    const lastId = global.db.data.aportes.reduce((max, item) => Math.max(max, item?.id || 0), 0)
     global.db.data.aportesCounter = lastId + 1
   }
+}
+
+const ensureMediaDir = (...segments) => {
+  const base = path.join(process.cwd(), 'storage', 'media', 'aportes')
+  const dir = segments?.length ? path.join(base, ...segments) : base
+  fs.mkdirSync(dir, { recursive: true })
+  return dir
 }
 
 const formatDate = (value) => {
@@ -15,97 +98,110 @@ const formatDate = (value) => {
   return d.toISOString().slice(0, 10)
 }
 
+const inferTipo = ({ tipo, media } = {}) => {
+  const rawTipo = safeString(tipo).toLowerCase().trim()
+  if (rawTipo && rawTipo !== 'extra') return rawTipo
+
+  const mime = safeString(media?.mimetype || '').toLowerCase()
+  if (mime.startsWith('image/')) return 'imagen'
+  if (mime.startsWith('video/')) return 'video'
+  if (mime.startsWith('audio/')) return 'audio'
+  if (mime) return 'documento'
+  return 'extra'
+}
+
 const formatEntry = (entry, index, showUser) => {
-  const lines = [
-    `${index}. ${entry.contenido || '-'}`,
-    `  tipo: ${entry.tipo || 'extra'}`,
-    `  estado: ${entry.estado || 'pendiente'}`,
-    `  fecha: ${formatDate(entry.fecha)}`
-  ]
-  if (showUser) lines.splice(3, 0, `  usuario: ${entry.usuario || '-'}`)
-  if (entry.archivo) lines.push(`  archivo: ${entry.archivo}`)
+  const id = entry?.id ?? index
+  const idCode = `\`\`\`#${safeString(id)}\`\`\``
+  const titulo = waSafeInline(entry?.titulo || '') || truncateText(entry?.contenido || '(sin título)', 48)
+  const contenido = truncateText(entry?.contenido || '-', 90)
+  const fecha = formatDate(entry?.fecha || entry?.fecha_creacion || entry?.created_at)
+  const estado = waSafeInline(entry?.estado || 'pendiente')
+  const tipo = waSafeInline(entry?.tipo || 'extra')
+  const temporada = waSafeInline(entry?.temporada || '')
+  const capitulo = waSafeInline(entry?.capitulo || '')
+  const usuario = safeString(entry?.usuario || '-')
+  const archivo = waSafeInline(entry?.archivoNombre || '')
+
+  const lines = []
+  lines.push(`📌 *Aporte* ${idCode}`)
+  lines.push(`> *Título:* ${titulo}`)
+  lines.push(`> *Tipo:* _${tipo}_`)
+  if (temporada) lines.push(`> *Temporada:* _${temporada}_`)
+  if (capitulo) lines.push(`> *Capítulo:* _${capitulo}_`)
+  lines.push(`> *Estado:* _${estado}_`)
+  lines.push(`> *Fecha:* _${fecha}_`)
+  if (showUser) lines.push(`> *Usuario:* ${usuario}`)
+  lines.push(`> *Contenido:* ${contenido}`)
+  if (archivo) lines.push(`> *Archivo:* _${archivo}_`)
   return lines.join('\n')
 }
 
-const saveMedia = async (m, conn) => {
-  // Intentar obtener el mensaje con multimedia
-  const q = m.quoted ? m.quoted : m
-  const msg = q.msg || q
+const detectMedia = (m) => {
+  try {
+    const q = m?.quoted ? m.quoted : m
+    const mediaMessage = q?.mediaMessage && typeof q.mediaMessage === 'object' ? q.mediaMessage : null
+    if (!mediaMessage) return null
 
-  // Verificar si hay multimedia en el mensaje (cualquier tipo)
-  const hasMedia = msg.imageMessage || msg.videoMessage || msg.audioMessage || msg.documentMessage || msg.stickerMessage
-  if (!hasMedia) return null
+    const key = Object.keys(mediaMessage)[0]
+    const kind = MEDIA_TYPE_MAP[key]
+    const content = mediaMessage[key]
+    if (!kind || !content) return null
 
-  // Obtener el mimetype de cualquier tipo de mensaje multimedia
-  const mime = msg.imageMessage?.mimetype ||
-    msg.videoMessage?.mimetype ||
-    msg.audioMessage?.mimetype ||
-    msg.documentMessage?.mimetype ||
-    msg.stickerMessage?.mimetype || ''
+    const mimetype = content?.mimetype || ''
+    const fileName = content?.fileName || content?.file_name || null
 
-  // Para stickers, convertir a imagen
-  if (msg.stickerMessage) {
-    try {
-      const mediaBuffer = await conn.downloadMediaMessage(q)
-      if (!mediaBuffer) return null
-
-      // Convertir sticker a imagen
-      const { toImage } = await import('../lib/sticker.js')
-      const imageBuffer = await toImage(mediaBuffer)
-
-      const targetDir = path.join(process.cwd(), 'tmp', 'aportes')
-      fs.mkdirSync(targetDir, { recursive: true })
-
-      const filename = `aporte_${Date.now()}.png`
-      const dest = path.join(targetDir, filename)
-
-      fs.writeFileSync(dest, imageBuffer)
-
-      return {
-        path: dest,
-        mimetype: 'image/png',
-        filename,
-        size: imageBuffer.length
-      }
-    } catch (error) {
-      console.error('Error convirtiendo sticker:', error)
-      return null
-    }
+    return { kind, key, content, mimetype, fileName }
+  } catch {
+    return null
   }
+}
 
-  if (!mime) return null
+const saveMedia = async (m, conn, { titulo = '', temporada = null, capitulo = null } = {}) => {
+  const media = detectMedia(m)
+  if (!media) return null
 
   try {
-    // Descargar el archivo
-    const buffer = await conn.downloadMediaMessage(q)
-    if (!buffer) return null
+    const rawBuffer = await conn.downloadM(media.content, media.kind)
+    if (!rawBuffer || !Buffer.isBuffer(rawBuffer) || rawBuffer.length === 0) return null
 
-    const targetDir = path.join(process.cwd(), 'tmp', 'aportes')
-    fs.mkdirSync(targetDir, { recursive: true })
+    let buffer = rawBuffer
+    let mimetype = media.mimetype
+    let filenameBase = (media.fileName ? sanitizeFilename(path.parse(safeString(media.fileName)).name) : '') || `aporte_${Date.now()}`
+    let ext =
+      mimetype?.split('/')[1]?.split(';')[0] ||
+      (media.fileName ? safeString(media.fileName).split('.').pop() : null) ||
+      (media.kind === 'image' ? 'jpg' : media.kind === 'video' ? 'mp4' : media.kind === 'audio' ? 'mp3' : 'bin')
 
-    // Determinar extensión a partir del mimetype o usar extension original
-    const ext = mime.split('/')[1]?.split(';')[0] ||
-      q.message?.documentMessage?.fileName?.split('.').pop() || 'bin'
-    const originalFilename = q.message?.documentMessage?.fileName
-
-    let filename
-    if (originalFilename) {
-      // Usar nombre original si es seguro
-      filename = originalFilename.replace(/[^a-zA-Z0-9.-]/g, '_')
-    } else {
-      filename = `aporte_${Date.now()}.${ext}`
+    if (media.kind === 'sticker') {
+      const { toImage } = await import('../lib/sticker.js')
+      buffer = await toImage(rawBuffer)
+      mimetype = 'image/png'
+      ext = 'png'
+      filenameBase = filenameBase.replace(/\.(webp|png|jpg|jpeg)$/i, '') || `aporte_${Date.now()}`
     }
 
-    const dest = path.join(targetDir, filename)
+    ext = safeString(ext || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'bin'
+    const seasonNum = normalizeSeason(temporada)
+    const chapterNum = normalizeChapter(capitulo)
+    const titleSeg = sanitizePathSegment(titulo || filenameBase, 60)
+    const seasonSeg = `T${String(seasonNum || '0').padStart(2, '0')}`
 
-    // Guardar archivo
+    const chapterPrefix = chapterNum ? `c${String(chapterNum).padStart(4, '0')}_` : ''
+    const finalBase = sanitizeFilename(`${chapterPrefix}${filenameBase}`.replace(/\s+/g, '_')).slice(0, 120) || `aporte_${Date.now()}`
+    const filename = `${finalBase}.${ext}`
+
+    const targetDir = ensureMediaDir(titleSeg, seasonSeg)
+    const dest = path.join(targetDir, filename)
     fs.writeFileSync(dest, buffer)
 
+    const urlParts = ['aportes', titleSeg, seasonSeg, filename].map((s) => encodeURIComponent(String(s)))
     return {
-      path: dest,
-      mimetype: mime,
+      path: path.relative(process.cwd(), dest),
+      url: `/media/${urlParts.join('/')}`,
+      mimetype,
       filename,
-      size: buffer.length
+      size: buffer.length,
     }
   } catch (error) {
     console.error('Error guardando multimedia:', error)
@@ -113,76 +209,342 @@ const saveMedia = async (m, conn) => {
   }
 }
 
-let handler = async (m, { args, usedPrefix, command, conn }) => {
+const aiEnhanceAporte = async ({ contenido, media, tipo }) => {
+  const caption = safeString(contenido || '')
+  const filename =
+    safeString(media?.filename) ||
+    safeString(media?.fileName) ||
+    (caption ? `${caption}.txt` : '') ||
+    (safeString(media?.mimetype) ? `aporte.${safeString(media.mimetype).split('/')[1]?.split(';')[0] || 'bin'}` : 'aporte.txt')
+  const timeoutMs = clampInt(process.env.APORTES_AI_TIMEOUT_MS, { min: 800, max: 20000, fallback: 6000 })
+
+  try {
+    const result = await Promise.race([
+      classifyProviderLibraryContent({ filename, caption, provider: { tipo: inferTipo({ tipo, media }) } }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), timeoutMs)),
+    ])
+
+    const title = oneLine(result?.title) || ''
+    const tags = Array.isArray(result?.tags) ? result.tags.map((t) => oneLine(t)).filter(Boolean).slice(0, 10) : []
+    const category = oneLine(result?.category) || ''
+    const confidence = typeof result?.confidence === 'number' ? result.confidence : null
+    const season = typeof result?.season !== 'undefined' ? normalizeSeason(result.season) : null
+    const chapter = typeof result?.chapter !== 'undefined' ? normalizeChapter(result.chapter) : null
+
+    return {
+      titulo: title,
+      descripcion: caption ? truncateText(caption, 220) : '',
+      tags,
+      categoria: category,
+      temporada: season,
+      capitulo: chapter,
+      ai: {
+        source: safeString(result?.source || 'heuristic'),
+        model: safeString(result?.model || 'none'),
+        provider: safeString(result?.provider || 'local'),
+        confidence,
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  } catch {
+    return {
+      titulo: '',
+      descripcion: caption ? truncateText(caption, 220) : '',
+      tags: [],
+      categoria: '',
+      temporada: null,
+      capitulo: null,
+      ai: {
+        source: 'heuristic',
+        model: 'none',
+        provider: 'local',
+        confidence: null,
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  }
+}
+
+let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
   ensureStore()
   const data = global.db.data
+  const isBotOwner = Boolean(isOwner) || global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
 
   switch (command) {
     case 'addaporte': {
       const raw = (args || []).join(' ').trim()
-      const parts = raw.includes('|') ? raw.split('|').map(s => s.trim()) : [raw, 'extra']
+      const parts = raw.includes('|') ? raw.split('|').map(s => s.trim()) : [raw, 'extra', '']
       const contenido = parts[0] || ''
       const tipo = parts[1] || 'extra'
-      const media = await saveMedia(m, conn)
+      const temporadaArg = parts[2] || ''
+      const capituloArg = parts[3] || ''
+      const detected = detectMedia(m)
 
-      if (!contenido && !media) {
-        return m.reply(`Uso: ${usedPrefix}addaporte texto | tipo\nTambien puedes enviar una imagen/video/documento con el comando\nO responder a un archivo con /addaporte texto | tipo`)
+      if (!contenido && !detected) {
+        return m.reply(
+          `🤖 *Aportes*\n\n` +
+          `> *Crear aporte (texto):*\n` +
+          `> \`\`\`${usedPrefix}addaporte texto | tipo | temporada(opcional) | capitulo(opcional)\`\`\`\n` +
+          `> *Crear aporte (con adjunto):*\n` +
+          `> _Envía o responde a un archivo y escribe el comando_\n\n` +
+          `🛡️ _Formatos soportados: imagen, video, audio, documento, sticker_`
+        )
       }
+
+      const tipoFinal = inferTipo({ tipo, media: detected ? { mimetype: detected.mimetype } : null })
+      const ai = await aiEnhanceAporte({
+        contenido: contenido || '',
+        media: detected ? { filename: detected.fileName, mimetype: detected.mimetype } : null,
+        tipo: tipoFinal,
+      })
+      const tituloFinal = ai.titulo || truncateText(contenido || (detected?.fileName ? `Aporte: ${detected.fileName}` : 'Aporte'), 70)
+      const temporadaFinal = normalizeSeason(temporadaArg) || normalizeSeason(ai?.temporada) || null
+      const capituloFinal = normalizeChapter(capituloArg) || normalizeChapter(ai?.capitulo) || null
+
+      const media = detected ? await saveMedia(m, conn, { titulo: tituloFinal, temporada: temporadaFinal, capitulo: capituloFinal }) : null
 
       const entry = {
         id: data.aportesCounter++,
         usuario: m.sender,
         grupo: m.isGroup ? m.chat : null,
         contenido: contenido || '(adjunto)',
-        tipo,
+        tipo: tipoFinal,
+        titulo: tituloFinal,
+        descripcion: ai.descripcion || '',
+        tags: ai.tags || [],
+        categoria: ai.categoria || null,
+        temporada: temporadaFinal,
+        capitulo: capituloFinal,
+        ai: ai.ai || null,
+        // Clave de título estable para matching con pedidos
+        titulo_normalizado: normalizeText(ai.titulo || tituloFinal || detected?.fileName || contenido || ''),
         fecha: new Date().toISOString(),
         estado: 'pendiente',
-        archivo: media?.path || null,
+        archivo: media?.url || null,
+        archivoPath: media?.path || null,
         archivoMime: media?.mimetype || null,
-        archivoNombre: media?.filename || null
+        archivoNombre: media?.filename || null,
       }
-      data.aportes.push(entry)
 
-      // Emitir evento Socket.IO
+      data.aportes.push(entry)
+      if (global.db?.write) await global.db.write().catch(() => { })
+
       try {
         const { emitAporteCreated } = await import('../lib/socket-io.js')
         emitAporteCreated(entry)
       } catch { }
 
-      let msg = '✅ Aporte registrado exitosamente'
-      msg += `\n\n🆔 ID: #${entry.id}`
-      msg += `\n📝 Contenido: ${entry.contenido}`
-      msg += `\n📂 Tipo: ${entry.tipo}`
-      if (entry.archivo) msg += `\n📎 Archivo: ${entry.archivoNombre || 'adjunto guardado'}`
-      return m.reply(msg)
+      const lines = []
+      lines.push('🤖 *Aporte registrado*')
+      lines.push('')
+      lines.push(`> *ID:* \`\`\`#${entry.id}\`\`\``)
+      lines.push(`> *Título:* ${waSafeInline(entry.titulo)}`)
+      lines.push(`> *Tipo:* _${waSafeInline(entry.tipo)}_`)
+      if (entry.temporada) lines.push(`> *Temporada:* _${waSafeInline(entry.temporada)}_`)
+      if (entry.capitulo) lines.push(`> *Capítulo:* _${waSafeInline(entry.capitulo)}_`)
+      lines.push(`> *Estado:* _pendiente_`)
+      if (entry.archivoNombre) lines.push(`> *Archivo:* _${waSafeInline(entry.archivoNombre)}_`)
+      if (Array.isArray(entry.tags) && entry.tags.length) lines.push(`> *Tags:* ${entry.tags.map(waSafeInline).filter(Boolean).join(', ')}`)
+      if (entry.ai?.source) lines.push(`> *IA:* _${waSafeInline(entry.ai.source)}_`)
+      lines.push('')
+      lines.push('🛡️ _Queda en revisión por el staff._')
+      return m.reply(lines.join('\n'))
     }
+
     case 'aportes': {
       const list = data.aportes
         .filter(item => !m.isGroup || item.grupo === m.chat)
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
         .slice(0, 20)
 
-      if (!list.length) return m.reply('No hay aportes registrados.')
-      const msg = list.map((entry, i) => formatEntry(entry, i + 1, !m.isGroup)).join('\n\n')
-      return m.reply(`Lista de aportes\n\n${msg}`)
+      if (!list.length) return m.reply('📦 *Aportes*\n\n🛡️ _No hay aportes registrados._')
+      const msg = ['📦 *Aportes recientes*', '', ...list.map((entry, i) => formatEntry(entry, i + 1, !m.isGroup))].join('\n\n')
+      return m.reply(msg)
     }
+
     case 'myaportes': {
       const list = data.aportes
         .filter(item => item.usuario === m.sender)
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
         .slice(0, 10)
 
-      if (!list.length) return m.reply('No tienes aportes registrados.')
-      const msg = list.map((entry, i) => formatEntry(entry, i + 1, false)).join('\n\n')
-      return m.reply(`Mis aportes\n\n${msg}`)
+      if (!list.length) return m.reply('📦 *Mis aportes*\n\n🛡️ _Aún no tienes aportes registrados._')
+      const msg = ['📦 *Mis aportes*', '', ...list.map((entry, i) => formatEntry(entry, i + 1, false))].join('\n\n')
+      return m.reply(msg)
     }
+
+    case 'organizaraportes': {
+      if (!isBotOwner) return m.reply('❌ *No permitido*\n\n> _Solo el owner puede organizar los archivos._')
+
+      const aportes = Array.isArray(data.aportes) ? data.aportes : []
+      let moved = 0
+      let skipped = 0
+      let errors = 0
+
+      for (const aporte of aportes) {
+        try {
+          if ((!aporte?.temporada || !aporte?.capitulo || !aporte?.titulo) && (aporte?.contenido || aporte?.archivoNombre)) {
+            try {
+              const classified = await classifyProviderLibraryContent({
+                filename: safeString(aporte?.archivoNombre || aporte?.titulo || ''),
+                caption: safeString(aporte?.contenido || ''),
+                provider: { tipo: safeString(aporte?.tipo || '') },
+              })
+              if (!aporte?.titulo && classified?.title) aporte.titulo = classified.title
+              if (!aporte?.temporada && typeof classified?.season !== 'undefined' && classified?.season) aporte.temporada = normalizeSeason(classified.season)
+              if (!aporte?.capitulo && typeof classified?.chapter !== 'undefined' && classified?.chapter) aporte.capitulo = normalizeChapter(classified.chapter)
+            } catch { }
+          }
+
+          const rel = safeString(aporte?.archivoPath || '').trim()
+          if (!rel) {
+            skipped += 1
+            continue
+          }
+
+          const root = path.resolve(process.cwd(), 'storage', 'media')
+          const abs = path.resolve(process.cwd(), rel)
+          if (!abs.toLowerCase().startsWith(root.toLowerCase())) {
+            skipped += 1
+            continue
+          }
+          if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+            skipped += 1
+            continue
+          }
+
+          const titleSeg = sanitizePathSegment(aporte?.titulo || 'sin_titulo', 60)
+          const seasonNum = normalizeSeason(aporte?.temporada) || '0'
+          const seasonSeg = `T${String(seasonNum).padStart(2, '0')}`
+          const chapterNum = normalizeChapter(aporte?.capitulo)
+          const chapterPrefix = chapterNum ? `c${String(chapterNum).padStart(4, '0')}_` : ''
+
+          const parsed = path.parse(abs)
+          const baseNoPrefix = parsed.name.replace(/^c\d{4}_/i, '')
+          let desiredBase = sanitizeFilename(`${chapterPrefix}${baseNoPrefix}`.replace(/\s+/g, '_')).slice(0, 120) || `aporte_${aporte?.id || Date.now()}`
+          let desiredFilename = `${desiredBase}${parsed.ext || ''}`
+
+          const targetDir = ensureMediaDir(titleSeg, seasonSeg)
+          let targetAbs = path.join(targetDir, desiredFilename)
+
+          if (abs.toLowerCase() === targetAbs.toLowerCase()) {
+            skipped += 1
+            continue
+          }
+
+          if (fs.existsSync(targetAbs)) {
+            desiredBase = sanitizeFilename(`${desiredBase}_id${aporte?.id || Date.now()}`).slice(0, 120)
+            desiredFilename = `${desiredBase}${parsed.ext || ''}`
+            targetAbs = path.join(targetDir, desiredFilename)
+          }
+
+          fs.renameSync(abs, targetAbs)
+
+          aporte.archivoPath = path.relative(process.cwd(), targetAbs)
+          aporte.archivoNombre = desiredFilename
+          const urlParts = ['aportes', titleSeg, seasonSeg, desiredFilename].map((s) => encodeURIComponent(String(s)))
+          aporte.archivo = `/media/${urlParts.join('/')}`
+          moved += 1
+        } catch (err) {
+          errors += 1
+        }
+      }
+
+      if (global.db?.write) await global.db.write().catch(() => { })
+      return m.reply(
+        `📁 *Organización de aportes*\n\n` +
+        `> *Movidos:* _${moved}_\n` +
+        `> *Sin cambios:* _${skipped}_\n` +
+        `> *Errores:* _${errors}_`
+      )
+    }
+
+    case 'syncaportes': {
+      if (!isBotOwner) return m.reply('❌ *No permitido*\n\n> _Solo el owner puede sincronizar los archivos._')
+      
+      const baseDir = path.join(process.cwd(), 'storage', 'media', 'aportes')
+      if (!fs.existsSync(baseDir)) return m.reply('❌ *Error*\n\n> _El directorio de aportes no existe._')
+
+      const aportes = Array.isArray(data.aportes) ? data.aportes : []
+      const existingPaths = new Set(aportes.map(a => safeString(a.archivoPath).replace(/\\/g, '/')))
+      let added = 0
+      let total = 0
+
+      const scan = async (dir) => {
+        const files = fs.readdirSync(dir)
+        for (const file of files) {
+          const fullPath = path.join(dir, file)
+          const stat = fs.statSync(fullPath)
+          if (stat.isDirectory()) {
+            await scan(fullPath)
+          } else if (stat.isFile()) {
+            total++
+            const relPath = path.relative(process.cwd(), fullPath).replace(/\\/g, '/')
+            if (!existingPaths.has(relPath)) {
+              // Extraer info de la ruta si es posible: Title/Season/Filename
+              const parts = path.relative(baseDir, fullPath).split(path.sep)
+              let guessedTitle = ''
+              let guessedSeason = null
+              
+              if (parts.length >= 3) {
+                guessedTitle = parts[0].replace(/_/g, ' ')
+                guessedSeason = normalizeSeason(parts[1])
+              } else {
+                guessedTitle = path.parse(file).name.replace(/_/g, ' ')
+              }
+
+              const ai = await aiEnhanceAporte({
+                contenido: guessedTitle,
+                media: { filename: file, mimetype: (await import('mime-types')).default.lookup(file) || 'application/octet-stream' },
+                tipo: 'extra'
+              })
+
+              const entry = {
+                id: data.aportesCounter++,
+                usuario: m.sender,
+                grupo: null,
+                contenido: '(sincronizado)',
+                tipo: ai.categoria || 'extra',
+                titulo: ai.titulo || guessedTitle,
+                descripcion: ai.descripcion || '',
+                tags: ai.tags || [],
+                categoria: ai.categoria || null,
+                temporada: guessedSeason || ai.temporada || null,
+                capitulo: ai.capitulo || null,
+                ai: ai.ai || null,
+                titulo_normalizado: normalizeText(ai.titulo || guessedTitle),
+                fecha: new Date(stat.birthtime || Date.now()).toISOString(),
+                estado: 'aprobado',
+                archivo: `/media/aportes/${parts.map(s => encodeURIComponent(s)).join('/')}`,
+                archivoPath: relPath,
+                archivoMime: (await import('mime-types')).default.lookup(file) || 'application/octet-stream',
+                archivoNombre: file,
+              }
+              data.aportes.push(entry)
+              added++
+            }
+          }
+        }
+      }
+
+      await scan(baseDir)
+      if (added > 0 && global.db?.write) await global.db.write().catch(() => { })
+
+      return m.reply(
+        `♻️ *Sincronización de aportes*\n\n` +
+        `> *Total archivos:* _${total}_\n` +
+        `> *Nuevos registrados:* _${added}_\n\n` +
+        `✅ _Los nuevos aportes ya deberían aparecer en las búsquedas._`
+      )
+    }
+
     default:
       return null
   }
 }
 
-handler.help = ['addaporte', 'aportes', 'myaportes']
+handler.help = ['addaporte', 'aportes', 'myaportes', 'organizaraportes', 'syncaportes']
 handler.tags = ['tools']
-handler.command = ['addaporte', 'aportes', 'myaportes']
+handler.command = ['addaporte', 'aportes', 'myaportes', 'organizaraportes', 'syncaportes']
 
 export default handler

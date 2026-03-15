@@ -3,6 +3,7 @@
 import React from 'react';
 import { useSocketConnection } from './SocketContext';
 import { useBotGlobalState } from './BotGlobalStateContext';
+import { useAuth } from './AuthContext';
 import api from '@/services/api';
 
 interface GlobalUpdateContextType {
@@ -41,6 +42,7 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const { socket, isConnected } = useSocketConnection();
   const { isGloballyOn } = useBotGlobalState();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const refreshDashboard = React.useCallback(async () => {
     try {
@@ -99,6 +101,15 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const pendingRef = React.useRef(false);
 
   const refreshAll = React.useCallback(async () => {
+    if (authLoading || !isAuthenticated) {
+      setIsRefreshing(false);
+      setLastUpdate(null);
+      setDashboardStats(null);
+      setBotStatus(null);
+      setSystemStats(null);
+      setNotifications([]);
+      return;
+    }
     if (inFlightRef.current) {
       pendingRef.current = true;
       return;
@@ -124,7 +135,7 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
         queueMicrotask(() => refreshAll());
       }
     }
-  }, [refreshBotStatus, refreshDashboard, refreshNotifications, refreshSystemStats]);
+  }, [authLoading, isAuthenticated, refreshBotStatus, refreshDashboard, refreshNotifications, refreshSystemStats]);
 
   // Inicial: 1 refresh fuerte
   React.useEffect(() => {
@@ -133,14 +144,16 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Estado global del bot: refrescar (pero sin polling duplicado)
   React.useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
     refreshAll();
-  }, [isGloballyOn, refreshAll]);
+  }, [isGloballyOn, authLoading, isAuthenticated, refreshAll]);
 
   // Socket reconnect: refrescar
   React.useEffect(() => {
     if (!isConnected) return;
+    if (authLoading || !isAuthenticated) return;
     refreshAll();
-  }, [isConnected, refreshAll]);
+  }, [isConnected, authLoading, isAuthenticated, refreshAll]);
 
   // Realtime: listeners con throttling + updates parciales (no full refresh por evento)
   React.useEffect(() => {
@@ -254,8 +267,6 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
     socket.on('stats:updated', handleStatsUpdate);
     socket.on('stats:update', handleStatsUpdate);
 
-    socket.on('notification:created', handleNotificationUpdate);
-
     socket.on('group:updated', handleGroupUpdate);
 
     socket.on('subbot:created', handleSubbotUpdate);
@@ -276,8 +287,6 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       socket.off('stats:updated', handleStatsUpdate);
       socket.off('stats:update', handleStatsUpdate);
-
-      socket.off('notification:created', handleNotificationUpdate);
 
       socket.off('group:updated', handleGroupUpdate);
 

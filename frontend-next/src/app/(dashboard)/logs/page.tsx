@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -23,6 +24,7 @@ import {
   Database,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Copy,
   Activity,
   CheckCircle,
@@ -37,6 +39,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/Select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -380,6 +389,10 @@ export default function LogsPage() {
 
   const exportLogs = async (format: string) => {
     try {
+      if (!canControl) {
+        notify.error('Permisos insuficientes');
+        return;
+      }
       await api.exportLogs();
       notify.success('Logs exportados');
     } catch (error) {
@@ -502,776 +515,460 @@ export default function LogsPage() {
     }
   };
 
-  const restartSystem = async (systemName: string) => {
+  const deleteReport = async (reportId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este reporte?')) return;
     try {
-      if (!canControl) {
-        notify.error('Permisos insuficientes');
-        return;
-      }
-      const response = await fetch(`/api/system/${systemName}/restart`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders() },
-      });
-      
-      if (response.ok) {
-        await loadSystemData(); // Recargar datos
-        const data = await response.json().catch(() => ({}));
-        notify.success(data?.message || `Sistema ${systemName} reiniciado`);
-      } else {
-        const data = await response.json().catch(() => ({}));
-        notify.error(data?.error || `No se pudo reiniciar ${systemName}`);
-      }
+      await api.deleteBackup(reportId);
+      setReports(prev => prev.filter(r => r.id !== reportId));
+      notify.success('Reporte eliminado');
     } catch (error) {
-      console.error('Error reiniciando sistema:', error);
-      notify.error('Error reiniciando sistema');
+      console.error('Error eliminando reporte:', error);
+      notify.error('Error eliminando reporte');
     }
   };
 
-  const getLevelConfig = (level: string) => {
-    return LOG_LEVELS[level as keyof typeof LOG_LEVELS] || LOG_LEVELS.info;
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(prev => !prev);
+    notify.info(`Actualización automática ${autoRefresh ? 'desactivada' : 'activada'}`);
   };
 
-  const logsListVariants = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: reduceMotion ? 0 : 0.02,
-      },
-    },
+  const getLevelIcon = (level: string) => {
+    const config = LOG_LEVELS[level as keyof typeof LOG_LEVELS];
+    return config ? <config.icon className="w-4 h-4" /> : <Info className="w-4 h-4" />;
   };
 
-  const logItemVariants = {
-    hidden: reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.99 },
-    show: reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 },
-    exit: reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.99 },
+  const getLevelColorClass = (level: string) => {
+    const config = LOG_LEVELS[level as keyof typeof LOG_LEVELS];
+    return config ? config.color : 'text-gray-400 bg-gray-500/20';
   };
 
-  if (isLoading && logs.length === 0 && !systemMetrics) {
-    return (
-      <div className="space-y-6">
-        <div className="glass-card p-6">
-          <div className="flex items-center justify-between gap-4">
-            <Skeleton className="h-7 w-56 rounded" />
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-36 rounded-xl" />
-              <Skeleton className="h-10 w-28 rounded-xl" />
-            </div>
-          </div>
-        </div>
+  const getCategoryColorClass = (category: string) => {
+    switch (category) {
+      case 'error': return 'bg-red-500/20 text-red-400';
+      case 'security': return 'bg-purple-500/20 text-purple-400';
+      case 'bot': return 'bg-emerald-500/20 text-emerald-400';
+      case 'api': return 'bg-blue-500/20 text-blue-400';
+      case 'database': return 'bg-indigo-500/20 text-indigo-400';
+      default: return 'bg-gray-500/20 text-gray-400';
+    }
+  };
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="card-stat">
-              <div className="flex items-center justify-between mb-4">
-                <Skeleton className="h-4 w-24 rounded" />
-                <Skeleton className="h-10 w-10 rounded-xl" />
-              </div>
-              <Skeleton className="h-8 w-20 rounded mb-2" />
-              <Skeleton className="h-3 w-28 rounded" />
-            </div>
-          ))}
-        </div>
+  const getSystemStatusIcon = (systemName: string, isRunning: boolean) => {
+    const systemIcons: Record<string, React.ComponentType<any>> = {
+      metrics: Cpu,
+      alerts: Bell,
+      reporting: FileText,
+      resourceMonitor: Activity,
+      logManager: Database,
+      backupSystem: HardDrive,
+      securityMonitor: Shield,
+    };
+    const IconComponent = systemIcons[systemName] || Info;
 
-        <div className="glass-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <Skeleton className="h-5 w-44 rounded" />
-            <Skeleton className="h-10 w-28 rounded-xl" />
-          </div>
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white/5">
-                <Skeleton className="h-9 w-9 rounded-lg" />
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-2/3 rounded mb-2" />
-                  <Skeleton className="h-3 w-1/2 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+    return <IconComponent className={`w-5 h-5 ${isRunning ? 'text-emerald-400' : 'text-red-400'}`} />;
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <PageHeader
-        title="Logs & Sistema"
-        description="Gestión de logs y monitoreo del sistema"
-        icon={<FileText className="w-6 h-6 text-primary-400" />}
+        title="Logs y Monitoreo"
+        description="Visualiza logs del sistema, métricas y estado de servicios en tiempo real."
+        icon={<FileText className="w-6 h-6 text-blue-400" />}
         actions={
           <>
             <Button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              variant={autoRefresh ? "primary" : "secondary"}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} />
-              Auto-refresh
-            </Button>
-
-            <Button
-              onClick={() => {
-                if (activeTab === 'logs') {
-                  loadLogs();
-                  loadStats();
-                } else {
-                  loadSystemData();
-                }
-              }}
               variant="secondary"
-              className="flex items-center gap-2"
+              size="sm"
+              icon={<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />}
+              onClick={() => { loadLogs(); loadStats(); loadSystemData(); }}
+              loading={isLoading}
             >
-              <RefreshCw className="w-4 h-4" />
               Actualizar
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Settings className="w-4 h-4" />}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              Filtros
+            </Button>
+            {canControl && (
+              <Button
+                variant="danger"
+                size="sm"
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={clearLogs}
+              >
+                Limpiar Logs
+              </Button>
+            )}
           </>
         }
       />
 
-      {/* Tabs */}
-      <Reveal>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <TabsList className="border-b-0">
-            <TabsTrigger value="logs" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Logs del Sistema
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              Monitoreo del Sistema
-            </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="logs">Logs del Sistema</TabsTrigger>
+            <TabsTrigger value="system">Estado del Sistema</TabsTrigger>
           </TabsList>
-        </Tabs>
-      </Reveal>
-
-      {error && (
-        <Card className="p-4 border border-red-500/20 bg-red-500/10">
-          <div className="flex items-center gap-2 text-red-300">
-            <AlertTriangle className="h-5 w-5 text-red-400" />
-            <span className="text-sm">{error}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Auto-refresh:</span>
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={toggleAutoRefresh}
+              className="toggle toggle-primary"
+            />
           </div>
-        </Card>
-      )}
+        </div>
 
-      {/* Logs Tab */}
-      {activeTab === 'logs' && (
-        <>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setShowFilters(!showFilters)}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <Filter className="w-4 h-4" />
-              Filtros
-            </Button>
-            
-            <Button
-              onClick={() => exportLogs('json')}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Exportar
-            </Button>
-            
-            <Button
-              onClick={clearLogs}
-              variant="danger"
-              className="flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Limpiar
-            </Button>
-          </div>
-
-          {/* Estadísticas de Logs */}
-          {stats && (
-            <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" delay={0.08} stagger={0.07}>
-              <StaggerItem>
-                <StatCard
-                  title="Total Logs"
-                  value={stats.totalLogs}
-                  subtitle={`${stats.errorCount} errores • ${stats.warnCount} warnings`}
-                  icon={<FileText className="w-6 h-6" />}
-                  color="primary"
-                  delay={0}
-                  loading={false}
-                  animated
-                />
-              </StaggerItem>
-              <StaggerItem>
-                <StatCard
-                  title="Errores"
-                  value={stats.errorCount}
-                  subtitle="Últimas 24h"
-                  icon={<XCircle className="w-6 h-6" />}
-                  color="danger"
-                  delay={0.05}
-                  loading={false}
-                  animated
-                  active={stats.errorCount > 0}
-                />
-              </StaggerItem>
-              <StaggerItem>
-                <StatCard
-                  title="Disco (logs)"
-                  value={stats.diskUsage.formattedSize}
-                  subtitle={`${stats.diskUsage.fileCount} archivos`}
-                  icon={<HardDrive className="w-6 h-6" />}
-                  color="success"
-                  delay={0.1}
-                  loading={false}
-                  animated
-                />
-              </StaggerItem>
-              <StaggerItem>
-                <StatCard
-                  title="Uptime"
-                  value={formatUptime(stats.uptime)}
-                  subtitle={stats.lastLogTime ? `Último: ${formatTimestamp(stats.lastLogTime)}` : undefined}
-                  icon={<Clock className="w-6 h-6" />}
-                  color="info"
-                  delay={0.15}
-                  loading={false}
-                  animated
-                />
-              </StaggerItem>
-            </Stagger>
-          )}
-
-          {/* Filtros */}
-          <AnimatePresence>
+        {activeTab === 'logs' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
             {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="glass-card p-6"
-              >
-                <h3 className="text-lg font-semibold text-white mb-4">Filtros de Búsqueda</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Opciones de Filtro</CardTitle>
+                  <CardDescription>Refina la búsqueda de logs por nivel, categoría y fecha.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Búsqueda
-                    </label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="input-glass pl-10"
-                        placeholder="Buscar en logs..."
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Nivel
-                    </label>
-                    <select
-                      value={selectedLevel}
-                      onChange={(e) => setSelectedLevel(e.target.value)}
-                      className="input-glass"
-                    >
-                      <option value="">Todos los niveles</option>
-                      <option value="error">Error</option>
-                      <option value="warn">Warning</option>
-                      <option value="info">Info</option>
-                      <option value="debug">Debug</option>
-                      <option value="trace">Trace</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Categoría
-                    </label>
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="input-glass"
-                    >
-                      <option value="">Todas las categorías</option>
-                      {LOG_CATEGORIES.map(category => (
-                        <option key={category} value={category}>
-                          {category.charAt(0).toUpperCase() + category.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Rango de Fechas
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="input-glass text-sm"
-                      />
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="input-glass text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Lista de logs */}
-          <div className="glass-card">
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">
-                  Logs del Sistema ({logs.length})
-                </h2>
-                
-                <div className="flex items-center gap-3">
-                  <select
-                    value={pageSize}
-                    onChange={(e) => setPageSize(parseInt(e.target.value))}
-                    className="input-glass text-sm"
-                  >
-                    <option value={25}>25 por página</option>
-                    <option value={50}>50 por página</option>
-                    <option value={100}>100 por página</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            
-            <motion.div variants={logsListVariants} initial="hidden" animate="show" className="divide-y divide-white/5">
-              <AnimatePresence mode="popLayout" initial={false}>
-                {logs.length === 0 ? (
-                  <motion.div key="empty" variants={logItemVariants} exit="exit" className="p-6">
-                    <EmptyState
-                      title="No se encontraron logs"
-                      description="Probá ajustando filtros o refrescando."
-                      icon={<FileText className="w-6 h-6 text-primary-400" />}
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Buscar</label>
+                    <input
+                      type="text"
+                      placeholder="Buscar mensaje o datos..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="input-glass w-full"
                     />
-                  </motion.div>
-                ) : (
-                  logs.map((log, index) => {
-                    const levelConfig = getLevelConfig(log.level);
-                    const Icon = levelConfig.icon;
-                    const isExpanded = expandedLogs.has(index);
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Nivel</label>
+                    <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Todos los niveles" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Todos los niveles</SelectItem>
+                        {Object.keys(LOG_LEVELS).map(level => (
+                          <SelectItem key={level} value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Categoría</label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Todas las categorías" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Todas las categorías</SelectItem>
+                        {LOG_CATEGORIES.map(category => (
+                          <SelectItem key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Fecha Inicio</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="input-glass w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Fecha Fin</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="input-glass w-full"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                    return (
-                      <motion.div
-                        key={`${log.timestamp}-${index}`}
-                        layout="position"
-                        variants={logItemVariants}
-                        exit="exit"
-                        transition={
-                          reduceMotion
-                            ? { duration: 0 }
-                            : {
-                                opacity: { duration: 0.18, ease: 'easeOut' },
-                                y: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
-                                scale: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
-                              }
-                        }
-                        className="p-4 hover:bg-white/5 transition-colors"
-                      >
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${levelConfig.color} flex-shrink-0`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm text-gray-400">
-                                {formatTimestamp(log.timestamp)}
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${levelConfig.color}`}>
-                                {(String(log.level || '')).toUpperCase() || 'INFO'}
-                              </span>
-                              <span className="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-gray-300">
-                                {log.category}
-                              </span>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <Button
-                                onClick={() => copyLogToClipboard(log)}
-                                variant="ghost"
-                                size="sm"
-                                className="p-1"
-                              >
-                                <Copy className="w-3 h-3" />
-                              </Button>
-                              
-                              {(log.data && Object.keys(log.data).length > 0) || log.stack ? (
-                                <Button
-                                  onClick={() => toggleLogExpansion(index)}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="p-1"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronDown className="w-3 h-3" />
-                                  ) : (
-                                    <ChevronRight className="w-3 h-3" />
-                                  )}
-                                </Button>
-                              ) : null}
-                            </div>
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle>Logs Recientes</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('json')}>Exportar JSON</Button>
+                  {/* <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('csv')}>Exportar CSV</Button> */}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : logs.length === 0 ? (
+                  <EmptyState
+                    icon={<FileText className="w-6 h-6 text-gray-400" />}
+                    title="No hay logs para mostrar"
+                    description="Ajusta tus filtros o espera a que se generen nuevos logs."
+                  />
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {logs.map((log, index) => (
+                      <div key={index} className="py-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0">
+                            <Badge className={getLevelColorClass(log.level)}>
+                              {getLevelIcon(log.level)}
+                              <span className="ml-1 capitalize">{log.level}</span>
+                            </Badge>
                           </div>
-                          
-                          <p className="text-white text-sm mb-2">{log.message}</p>
-                          
-                          {log.hostname && (
-                            <p className="text-xs text-gray-500">
-                              Host: {log.hostname} | PID: {log.pid}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">{formatTimestamp(log.timestamp)}</span>
+                                <Badge className={getCategoryColorClass(log.category)}>
+                                  <span className="capitalize">{log.category}</span>
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => copyLogToClipboard(log)} title="Copiar log">
+                                  <Copy className="w-4 h-4 text-gray-500 hover:text-white" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => toggleLogExpansion(index)} title="Ver detalles">
+                                  {expandedLogs.has(index) ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                                </Button>
+                              </div>
+                            </div>
+                            <p className="text-sm text-white/90 leading-relaxed break-words">
+                              {log.message}
                             </p>
-                          )}
-                          
-                          {/* Detalles expandidos */}
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="mt-3 space-y-3"
-                              >
-                                {log.data && Object.keys(log.data).length > 0 && (
-                                  <div>
-                                    <h4 className="text-sm font-medium text-gray-300 mb-2">Datos:</h4>
-                                    <pre className="text-xs bg-gray-900 p-3 rounded-lg overflow-x-auto text-gray-300">
-                                      {JSON.stringify(log.data, null, 2)}
-                                    </pre>
-                                  </div>
-                                )}
-                                
-                                {log.stack && (
-                                  <div>
-                                    <h4 className="text-sm font-medium text-gray-300 mb-2">Stack Trace:</h4>
-                                    <pre className="text-xs bg-gray-900 p-3 rounded-lg overflow-x-auto text-red-300">
-                                      {log.stack.join('\n')}
-                                    </pre>
-                                  </div>
-                                )}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                            <AnimatePresence>
+                              {expandedLogs.has(index) && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="mt-3 p-3 rounded-lg bg-white/5 border border-white/10 text-xs font-mono overflow-x-auto"
+                                >
+                                  <pre className="whitespace-pre-wrap break-all">{JSON.stringify(log.data, null, 2)}</pre>
+                                  {log.stack && log.stack.length > 0 && (
+                                    <>
+                                      <h4 className="font-bold mt-3 mb-1">Stack Trace:</h4>
+                                      <pre className="whitespace-pre-wrap break-all text-red-400">{log.stack.join('\n')}</pre>
+                                    </>
+                                  )}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
                         </div>
                       </div>
-                      </motion.div>
-                    );
-                  })
+                    ))}
+                  </div>
                 )}
-              </AnimatePresence>
-            </motion.div>
-          </div>
-        </>
-      )}
-
-      {/* System Monitoring Tab */}
-      {activeTab === 'system' && (
-        <>
-          {/* Métricas principales */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">CPU</CardTitle>
-                <Cpu className="h-4 w-4 text-gray-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {systemMetrics?.cpu.usage.toFixed(1)}%
-                </div>
-                <Progress value={systemMetrics?.cpu.usage || 0} className="mt-2" />
-                <p className="text-xs text-gray-500 mt-2">
-                  {systemMetrics?.cpu.cores} núcleos
-                </p>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Memoria</CardTitle>
-                <MemoryStick className="h-4 w-4 text-gray-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {systemMetrics?.memory.usage.toFixed(1)}%
-                </div>
-                <Progress value={systemMetrics?.memory.usage || 0} className="mt-2" />
-                <p className="text-xs text-gray-500 mt-2">
-                  {formatBytes(systemMetrics?.memory.used || 0)} / {formatBytes(systemMetrics?.memory.total || 0)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Disco</CardTitle>
-                <HardDrive className="h-4 w-4 text-gray-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {systemMetrics?.disk.usage.toFixed(1)}%
-                </div>
-                <Progress value={systemMetrics?.disk.usage || 0} className="mt-2" />
-                <p className="text-xs text-gray-500 mt-2">
-                  {systemMetrics?.disk.used} / {systemMetrics?.disk.total}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Uptime</CardTitle>
-                <Clock className="h-4 w-4 text-gray-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatUptime(systemMetrics?.uptime || 0)}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Sistema activo
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Gráficos de métricas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {activeTab === 'system' && systemMetrics && systemStatus && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
             <Card>
               <CardHeader>
-                <CardTitle>CPU y Memoria (Última hora)</CardTitle>
+                <CardTitle>Métricas del Sistema</CardTitle>
+                <CardDescription>Uso de CPU, memoria y disco en tiempo real.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={metricsHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="timestamp" 
-                      tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                    />
-                    <YAxis />
-                    <Tooltip 
-                      labelFormatter={(value) => new Date(value).toLocaleString()}
-                    />
-                    <Line type="monotone" dataKey="cpu" stroke="rgb(var(--primary))" name="CPU %" />
-                    <Line type="monotone" dataKey="memory" stroke="rgb(var(--success))" name="Memoria %" />
-                  </LineChart>
-                </ResponsiveContainer>
+              <CardContent className="space-y-6">
+                <div>
+                  <h4 className="text-sm font-semibold text-white mb-2">Uso de CPU</h4>
+                  <Progress value={systemMetrics.cpu.usage} className="w-full" />
+                  <p className="text-xs text-muted mt-1">{systemMetrics.cpu.usage.toFixed(2)}% de {systemMetrics.cpu.cores} núcleos</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-white mb-2">Uso de Memoria</h4>
+                  <Progress value={systemMetrics.memory.usage} className="w-full" />
+                  <p className="text-xs text-muted mt-1">{formatBytes(systemMetrics.memory.used)} / {formatBytes(systemMetrics.memory.total)}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-white mb-2">Uso de Disco</h4>
+                  <Progress value={systemMetrics.disk.usage} className="w-full" />
+                  <p className="text-xs text-muted mt-1">{systemMetrics.disk.used} / {systemMetrics.disk.total}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-white mb-2">Uptime</h4>
+                  <p className="text-sm text-white">{formatUptime(systemMetrics.uptime * 1000)}</p>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Uso de Disco</CardTitle>
+                <CardTitle>Estado de Servicios</CardTitle>
+                <CardDescription>Estado actual de los componentes clave del sistema.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={metricsHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="timestamp" 
-                      tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                    />
-                    <YAxis />
-                    <Tooltip 
-                      labelFormatter={(value) => new Date(value).toLocaleString()}
-                    />
-                    <Area type="monotone" dataKey="disk" stroke="rgb(var(--warning))" fill="rgb(var(--warning))" name="Disco %" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Estado de sistemas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Server className="h-5 w-5" />
-                <span>Estado de Sistemas</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {systemStatus && Object.entries(systemStatus.systems).map(([name, isRunning]) => (
-                  <div key={name} className="flex items-center justify-between p-3 border rounded-lg">
-                    <span className="text-sm font-medium capitalize">
-                      {name.replace(/([A-Z])/g, ' $1').trim()}
-                    </span>
-                    <div className={`flex items-center space-x-1 ${getSystemStatusColor(isRunning)}`}>
-                      {isRunning ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                      <span className="text-xs">{isRunning ? 'Activo' : 'Inactivo'}</span>
+              <CardContent className="space-y-4">
+                {Object.entries(systemStatus.systems).map(([key, isRunning]) => (
+                  <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-3">
+                      {getSystemStatusIcon(key, isRunning)}
+                      <span className="text-sm font-medium capitalize text-white">{key.replace(/([A-Z])/g, ' $1')}</span>
                     </div>
+                    <Badge className={isRunning ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}>
+                      {isRunning ? 'Activo' : 'Inactivo'}
+                    </Badge>
                   </div>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Alertas recientes */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Bell className="h-5 w-5" />
-                <span>Alertas del Sistema</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {alerts.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium">No hay alertas activas</p>
-                  <p className="text-gray-400">El sistema está funcionando correctamente</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {alerts.map((alert) => (
-                    <div key={alert.id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3">
-                          <div className={`w-3 h-3 rounded-full mt-1 ${getSeverityColor(alert.severity)}`} />
-                          <div className="flex-1">
-                            <h4 className="font-medium">{alert.title}</h4>
-                            <p className="text-sm text-gray-400 mt-1">{alert.message}</p>
-                            <p className="text-xs text-gray-500 mt-2">
-                              {new Date(alert.timestamp).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant={alert.resolved ? 'success' : 'danger'}>
-                          {alert.resolved ? 'Resuelta' : (String(alert.severity || 'info')).toUpperCase()}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Control de sistemas */}
-          {canControl && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Settings className="h-5 w-5" />
-                  <span>Control de Sistemas</span>
-                </CardTitle>
-                <CardDescription>
-                  Gestionar y controlar los sistemas del bot
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {systemStatus && Object.entries(systemStatus.systems).map(([name, isRunning]) => (
-                    <div key={name} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium capitalize">
-                            {name.replace(/([A-Z])/g, ' $1').trim()}
-                          </h4>
-                          <p className={`text-sm ${getSystemStatusColor(isRunning)}`}>
-                            {isRunning ? 'Activo' : 'Inactivo'}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => restartSystem(name)}
-                        >
-                          Reiniciar
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Reportes del sistema */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="h-5 w-5" />
-                <span>Reportes del Sistema</span>
-              </CardTitle>
-              <CardDescription>
-                Generar y descargar reportes del sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex space-x-2">
-                  <Button onClick={() => generateReport('daily')} variant="secondary" disabled={!canControl}>
-                    Reporte Diario
-                  </Button>
-                  <Button onClick={() => generateReport('performance')} variant="secondary" disabled={!canControl}>
-                    Reporte de Rendimiento
-                  </Button>
-                  <Button onClick={() => generateReport('security')} variant="secondary" disabled={!canControl}>
-                    Reporte de Seguridad
-                  </Button>
-                </div>
-                {!canControl && (
-                  <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600">
-                    Solo admins/owner pueden generar reportes o reiniciar sistemas.
-                  </p>
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Historial de Recursos</CardTitle>
+                <CardDescription>Tendencias de uso de CPU y memoria en las últimas horas.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {metricsHistory.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={metricsHistory}>
+                      <defs>
+                        <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorMemory" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis 
+                        dataKey="timestamp" 
+                        tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} 
+                        stroke="#6b7280"
+                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        stroke="#6b7280"
+                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                        unit="%"
+                      />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', borderRadius: '8px' }}
+                        labelStyle={{ color: '#e5e7eb' }}
+                        itemStyle={{ color: '#d1d5db' }}
+                        formatter={(value: number, name: string) => [`${value.toFixed(2)}%`, name === 'cpu' ? 'CPU' : 'Memoria']}
+                      />
+                      <Area type="monotone" dataKey="cpu" stroke="#8884d8" fillOpacity={1} fill="url(#colorCpu)" />
+                      <Area type="monotone" dataKey="memory" stroke="#82ca9d" fillOpacity={1} fill="url(#colorMemory)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <EmptyState
+                    icon={<TrendingUp className="w-6 h-6 text-gray-400" />}
+                    title="No hay datos de historial"
+                    description="El historial de métricas se recopilará con el tiempo."
+                  />
                 )}
+              </CardContent>
+            </Card>
 
-                <div className="space-y-3">
-                  {reports.map((report) => (
-                    <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{report.title}</p>
-                        <p className="text-sm text-gray-400">
-                          {new Date(report.generatedAt).toLocaleString()} • {formatBytes(report.size)}
-                        </p>
+            <Card>
+              <CardHeader>
+                <CardTitle>Alertas Activas</CardTitle>
+                <CardDescription>Notificaciones importantes del sistema.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {alerts.length > 0 ? (
+                  <div className="space-y-3">
+                    {alerts.map(alert => (
+                      <div key={alert.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                        <div className={`w-2 h-2 rounded-full ${getSeverityColor(alert.severity)}`} />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">{alert.title}</p>
+                          <p className="text-xs text-muted">{alert.message}</p>
+                        </div>
+                        <span className="text-xs text-gray-500">{formatTimestamp(alert.timestamp)}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant={
-                            report.status === 'completed'
-                              ? 'success'
-                              : report.status === 'failed'
-                                ? 'danger'
-                                : 'warning'
-                          }
-                        >
-                          {report.status === 'completed'
-                            ? 'Completado'
-                            : report.status === 'generating'
-                              ? 'Generando'
-                              : 'Error'}
-                        </Badge>
-                        {report.status === 'completed' && (
-                          <Button size="sm" variant="secondary" onClick={() => downloadReport(report)}>
-                            Descargar
-                          </Button>
-                        )}
-                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={<Bell className="w-6 h-6 text-gray-400" />}
+                    title="No hay alertas activas"
+                    description="Tu sistema está funcionando sin problemas."
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {canControl && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reportes y Backups</CardTitle>
+                  <CardDescription>Genera y gestiona reportes de sistema y backups.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => generateReport('daily')}>Generar Reporte Diario</Button>
+                    <Button variant="secondary" size="sm" onClick={() => generateReport('weekly')}>Generar Reporte Semanal</Button>
+                    <Button variant="secondary" size="sm" onClick={() => generateReport('monthly')}>Generar Reporte Mensual</Button>
+                  </div>
+                  {reports.length > 0 ? (
+                    <div className="space-y-3">
+                      {reports.map(report => (
+                        <div key={report.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-white">{report.title}</p>
+                            <p className="text-xs text-muted">{report.type} - {formatTimestamp(report.generatedAt)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={report.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : report.status === 'failed' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}>
+                              {report.status === 'completed' ? 'Completado' : report.status === 'failed' ? 'Fallido' : 'Generando'}
+                            </Badge>
+                            {report.status === 'completed' && (
+                              <Button variant="ghost" size="icon" onClick={() => downloadReport(report)} title="Descargar Reporte">
+                                <Download className="w-4 h-4 text-gray-500 hover:text-white" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => deleteReport(report.id)} title="Eliminar Reporte">
+                              <Trash2 className="w-4 h-4 text-gray-500 hover:text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+                  ) : (
+                    <EmptyState
+                      icon={<Archive className="w-6 h-6 text-gray-400" />}
+                      title="No hay reportes generados"
+                      description="Genera reportes para tener un historial de tu sistema."
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+        )}
+      </Tabs>
     </div>
   );
 }

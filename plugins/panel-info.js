@@ -3,7 +3,9 @@
  */
 
 let handler = async (m, { args, usedPrefix, command, conn }) => {
-  const panelUrl = process.env.PANEL_URL || 'https://melodiaauris.qzz.io'
+  const panelUrl =
+    (process.env.PANEL_URL || process.env.NEXT_PUBLIC_API_URL || '').trim() ||
+    'http://localhost:3000'
   
   switch (command) {
     case 'panel':

@@ -323,7 +323,7 @@ export default function BotStatusPage() {
                 className="flex flex-col items-center">
                 {qrImage ? (
                   <div className="p-4 bg-white rounded-2xl shadow-2xl">
-                    <img src={qrImage} alt="QR Code" className="w-64 h-64" />
+                    <img src={qrImage} alt="QR Code" className="w-64 h-64" decoding="async" />
                   </div>
                 ) : (
                   <div className="w-64 h-64 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">

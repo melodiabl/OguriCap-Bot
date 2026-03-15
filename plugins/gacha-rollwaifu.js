@@ -133,8 +133,7 @@ const handler = async (m, { conn, usedPrefix, command }) => {
     const sentMessage = await conn.sendFile(m.chat, randomImage, charData.name + '.jpg', caption, m)
     
     chatData.lastRolledId = characterId
-    // Guardamos el ID del mensaje enviado para validar la respuesta (cita) después
-    chatData.lastRolledMsgId = sentMessage?.key?.id || sentMessage?.id || null
+    chatData.lastRolledMsgId = sentMessage.key?.id || null
     chatData.lastRolledCharacter = {
       id: characterId,
       name: charData.name,

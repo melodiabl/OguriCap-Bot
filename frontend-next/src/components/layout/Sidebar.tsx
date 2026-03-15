@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,44 +14,19 @@ import { useBotStatus } from '@/hooks/useRealTime';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { useNavParticleBurst } from '@/components/ui/NavParticles';
-import {
-  Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings,
-  LogOut, Bell, FileText, BarChart3, Image, Zap, Globe,
-  Calendar, AlertTriangle, Server
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NAV_ITEMS, type NavColor } from '@/lib/navigation';
 
-const menuItems = [
-  { path: '/', icon: Home, label: 'Dashboard', color: 'primary', page: 'dashboard' },
-  { path: '/bot', icon: Bot, label: 'Estado del Bot', color: 'success', page: 'bot-status' },
-  { path: '/usuarios', icon: Users, label: 'Usuarios del Panel', color: 'info', page: 'usuarios' },
-  { path: '/community-users', icon: Users, label: 'Usuarios Comunidad', color: 'violet', page: 'community-users' },
-  { path: '/subbots', icon: Zap, label: 'SubBots', color: 'warning', page: 'subbots' },
-  { path: '/grupos', icon: MessageSquare, label: 'Grupos', color: 'violet', page: 'grupos' },
-  { path: '/grupos-management', icon: Globe, label: 'Gestión Global', color: 'cyan', page: 'grupos-management' },
-  { path: '/aportes', icon: Package, label: 'Aportes', color: 'success', page: 'aportes' },
-  { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos', color: 'warning', page: 'pedidos' },
-  { path: '/proveedores', icon: Users, label: 'Proveedores', color: 'info', page: 'proveedores' },
-  { path: '/tareas', icon: Calendar, label: 'Tareas & Programador', color: 'primary', page: 'tareas' },
-  { path: '/ai-chat', icon: Bot, label: 'AI Chat', color: 'violet', page: 'ai-chat' },
-  { path: '/alertas', icon: AlertTriangle, label: 'Alertas', color: 'danger', page: 'alertas' },
-  { path: '/recursos', icon: BarChart3, label: 'Recursos', color: 'success', page: 'recursos' },
-  { path: '/configuracion', icon: Settings, label: 'Configuración', color: 'cyan', page: 'configuracion' },
-  { path: '/logs', icon: FileText, label: 'Logs & Sistema', color: 'danger', page: 'logs' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'violet', page: 'analytics' },
-  { path: '/multimedia', icon: Image, label: 'Multimedia', color: 'cyan', page: 'multimedia' },
-];
-
-const colorClasses: Record<string, string> = {
-  primary: 'text-primary-400 bg-primary-500/20',
-  success: 'text-emerald-400 bg-emerald-500/20',
-  warning: 'text-amber-400 bg-amber-500/20',
+const colorClasses: Record<NavColor, string> = {
+  primary: 'text-oguri-purple bg-oguri-purple/20 shadow-glow-oguri-purple',
+  success: 'text-oguri-cyan bg-oguri-cyan/20 shadow-glow-oguri-cyan',
+  warning: 'text-oguri-gold bg-oguri-gold/20 shadow-glow-oguri-mixed',
   danger: 'text-red-400 bg-red-500/20',
-  info: 'text-cyan-400 bg-cyan-500/20',
-  violet: 'text-violet-400 bg-violet-500/20',
-  cyan: 'text-cyan-400 bg-cyan-500/20',
+  info: 'text-oguri-blue bg-oguri-blue/20 shadow-glow-oguri-blue',
+  violet: 'text-oguri-lavender bg-oguri-lavender/20 shadow-glow-oguri-lavender',
+  cyan: 'text-oguri-cyan bg-oguri-cyan/20 shadow-glow-oguri-cyan',
 };
 
 interface SidebarProps {
@@ -94,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // Auto-refresh del sidebar - DISABLED to prevent resource exhaustion
   // useAutoRefresh(refreshAll, { interval: 30000 });
 
-  const allowedMenuItems = menuItems.filter(item => hasPermission(item.page));
+  const allowedMenuItems = NAV_ITEMS.filter(item => hasPermission(item.pageKey));
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;
 
   return (
@@ -112,11 +88,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
+      {/* Sidebar - OGURI CAP REMODEL */}
       <aside
         className={cn(
           'fixed top-0 left-0 z-50 h-screen w-72',
-          'glass-dark border-r border-white/10 sidebar-chrome',
+          'glass-phantom border-r border-oguri-purple/20 sidebar-chrome',
           'flex flex-col',
           'transform transition-transform duration-300 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',
@@ -124,25 +100,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         )}
       >
         <div className="relative z-10 flex flex-col h-full">
-        {/* Logo */}
-        <div className="p-6 border-b border-white/10">
-          <Link href="/" className="flex items-center gap-3">
+        {/* Logo with Oguri Aura */}
+        <div className="p-6 border-b border-oguri-purple/10">
+          <Link href="/" className="flex items-center gap-3 group">
             <motion.div
-              whileHover={{ rotate: 360 }}
+              whileHover={{ rotate: 360, scale: 1.1 }}
               transition={{ duration: 0.5 }}
-              className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 flex items-center justify-center shadow-glow-lg hover-lift-soft"
+              className="relative w-12 h-12 rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-mixed animate-oguri-aura flex items-center justify-center overflow-hidden"
             >
-              <Bot className="w-6 h-6 text-white" />
+              <div className="absolute inset-[2px] rounded-2xl bg-oguri-phantom-950/90" />
+              <Image
+                src="/oguricap-avatar.png"
+                alt="Oguri Cap"
+                width={36}
+                height={36}
+                className="relative w-10 h-10 rounded-full border border-oguri-lavender/40 object-cover group-hover:animate-eye-glow"
+                priority
+              />
             </motion.div>
             <div>
-              <h1 className="text-xl font-bold gradient-text">Oguri Bot</h1>
-              <p className="text-xs text-muted">Panel de Control</p>
+              <h1 className="text-xl font-black text-gradient-oguri tracking-tight">OguriCap Bot</h1>
+              <p className="text-[10px] uppercase font-bold text-oguri-lavender/60 tracking-[0.1em]">Cinderella Gray Panel</p>
             </div>
           </Link>
         </div>
 
-        {/* Bot Status Mini */}
-        <div className="mx-4 mt-4 rounded-xl glass hover-outline-gradient hover-glass-bright p-4">
+        {/* Bot Status Mini - Oguri Power Indicator */}
+        <div className="mx-4 mt-4 rounded-xl glass-oguri hover-oguri-glow p-4 animate-start-burst">
           <div className="flex items-center justify-between mb-2">
             <StatusIndicator
               status={
@@ -159,12 +143,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               {!isGloballyOn ? 'OFF' : isConnecting ? 'SYNC' : isConnected ? 'LIVE' : 'DOWN'}
             </StatusBadge>
           </div>
-          <div className="text-xs text-muted">
+          <div className="text-xs text-gray-400">
             {!isGloballyOn ? 'Bot Desactivado' : 
              isConnected ? 'Bot Conectado' : 'Bot Desconectado'}
           </div>
           {dashboardStats && (
-            <div className="flex justify-between text-xs text-muted mt-1">
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>Grupos: {dashboardStats.totalGrupos || 0}</span>
               <span>Usuarios: {dashboardStats.comunidad?.usuariosWhatsApp || 0}</span>
             </div>
@@ -204,7 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     {isActive && (
                       <motion.div
                         layoutId="activeTab"
-                        className="absolute right-4 w-2 h-2 rounded-full bg-primary-500 shadow-glow"
+                        className="absolute right-4 w-2 h-2 rounded-full bg-oguri-lavender shadow-glow-oguri-lavender animate-pulse"
                       />
                     )}
                   </SidebarNavLink>
@@ -216,11 +200,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* User section */}
         <div className="p-4 border-t border-white/10 space-y-3">
-          {/* Theme Toggle */}
-          <div className="flex justify-center">
-            <ThemeToggle />
-          </div>
-          
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
             <div className="avatar">
               {user?.username?.charAt(0).toUpperCase() || 'U'}
@@ -229,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <p className="text-sm font-semibold text-white truncate">
                 {user?.username || 'Usuario'}
               </p>
-              <p className="text-xs text-muted truncate">
+              <p className="text-xs text-gray-500 truncate">
                 {user?.rol || 'usuario'}
               </p>
             </div>
@@ -237,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={logout}
-              className="p-2 rounded-lg text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors press-scale focus-ring-animated"
+              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors press-scale focus-ring-animated"
               title="Cerrar sesión"
             >
               <LogOut className="w-5 h-5" />

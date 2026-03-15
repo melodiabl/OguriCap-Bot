@@ -621,6 +621,7 @@ export default function UsuariosPage() {
               onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
               className="input-glass w-full"
               placeholder="Nombre de usuario (mín. 3 caracteres)"
+              data-autofocus
             />
           </div>
           <div>

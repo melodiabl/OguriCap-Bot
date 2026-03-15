@@ -2,8 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Turnstile from 'react-turnstile';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { ForgotPasswordModal } from '@/components/ForgotPasswordModal';
@@ -11,6 +13,7 @@ import { Bot, Eye, EyeOff, Lock, User, Sparkles, Zap, Shield, Crown, UserCheck, 
 import { notify } from '@/lib/notify';
 import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 import { cn } from '@/lib/utils';
+import { LoginRolesSelector, type LoginRoleOption } from '@/components/auth/LoginRolesSelector';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -20,56 +23,62 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [maintenanceAccessAllowed, setMaintenanceAccessAllowed] = useState(false);
+  const [detectedIP, setDetectedIP] = useState<string | null>(null);
+  const [showMaintenanceLogin, setShowMaintenanceLogin] = useState(false);
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean; role?: boolean }>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const [turnstileRequired, setTurnstileRequired] = useState(true);
+
+  const effectiveTurnstileSiteKey = turnstileSiteKey || '';
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const { performanceMode } = useDevicePerformance();
 
-  const roles = useMemo(
+  const roles = useMemo<readonly LoginRoleOption[]>(
     () =>
       [
         {
           value: 'owner',
           label: 'Owner',
           icon: Crown,
-          tone: 'secondary',
-          description: 'Acceso completo al sistema',
+          tone: 'accent',
+          description: 'Control absoluto del Aura',
         },
         {
           value: 'admin',
           label: 'Administrador',
           icon: Shield,
           tone: 'danger',
-          description: 'Gestión avanzada del bot',
+          description: 'Gestión táctica Cinderella Gray',
         },
         {
           value: 'moderador',
           label: 'Moderador',
           icon: UserCheck,
-          tone: 'accent',
-          description: 'Moderación de contenido',
+          tone: 'secondary',
+          description: 'Moderación de Competencia',
         },
         {
           value: 'usuario',
           label: 'Usuario',
           icon: Users,
           tone: 'success',
-          description: 'Acceso básico al panel',
+          description: 'Acceso básico al Paddock',
         },
-      ] as const,
+      ],
     []
   );
 
-  const roleToneClasses = useMemo(() => {
-    return {
-      owner: { icon: 'text-secondary', bg: 'bg-secondary/12', border: 'border-secondary/25' },
-      admin: { icon: 'text-danger', bg: 'bg-danger/12', border: 'border-danger/25' },
-      moderador: { icon: 'text-accent', bg: 'bg-accent/12', border: 'border-accent/25' },
-      usuario: { icon: 'text-success', bg: 'bg-success/12', border: 'border-success/25' },
-    } as const;
-  }, []);
+  const rolesForLogin = useMemo<readonly LoginRoleOption[]>(() => {
+    if (!isMaintenanceMode) return roles;
+    if (maintenanceAccessAllowed) return roles;
+    return roles.filter((r) => r.value === 'owner' || r.value === 'admin');
+  }, [isMaintenanceMode, maintenanceAccessAllowed, roles]);
 
   const checkMaintenanceStatus = useCallback(async () => {
     try {
@@ -77,15 +86,31 @@ export default function LoginPage() {
       const response = await fetch('/api/health');
       const data = await response.json();
 
+      const siteKey = typeof data?.turnstileSiteKey === 'string' && data.turnstileSiteKey.trim() ? data.turnstileSiteKey.trim() : null;
+      setTurnstileSiteKey(siteKey);
+      if (typeof data?.turnstileRequired === 'boolean') setTurnstileRequired(data.turnstileRequired);
+
       if (data.maintenanceMode) {
         setIsMaintenanceMode(true);
-        notify.warning('El sistema está en modo de mantenimiento');
+        const allowed = !!(data.canAccessDuringMaintenance || data.ipAllowed);
+        setMaintenanceAccessAllowed(allowed);
+        setDetectedIP(typeof data.clientIP === 'string' ? data.clientIP : null);
+        setShowMaintenanceLogin(allowed);
+        if (!allowed) notify.warning('El sistema está en modo de mantenimiento');
       } else {
         setIsMaintenanceMode(false);
+        setMaintenanceAccessAllowed(true);
+        setDetectedIP(typeof data.clientIP === 'string' ? data.clientIP : null);
+        setShowMaintenanceLogin(true);
       }
     } catch (error) {
       console.error('Error checking maintenance status:', error);
       setIsMaintenanceMode(false);
+      setMaintenanceAccessAllowed(true);
+      setDetectedIP(null);
+      setShowMaintenanceLogin(true);
+      setTurnstileSiteKey(null);
+      setTurnstileRequired(true);
     } finally {
       setIsCheckingMaintenance(false);
     }
@@ -127,11 +152,18 @@ export default function LoginPage() {
 
   // checkMaintenanceStatus declared above (useCallback)
 
+  useEffect(() => {
+    if (!isMaintenanceMode || maintenanceAccessAllowed) return;
+    if (selectedRole && !['owner', 'admin', 'administrador'].includes(String(selectedRole).toLowerCase())) {
+      setSelectedRole('');
+    }
+  }, [isMaintenanceMode, maintenanceAccessAllowed, selectedRole]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Verificar modo de mantenimiento antes de proceder
-    if (isMaintenanceMode) {
+    if (isMaintenanceMode && !maintenanceAccessAllowed && selectedRole && !['owner', 'admin', 'administrador'].includes(String(selectedRole).toLowerCase())) {
       notify.warning('El sistema está en modo de mantenimiento. Solo los administradores pueden acceder.');
       return;
     }
@@ -167,16 +199,20 @@ export default function LoginPage() {
       return;
     }
 
+    if (turnstileRequired && (!effectiveTurnstileSiteKey || !turnstileToken)) {
+      notify.error('Por favor completa la verificación de Turnstile');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await login(username.trim(), password, selectedRole);
+      await login(username.trim(), password, selectedRole, turnstileRequired ? turnstileToken : undefined);
       const selectedRoleData = roles.find(r => r.value === selectedRole);
       notify.success(`¡Bienvenido como ${selectedRoleData?.label}!`);
       router.push('/');
     } catch (error: any) {
       console.error('Login error:', error);
 
-      // Manejo de errores mejorado
       let errorMessage = 'Error al iniciar sesión';
 
       if (error?.message) {
@@ -187,8 +223,9 @@ export default function LoginPage() {
         errorMessage = 'Credenciales incorrectas';
       } else if (error?.response?.status === 403) {
         errorMessage = 'No tienes permisos para este rol';
+      } else if (error?.response?.status === 429) {
+        errorMessage = 'Demasiados intentos de login. Intenta más tarde';
       } else if (error?.response?.status === 503) {
-        // Modo de mantenimiento activado durante el login
         if (error?.response?.data?.maintenanceMode) {
           setIsMaintenanceMode(true);
           errorMessage = 'El sistema está en modo de mantenimiento';
@@ -200,6 +237,8 @@ export default function LoginPage() {
       }
 
       notify.error(errorMessage);
+      setTurnstileToken(null);
+      setTurnstileKey(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -219,17 +258,25 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
-            <Bot className="w-8 h-8 text-white animate-pulse" />
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-oguri-primary flex items-center justify-center shadow-glow-oguri-mixed mb-4 relative animate-oguri-aura">
+            <div className="absolute inset-[3px] rounded-2xl bg-oguri-phantom-950/90" />
+            <Image
+              src="/oguricap-avatar.png"
+              alt="Oguri Cap"
+              width={40}
+              height={40}
+              className="relative w-10 h-10 rounded-full border-2 border-oguri-lavender/40 object-cover animate-pulse"
+              priority
+            />
           </div>
-          <p className="text-muted">Verificando estado del sistema...</p>
+          <p className="text-oguri-lavender/60 font-bold uppercase tracking-widest text-xs">Sincronizando Aura...</p>
         </div>
       </div>
     );
   }
 
   // Mostrar pantalla de mantenimiento si está activo
-  if (isMaintenanceMode) {
+  if (isMaintenanceMode && !maintenanceAccessAllowed && !showMaintenanceLogin) {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
         <motion.div
@@ -265,6 +312,21 @@ export default function LoginPage() {
               >
                 Verificar Estado
               </Button>
+
+              <Button
+                type="button"
+                onClick={() => setShowMaintenanceLogin(true)}
+                variant="secondary"
+                className="w-full"
+              >
+                Soy Owner/Admin, iniciar sesión
+              </Button>
+
+              {detectedIP && (
+                <p className="text-xs text-muted/80">
+                  IP detectada: <span className="font-semibold">{detectedIP}</span>
+                </p>
+              )}
 
               <p className="text-xs text-muted/80">
                 Si eres administrador y necesitas acceso urgente, contacta al equipo técnico.
@@ -309,13 +371,13 @@ export default function LoginPage() {
         />
       </div>
 
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-10 lg:gap-12 relative z-10 lg:min-h-[calc(100vh-5rem)]">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-10 lg:gap-12 items-center relative z-10 lg:min-h-[calc(100vh-5rem)]">
         {/* Left side - Branding */}
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="hidden lg:flex flex-col items-start pt-24 pb-12"
+          className="hidden lg:flex flex-col items-start justify-center"
         >
           <motion.div
             initial={{ scale: 0 }}
@@ -323,11 +385,19 @@ export default function LoginPage() {
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
             className="mb-8"
           >
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6">
-              <Bot className="w-10 h-10 text-white" />
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-6 relative">
+              <div className="absolute inset-[4px] rounded-3xl bg-slate-950/90" />
+              <Image
+                src="/oguricap-login.png"
+                alt="Oguri Cap"
+                width={96}
+                height={96}
+                className="relative w-20 h-20 rounded-3xl object-cover border border-white/40"
+                priority
+              />
             </div>
             <h1 className="text-5xl font-bold mb-4">
-              <span className="gradient-text-animated">Oguri Bot</span>
+              <span className="gradient-text-animated">OguriCap Bot</span>
             </h1>
             <p className="text-xl text-muted">Panel de Control Avanzado</p>
           </motion.div>
@@ -376,10 +446,18 @@ export default function LoginPage() {
               animate={{ scale: 1 }}
               className="lg:hidden text-center mb-5 [@media(max-height:740px)]:mb-3"
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
-                <Bot className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 relative">
+                <div className="absolute inset-[3px] rounded-2xl bg-slate-950/90" />
+                <Image
+                  src="/oguricap-login.png"
+                  alt="Oguri Cap"
+                  width={56}
+                  height={56}
+                  className="relative w-12 h-12 rounded-2xl object-cover border border-white/50"
+                  priority
+                />
               </div>
-              <h1 className="text-3xl font-black gradient-text-animated">Oguri Bot</h1>
+              <h1 className="text-3xl font-black gradient-text-animated">OguriCap Bot</h1>
             </motion.div>
 
             {/* Login card */}
@@ -397,6 +475,19 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
+                {isMaintenanceMode && (
+                  <div className="rounded-2xl border border-warning/25 bg-warning/10 p-3">
+                    <p className="text-xs font-semibold text-warning flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      Sistema en mantenimiento
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      {maintenanceAccessAllowed
+                        ? 'Acceso permitido por IP/token.'
+                        : 'Solo roles Owner/Administrador pueden iniciar sesión.'}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-muted mb-1.5">Usuario</label>
                   <div className="relative">
@@ -440,67 +531,18 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-muted mb-2">
-                    Rol de Acceso <span className="text-danger">*</span>
-                  </label>
-                  {(!selectedRole || fieldErrors.role) && (
-                    <p
-                      className={cn(
-                        'text-xs mb-3 flex items-center gap-1',
-                        fieldErrors.role ? 'text-danger' : 'text-warning'
-                      )}
-                    >
-                      <span aria-hidden="true">⚠</span> Selecciona el rol con el que deseas acceder
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {roles.map((role) => {
-                      const IconComponent = role.icon;
-                      const isSelected = selectedRole === role.value;
-                      const tone = roleToneClasses[role.value as keyof typeof roleToneClasses];
-                      
-                      return (
-                        <motion.button
-                          key={role.value}
-                          type="button"
-                          onClick={() => {
-                            setSelectedRole(role.value);
-                            if (fieldErrors.role) setFieldErrors((prev) => ({ ...prev, role: false }));
-                          }}
-                          whileHover={performanceMode ? undefined : { scale: 1.02 }}
-                          whileTap={{ scale: 0.985 }}
-                          className={cn(
-                            'p-2.5 rounded-2xl border transition-all duration-200 text-left hover-outline-gradient press-scale',
-                            isSelected
-                              ? `${tone.bg} ${tone.border} shadow-[0_18px_60px_rgb(var(--shadow-rgb)_/_0.28)]`
-                              : 'bg-card/15 border-border/20 hover:bg-card/25 hover:border-border/35',
-                            !selectedRole && fieldErrors.role && 'shake-on-error'
-                          )}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <IconComponent className={cn('w-4 h-4', isSelected ? tone.icon : 'text-muted')} />
-                            <span className={cn('font-semibold text-sm', isSelected ? 'text-foreground' : 'text-foreground/85')}>
-                              {role.label}
-                            </span>
-                          </div>
-                          <p className={cn('text-xs leading-snug hidden sm:block', isSelected ? 'text-muted' : 'text-muted/80')}>
-                            {role.description}
-                          </p>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                  {selectedRole && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-xs text-success mt-2 flex items-center gap-1"
-                    >
-                      <span aria-hidden="true">✓</span> Accederás como {roles.find(r => r.value === selectedRole)?.label}
-                    </motion.p>
-                  )}
-                </div>
+                <LoginRolesSelector
+                  roles={rolesForLogin}
+                  selectedRole={selectedRole}
+                  onChange={(value) => {
+                    setSelectedRole(value);
+                    if (fieldErrors.role) {
+                      setFieldErrors((prev) => ({ ...prev, role: false }));
+                    }
+                  }}
+                  showError={!!fieldErrors.role}
+                  performanceMode={performanceMode}
+                />
 
                 <div className="flex items-center justify-between text-sm">
                   <label className="flex items-center gap-2 text-muted cursor-pointer">
@@ -519,12 +561,31 @@ export default function LoginPage() {
                   </button>
                 </div>
 
+                {turnstileRequired && effectiveTurnstileSiteKey && (
+                  <div className="flex justify-center py-3">
+                    <Turnstile
+                      key={turnstileKey}
+                      sitekey={effectiveTurnstileSiteKey}
+                      onSuccess={(token) => setTurnstileToken(token)}
+                      onError={() => {
+                        setTurnstileToken(null);
+                        notify.error('Error en la verificación de Turnstile');
+                      }}
+                      onExpire={() => {
+                        setTurnstileToken(null);
+                      }}
+                      theme="dark"
+                      size="normal"
+                    />
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   variant="primary"
-                  className={`w-full ${!selectedRole ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  className={`w-full ${!selectedRole || (turnstileRequired && !turnstileToken) ? 'opacity-75 cursor-not-allowed' : ''}`}
                   loading={isLoading}
-                  disabled={!selectedRole || isLoading}
+                  disabled={!selectedRole || (turnstileRequired && (!turnstileToken || !effectiveTurnstileSiteKey)) || isLoading}
                 >
                   {!selectedRole ? 'Selecciona un rol para continuar' : 'Iniciar Sesión'}
                 </Button>
