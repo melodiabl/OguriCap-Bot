@@ -8,6 +8,7 @@ import { SocketProvider } from '@/contexts/SocketContext';
 import { PreferencesProvider } from '@/contexts/PreferencesContext';
 import { LoadingOverlayProvider } from '@/contexts/LoadingOverlayContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { OguriThemeProvider } from '@/contexts/OguriThemeContext';
 import { useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { usePathname } from 'next/navigation';
@@ -54,15 +55,18 @@ function EffectsGate() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: 2,
-        refetchOnWindowFocus: true,
-        staleTime: 5000,
-      },
-    },
-  }));
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 2,
+            refetchOnWindowFocus: true,
+            staleTime: 5000,
+          },
+        },
+      })
+  );
 
   return (
     <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem enableColorScheme>
@@ -70,22 +74,56 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PageThemeSync />
         <DevicePerformanceProvider>
           <MotionMode>
+            {/* Auth / sesión */}
             <AuthProvider>
+              {/* Conexión en tiempo real (Socket.IO) */}
               <SocketProvider>
+                {/* Preferencias de usuario (sonido, etc.) */}
                 <PreferencesProvider>
+                  {/* Sistema de notificaciones en memoria */}
                   <NotificationProvider>
+                    {/* Overlay global de loading */}
                     <LoadingOverlayProvider>
-                      <EffectsGate />
-                      {children}
-                  <Toaster
-                    position="top-right"
-                    toastOptions={{
-                        duration: 4000,
-                        className: 'toast-custom',
-                        success: { className: 'toast-custom toast-success' },
-                        error: { className: 'toast-custom toast-error' },
-                      }}
-                    />
+                      <OguriThemeProvider>
+                        {/* Efectos visuales ligados a notificaciones (desactivables por performanceMode) */}
+                        <EffectsGate />
+                        {children}
+                      </OguriThemeProvider>
+                      <Toaster
+                        position="top-right"
+                        toastOptions={{
+                          duration: 4000,
+                          style: {
+                            background: 'rgb(var(--bg-1))',
+                            color: 'rgb(var(--text-primary))',
+                            border: '1px solid rgba(var(--border), 0.1)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '16px',
+                            padding: '12px 16px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.3)',
+                          },
+                          success: {
+                            iconTheme: {
+                              primary: 'rgb(var(--success))',
+                              secondary: 'white',
+                            },
+                            style: {
+                              borderLeft: '4px solid rgb(var(--success))',
+                            }
+                          },
+                          error: {
+                            iconTheme: {
+                              primary: 'rgb(var(--danger))',
+                              secondary: 'white',
+                            },
+                            style: {
+                              borderLeft: '4px solid rgb(var(--danger))',
+                            }
+                          },
+                        }}
+                      />
                     </LoadingOverlayProvider>
                   </NotificationProvider>
                 </PreferencesProvider>

@@ -152,9 +152,9 @@ let handler = async (m, { conn, args, command, usedPrefix }) => {
                 }
 
                 const buyerData = global.db.data.users[m.sender]
-                const buyerCoins = typeof buyerData?.coin === 'number' ? buyerData.coin : 0
+                const buyerTotal = (buyerData.coin || 0) + (buyerData.bank || 0)
 
-                if (buyerCoins < saleData.price) {
+                if (buyerTotal < saleData.price) {
                     return m.reply(`ꕥ No tienes suficientes monedas para comprar a *${saleData.name}*.\n> Necesitas *¥${saleData.price.toLocaleString()}*`)
                 }
 
@@ -163,8 +163,14 @@ let handler = async (m, { conn, args, command, usedPrefix }) => {
                 if (!Array.isArray(sellerData.characters)) sellerData.characters = []
 
                 // Transfer coins
-                buyerData.coin -= saleData.price
-                sellerData.coin += saleData.price
+                if ((buyerData.coin || 0) >= saleData.price) {
+                    buyerData.coin = (buyerData.coin || 0) - saleData.price
+                } else {
+                    let remainder = saleData.price - (buyerData.coin || 0)
+                    buyerData.coin = 0
+                    buyerData.bank = (buyerData.bank || 0) - remainder
+                }
+                sellerData.coin = (sellerData.coin || 0) + saleData.price
 
                 // Transfer character
                 global.db.data.characters[characterId].user = m.sender

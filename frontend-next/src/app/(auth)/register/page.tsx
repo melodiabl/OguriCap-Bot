@@ -130,7 +130,7 @@ export default function RegisterPage() {
                   onChange={(e) => setWhatsapp(e.target.value)}
                   type="text"
                   className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                  placeholder="51900373696"
+                  placeholder="numero"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Si lo ingresás, el bot puede escribirte por WhatsApp.</p>

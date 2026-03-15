@@ -18,6 +18,7 @@ import PerformanceIndicator from '@/components/ui/PerformanceIndicator';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DashboardCard } from '@/components/ui/DashboardCard';
+import { BroadcastTool } from '@/components/broadcast/BroadcastTool';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useDashboardStats, useBotStatus, useSystemStats, useSubbotsStatus, useRecentActivity } from '@/hooks/useRealTime';
@@ -27,6 +28,7 @@ import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
 import { formatUptime } from '@/lib/utils';
 import { Magnetic } from '@/components/ui/Magnetic';
 import { Progress } from '@/components/ui/Progress';
+import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 
 export default function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats(10000);
@@ -37,6 +39,8 @@ export default function DashboardPage() {
   const { onlineCount, totalCount } = useSubbotsStatus(8000);
   const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const { activities: recentActivity, isLoading: activitiesLoading } = useRecentActivity(15000);
+  const { performanceMode, viewport } = useDevicePerformance();
+  const isMobileLite = performanceMode && viewport === 'mobile';
 
   // Auto-refresh del dashboard - DISABLED to prevent resource exhaustion
   // useAutoRefresh(async () => {
@@ -117,14 +121,15 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="Dashboard"
-        description="Vista general del sistema en tiempo real"
-        icon={<TrendingUp className="w-6 h-6 text-primary-400" />}
+        title="Oguri Dashboard"
+        description="Monitoreo de habilidades y estado del sistema Cinderella Gray"
+        icon={<TrendingUp className="w-6 h-6 text-oguri-lavender animate-oguri-aura" />}
         actions={
           <>
             <ActionButton
               tone="glow"
               onClick={handleRefresh}
+              className="bg-gradient-oguri-primary border-oguri-lavender/30 shadow-glow-oguri-purple hover:scale-105 transition-transform"
               icon={
                 <motion.div
                   animate={{ rotate: statsLoading ? 360 : 0 }}
@@ -134,11 +139,11 @@ export default function DashboardPage() {
                 </motion.div>
               }
             >
-              Actualizar
+              Sincronizar Aura
             </ActionButton>
 
-            <StatusBadge tone={isSocketConnected ? 'success' : 'danger'} pulse={isSocketConnected}>
-              {isSocketConnected ? 'Tiempo Real Activo' : 'Sin conexión'}
+            <StatusBadge tone={isSocketConnected ? 'success' : 'danger'} pulse={isSocketConnected} className="bg-oguri-phantom-900/40 border-oguri-cyan/20 text-oguri-cyan">
+              {isSocketConnected ? 'Conexión Estable' : 'Sin Aura'}
             </StatusBadge>
             <RealTimeBadge isActive={isConnected && isGloballyOn} />
           </>
@@ -151,15 +156,14 @@ export default function DashboardPage() {
       </Reveal>
 
       {/* Stats Grid */}
-      <Stagger className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" delay={0.08} stagger={0.06}>
+      <Stagger className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6" delay={0.08} stagger={0.06}>
         <StaggerItem>
           <Magnetic>
             <StatCard
               title="Admins Panel"
               value={currentStats?.totalUsuarios || 0}
               subtitle={`${currentStats?.usuariosActivos || 0} activos`}
-              icon={<Users className="w-6 h-6" />}
-              color="primary"
+              icon={<Users className="w-6 h-6 text-oguri-purple" />}
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.usuarios}
@@ -173,8 +177,7 @@ export default function DashboardPage() {
               title="Comunidad"
               value={currentStats?.comunidad?.usuariosWhatsApp || 0}
               subtitle={`${currentStats?.comunidad?.usuariosActivos || 0} activos`}
-              icon={<MessageSquare className="w-6 h-6" />}
-              color="success"
+              icon={<MessageSquare className="w-6 h-6 text-oguri-cyan" />}
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.usuarios}
@@ -188,8 +191,7 @@ export default function DashboardPage() {
               title="Grupos"
               value={currentStats?.totalGrupos || 0}
               subtitle={`${currentStats?.gruposActivos || 0} activos`}
-              icon={<MessageSquare className="w-6 h-6" />}
-              color="violet"
+              icon={<MessageSquare className="w-6 h-6 text-oguri-lavender" />}
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.grupos}
@@ -203,8 +205,7 @@ export default function DashboardPage() {
               title="Aportes"
               value={currentStats?.totalAportes || 0}
               subtitle={`${currentStats?.aportesHoy || 0} hoy`}
-              icon={<Package className="w-6 h-6" />}
-              color="violet"
+              icon={<Package className="w-6 h-6 text-oguri-gold" />}
               delay={0}
               loading={statsLoading}
               trend={currentStats?.tendencias?.aportes}
@@ -218,8 +219,7 @@ export default function DashboardPage() {
               title="SubBots"
               value={currentStats?.totalSubbots || totalCount}
               subtitle={`${onlineCount} online`}
-              icon={<Zap className="w-6 h-6" />}
-              color="cyan"
+              icon={<Zap className="w-6 h-6 text-oguri-blue" />}
               delay={0}
               loading={statsLoading}
               active={onlineCount > 0}
@@ -228,6 +228,11 @@ export default function DashboardPage() {
           </Magnetic>
         </StaggerItem>
       </Stagger>
+
+      {/* Broadcast Tool */}
+      <Reveal delay={0.1}>
+        <BroadcastTool />
+      </Reveal>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -341,19 +346,26 @@ export default function DashboardPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.9 }}
           >
-            <BarChart data={hourlyActivity} height={180} animated={true} scale="sqrt" minBarHeight={3} showGrid />
+            <BarChart
+              data={hourlyActivity}
+              height={isMobileLite ? 140 : 180}
+              animated={!isMobileLite}
+              scale={isMobileLite ? 'linear' : 'sqrt'}
+              minBarHeight={isMobileLite ? 0 : 3}
+              showGrid={!isMobileLite}
+            />
           </motion.div>
 
           <motion.div 
             className="grid grid-cols-3 gap-4 mt-6"
-            initial={{ opacity: 0, y: 20 }}
+            initial={isMobileLite ? undefined : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.2 }}
+            transition={isMobileLite ? { duration: 0.15 } : { duration: 0.5, delay: 1.2 }}
           >
             <motion.div 
               className="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={isMobileLite ? undefined : { scale: 1.05, y: -2 }}
+              transition={isMobileLite ? undefined : { duration: 0.2 }}
             >
               <motion.p 
                 className="text-2xl font-bold text-white"
@@ -367,8 +379,8 @@ export default function DashboardPage() {
             </motion.div>
             <motion.div 
               className="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={isMobileLite ? undefined : { scale: 1.05, y: -2 }}
+              transition={isMobileLite ? undefined : { duration: 0.2 }}
             >
               <motion.p 
                 className="text-2xl font-bold text-white"
@@ -382,8 +394,8 @@ export default function DashboardPage() {
             </motion.div>
             <motion.div 
               className="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={isMobileLite ? undefined : { scale: 1.05, y: -2 }}
+              transition={isMobileLite ? undefined : { duration: 0.2 }}
             >
               <motion.p 
                 className="text-2xl font-bold text-white"

@@ -1,8 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { User, BotStatus, Aporte, Pedido, Proveedor, Group, DashboardStats } from '@/types'
 
-// ✅ PRODUCCIÓN: same-origin (Nginx enruta /api -> whatsapp-bot:8080)
-// ✅ DEV: podés setear NEXT_PUBLIC_API_URL=http://localhost:8080
 const API_URL =
   process.env.NODE_ENV === 'production'
     ? ''
@@ -13,7 +11,7 @@ class ApiService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: API_URL, // '' => usa rutas relativas
+      baseURL: API_URL,
       headers: { 'Content-Type': 'application/json' },
       timeout: 15000,
       withCredentials: true,
@@ -22,8 +20,6 @@ class ApiService {
     this.api.interceptors.request.use((config) => {
       if (typeof window !== 'undefined') {
         let token = localStorage.getItem('token')
-
-        // Fallback: cookie token (middleware/auth global)
         if (!token) {
           try {
             const parts = document.cookie.split(';').map((s) => s.trim())
@@ -31,7 +27,6 @@ class ApiService {
             if (found) token = decodeURIComponent(found.slice('token='.length))
           } catch {}
         }
-
         if (token) config.headers.Authorization = `Bearer ${token}`
       }
       return config
@@ -48,76 +43,20 @@ class ApiService {
           } catch {}
           if (window.location.pathname !== '/login') window.location.href = '/login'
         }
-        if (error.response?.status === 503 && error.response?.data?.maintenanceMode && typeof window !== 'undefined') {
-          // Verificar si el usuario es administrador antes de redirigir
-          const userStr = localStorage.getItem('user')
-          let isAdmin = false
-          
-          if (userStr) {
-            try {
-              const user = JSON.parse(userStr)
-              isAdmin = ['owner', 'admin', 'administrador'].includes(user.rol)
-            } catch {}
-          }
-          
-          // Solo redirigir a mantenimiento si no es administrador
-          if (!isAdmin && window.location.pathname !== '/maintenance') {
-            // Mostrar notificación antes de redirigir
-            if (typeof window !== 'undefined' && window.location.pathname !== '/maintenance') {
-              // Crear una notificación temporal
-              const notification = document.createElement('div')
-              notification.className = 'maintenance-toast'
-              notification.innerHTML = `
-                <div class="maintenance-toast__inner">
-                  <div class="maintenance-toast__row">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M12 2C13.1 2 14 2.9 14 4V8C14 9.1 13.1 10 12 10S10 9.1 10 8V4C10 2.9 10.9 2 12 2M21 9V7L19 8L21 9M3 9L5 8L3 7V9M12 11C13.1 11 14 11.9 14 13V17C14 18.1 13.1 19 12 19S10 18.1 10 17V13C10 11.9 10.9 11 12 11Z"/>
-                    </svg>
-                    <strong class="maintenance-toast__title">Sistema en Mantenimiento</strong>
-                  </div>
-                  <div class="maintenance-toast__desc">
-                    Redirigiendo a la página de mantenimiento...
-                  </div>
-                </div>
-              `
-              document.body.appendChild(notification)
-              
-              // Remover la notificación después de 3 segundos
-              setTimeout(() => {
-                if (notification.parentNode) {
-                  notification.parentNode.removeChild(notification)
-                }
-              }, 3000)
-            }
-            
-            // Redirigir después de un breve delay
-            setTimeout(() => {
-              window.location.href = '/maintenance'
-            }, 1500)
-          }
-        }
         return Promise.reject(error)
       }
     )
   }
 
   // Auth
-  async login(username: string, password: string, role?: string) {
-    if (!role) {
-      throw new Error('Debes seleccionar un rol');
-    }
-    
-    const response = await this.api.post('/api/auth/login', { 
-      username, 
-      password,
-      role
-    })
+  async login(username: string, password: string, role?: string, turnstileToken?: string) {
+    const response = await this.api.post('/api/auth/login', { username, password, role, turnstileToken })
     return response.data
   }
-
-  async register(userData: { username: string; password: string; rol: string; whatsapp_number?: string }) {
-    const response = await this.api.post('/api/auth/register', userData);
-    return response.data;
+  
+  async getMe() {
+    const response = await this.api.get('/api/auth/me')
+    return response.data
   }
 
   async registerPublic(userData: { email: string; username: string; password: string; whatsapp_number?: string }) {
@@ -125,50 +64,14 @@ class ApiService {
     return response.data;
   }
 
-  async autoRegister(userData: { whatsapp_number: string; username: string; grupo_jid: string }) {
-    const response = await this.api.post('/api/auth/auto-register', userData);
+  async confirmPasswordReset(token: string, newPassword: string) {
+    const response = await this.api.post('/api/auth/password-reset/confirm', { token, newPassword });
     return response.data;
-  }
-
-  async changePassword(currentPassword: string, newPassword: string) {
-    const response = await this.api.post('/api/auth/change-password', {
-      currentPassword,
-      newPassword
-    });
-    return response.data;
-  }
-
-  async resetPassword(username: string, whatsapp_number: string) {
-    const response = await this.api.post('/api/auth/reset-password', {
-      username,
-      whatsapp_number
-    });
-    return response.data;
-  }
-
-  async getMe() {
-    const response = await this.api.get('/api/auth/me')
-    return response.data
-  }
-
-  async verifyToken() {
-    const response = await this.api.get('/api/auth/verify')
-    return response.data
-  }
-
-  async resetUserPassword(username: string, whatsapp_number: string) {
-    const response = await this.api.post('/api/auth/reset-password', { username, whatsapp_number })
-    return response.data
   }
 
   async requestPasswordResetEmail(identifier: string) {
-    const response = await this.api.post('/api/auth/password-reset/request', { identifier })
-    return response.data
-  }
-
-  async confirmPasswordReset(token: string, newPassword: string) {
-    const response = await this.api.post('/api/auth/password-reset/confirm', { token, newPassword })
-    return response.data
+    const response = await this.api.post('/api/auth/password-reset/request', { identifier });
+    return response.data;
   }
 
   // Bot
@@ -192,8 +95,29 @@ class ApiService {
     return response.data
   }
 
+  // Auth on-demand endpoints
+  async getAuthStatus() {
+    const response = await this.api.get('/api/bot/auth/status')
+    return response.data
+  }
+
+  async startQrAuth() {
+    const response = await this.api.post('/api/bot/auth/qr')
+    return response.data
+  }
+
+  async startPairingAuth(phoneNumber: string) {
+    const response = await this.api.post('/api/bot/auth/pair', { phoneNumber })
+    return response.data
+  }
+
+  async disconnectAuth() {
+    const response = await this.api.post('/api/bot/auth/disconnect')
+    return response.data
+  }
+
   async getMainBotStatus(): Promise<BotStatus> {
-    const response = await this.api.get('/api/bot/main/status')
+    const response = await this.api.get('/api/bot/auth/status')
     return response.data
   }
 
@@ -213,12 +137,15 @@ class ApiService {
   }
 
   async connectMainBot(method: 'qr' | 'pairing', phoneNumber?: string) {
-    const response = await this.api.post('/api/bot/main/connect', { method, phoneNumber })
-    return response.data
+    if (method === 'qr') {
+      return await this.startQrAuth()
+    } else {
+      return await this.startPairingAuth(phoneNumber || '')
+    }
   }
 
   async disconnectMainBot() {
-    const response = await this.api.post('/api/bot/main/disconnect')
+    const response = await this.api.post('/api/bot/auth/disconnect')
     return response.data
   }
 
@@ -227,9 +154,19 @@ class ApiService {
     return response.data
   }
 
+  async sendBroadcast(data: { message: string; targets: { groups: boolean; channels: boolean; communities: boolean; specific?: string[] } }) {
+    const response = await this.api.post('/api/broadcast', data)
+    return response.data
+  }
+
   // Subbots
   async getSubbots() {
     const response = await this.api.get('/api/subbot/list')
+    return response.data
+  }
+
+  async getSubbotsCapacity() {
+    const response = await this.api.get('/api/subbot/capacity')
     return response.data
   }
 
@@ -250,6 +187,11 @@ class ApiService {
 
   async getSubbotQR(subbotId: string) {
     const response = await this.api.get(`/api/subbot/qr/${encodeURIComponent(subbotId)}`)
+    return response.data
+  }
+
+  async updateSubbotSettings(subbotId: string, settings: { alias?: string; name?: string; status?: string; pfp?: string; customName?: string; customPrefix?: string; customBanner?: string; customVideo?: string }) {
+    const response = await this.api.post('/api/subbot/settings', { subbotId, ...settings })
     return response.data
   }
 
@@ -286,53 +228,32 @@ class ApiService {
 
   // Dashboard
   async getStats(): Promise<DashboardStats> {
-    const [overview, pedidos] = await Promise.all([
-      this.api.get('/api/dashboard/stats').then(r => r.data).catch(() => ({})),
-      this.api.get('/api/pedidos/stats').then(r => r.data).catch(() => ({}))
-    ])
-
-    return {
-      totalUsuarios: overview.totalUsuarios ?? overview.usuarios ?? 0,
-      totalGrupos: overview.totalGrupos ?? overview.grupos ?? 0,
-      totalAportes: overview.totalAportes ?? overview.aportes ?? 0,
-      totalPedidos: overview.totalPedidos ?? overview.pedidos ?? 0,
-      totalSubbots: overview.totalSubbots ?? overview.subbots ?? 0,
-      usuariosActivos: overview.usuariosActivos || 0,
-      gruposActivos: overview.gruposActivos || 0,
-      aportesHoy: overview.aportesHoy || 0,
-      pedidosHoy: pedidos.pedidosPendientes ?? overview.pedidosHoy ?? 0,
-      mensajesHoy: overview.mensajesHoy || 0,
-      comandosHoy: overview.comandosHoy || 0,
-      totalMensajes: overview.totalMensajes || 0,
-      totalComandos: overview.totalComandos || 0,
-      actividadPorHora: Array.isArray(overview.actividadPorHora) ? overview.actividadPorHora : undefined,
-      rendimiento: overview.rendimiento,
-      tendencias: overview.tendencias,
-      comunidad: overview.comunidad,
-    }
+    const response = await this.api.get('/api/dashboard/stats')
+    return response.data
   }
 
-  // Groups
-  async getGroups(page = 1, limit = 20, search?: string, botEnabledFilter?: string, proveedorFilter?: string) {
+  // Otros
+  async getGroups(page = 1, limit = 20, search?: string, botEnabled?: boolean | string, esProveedor?: boolean | string) {
     const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('limit', limit.toString());
+    params.append('page', String(page));
+    params.append('limit', String(limit));
     if (search) params.append('search', search);
-    if (botEnabledFilter) params.append('botEnabled', botEnabledFilter);
-    if (proveedorFilter) params.append('proveedor', proveedorFilter);
+    if (botEnabled !== undefined && botEnabled !== null) params.append('botEnabled', String(botEnabled));
+    if (esProveedor !== undefined && esProveedor !== null) params.append('es_proveedor', String(esProveedor));
+    
     const response = await this.api.get(`/api/grupos?${params}`);
     return response.data;
   }
-
-  async createGrupo(data: Partial<Group>) {
-    const response = await this.api.post('/api/grupos', data);
+  
+  async getBroadcastTargets() {
+    const params = new URLSearchParams();
+    params.append('forBroadcast', 'true');
+    
+    const response = await this.api.get(`/api/grupos?${params}`);
     return response.data;
   }
+  
 
-  async updateGrupo(idOrJid: string | number, data: Partial<Group>) {
-    const response = await this.api.put(`/api/grupos/${idOrJid}`, data);
-    return response.data;
-  }
 
   async deleteGrupo(idOrJid: number | string) {
     const response = await this.api.delete(`/api/grupos/${idOrJid}`);
@@ -547,6 +468,19 @@ class ApiService {
     return response.data;
   }
 
+  // Terminal (stdout/stderr)
+  async getTerminal(params: { limit?: number } = {}) {
+    const qp = new URLSearchParams();
+    qp.append('limit', String(params.limit || 200));
+    const response = await this.api.get(`/api/terminal?${qp}`);
+    return response.data;
+  }
+
+  async clearTerminal() {
+    const response = await this.api.post('/api/terminal/clear');
+    return response.data;
+  }
+
   // Notificaciones
   async getNotificaciones(page = 1, limit = 20, filters?: { search?: string; type?: string; category?: string; read?: string }) {
     const params = new URLSearchParams();
@@ -584,7 +518,7 @@ class ApiService {
     const response = await this.api.post(`/api/chat/sessions/${sessionId}/messages`, {
       message: data.message,
       model: data.model || 'gpt-3.5-turbo'
-    });
+    }, { timeout: 45000 });
     return response.data;
   }
 
@@ -699,6 +633,11 @@ class ApiService {
     return this.updateGrupo(jid, { bot_enabled: enabled } as any);
   }
 
+  async updateGrupo(jid: string | number, config: { bot_enabled?: boolean; nombre?: string; descripcion?: string; es_proveedor?: boolean }) {
+    const response = await this.api.patch(`/api/grupos/${encodeURIComponent(String(jid))}`, config);
+    return response.data;
+  }
+
   async getAvailableGrupos() {
     const response = await this.api.get('/api/grupos/available');
     return response.data;
@@ -779,6 +718,22 @@ class ApiService {
 
   async rollbackConfig(configKey: string = 'main', versionId: string) {
     const response = await this.api.post(`/api/config/${encodeURIComponent(configKey)}/rollback`, { versionId });
+    return response.data;
+  }
+
+  // Email Service
+  async getEmailStatus() {
+    const response = await this.api.get('/api/email/status');
+    return response.data;
+  }
+
+  async verifyEmailSmtp() {
+    const response = await this.api.post('/api/email/verify');
+    return response.data;
+  }
+
+  async sendTestEmail(to?: string) {
+    const response = await this.api.post('/api/email/test', { to: to || '' });
     return response.data;
   }
 
@@ -974,9 +929,24 @@ class ApiService {
     return response.data;
   }
 
+  async deleteBackup(backupId: string) {
+    const response = await this.api.delete(`/api/backups/${backupId}`);
+    return response.data;
+  }
+
   // Advanced notifications
+  async markNotificationRead(id: number) {
+    const response = await this.api.patch(`/api/notificaciones/${id}/read`);
+    return response.data;
+  }
+
   async markNotificationAsRead(id: number) {
     const response = await this.api.patch(`/api/notificaciones/${id}/read`);
+    return response.data;
+  }
+
+  async markAllNotificationsRead() {
+    const response = await this.api.post('/api/notificaciones/mark-all-read');
     return response.data;
   }
 
@@ -1088,5 +1058,5 @@ class ApiService {
   }
 }
 
-export const api = new ApiService();
-export default api;
+const apiService = new ApiService()
+export default apiService

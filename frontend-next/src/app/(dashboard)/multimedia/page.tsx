@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon } from 'lucide-react';
+import Image from 'next/image';
+import { Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon, AlertTriangle } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -41,12 +42,19 @@ export default function MultimediaPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<number, boolean>>({});
+  const [modalImageError, setModalImageError] = useState(false);
 
   useEffect(() => {
     loadData();
   }, [currentPage, typeFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps -- loadData is defined below
+
+  useEffect(() => {
+    setModalImageError(false);
+  }, [selectedItem?.id]);
 
 
 
@@ -67,12 +75,25 @@ export default function MultimediaPage() {
           // Construir URL completa para archivos multimedia
           let imageUrl = item.url || item.path || item.src || '';
           if (imageUrl && !imageUrl.startsWith('http')) {
-            const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (envUrl || 'http://localhost:8080');
-            if (baseUrl) {
-              imageUrl = new URL(imageUrl, baseUrl).toString();
+            const normalizedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+
+            // Para rutas /media/ y /library/, usar siempre URL completa del API
+            if (normalizedPath.startsWith('/media/') || normalizedPath.startsWith('/library/')) {
+              const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+              if (apiUrl) {
+                imageUrl = new URL(normalizedPath, apiUrl).toString();
+              } else {
+                imageUrl = normalizedPath;
+              }
             } else {
-              imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+              // Otros tipos de rutas
+              const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+              const baseUrl = process.env.NODE_ENV === 'production' ? '' : (envUrl || 'http://localhost:8080');
+              if (baseUrl) {
+                imageUrl = new URL(normalizedPath, baseUrl).toString();
+              } else {
+                imageUrl = normalizedPath;
+              }
             }
           }
           
@@ -98,6 +119,7 @@ export default function MultimediaPage() {
       setItems(normalizedItems);
       setPagination(itemsData?.pagination);
       setStats(statsData);
+      setImageLoadErrors({});
     } catch (err) {
       console.error('Error loading multimedia:', err);
       toast.error('Error al cargar multimedia');
@@ -117,26 +139,31 @@ export default function MultimediaPage() {
     }
   };
 
-  const handleUpload = async (files: FileList) => {
+  const handleFileSelect = (files: FileList) => {
     if (!files.length) return;
+    const fileArray = Array.from(files);
+    setSelectedFiles(fileArray);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFiles.length) return;
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map(file => api.uploadMultimedia(file));
+      const uploadPromises = selectedFiles.map(file => api.uploadMultimedia(file));
       await Promise.all(uploadPromises);
       
-      // Crear notificación de éxito
       await api.createNotification({
         title: 'Archivos Multimedia Subidos',
-        message: `Se subieron ${files.length} archivo(s) multimedia correctamente`,
+        message: `Se subieron ${selectedFiles.length} archivo(s) multimedia correctamente`,
         type: 'success',
         category: 'multimedia'
       });
       
-      toast.success(`${files.length} archivo(s) subido(s) correctamente`);
+      toast.success(`${selectedFiles.length} archivo(s) subido(s) correctamente`);
       setShowUploadModal(false);
+      setSelectedFiles([]);
       loadData();
     } catch (err: any) {
-      // Crear notificación de error
       await api.createNotification({
         title: 'Error al Subir Archivos',
         message: err?.response?.data?.error || 'Error al subir archivos multimedia',
@@ -148,6 +175,10 @@ export default function MultimediaPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const clearSelectedFiles = () => {
+    setSelectedFiles([]);
   };
 
   const getTypeFromMime = (mimetype: string) => {
@@ -292,33 +323,29 @@ export default function MultimediaPage() {
                       >
                         {item.type === 'image' ? (
                           <div className="w-full h-full relative bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-                            <img
-                              src={item.url}
-                              alt={item.name}
-                              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-                              loading="lazy"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent && parent.querySelector('.fallback-icon') === null) {
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'fallback-icon absolute inset-0 flex items-center justify-center';
-                                  fallback.innerHTML = `
-                                <div class="text-center p-4">
-                                  <div class="w-16 h-16 mx-auto mb-3 rounded-xl bg-red-500/20 flex items-center justify-center">
-                                    <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                                    </svg>
+                            {imageLoadErrors[item.id] || !item.url ? (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center p-4">
+                                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-red-500/20 flex items-center justify-center">
+                                    <AlertTriangle className="w-8 h-8 text-red-400" />
                                   </div>
-                                  <p class="text-sm text-red-400 font-medium">Error al cargar</p>
-                                  <p class="text-xs text-gray-500 mt-1 break-all">${item.name}</p>
+                                  <p className="text-sm text-red-400 font-medium">Error al cargar</p>
+                                  <p className="text-xs text-gray-500 mt-1 break-all">{item.name}</p>
                                 </div>
-                              `;
-                                  parent.appendChild(fallback);
-                                }
-                              }}
-                            />
+                              </div>
+                            ) : (
+                              <Image
+                                src={item.thumbnail || item.url}
+                                alt={item.name}
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                                quality={70}
+                                className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                                onError={() => {
+                                  setImageLoadErrors((prev) => ({ ...prev, [item.id]: true }));
+                                }}
+                              />
+                            )}
                           </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -399,16 +426,81 @@ export default function MultimediaPage() {
       )}
 
       {/* Upload Modal */}
-      <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Subir Archivos Multimedia">
-        <div className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-pink-500/50 transition-colors">
-          <Upload className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-white mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
-          <p className="text-sm text-gray-400 mb-4">Soporta imágenes, videos, audio y documentos</p>
-          <input type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-            onChange={(e) => e.target.files && handleUpload(e.target.files)} className="hidden" id="file-upload" />
-          <Button variant="secondary" icon={<Upload className="w-4 h-4" />} onClick={() => document.getElementById('file-upload')?.click()} loading={uploading}>
-            {uploading ? 'Subiendo...' : 'Seleccionar Archivos'}
-          </Button>
+      <Modal isOpen={showUploadModal} onClose={() => { setShowUploadModal(false); setSelectedFiles([]); }} title="Subir Archivos Multimedia">
+        <div className="space-y-4">
+          {!selectedFiles.length ? (
+            <div className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-pink-500/50 transition-colors">
+              <Upload className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-white mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
+              <p className="text-sm text-gray-400 mb-4">Soporta imágenes, videos, audio y documentos</p>
+              <input type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                onChange={(e) => e.target.files && handleFileSelect(e.target.files)} className="hidden" id="file-upload" />
+              <Button variant="secondary" icon={<Upload className="w-4 h-4" />} onClick={() => document.getElementById('file-upload')?.click()}>
+                Seleccionar Archivos
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white font-medium">{selectedFiles.length} archivo(s) seleccionado(s)</p>
+                <button onClick={clearSelectedFiles} className="text-gray-400 hover:text-white text-sm">
+                  Cambiar archivos
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="relative bg-white/5 rounded-lg p-2 border border-white/10">
+                    {file.type.startsWith('image/') ? (
+                      <div className="aspect-square relative rounded-lg overflow-hidden mb-2">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-20 flex items-center justify-center bg-white/5 rounded-lg mb-2">
+                        {file.type.startsWith('video/') ? <Video className="w-8 h-8 text-purple-400" /> :
+                         file.type.startsWith('audio/') ? <Music className="w-8 h-8 text-emerald-400" /> :
+                         <File className="w-8 h-8 text-amber-400" />}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-300 truncate">{file.name}</p>
+                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                  </div>
+                ))}
+              </div>
+
+              {uploading && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-8 h-8 animate-spin text-pink-500 mr-2" />
+                  <span className="text-gray-300">Subiendo archivos...</span>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button 
+                  variant="secondary" 
+                  onClick={() => { setShowUploadModal(false); setSelectedFiles([]); }}
+                  disabled={uploading}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  loading={uploading}
+                  icon={<Upload className="w-4 h-4" />}
+                  className="flex-1"
+                >
+                  {uploading ? 'Subiendo...' : 'Subir Archivos'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -418,31 +510,28 @@ export default function MultimediaPage() {
           <div className="space-y-4">
             {/* Preview */}
             {selectedItem.type === 'image' && (
-              <div className="w-full max-h-96 overflow-hidden rounded-xl bg-white/5 flex items-center justify-center">
-                <img 
-                  src={selectedItem.url} 
-                  alt={selectedItem.name}
-                  className="max-w-full max-h-96 object-contain rounded-xl"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && parent.querySelector('.modal-fallback') === null) {
-                      const fallback = document.createElement('div');
-                      fallback.className = 'modal-fallback text-center p-8';
-                      fallback.innerHTML = `
-                        <div class="w-24 h-24 mx-auto mb-4 rounded-xl bg-red-500/20 flex items-center justify-center">
-                          <svg class="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                          </svg>
-                        </div>
-                        <p class="text-red-400 font-medium">No se pudo cargar la imagen</p>
-                        <p class="text-gray-500 text-sm mt-2 break-all">${selectedItem.url}</p>
-                      `;
-                      parent.appendChild(fallback);
-                    }
-                  }}
-                />
+              <div className="w-full overflow-hidden rounded-xl bg-white/5">
+                {modalImageError || !selectedItem.url ? (
+                  <div className="text-center p-8">
+                    <div className="w-24 h-24 mx-auto mb-4 rounded-xl bg-red-500/20 flex items-center justify-center">
+                      <AlertTriangle className="w-12 h-12 text-red-400" />
+                    </div>
+                    <p className="text-red-400 font-medium">No se pudo cargar la imagen</p>
+                    <p className="text-gray-500 text-sm mt-2 break-all">{selectedItem.url}</p>
+                  </div>
+                ) : (
+                  <div className="relative w-full h-96">
+                    <Image
+                      src={selectedItem.url}
+                      alt={selectedItem.name}
+                      fill
+                      sizes="(max-width: 640px) 90vw, 640px"
+                      quality={80}
+                      className="object-contain"
+                      onError={() => setModalImageError(true)}
+                    />
+                  </div>
+                )}
               </div>
             )}
             

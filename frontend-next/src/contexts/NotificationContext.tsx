@@ -1,11 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
+import { useAuth } from './AuthContext';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { notify } from '@/lib/notify';
 
 export interface Notification {
   id: number;
@@ -30,7 +32,6 @@ export interface NotificationSettings {
 
 interface NotificationContextValue {
   notifications: Notification[];
-
   unreadCount: number;
   settings: NotificationSettings;
   isLoading: boolean;
@@ -59,23 +60,112 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
+function clampNotificationText(input: string, max = 220) {
+  const s = String(input || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  if (s.length <= max) return s;
+  return `${s.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+function formatNotificationTitle(notification: Notification) {
+  const genericTitles = [
+    'notificación',
+    'notificación general',
+    'general notification',
+    'notification',
+    'aviso',
+    'alerta'
+  ];
+
+  const isGeneric = !notification.titulo || 
+    genericTitles.includes(notification.titulo.trim().toLowerCase());
+
+  if (!isGeneric) {
+    return clampNotificationText(notification.titulo, 80);
+  }
+  
+  // Si el título es genérico, intentar generar uno basado en la categoría
+  const categoryTitles: Record<string, string> = {
+    sistema: '⚙️ Sistema',
+    bot: '🤖 Bot',
+    usuarios: '👤 Usuario',
+    tareas: '📅 Tarea',
+    error: '🚨 Error',
+    seguridad: '🛡️ Seguridad',
+    comando: '💻 Comando',
+    multimedia: '🖼️ Multimedia',
+    pago: '💳 Pago',
+    grupo: '👥 Grupo'
+  };
+  
+  return categoryTitles[notification.categoria] || '🔔 Notificación';
+}
+
+function formatNotificationBody(notification: Notification) {
+  return clampNotificationText(notification.mensaje || '', 180);
+}
+
+function NotificationToastContent({
+  notification,
+  onClick,
+}: {
+  notification: Notification;
+  onClick?: () => void;
+}) {
+  const title = formatNotificationTitle(notification);
+  const body = formatNotificationBody(notification);
+  const meta = clampNotificationText(notification.categoria || 'general', 36);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="toast-content"
+      aria-label="Abrir notificación"
+    >
+      <div className="toast-text">
+        <div className="toast-title">{title}</div>
+        {body ? <div className="toast-message">{body}</div> : null}
+        <div className="toast-meta">{meta}</div>
+      </div>
+    </button>
+  );
+}
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const isOpenRef = useRef(false);
-  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
-  const toggleOpen = useCallback(() => { const next = !isOpenRef.current; setIsOpen(next); if (typeof window !== 'undefined') console.debug('Notificaciones: toggleOpen', next); }, []);
-
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  
   const { socket } = useSocketConnection();
   const { preferences } = usePreferences();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const loadingRef = useRef(false);
   const seenNotificationsRef = useRef<Set<number>>(new Set());
+  const recentContentHashesRef = useRef<Map<string, number>>(new Map());
+
+  const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
+
+  const generateContentHash = useCallback((n: Notification) => {
+    // Normalizar texto para evitar duplicados por espacios o mayúsculas
+    const t = (n.titulo || '').trim().toLowerCase();
+    const m = (n.mensaje || '').trim().toLowerCase();
+    return `${t}|${m}|${n.categoria}`;
+  }, []);
+
+  const cleanupRecentHashes = useCallback(() => {
+    const now = Date.now();
+    for (const [hash, timestamp] of recentContentHashesRef.current.entries()) {
+      if (now - timestamp > 30000) { // 30 segundos de ventana
+        recentContentHashesRef.current.delete(hash);
+      }
+    }
+  }, []);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -85,23 +175,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const parsed = JSON.parse(raw) as Partial<NotificationSettings>;
         setSettings(prev => ({ ...prev, ...parsed }));
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, []);
 
   // Save settings to localStorage
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [settings]);
 
   const shouldShowNotification = useCallback((notification: Notification): boolean => {
     if (!settings.enabled) return false;
-
     const categoryMap: Record<string, keyof NotificationSettings> = {
       sistema: 'general',
       bot: 'botEvents',
@@ -109,19 +194,24 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       tareas: 'tasks',
       error: 'critical',
     };
-
     const settingKey = categoryMap[notification.categoria] || 'general';
     return settings[settingKey] ?? true;
   }, [settings]);
 
   const loadNotifications = useCallback(async (pageNum = 1, append = false) => {
+    if (authLoading || !isAuthenticated) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
     setIsLoading(true);
 
     try {
       const data = await api.getNotificaciones(pageNum, 20);
-      const list = data?.notificaciones || data?.data || [];
+      const list = data?.notifications || data?.notificaciones || data?.data || [];
+
+      // Agregar IDs al Set de vistos para evitar duplicados
+      list.forEach((n: Notification) => {
+        seenNotificationsRef.current.add(n.id);
+      });
 
       if (append) {
         setNotifications(prev => [...prev, ...list]);
@@ -129,12 +219,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setNotifications(list);
       }
 
-      // Recalculate unread count
+      const unread = list.filter((n: Notification) => !n.leida).length;
       if (!append) {
-        const unread = list.filter((n: Notification) => !n.leida).length;
         setUnreadCount(unread);
       } else {
-        const unread = list.filter((n: Notification) => !n.leida).length;
         setUnreadCount(prev => prev + unread);
       }
 
@@ -146,7 +234,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setIsLoading(false);
       loadingRef.current = false;
     }
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   const refresh = useCallback(async () => {
     await loadNotifications(1, false);
@@ -157,63 +245,78 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     await loadNotifications(page + 1, true);
   }, [hasMore, isLoading, page, loadNotifications]);
 
-  // Register Service Worker for push notifications
   useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('Service Worker registrado:', registration.scope);
-        })
-        .catch((err) => {
-          console.error('Error registrando Service Worker:', err);
-        });
+    if (authLoading || !isAuthenticated) {
+      loadingRef.current = false;
+      setIsLoading(false);
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(false);
+      setPage(1);
+      return;
     }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [authLoading, isAuthenticated, refresh]);
 
-  // Socket events
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || authLoading || !isAuthenticated) return;
 
     const handleNotification = (notification: Notification) => {
       if (!notification || seenNotificationsRef.current.has(notification.id)) return;
+      
+      // Deduplicación por contenido en el frontend (evita spam visual idéntico)
+      const contentHash = generateContentHash(notification);
+      const now = Date.now();
+      const lastSeen = recentContentHashesRef.current.get(contentHash);
+      
+      if (lastSeen && now - lastSeen < 20000) { // Aumentado a 20 segundos para mayor seguridad
+        console.log(`♻️ Notificación visual duplicada omitida en frontend (Hash: ${contentHash})`);
+        return;
+      }
+      
+      recentContentHashesRef.current.set(contentHash, now);
       seenNotificationsRef.current.add(notification.id);
+      cleanupRecentHashes();
 
       if (!shouldShowNotification(notification)) return;
 
-      // Add to list
       setNotifications(prev => [notification, ...prev].slice(0, 100));
       if (!notification.leida) {
         setUnreadCount(prev => prev + 1);
       }
 
-      // Show toast if enabled
       if (settings.enabled) {
+        const toastClass =
+          notification.tipo === 'error'
+            ? 'toast-custom toast-error'
+            : notification.tipo === 'success'
+              ? 'toast-custom toast-success'
+              : notification.tipo === 'warning'
+                ? 'toast-custom toast-warning'
+                : 'toast-custom toast-info';
+
         const toastOptions: any = {
-          duration: 5000,
+          duration: notification.tipo === 'error' ? 7000 : 5000,
           icon: getNotificationIcon(notification.tipo),
+          className: toastClass,
         };
 
-        if (notification.tipo === 'error') {
-          toast.error(notification.titulo || notification.mensaje, toastOptions);
-        } else if (notification.tipo === 'success') {
-          toast.success(notification.titulo || notification.mensaje, toastOptions);
-        } else if (notification.tipo === 'warning') {
-          toast(notification.titulo || notification.mensaje, {
-            ...toastOptions,
-            icon: '⚠️',
-          });
-        } else {
-          toast(notification.titulo || notification.mensaje, toastOptions);
-        }
+        const onClick = () => {
+          const url = notification?.data?.url;
+          if (typeof url === 'string' && url.startsWith('/')) {
+            router.push(url);
+            return;
+          }
+          toggleOpen();
+        };
+
+        const content = <NotificationToastContent notification={notification} onClick={onClick} />;
+
+        if (notification.tipo === 'error') toast.error(content, toastOptions);
+        else if (notification.tipo === 'success') toast.success(content, toastOptions);
+        else toast(content, toastOptions);
       }
 
-      // Play sound if enabled
       if (preferences.soundEnabled && notification.tipo !== 'info') {
         try {
           const audio = new Audio('/sounds/notification.mp3');
@@ -232,31 +335,38 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
 
       // Show browser notification if push enabled
+      // Las notificaciones push ahora comparten la misma lógica de deduplicación que los toasts
       if (settings.push && 'Notification' in window && Notification.permission === 'granted') {
         try {
-          new Notification(notification.titulo || 'Oguri Bot', {
-            body: notification.mensaje,
+          const title = formatNotificationTitle(notification);
+          const body = formatNotificationBody(notification);
+          
+          // Usamos el tag para que el sistema operativo agrupe o reemplace duplicados si llegaran a pasar el filtro
+          const notificationTag = `oguri-notif-${contentHash.substring(0, 16)}`;
+          
+          new Notification(title, {
+            body,
             icon: '/bot-icon.svg',
-            tag: `notification-${notification.id}`,
+            tag: notificationTag,
             requireInteraction: notification.tipo === 'error',
+            data: { url: notification?.data?.url || '/' },
           });
-        } catch {
+        } catch (err) {
+          console.error('Error showing push notification:', err);
         }
       }
     };
 
     socket.on(SOCKET_EVENTS.NOTIFICATION, handleNotification);
-    socket.on('notification:created', handleNotification);
 
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
-      socket.off('notification:created', handleNotification);
     };
-  }, [socket, shouldShowNotification, settings, preferences]);
+  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {
-      await api.markAsRead(id);
+      await api.markNotificationRead(id);
       setNotifications(prev =>
         prev.map(n => (n.id === id ? { ...n, leida: true } : n))
       );
@@ -268,12 +378,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAllAsRead = useCallback(async () => {
     try {
-      await api.markAllAsRead();
+      await api.markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, leida: true })));
       setUnreadCount(0);
-      toast.success('Todas las notificaciones marcadas como leídas');
+      notify.success('Todas las notificaciones marcadas como leídas');
     } catch (err) {
-      toast.error('Error al marcar como leídas');
+      notify.error('Error al marcar como leídas');
     }
   }, []);
 
@@ -288,27 +398,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return prev.filter(n => n.id !== id);
       });
     } catch (err) {
-      toast.error('Error al eliminar notificación');
+      notify.error('Error al eliminar notificación');
     }
   }, []);
 
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
-
-    // If push is enabled, request permission
-    if (newSettings.push && 'Notification' in window && Notification.permission === 'default') {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          setSettings(prev => ({ ...prev, push: false }));
-        }
-      } catch {
-        setSettings(prev => ({ ...prev, push: false }));
-      }
-    }
   }, []);
 
-  const value = useMemo<NotificationContextValue>(() => ({
+  const value = useMemo(() => ({
     notifications,
     unreadCount,
     settings,
@@ -323,7 +421,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     loadMore,
     updateSettings,
     refresh,
-  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, setIsOpen, toggleOpen, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
+  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, toggleOpen, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
@@ -336,11 +434,11 @@ export function useNotifications() {
 
 function getNotificationIcon(tipo: string): string {
   const icons: Record<string, string> = {
-    info: 'ℹ️',
-    success: '✅',
-    warning: '⚠️',
-    error: '❌',
-    system: '🔔',
+    info: '\u2139\uFE0F',
+    success: '\u2705',
+    warning: '\u26A0\uFE0F',
+    error: '\u274C',
+    system: '\uD83D\uDEE1\uFE0F',
   };
-  return icons[tipo] || '🔔';
+  return icons[tipo] || '\u2139\uFE0F';
 }

@@ -22,6 +22,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { latency } = useConnectionHealth();
   const reduceMotion = useReducedMotion();
   const { performanceMode, viewport } = useDevicePerformance();
+  const isLiteMode = performanceMode && viewport === 'mobile';
   const pageKey = getPageKeyFromPathname(pathname);
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
 
@@ -44,13 +45,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="h-screen overflow-hidden mesh-bg" data-page={pageKey}>
       <RouteProgressBar />
-      {/* Animated background particles */}
+      {/* Animated background particles - OGURI CAP THEME */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         {performanceMode ? (
           <div
             className={cn(
               'absolute -top-16 -left-24 w-[420px] h-[420px] rounded-full',
-              'bg-gradient-to-br from-primary-500/10 via-cyan-500/8 to-transparent',
+              'bg-gradient-to-br from-oguri-purple/10 via-oguri-cyan/8 to-transparent',
               viewport === 'mobile' ? 'opacity-60' : 'opacity-70'
             )}
           />
@@ -58,22 +59,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <>
             <div
               className={cn(
-                'absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl',
+                'absolute top-1/4 left-1/4 w-96 h-96 bg-oguri-purple/15 rounded-full blur-[100px]',
                 !reduceMotion && 'animate-blob'
               )}
             />
             <div
               className={cn(
-                'absolute top-3/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl',
+                'absolute top-3/4 right-1/4 w-96 h-96 bg-oguri-lavender/15 rounded-full blur-[100px]',
                 !reduceMotion && 'animate-blob animation-delay-2000'
               )}
             />
             <div
               className={cn(
-                'absolute bottom-1/4 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl',
+                'absolute bottom-1/4 left-1/2 w-96 h-96 bg-oguri-blue/15 rounded-full blur-[100px]',
                 !reduceMotion && 'animate-blob animation-delay-4000'
               )}
             />
+            {/* Speed Streaks background effect */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-oguri-lavender to-transparent animate-speed-streak" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-2/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-oguri-blue to-transparent animate-speed-streak" style={{ animationDelay: '3s' }} />
+              <div className="absolute top-3/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-oguri-cyan to-transparent animate-speed-streak" style={{ animationDelay: '5s' }} />
+            </div>
           </>
         )}
       </div>
@@ -85,45 +92,58 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
         {/* Page content */}
-        <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              className="relative page-perspective page-shell"
-              initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0.12 }
-                  : {
-                      duration: 0.42,
-                      ease: [0.16, 1, 0.3, 1],
-                    }
-              }
-            >
-              <div aria-hidden="true" className="page-backdrop" />
-              <div aria-hidden="true" className="page-backdrop-grid" />
-              <motion.div
-                aria-hidden="true"
-                className="page-transition-overlay"
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-                animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
-                transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-              />
-              <div className="relative z-10">{stagedChildren}</div>
-            </motion.div>
-          </AnimatePresence>
+        <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
+          <div className="max-w-7xl mx-auto w-full">
+            {isLiteMode ? (
+              <div className="relative page-shell">
+                <div aria-hidden="true" className="page-backdrop" />
+                <div aria-hidden="true" className="page-backdrop-grid" />
+                <div className="relative z-10">{stagedChildren}</div>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={pathname}
+                  className="relative page-perspective page-shell"
+                  initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.12 }
+                      : {
+                          duration: 0.42,
+                          ease: [0.16, 1, 0.3, 1],
+                        }
+                  }
+                >
+                  <div aria-hidden="true" className="page-backdrop" />
+                  <div aria-hidden="true" className="page-backdrop-grid" />
+                  <motion.div
+                    aria-hidden="true"
+                    className="page-transition-overlay"
+                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+                    animate={reduceMotion ? { opacity: 0 } : { opacity: [0, 1, 0], scale: [0.98, 1.04, 1] }}
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                  <div className="relative z-10">{stagedChildren}</div>
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
         </main>
 
         <FloatingSupportButton />
 
         {/* Footer */}
-        <footer className="px-4 lg:px-6 py-4 border-t border-white/10 glass-dark">
-          <div className="flex items-center justify-between gap-4 text-sm text-gray-400">
-            <span>© 2026 Oguri Bot Panel</span>
+        <footer className="px-4 lg:px-8 py-4 border-t border-white/10 glass-phantom">
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-4 text-sm text-gray-400">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-oguri-lavender animate-pulse" />
+              <span className="font-medium">© 2026 OguriCap Bot Panel</span>
+            </div>
             <div className="flex items-center gap-4">
-              <span className="hidden sm:inline text-xs font-mono text-gray-500">v1.0.0</span>
+              <span className="hidden sm:inline text-xs font-mono text-oguri-lavender/60">CINDERELLA GRAY v1.0.0</span>
               <RealTimeBadge isActive={isConnected} latency={latency} />
             </div>
           </div>

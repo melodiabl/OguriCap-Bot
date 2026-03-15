@@ -18,7 +18,7 @@ global.prems = []
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
 global.libreria = "Baileys Multi Device"
-global.vs = "^1.8.2|Latest"
+global.vs = "^2.0.1|Update"
 global.sessions = "Sessions/Principal"
 global.jadi = "Sessions/SubBot"
 global.yukiJadibts = true
@@ -49,14 +49,27 @@ ch1: "120363404287449613@newsletter"
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
 global.APIs = {
-xyro: { url: "https://api.xyro.site", key: null },
-yupra: { url: "https://api.yupra.my.id", key: null },
-vreden: { url: "https://api.vreden.web.id", key: null },
-delirius: { url: "https://api.delirius.store", key: null },
-zenzxz: { url: "https://api.zenzxz.my.id", key: null },
-siputzx: { url: "https://api.siputzx.my.id", key: null },
-adonix: { url: "https://api-adonix.ultraplus.click", key: 'Yuki-WaBot' }
+  // Primary API (your own). Single source of truth.
+  // Set this to your domain (no trailing slash).
+  MelodyApi: {
+    url: 'https://api.melodiaauris.qzz.io',
+    key: null
+  },
+  xyro: { url: "https://api.xyro.site", key: null },
+  yupra: { url: "https://api.yupra.my.id", key: null },
+  vreden: { url: "https://api.vreden.web.id", key: null },
+  delirius: { url: "https://api.delirius.store", key: null },
+  zenzxz: { url: "https://api.zenzxz.my.id", key: null },
+  siputzx: { url: "https://api.siputzx.my.id", key: null },
+  adonix: { url: "https://api-adonix.ultraplus.click", key: 'Yuki-WaBot' }
 }
+
+// Backward/forward compatibility aliases (do not edit URLs here).
+// Some plugins used `melodia`/`MelodiaApi` keys previously.
+try {
+  global.APIs.melodia = global.APIs.MelodyApi
+  global.APIs.MelodiaApi = global.APIs.MelodyApi
+} catch {}
 
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 

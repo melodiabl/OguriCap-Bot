@@ -20,7 +20,9 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
   ensureStore()
   const panel = global.db.data.panel
   const user = global.db.data.users[m.sender]
-  const panelUrl = process.env.PANEL_URL || 'https://melodiaauris.qzz.io'
+  const panelUrl =
+    (process.env.PANEL_URL || process.env.NEXT_PUBLIC_API_URL || '').trim() ||
+    'http://localhost:3000'
   const isGroupChat = String(m.chat || '').endsWith('@g.us')
 
   async function replyPrivate(text) {

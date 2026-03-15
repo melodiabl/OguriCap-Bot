@@ -36,7 +36,7 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       const response = await api.getGroups(1, 200); // Cargar más grupos de una vez
-      setGroups(response?.grupos || response?.data || []);
+      setGroups(response?.items || response?.grupos || response?.data || []);
       setLastUpdated(new Date());
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Error al cargar grupos');
