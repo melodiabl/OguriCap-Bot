@@ -108,6 +108,12 @@ export const BroadcastTool: React.FC = () => {
       newSelected.add(jid);
     }
     setSelectedJids(newSelected);
+
+    // If user is picking specific targets, avoid accidentally broadcasting to all
+    // groups/channels/communities via category toggles.
+    if (newSelected.size > 0) {
+      setTargets({ groups: false, channels: false, communities: false });
+    }
   };
 
   const toggleSection = (section: 'groups' | 'channels' | 'communities') => {
