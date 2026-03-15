@@ -6,7 +6,7 @@ const isUrl = /(?:https:?\/{2})?(?:www\.|vm\.|vt\.|t\.)?tiktok\.com\/([^\s&]+)/g
 try {
 await m.react('🕒')
 if (isUrl) {
-const mel = global.APIs.melodia?.url
+ const mel = global.APIs.MelodyApi?.url
 if (mel) {
 try {
 const r = await axios.get(`${mel}/download/tiktok?url=${encodeURIComponent(text)}`, { timeout: 20000 })
@@ -43,7 +43,7 @@ await conn.sendMessage(m.chat, { audio: { url: music }, mimetype: 'audio/mp4', f
 }} else {
 await conn.sendMessage(m.chat, { video: { url: play }, caption }, { quoted: m })
 }} else {
-const mel = global.APIs.melodia?.url
+ const mel = global.APIs.MelodyApi?.url
 if (mel) {
 try {
 const r = await axios.get(`${mel}/search/tiktok?q=${encodeURIComponent(text)}`, { timeout: 20000 })

@@ -9,8 +9,8 @@ try {
 await m.react('🕒')
 
  // MelodyApi first
- try {
-  const mel = global.APIs.melodia?.url
+  try {
+   const mel = global.APIs.MelodyApi?.url
   if (mel) {
    const r = await axios.get(`${mel}/download/twitter?url=${encodeURIComponent(text)}`, { timeout: 20000 })
    const out = r.data?.result
