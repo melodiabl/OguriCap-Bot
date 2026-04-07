@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Terminal as XTermTerminal } from 'xterm';
 import type { FitAddon as FitAddonType } from 'xterm-addon-fit';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useSocketConnection, SOCKET_EVENTS } from '@/contexts/SocketContext';
@@ -34,6 +35,7 @@ export function TerminalLogViewer() {
   const xtermRef = useRef<XTermTerminal | null>(null);
   const fitRef = useRef<FitAddonType | null>(null);
   const { socket, isConnected } = useSocketConnection();
+  const { theme } = useTheme();
 
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -116,10 +118,10 @@ export function TerminalLogViewer() {
         fontSize: 12,
         scrollback: 6000,
         theme: {
-          background: '#070b16',
-          foreground: '#e5e7eb',
-          cursor: '#a78bfa',
-          selectionBackground: '#334155',
+          background: theme === 'light' ? '#f8fafc' : '#070b16',
+          foreground: theme === 'light' ? '#0f172a' : '#e5e7eb',
+          cursor: theme === 'light' ? '#4f46e5' : '#a78bfa',
+          selectionBackground: theme === 'light' ? '#cbd5e1' : '#334155',
         },
       });
       const fit = new FitAddon();
@@ -162,7 +164,7 @@ export function TerminalLogViewer() {
       xtermRef.current = null;
       fitRef.current = null;
     };
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!socket) return;
@@ -210,12 +212,12 @@ export function TerminalLogViewer() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="panel-setting-row">
         <div className="flex items-center gap-2">
           {connectionBadge}
           {paused ? <Badge variant="warning">Pausado</Badge> : <Badge variant="info">En vivo</Badge>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="panel-actions-wrap sm:justify-end">
           <Button variant="secondary" onClick={loadRecent} disabled={loading}>
             {loading ? 'Cargando…' : 'Cargar últimos 200'}
           </Button>
@@ -237,20 +239,20 @@ export function TerminalLogViewer() {
         </div>
       </div>
 
-      <div className="glass-card p-0 overflow-hidden border border-white/10">
+      <div className="panel-editor-shell overflow-hidden p-0">
         {initError ? (
-          <div className="p-4 text-sm text-red-200">
+          <div className="p-4 text-sm text-red-400">
             <div className="font-semibold">Error inicializando terminal</div>
             <div className="mt-1">{initError}</div>
-            <div className="mt-3 rounded-md bg-black/30 p-3 text-xs text-white/80">
-              <div className="mb-2 font-semibold text-white/90">Salida (modo simple)</div>
+            <div className="mt-3 rounded-xl border border-border/15 bg-card/80 p-3 text-xs text-foreground">
+              <div className="mb-2 font-semibold text-foreground">Salida (modo simple)</div>
               <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words font-mono">
                 {fallbackLinesRef.current.join('\n')}
               </pre>
             </div>
           </div>
         ) : (
-          <div ref={containerRef} className="h-[600px] w-full" style={{ backgroundColor: 'rgb(var(--bg-0) / 1)' }} />
+          <div ref={containerRef} className="h-[520px] w-full sm:h-[600px]" style={{ backgroundColor: theme === 'light' ? 'rgb(var(--surface-elevated) / 1)' : 'rgb(var(--bg-0) / 1)' }} />
         )}
       </div>
 

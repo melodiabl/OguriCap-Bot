@@ -160,6 +160,10 @@ const config: Config = {
         'glow-expand': 'glowExpand 0.6s ease-out',
         'slide-up': 'slideUp 0.4s ease-out',
         'slide-down': 'slideDown 0.4s ease-out',
+        'prism-pan': 'prismPan 8s linear infinite',
+        'orbital-float': 'orbitalFloat 9s ease-in-out infinite',
+        'signal-wave': 'signalWave 2.6s ease-out infinite',
+        'scanline': 'scanline 3.2s linear infinite',
       },
       keyframes: {
         fadeIn: {
@@ -246,6 +250,25 @@ const config: Config = {
           '0%': { transform: 'translateY(-10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        prismPan: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
+        },
+        orbitalFloat: {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) scale(1)' },
+          '25%': { transform: 'translate3d(8px, -10px, 0) scale(1.04)' },
+          '50%': { transform: 'translate3d(-6px, -18px, 0) scale(0.98)' },
+          '75%': { transform: 'translate3d(10px, -8px, 0) scale(1.02)' },
+        },
+        signalWave: {
+          '0%': { transform: 'scale(0.85)', opacity: '0.65' },
+          '70%': { transform: 'scale(1.45)', opacity: '0' },
+          '100%': { transform: 'scale(1.45)', opacity: '0' },
+        },
+        scanline: {
+          '0%': { transform: 'translateY(-120%)' },
+          '100%': { transform: 'translateY(220%)' },
+        },
       },
       boxShadow: {
         'glow': '0 0 15px rgba(99, 102, 241, 0.5)',
@@ -259,6 +282,7 @@ const config: Config = {
         'glow-oguri-blue': '0 0 20px rgba(127, 180, 255, 0.6), 0 0 40px rgba(127, 180, 255, 0.3)',
         'glow-oguri-cyan': '0 0 20px rgba(70, 195, 207, 0.6), 0 0 40px rgba(70, 195, 207, 0.3)',
         'glow-oguri-mixed': '0 0 15px rgba(91, 61, 173, 0.5), 0 0 30px rgba(183, 166, 230, 0.4), 0 0 45px rgba(127, 180, 255, 0.2)',
+        'glow-oguri-cosmic': '0 0 24px rgba(91, 61, 173, 0.45), 0 0 54px rgba(127, 180, 255, 0.22), 0 0 96px rgba(70, 195, 207, 0.16)',
       },
       backgroundImage: {
         'gradient-oguri-primary': 'linear-gradient(135deg, rgb(91 61 173) 0%, rgb(183 166 230) 100%)',
@@ -266,6 +290,8 @@ const config: Config = {
         'gradient-oguri-speed': 'linear-gradient(135deg, rgb(70 195 207) 0%, rgb(127 180 255) 100%)',
         'gradient-oguri-victory': 'linear-gradient(135deg, rgb(245 158 11) 0%, rgb(91 61 173) 100%)',
         'gradient-oguri-phantom': 'linear-gradient(135deg, rgb(51 65 85) 0%, rgb(71 85 105) 100%)',
+        'gradient-oguri-spectrum': 'linear-gradient(135deg, rgb(91 61 173) 0%, rgb(139 92 246) 24%, rgb(127 180 255) 58%, rgb(70 195 207) 100%)',
+        'gradient-oguri-signal': 'linear-gradient(135deg, rgb(16 185 129) 0%, rgb(70 195 207) 45%, rgb(99 102 241) 100%)',
       },
     },
   },

@@ -15,15 +15,18 @@ return null
  let primaryRes = null
  // MelodyApi first
  try {
- const mel = global.APIs?.MelodyApi?.url
- if (mel) {
- const res0 = await fetch(`${mel}/search/lyrics?q=${encodeURIComponent(text)}`)
- if (!res0.ok) throw new Error(`MelodyApi HTTP: ${res0.status}`)
- const json0 = await res0.json()
- if (json0 && json0.status && typeof json0.result === 'string') {
- primaryRes = { title: text, artists: 'Desconocido', lyrics: json0.result, image: null, url: null }
- }
- }
+  const melApi = global.APIs?.MelodyApi
+  const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+  const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+  const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+  if (mel) {
+  const res0 = await fetch(`${mel}/search/lyrics?q=${encodeURIComponent(text)}`, { headers: melHeaders })
+  if (!res0.ok) throw new Error(`MelodyApi HTTP: ${res0.status}`)
+  const json0 = await res0.json()
+  if (json0 && json0.status && typeof json0.result === 'string') {
+   primaryRes = { title: text, artists: 'Desconocido', lyrics: json0.result, image: null, url: null }
+  }
+  }
  } catch (e) {
  primaryRes = null
  }

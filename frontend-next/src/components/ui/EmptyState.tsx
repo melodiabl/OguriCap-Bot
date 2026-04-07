@@ -16,19 +16,19 @@ export function EmptyState({ title, description, icon, action, className }: Empt
   return (
     <UltraCard
       interactive={false}
-      className={cn('p-10 text-center', className)}
+      className={cn('p-8 text-center sm:p-10', className)}
     >
-      <div className="stagger-children">
+      <div className="panel-stack-center stagger-children mx-auto max-w-xl">
         {icon && (
-          <div className="mx-auto w-16 h-16 rounded-3xl border border-white/15 bg-white/5 shadow-inner-glow flex items-center justify-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-border/15 bg-card/60 shadow-inner-glow">
             {icon}
           </div>
         )}
-        <h3 className="mt-5 text-2xl font-extrabold text-white tracking-tight">
+        <h3 className="mt-5 text-2xl font-extrabold tracking-tight text-foreground">
           {title}
         </h3>
         {description && (
-          <p className="mt-2 text-sm text-gray-300 max-w-md mx-auto">
+          <p className="mx-auto mt-2 max-w-md text-sm text-[rgb(var(--text-secondary))]">
             {description}
           </p>
         )}

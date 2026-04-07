@@ -32,11 +32,11 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
     <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        className={cn(
-          'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]',
-          'ultra-card p-6',
+        <DialogPrimitive.Content
+          ref={ref}
+          className={cn(
+          'fixed left-[50%] top-[50%] z-50 w-[min(calc(100vw-1rem),42rem)] max-h-[90vh] translate-x-[-50%] translate-y-[-50%] overflow-auto',
+          'panel-surface p-5 backdrop-blur-2xl sm:p-6',
           'data-[state=open]:animate-scale-in',
           className
         )}
@@ -100,7 +100,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   const contentRef = React.useRef<HTMLDivElement>(null);
   const titleId = React.useId();
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  const onCloseRef = React.useRef(onClose);
   React.useEffect(() => setMounted(true), []);
+
+  // Keep latest onClose without re-running focus effect
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   // Lock body scroll while open (supports nested modals)
   React.useEffect(() => {
@@ -138,27 +144,20 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     return Array.from(candidates).filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
   }, []);
 
-  const lastOpenRef = React.useRef(false);
-
   React.useEffect(() => {
-    if (!isOpen) {
-      lastOpenRef.current = false;
-      return;
-    }
-    
-    // Solo enfocar si el estado de 'isOpen' acaba de cambiar a true
-    const justOpened = !lastOpenRef.current;
-    lastOpenRef.current = true;
+    if (!mounted) return;
+
+    if (!isOpen) return;
 
     previousFocusRef.current = document.activeElement as HTMLElement | null;
 
     const focusFirst = () => {
       const root = contentRef.current;
       if (!root) return;
-      
-      // Si ya hay algo enfocado dentro del modal (durante un re-render), no forzar el foco de nuevo
-      if (!justOpened && root.contains(document.activeElement)) return;
 
+      // If the user already focused something in the modal, don't steal focus.
+      if (root.contains(document.activeElement)) return;
+       
       const preferred = root.querySelector<HTMLElement>('[data-autofocus]');
       if (preferred?.focus) return preferred.focus();
       const focusables = getFocusable();
@@ -169,7 +168,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     const t = window.setTimeout(focusFirst, 0);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current?.();
       if (e.key !== 'Tab') return;
       const focusables = getFocusable();
       if (focusables.length === 0) {
@@ -201,7 +200,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
       previousFocusRef.current?.focus?.();
       previousFocusRef.current = null;
     };
-  }, [getFocusable, isOpen, onClose]);
+  }, [getFocusable, isOpen, mounted]);
 
   if (!mounted || !isOpen) return null;
 
@@ -214,9 +213,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
       />
 
       {/* Centered content */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
         <div
-          className={cn('modal-content', className)}
+          className={cn('modal-content w-full', className)}
           onClick={(e) => e.stopPropagation()}
           ref={contentRef}
           tabIndex={-1}
@@ -225,8 +224,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
           aria-labelledby={title ? titleId : undefined}
         >
           {title && (
-            <div className="flex items-center justify-between mb-6">
-              <h3 id={titleId} className="text-xl font-semibold text-foreground">
+            <div className="mb-6 flex items-center justify-between gap-3 text-left">
+              <h3 id={titleId} className="text-lg font-semibold text-foreground sm:text-xl">
                 {title}
               </h3>
               <button

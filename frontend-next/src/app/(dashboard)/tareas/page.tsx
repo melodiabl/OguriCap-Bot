@@ -21,7 +21,8 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { StatCard } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
@@ -30,7 +31,7 @@ import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useFlashTokens } from '@/hooks/useFlashTokens';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 
 interface Task {
   id: string;
@@ -146,7 +147,7 @@ export default function TareasPage() {
     } catch (error) {
       console.error('Error loading tasks:', error);
       setTasks([]);
-      toast.error('Error cargando tareas');
+      notify.error('Error cargando tareas');
     } finally {
       setIsLoading(false);
     }
@@ -167,9 +168,9 @@ export default function TareasPage() {
     try {
       await api.executeTask(taskId);
       await Promise.all([loadTasks(), loadExecutions()]);
-      toast.success('Tarea ejecutada');
+      notify.success('Tarea ejecutada');
     } catch (error) {
-      toast.error('Error ejecutando tarea');
+      notify.error('Error ejecutando tarea');
     }
   };
 
@@ -177,9 +178,9 @@ export default function TareasPage() {
     try {
       await api.updateTask(taskId, { enabled });
       await loadTasks();
-      toast.success(enabled ? 'Tarea habilitada' : 'Tarea pausada');
+      notify.success(enabled ? 'Tarea habilitada' : 'Tarea pausada');
     } catch (error) {
-      toast.error('Error actualizando tarea');
+      notify.error('Error actualizando tarea');
     }
   };
 
@@ -189,9 +190,9 @@ export default function TareasPage() {
     try {
       await api.deleteTask(taskId);
       await Promise.all([loadTasks(), loadExecutions()]);
-      toast.success('Tarea eliminada');
+      notify.success('Tarea eliminada');
     } catch (error) {
-      toast.error('Error eliminando tarea');
+      notify.error('Error eliminando tarea');
     }
   };
 
@@ -290,7 +291,7 @@ export default function TareasPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Tareas Programadas"
@@ -315,7 +316,7 @@ export default function TareasPage() {
         }
       />
 
-      <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-4" delay={0.02} stagger={0.07}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.02} stagger={0.07}>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard title="Total" value={summary.total} icon={<Activity className="w-6 h-6" />} color="info" delay={0} animated={false} />
         </StaggerItem>
@@ -353,11 +354,12 @@ export default function TareasPage() {
 
       {/* Filtros */}
       <Reveal>
-        <div className="glass-card p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <Card>
+          <CardContent className="p-5 sm:p-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                 <input
                   type="text"
                   placeholder="Buscar tareas..."
@@ -368,8 +370,8 @@ export default function TareasPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 rounded-2xl border border-border/15 bg-card/60 px-3 py-2">
+              <Filter className="w-4 h-4 text-muted" />
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value as any)}
@@ -387,20 +389,21 @@ export default function TareasPage() {
               Actualizar
             </Button>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </Reveal>
 
       {/* Lista de tareas */}
       <Reveal>
-        <div className="glass-card">
-          <div className="p-4 border-b border-white/10">
-            <h2 className="text-lg font-semibold text-white">
+        <Card>
+          <CardHeader>
+            <CardTitle>
               Tareas (<AnimatedNumber value={filteredTasks.length} />)
-            </h2>
-          </div>
+            </CardTitle>
+          </CardHeader>
 
-          <div>
-            <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-white/5">
+          <CardContent className="p-0">
+            <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-border/10">
               <AnimatePresence mode="popLayout">
               {isLoading && tasks.length === 0 ? (
                 Array.from({ length: 6 }).map((_, i) => (
@@ -429,14 +432,12 @@ export default function TareasPage() {
                   </div>
                 ))
               ) : filteredTasks.length === 0 ? (
-              <div className="p-8 text-center">
-                <Clock className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">
-                  {tasks.length === 0 
-                    ? 'No hay tareas programadas' 
-                    : 'No se encontraron tareas con los filtros aplicados'
-                  }
-                </p>
+              <div className="p-6">
+                <EmptyState
+                  icon={<Clock className="w-6 h-6 text-muted" />}
+                  title={tasks.length === 0 ? 'No hay tareas programadas' : 'Sin resultados'}
+                  description={tasks.length === 0 ? 'No hay tareas programadas' : 'No se encontraron tareas con los filtros aplicados'}
+                />
               </div>
             ) : (
               filteredTasks.map((task) => (
@@ -445,7 +446,7 @@ export default function TareasPage() {
                   layout="position"
                   variants={itemVariants}
                   exit="exit"
-                  className="relative overflow-hidden p-4 hover:bg-white/5 transition-colors"
+                  className="relative overflow-hidden p-4 transition-colors hover:bg-card/55"
                 >
                   {taskFlash.tokens[String(task.id)] && (
                     <div
@@ -453,12 +454,12 @@ export default function TareasPage() {
                       className="flash-update pointer-events-none absolute inset-0"
                     />
                   )}
-                  <div className="flex items-start justify-between relative">
+                  <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="mb-2 flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
                           {getStatusIcon(task.status)}
-                          <h3 className="font-medium text-white">{task.name}</h3>
+                          <h3 className="font-medium text-foreground">{task.name}</h3>
                         </div>
                         
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
@@ -470,9 +471,9 @@ export default function TareasPage() {
                         </span>
                       </div>
                       
-                      <p className="text-sm text-gray-400 mb-2">{task.description}</p>
+                      <p className="mb-2 text-sm text-muted">{task.description}</p>
                       
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
                           <span>{formatSchedule(task.schedule)}</span>
@@ -503,7 +504,7 @@ export default function TareasPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="panel-actions-wrap xl:justify-end">
                       <Button
                         onClick={() => executeTask(task.id)}
                         variant="secondary"
@@ -560,8 +561,8 @@ export default function TareasPage() {
             )}
               </AnimatePresence>
             </motion.div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </Reveal>
 
       {/* Historial de ejecuciones */}
@@ -571,23 +572,26 @@ export default function TareasPage() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass-card"
+            className="panel-editor-shell"
           >
-            <div className="p-4 border-b border-white/10">
-              <h2 className="text-lg font-semibold text-white">
+            <div className="border-b border-border/15 p-5 sm:p-6">
+              <h2 className="text-lg font-semibold text-foreground">
                 Historial de Ejecuciones
               </h2>
             </div>
             
             <div className="max-h-96 overflow-y-auto">
               {executions.length === 0 ? (
-                <div className="p-8 text-center">
-                  <History className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No hay ejecuciones registradas</p>
+                <div className="p-6">
+                  <EmptyState
+                    icon={<History className="w-6 h-6 text-muted" />}
+                    title="No hay ejecuciones registradas"
+                    description="El historial aparecerá aquí cuando corran tareas."
+                  />
                 </div>
               ) : (
                 <div>
-                  <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-white/5">
+                  <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-border/10">
                     <AnimatePresence mode="popLayout">
                       {executions.map((execution) => (
                         <motion.div
@@ -603,20 +607,20 @@ export default function TareasPage() {
                               className="flash-update pointer-events-none absolute inset-0"
                             />
                           )}
-                          <div className="flex items-center justify-between relative">
+                          <div className="relative flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
                               {getStatusIcon(execution.status)}
                               <div>
-                                <p className="font-medium text-white">{execution.taskName}</p>
-                                <p className="text-xs text-gray-400">
+                                <p className="font-medium text-foreground">{execution.taskName}</p>
+                                <p className="text-xs text-muted">
                                   {new Date(execution.startTime).toLocaleString()}
                                   {execution.manual && ' (Manual)'}
                                 </p>
                               </div>
                             </div>
-                            
+                             
                             <div className="text-right">
-                              <p className="text-sm text-gray-300">
+                              <p className="text-sm text-[rgb(var(--text-secondary))]">
                                 {formatDuration(execution.duration)}
                               </p>
                               {execution.error && (

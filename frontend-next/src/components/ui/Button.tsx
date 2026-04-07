@@ -8,18 +8,18 @@ import { cn } from '@/lib/utils';
 import { NavParticlesHost } from '@/components/ui/NavParticles';
 
 const buttonVariants = cva(
-  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold tracking-wide transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oguri-lavender/50 focus-visible:ring-offset-2 focus-visible:ring-offset-oguri-phantom-950 disabled:pointer-events-none disabled:opacity-50 ring-1 ring-oguri-purple/20 hover:ring-oguri-lavender/40 hover:-translate-y-0.5 active:translate-y-0',
+  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold tracking-[0.01em] transition-all duration-300 ease-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ring-1 ring-border/15 hover:ring-border/25 hover:-translate-y-[1px] active:translate-y-0',
   {
     variants: {
       variant: {
         primary: 'btn-oguri bg-gradient-oguri-primary text-white shadow-glow-oguri-purple',
-        secondary: 'bg-oguri-phantom-800/60 text-oguri-lavender hover:bg-oguri-phantom-700/80 border border-oguri-purple/10',
-        danger: 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20',
-        success: 'bg-oguri-cyan/10 text-oguri-cyan hover:bg-oguri-cyan/20 border border-oguri-cyan/20 shadow-glow-oguri-cyan',
+        secondary: 'border border-border/15 bg-card/72 text-foreground hover:bg-card/88 hover:border-border/25',
+        danger: 'border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/16',
+        success: 'border border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan hover:bg-oguri-cyan/16 shadow-glow-oguri-cyan',
         glow: 'btn-oguri bg-gradient-oguri-power text-white shadow-glow-oguri-mixed animate-oguri-aura',
         ghost: [
           'px-4 py-2',
-          'text-oguri-lavender/60 hover:text-oguri-lavender hover:bg-oguri-purple/10',
+          'text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] hover:bg-white/10',
         ],
       },
       size: {
@@ -52,8 +52,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const localRef = React.useRef<HTMLButtonElement | null>(null);
     return (
       <motion.button
-        whileHover={reduceMotion ? undefined : { scale: disabled || loading ? 1 : 1.02 }}
-        whileTap={reduceMotion ? undefined : { scale: disabled || loading ? 1 : 0.98 }}
+        whileHover={reduceMotion ? undefined : { scale: disabled || loading ? 1 : 1.015 }}
+        whileTap={reduceMotion ? undefined : { scale: disabled || loading ? 1 : 0.985 }}
         className={cn(
           buttonVariants({ variant, size }),
           isDisabled && 'is-disabled',

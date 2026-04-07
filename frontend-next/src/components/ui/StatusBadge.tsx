@@ -18,6 +18,7 @@ export function StatusBadge({
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
+  const shouldAnimate = pulse && !reduceMotion;
 
   return (
     <motion.span
@@ -26,10 +27,9 @@ export function StatusBadge({
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
       transition={reduceMotion ? { duration: 0.12 } : { duration: 0.35, ease: 'easeOut' }}
     >
-      <span className="status-badge__sheen" aria-hidden="true" />
+      {shouldAnimate ? <span className="status-badge__sheen" aria-hidden="true" /> : null}
       <span className="status-badge__dot" aria-hidden="true" />
       <span className="status-badge__text">{children}</span>
     </motion.span>
   );
 }
-

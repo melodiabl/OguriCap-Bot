@@ -9,20 +9,23 @@ try {
 await m.react('🕒')
 
  // MelodyApi first
-  try {
-   const mel = global.APIs.MelodyApi?.url
-  if (mel) {
-   const r = await axios.get(`${mel}/download/twitter?url=${encodeURIComponent(text)}`, { timeout: 20000 })
-   const out = r.data?.result
-   const direct = Array.isArray(out) ? (out[0]?.url || out[0]) : (out?.url || out)
-   if (r.data?.status && direct) {
-    const caption = `❀ Twitter - Download ❀\n\n> 🜸 URL » ${text}`
-    await conn.sendFile(m.chat, direct, "video.mp4", caption, m)
-    await m.react('✔️')
-    return
+   try {
+    const melApi = global.APIs.MelodyApi
+    const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+    const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+    const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+   if (mel) {
+    const r = await axios.get(`${mel}/download/twitter?url=${encodeURIComponent(text)}`, { timeout: 20000, headers: melHeaders })
+    const out = r.data?.result
+    const direct = Array.isArray(out) ? (out[0]?.url || out[0]) : (out?.url || out)
+    if (r.data?.status && direct) {
+     const caption = `❀ Twitter - Download ❀\n\n> 🜸 URL » ${text}`
+     await conn.sendFile(m.chat, direct, "video.mp4", caption, m)
+     await m.react('✔️')
+     return
+    }
    }
-  }
- } catch {}
+  } catch {}
 
 const result = await twitterScraper(text);
 if (!result.status) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido de Twitter`, m)

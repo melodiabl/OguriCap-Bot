@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { getPageKeyFromPathname } from '@/lib/pageTheme';
+import { DEFAULT_PAGE_VISUAL_PRESET, getPageVisualPresetStorageKey, isPageVisualPreset } from '@/lib/pageVisualPreset';
 import { DevicePerformanceProvider, useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 import dynamic from 'next/dynamic';
 
@@ -26,18 +27,29 @@ function PageThemeSync() {
 
   useEffect(() => {
     const page = getPageKeyFromPathname(pathname);
+    let pagePreset = DEFAULT_PAGE_VISUAL_PRESET;
+
+    try {
+      const raw = window.localStorage.getItem(getPageVisualPresetStorageKey(page));
+      if (raw && isPageVisualPreset(raw)) pagePreset = raw;
+    } catch {
+      // ignore
+    }
+
     document.documentElement.dataset.page = page;
+    document.documentElement.dataset.pagePreset = pagePreset;
     document.body.dataset.page = page;
+    document.body.dataset.pagePreset = pagePreset;
   }, [pathname]);
 
   return null;
 }
 
 function MotionMode({ children }: { children: React.ReactNode }) {
-  const { performanceMode } = useDevicePerformance();
+  const { performanceMode, reduceMotion } = useDevicePerformance();
   return (
     <MotionConfig
-      reducedMotion="user"
+      reducedMotion={performanceMode || reduceMotion ? 'always' : 'user'}
       transition={
         performanceMode
           ? { duration: 0.18, ease: 'easeOut' }
@@ -50,8 +62,8 @@ function MotionMode({ children }: { children: React.ReactNode }) {
 }
 
 function EffectsGate() {
-  const { performanceMode } = useDevicePerformance();
-  return performanceMode ? null : <NotificationEffectsListener />;
+  const { performanceMode, reduceMotion } = useDevicePerformance();
+  return performanceMode || reduceMotion ? null : <NotificationEffectsListener />;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -67,6 +79,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  const [toastPosition, setToastPosition] = useState<'top-right' | 'top-center'>('top-right');
+
+  useEffect(() => {
+    const update = () => {
+      setToastPosition(window.innerWidth < 640 ? 'top-center' : 'top-right');
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   return (
     <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem enableColorScheme>
@@ -90,19 +113,35 @@ export function Providers({ children }: { children: React.ReactNode }) {
                         {children}
                       </OguriThemeProvider>
                       <Toaster
-                        position="top-right"
+                        position={toastPosition}
+                        containerStyle={{
+                          top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+                          zIndex: 100000,
+                        }}
                         toastOptions={{
                           duration: 4000,
                           style: {
-                            background: 'rgb(var(--bg-1))',
+                            background: 'rgb(var(--bg-1) / 0.96)',
                             color: 'rgb(var(--text-primary))',
-                            border: '1px solid rgba(var(--border), 0.1)',
+                            border: '1px solid rgba(var(--border), 0.14)',
                             backdropFilter: 'blur(12px)',
                             borderRadius: '16px',
                             padding: '12px 16px',
                             fontSize: '14px',
-                            fontWeight: '500',
-                            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.3)',
+                            fontWeight: '600',
+                            maxWidth: 'min(520px, calc(100vw - 24px))',
+                            boxShadow:
+                              '0 18px 55px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+                          },
+                          custom: {
+                            // Custom toasts render their own container; keep wrapper invisible.
+                            style: {
+                              background: 'transparent',
+                              border: 'none',
+                              padding: 0,
+                              boxShadow: 'none',
+                              backdropFilter: 'none',
+                            },
                           },
                           success: {
                             iconTheme: {

@@ -1,469 +1,716 @@
-import fetch from 'node-fetch'
-
-let handler = async (m, { conn, args }) => {
-let cfg = conn?.subbotRuntimeConfig || {}
-let botDisplayName = (cfg && typeof cfg.name === 'string' && cfg.name.trim()) ? cfg.name.trim() : botname
-let bannerUrl = (cfg && typeof cfg.banner === 'string' && cfg.banner.trim()) ? cfg.banner.trim() : banner
-let mentionedJid = await m.mentionedJid
-let userId = mentionedJid && mentionedJid[0] ? mentionedJid[0] : m.sender
-let totalreg = Object.keys(global.db.data.users).length
-let totalCommands = Object.values(global.plugins).filter((v) => v.help && v.tags).length
-
-let txt = `̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮   ̮
-︶•︶°︶•︶°︶•︶°︶•︶°︶•︶°︶
-> ❀ hola! @${userId.split('@')[0]}, Soy ${botDisplayName}, Aquí tienes la lista de comandos.
+export const bodyMenu = `> 𖧧 ¡Hola! *@$sender*, Soy *$namebot*, Aquí tienes la lista de comandos$cat
 
 ╭┈ࠢ͜┅ࠦ͜͜╾݊͜─ؕ͜─ׄ͜─֬͜─֟͜─֫͜─ׄ͜─ؕ͜─݊͜┈ࠦ͜┅ࠡ͜͜┈࠭͜͜۰۰͜۰
-│✦ *Tipo* » ${(conn.user.jid == global.conn.user.jid ? 'Principal' : 'Sub-Bot')}
-│✰ *Usuarios* » ${totalreg.toLocaleString()}
-│⚘ *Versión* » ${vs}
-│ꕥ *Plugins* » ${totalCommands}
-│🜸 *Librería* » ${libreria}
+│✿ *ᴅᴇᴠᴇʟᴏᴘᴇʀ ::* $owner
+│ꕥ *ᴛʏᴘᴇ ::* $botType
+│⸙ *ᴠᴇʀsɪᴏɴ ::* $version
+│⚘ *sʏsᴛᴇᴍ/ᴏᴘʀ ::* $device
+│○ *ᴛɪᴍᴇ ::* $tiempo, $tempo
+│𓏸 *ᴜsᴇʀs ::* $users
+│○ *ᴜʀʟ ::* $link
 ╰ׅ┈ࠢ͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴ ⋱࣭ ᩴ  ⋮֔   ᩴ ⋰╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜┈ࠢ͜╯ׅ
+> Vincula un *Socket* con tu número utilizando *$prefixqr* o *$prefixcode*.
+‧꒷︶꒷꒥꒷‧₊˚꒷︶꒷꒥꒷︶꒷˚₊‧꒷꒥꒷︶꒷‧`
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *ECONOMY* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos de *Economía* para ganar dinero.
-✦ *#w • #work • #trabajar*
-> ⸙ Ganar coins trabajando.
-✦ *#slut • #protituirse*
-> ⸙ Ganar coins prostituyéndote.
-✦ *#coinflip • #flip • #cf* + [cantidad] <cara/cruz>
-> ⸙ Apostar coins en un cara o cruz.
-✦ *#crime • #crimen*
-> ⸙ Ganar coins rapido.
-✦ *#roulette • #rt* + [red/black] [cantidad]
-> ⸙ Apostar coins en una ruleta.
-✦ *#casino • #apostar* • *#slot* + [cantidad]
-> ⸙ Apuestar coins en el casino.
-✦ *#balance • #bal • #bank* + <usuario>
-> ⸙ Ver cuantos coins tienes en el banco.
-✦ *#deposit • #dep • #depositar • #d* + [cantidad] | all
-> ⸙ Depositar tus coins en el banco.
-✦ *#withdraw • #with • #retirar* + [cantidad] | all
-> ⸙ Retirar tus coins del banco.
-✦ *#economyinfo • #einfo*
-> ⸙ Ver tu información de economía en el grupo.
-✦ *#givecoins • #pay • #coinsgive* + [usuario] [cantidad]
-> ⸙ Dar coins a un usuario.
-✦ *#miming • #minar • #mine*
-> ⸙ Realizar trabajos de minería y ganar coins.
-✦ *#daily • #diario*
-> ⸙ Reclamar tu recompensa diaria.
-✦ *#cofre* • *#coffer*
-> ⸙ Reclamar tu cofre diario.
-✦ *#weekly • #semanal*
-> ⸙ Reclamar tu recompensa semanal.
-✦ *#monthly • #mensual*
-> ⸙ Reclamar tu recompensa mensual.
-✦ *#steal • #robar • #rob* + [@mencion]
-> ⸙ Intentar robar coins a un usuario.
-✦ *#economyboard • #eboard • #baltop* + <pagina>
-> ⸙ Ver tu información de economía en el grupo.
-✦ *#aventura • #adventure*
-> ⸙ Aventuras para ganar coins y exp.
-✦ *#curar • #heal*
-> ⸙ Curar salud para salir de aventuras.
-✦ *#cazar • #hunt*
-> ⸙ cazar animales para ganar coins y exp.
-✦ *#fish • #pescar*
-> ⸙ Ganar coins y exp pescando.
-✦ *#mazmorra • #dungeon*
-> ⸙ Explorar mazmorras para ganar coins y exp.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ
+export const menuObject = {
+  economia: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *ECONOMY* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos de Economía para ganar dinero y divertirte con tus amigos.
+ꕤ *$prefixw » $prefixwork » $prefixtrabajar*
+> Ganar coins trabajando.
+ꕤ *$prefixbalance » $prefixbal » $prefixbank*
+> Ver cuantos coins tienes.
+ꕤ *$prefixcoinflip » $prefixflip » $prefixcf*
+> Apostar coins en cara o cruz.
+ꕤ *$prefixcrime » $prefixcrimen*
+> Ganar coins rapido.
+ꕤ *$prefixdaily » $prefixdiario*
+> Reclamar recompensa diaria.
+ꕤ *$prefixdeposit » $prefixdep » $prefixdepositar*
+> Depositar coins en el banco.
+ꕤ *$prefixwithdraw » $prefixwith » $prefixretirar*
+> Retirar coins del banco.
+ꕤ *$prefixeconomyboard » $prefixeboard » $prefixbaltop*
+> Ver ranking de economía.
+ꕤ *$prefixcasino » $prefixapostar » $prefixslot*
+> Apostar coins en el casino.
+ꕤ *$prefixeconomyinfo » $prefixeinfo*
+> Ver tu información de economía.
+ꕤ *$prefixgivecoins » $prefixpay » $prefixcoinsgive*
+> Dar coins a otro usuario.
+ꕤ *$prefixroulette » $prefixrt » $prefixruleta*
+> Apostar en ruleta.
+ꕤ *$prefixslut » $prefixprostituirse*
+> Ganar coins rápido.
+ꕤ *$prefixsteal » $prefixrobar » $prefixrob*
+> Intentar robar a un usuario.
+ꕤ *$prefixminar » $prefixmine*
+> Minería para ganar recursos.
+ꕤ *$prefixcofre » $prefixcoffer*
+> Reclamar cofre diario.
+ꕤ *$prefixweekly » $prefixsemanal*
+> Recompensa semanal.
+ꕤ *$prefixmonthly » $prefixmensual*
+> Recompensa mensual.
+ꕤ *$prefixaventura » $prefixadventure*
+> Ir de aventuras.
+ꕤ *$prefixcurar » $prefixheal*
+> Curar salud.
+ꕤ *$prefixcazar » $prefixhunt*
+> Cazar para ganar coins.
+ꕤ *$prefixfish » $prefixpescar*
+> Pescar para ganar recursos.
+ꕤ *$prefixmazmorra » $prefixdungeon*
+> Explorar mazmorras.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DOWNLOAD* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos de *Descargas* para descargar archivos de varias fuentes.
-✦ *#tiktok • #tt* + [Link] / [busqueda]
-> ⸙ Descargar un video de TikTok.
-✦ *#wagroups • #wpgroups* + [busqueda]
-> ⸙ Buscar grupos de WhatsApp.
-✦ *#mediafire • #mf* + [Link]
-> ⸙ Descargar un archivo de MediaFire.
-✦ *#mega • #mg* + [Link]
-> ⸙ Descargar un archivo de MEGA.
-✦ *#play • #play2 • #ytmp3 • #ytmp4* + [Cancion] / [Link]
-> ⸙ Descargar una cancion o vídeo de YouTube.
-✦ *#facebook • #fb* + [Link]
-> ⸙ Descargar un video de Facebook.
-✦ *#twitter • #x* + [Link]
-> ⸙ Descargar un video de Twitter/X.
-✦ *#ig • #instagram* + [Link]
-> ⸙ Descargar un reel de Instagram.
-✦ *#pinterest • #pin* + [busqueda] / [Link]
-> ⸙ Buscar y descargar imagenes de Pinterest.
-✦ *#image • #imagen* + [busqueda]
-> ⸙ Buscar y descargar imagenes de Google.
-✦ *#apk • #modapk* + [busqueda]
-> ⸙ Descargar un apk de Aptoide.
-✦ *#ytsearch • #search* + [busqueda]
-> ⸙ Buscar videos de YouTube.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ
+  gacha: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *GACHA* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos de Gacha para reclamar e intercambiar personajes.
+ꕤ *$prefixbuycharacter » $prefixbuychar » $prefixbuyc*
+> Comprar personaje en venta.
+ꕤ *$prefixcharimage » $prefixwaifuimage » $prefixcimage » $prefixwimage*
+> Ver imagen aleatoria de personaje.
+ꕤ *$prefixcharinfo » $prefixwinfo » $prefixwaifuinfo*
+> Ver informacion de personaje.
+ꕤ *$prefixclaim » $prefixc » $prefixreclamar*
+> Reclamar personaje.
+ꕤ *$prefixdelclaimmsg*
+> Restablecer mensaje de claim.
+ꕤ *$prefixdeletewaifu » $prefixdelwaifu » $prefixdelchar*
+> Eliminar personaje reclamado.
+ꕤ *$prefixfavoritetop » $prefixfavtop*
+> Top de personajes favoritos.
+ꕤ *$prefixgachainfo » $prefixginfo » $prefixinfogacha*
+> Ver tu informacion gacha.
+ꕤ *$prefixgiveallharem*
+> Regalar todos tus personajes.
+ꕤ *$prefixgivechar » $prefixgivewaifu » $prefixregalar*
+> Regalar personaje a usuario.
+ꕤ *$prefixharem » $prefixwaifus » $prefixclaims*
+> Ver personajes reclamados.
+ꕤ *$prefixharemshop » $prefixtiendawaifus » $prefixwshop*
+> Ver personajes en venta.
+ꕤ *$prefixremovesale » $prefixremoverventa*
+> Quitar personaje de venta.
+ꕤ *$prefixrollwaifu » $prefixrw » $prefixroll*
+> Waifu o husbando aleatorio.
+ꕤ *$prefixsell » $prefixvender*
+> Poner personaje a la venta.
+ꕤ *$prefixserieinfo » $prefixainfo » $prefixanimeinfo*
+> Informacion de anime.
+ꕤ *$prefixserielist » $prefixslist » $prefixanimelist*
+> Listar series del bot.
+ꕤ *$prefixsetclaimmsg » $prefixsetclaim*
+> Cambiar mensaje de claim.
+ꕤ *$prefixtrade » $prefixintercambiar*
+> Intercambiar personajes.
+ꕤ *$prefixvote » $prefixvotar*
+> Votar por personaje.
+ꕤ *$prefixwaifusboard » $prefixwaifustop » $prefixtopwaifus » $prefixwtop*
+> Top de personajes con mayor valor.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *GACHA* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos de *Gacha* para reclamar y colecciónar personajes.
-✦ *#buycharacter • #buychar • #buyc* + [nombre]
-> ⸙ Comprar un personaje en venta.
-✦ *#charimage • #waifuimage • #cimage • #wimage* + [nombre]
-> ⸙ Ver una imagen aleatoria de un personaje.
-✦ *#charinfo • #winfo • #waifuinfo* + [nombre]
-> ⸙ Ver información de un personaje.
-✦ *#claim • #c • #reclamar* + {citar personaje}
-> ⸙ Reclamar un personaje.
-✦ *#delclaimmsg*
-> ⸙ Restablecer el mensaje al reclamar un personaje
-✦ *#deletewaifu • #delwaifu • #delchar* + [nombre]
-> ⸙ Eliminar un personaje reclamado.
-✦ *#favoritetop • #favtop*
-> ⸙ Ver el top de personajes favoritos.
-✦ *#gachainfo • #ginfo • #infogacha*
-> ⸙ Ver tu información de gacha.
-✦ *#giveallharem* + [@usuario]
-> ⸙ Regalar todos tus personajes a otro usuario.
-✦ *#givechar • #givewaifu • #regalar* + [@usuario] [nombre]
-> ⸙ Regalar un personaje a otro usuario.
-✦ *#robwaifu • #robarwaifu* + [@usuario]
-> ⸙ Robar un personaje a otro usuario.
-✦ *#harem • #waifus • #claims* + <@usuario>
-> ⸙ Ver tus personajes reclamados.
-✦ *#haremshop • #tiendawaifus • #wshop* + <Pagina>
-> ⸙ Ver los personajes en venta.
-✦ *#removesale • #removerventa* + [precio] [nombre]
-> ⸙ Eliminar un personaje en venta.
-✦ *#rollwaifu • #rw • #roll*
-> ⸙ Waifu o husbando aleatorio
-✦ *#sell • #vender* + [precio] [nombre]
-> ⸙ Poner un personaje a la venta.
-✦ *#serieinfo • #ainfo • #animeinfo* + [nombre]
-> ⸙ Información de un anime.
-✦ *#serielist • #slist • #animelist*
-> ⸙ Listar series del bot
-✦ *#setclaimmsg • #setclaim* + [mensaje]
-> ⸙ Modificar el mensaje al reclamar un personaje
-✦ *#trade • #intercambiar* + [Tu personaje] / [Personaje 2]
-> ⸙ Intercambiar un personaje con otro usuario
-✦ *#vote • #votar* + [nombre]
-> ⸙ Votar por un personaje para subir su valor.
-✦ *#waifusboard • #waifustop • #topwaifus • #wtop* + [número]
-> ⸙ Ver el top de personajes con mayor valor.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ
+  downloads: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DOWNLOAD* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos de Descargas para descargar archivos de varias fuentes.
+ꕤ *$prefixfacebook » $prefixfb*
+> Descargar video de Facebook.
+ꕤ *$prefixmediafire » $prefixmf*
+> Descargar archivo de MediaFire.
+ꕤ *$prefixplay » $prefixmp3 » $prefixplayaudio » $prefixytaudio » $prefixytmp3*
+> Descargar canción de YouTube.
+ꕤ *$prefixplay2 » $prefixmp4 » $prefixplayvideo » $prefixytvideo » $prefixytmp4*
+> Descargar video de YouTube.
+ꕤ *$prefixpinterest » $prefixpin*
+> Buscar y descargar imágenes de Pinterest.
+ꕤ *$prefixreel » $prefixig » $prefixinstagram*
+> Descargar reel de Instagram.
+ꕤ *$prefixtiktok » $prefixtt*
+> Descargar video de TikTok.
+ꕤ *$prefixtwitter » $prefixx*
+> Descargar contenido de Twitter/X.
+ꕤ *$prefixytsearch » $prefixsearch*
+> Buscar videos de YouTube.
+ꕤ *$prefiximagen » $prefiximg*
+> Buscar imágenes en Google.
+ꕤ *$prefixaptoide » $prefixapk » $prefixapkdl*
+> Buscar apps en Aptoide.
+ꕤ *$prefixwagrupos » $prefixgruposwa*
+> Buscar grupos de WhatsApp.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *SOCKETS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos para registrar tu propio Bot.
-✦ *#qr • #code*
-> ⸙ Crear un Sub-Bot con un codigo QR/Code
-✦ *#bots • #botlist*
-> ⸙ Ver el numero de bots activos.
-✦ *#status • #estado*
-> ⸙ Ver estado del bot.
-✦ *#p • #ping*
-> ⸙ Medir tiempo de respuesta.
-✦ *#join* + [Invitacion]
-> ⸙ Unir al bot a un grupo.
-✦ *#leave • #salir*
-> ⸙ Salir de un grupo.
-✦ *#logout*
-> ⸙ Cerrar sesion del bot.
-✦ *#setpfp • #setimage*
-> ⸙ Cambiar la imagen de perfil
-✦ *#setstatus* + [estado]
-> ⸙ Cambiar el estado del bot
-✦ *#setusername* + [nombre]
-> ⸙ Cambiar el nombre de usuario
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ
+  profile: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *PROFILES* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos de Perfil para ver y configurar tu perfil.
+ꕤ *$prefixprofile » $prefixperfil*
+> Ver perfil propio o de un usuario.
+ꕤ *$prefixleaderboard » $prefixlboard » $prefixlb*
+> Top de usuarios con más experiencia.
+ꕤ *$prefixlevel » $prefixlvl*
+> Ver tu nivel y experiencia.
+ꕤ *$prefixsetgenre*
+> Establecer tu genero.
+ꕤ *$prefixdelgenre*
+> Eliminar tu genero.
+ꕤ *$prefixsetbirth*
+> Establecer fecha de cumpleaños.
+ꕤ *$prefixdelbirth*
+> Borrar fecha de cumpleaños.
+ꕤ *$prefixsetdescription » $prefixsetdesc*
+> Establecer descripcion.
+ꕤ *$prefixdeldescription » $prefixdeldesc*
+> Eliminar descripcion.
+ꕤ *$prefixmarry » $prefixcasarse*
+> Casarte con alguien.
+ꕤ *$prefixdivorce*
+> Divorciarte de tu pareja.
+ꕤ *$prefixsetfavourite » $prefixsetfav*
+> Establecer claim favorito.
+ꕤ *$prefixdeletefav » $prefixdelfav*
+> Borrar claim favorito.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos de *Útilidades*.
-✦ *#help • #menu*
-> ⸙ Ver el menú de comandos.
-✦ *#sc • #script*
-> ⸙ Link del repositorio oficial del Bot.
-✦ *#sug • #suggest*
-> ⸙ Sugerir nuevas funciones al desarrollador.
-✦ *#reporte • #reportar*
-> ⸙ Reportar fallas o problemas del bot.
-✦ *#calcular • #cal*
-> ⸙ Calcular tipos de ecuaciones.
-✦ *#delmeta*
-> ⸙ Restablecer el pack y autor por defecto para tus stickers.
-✦ *#getpic • #pfp* + [@usuario]
-> ⸙ Ver la foto de perfil de un usuario.
-✦ *#say* + [texto]
-> ⸙ Repetir un mensaje
-✦ *#setmeta* + [autor] | [pack]
-> ⸙ Establecer el pack y autor por defecto para tus stickers.
-✦ *#sticker • #s • #wm* + {citar una imagen/video}
-> ⸙ Convertir una imagen/video a sticker
-✦ *#toimg • #img* + {citar sticker}
-> ⸙ Convertir un sticker/imagen de una vista a imagen.
-✦ *#brat • #bratv • #qc • #emojimix*︎ 
-> ⸙ Crear stickers con texto.
-✦ *#gitclone* + [Link]
-> ⸙ Descargar un repositorio de Github.
-✦ *#enhance • #remini • #hd*
-> ⸙ Mejorar calidad de una imagen.
-✦ *#letra • #style* 
-> ⸙ Cambia la fuente de las letras.
-✦ *#read • #readviewonce*
-> ⸙ Ver imágenes viewonce.
-✦ *#ss • #ssweb*
-> ⸙ Ver el estado de una página web.
-✦ *#translate • #traducir • #trad*
-> ⸙ Traducir palabras en otros idiomas.
-✦ *#ia • #gemini*
-> ⸙ Preguntar a Chatgpt.
-✦ *#iavoz • #aivoz*
-> ⸙ Hablar o preguntar a chatgpt mexicano modo voz.
-✦ *#tourl • #catbox*
-> ⸙ Convertidor de imágen/video en urls.
-✦ *#wiki • #wikipedia*
-> ⸙ Investigar temas a través de Wikipedia.
-✦ *#dalle • #flux*
-> ⸙ Crear imágenes con texto mediante IA.
-✦ *#npmdl • #nmpjs*
-> ⸙ Descargar paquetes de NPMJS.
-✦ *#google*
-> ⸙ Realizar búsquedas por Google.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ
+  sockets: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *SOCKETS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos para registrar tu propio bot.
+ꕤ *$prefixbotinfo » $prefixinfobot*
+> Obtener informacion del bot.
+ꕤ *$prefixjoin*
+> Unir bot a un grupo.
+ꕤ *$prefixleave » $prefixsalir*
+> Salir de un grupo.
+ꕤ *$prefixlogout*
+> Cerrar sesion del bot.
+ꕤ *$prefixself*
+> Volver privado/publico tu bot.
+ꕤ *$prefixqr » $prefixcode*
+> Crear Sub-Bot por código.
+ꕤ *$prefixreload*
+> Recargar la sesion del bot.
+ꕤ *$prefixsetname » $prefixsetbotname*
+> Cambiar nombre del bot.
+ꕤ *$prefixsetbanner » $prefixsetbotbanner*
+> Cambiar banner del menu.
+ꕤ *$prefixseticon » $prefixsetboticon*
+> Cambiar icono del bot.
+ꕤ *$prefixsetprefix » $prefixsetbotprefix*
+> Cambiar prefijo del bot.
+ꕤ *$prefixsetcurrency » $prefixsetbotcurrency*
+> Cambiar moneda del bot.
+ꕤ *$prefixsetowner » $prefixsetbotowner*
+> Cambiar owner del bot.
+ꕤ *$prefixsetchannel » $prefixsetbotchannel*
+> Cambiar canal del bot.
+ꕤ *$prefixsetlink » $prefixsetbotlink*
+> Cambiar enlace del bot.
+ꕤ *$prefixsetpfp » $prefixsetimage*
+> Cambiar foto de perfil.
+ꕤ *$prefixsetstatus*
+> Cambiar estado del bot.
+ꕤ *$prefixsetusername*
+> Cambiar nombre de usuario.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *PROFILES* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos de *Perfil* para ver y configurar tu perfil.
-✦ *#leaderboard • #lboard • #top* + <Paginá>
-> ⸙ Top de usuarios con más experiencia.
-✦ *#level • #lvl* + <@Mencion>
-> ⸙ Ver tu nivel y experiencia actual.
-✦ *#marry • #casarse* + <@Mencion>
-> ⸙ Casarte con alguien.
-✦ *#profile* + <@Mencion>
-> ⸙ Ver tu perfil.
-✦ *#setbirth* + [fecha]
-> ⸙ Establecer tu fecha de cumpleaños.
-✦ *#setdescription • #setdesc* + [Descripcion]
-> ⸙ Establecer tu descripcion.
-✦ *#setgenre* + Hombre | Mujer
-> ⸙ Establecer tu genero.
-✦ *#delgenre • #delgenero*
-> ⸙ Eliminar tu género.
-✦ *#delbirth* + [fecha]
-> ⸙ Borrar tu fecha de cumpleaños.
-✦ *#divorce*
-> ⸙ Divorciarte de tu pareja.
-✦ *#setfavourite • #setfav* + [Personaje]
-> ⸙ Establecer tu claim favorito.
-✦ *#deldescription • #deldesc*
-> ⸙ Eliminar tu descripción.
-✦ *#prem • #vip*
-> ⸙ Comprar membresía premium.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ
+  stickers: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *STICKERS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜
+> ✐ Comandos de Stickers para crear y gestionar stickers.
+ꕤ *$prefixstickerpack » $prefixspack » $prefixstickers*
+> Buscar y descargar packs de stickers.
+ꕤ *$prefixdelpack*
+> Eliminar un paquete de stickers.
+ꕤ *$prefixdelstickermeta » $prefixdelmeta*
+> Restablecer pack/autor por defecto.
+ꕤ *$prefixgetpack » $prefixpack*
+> Descargar paquete de stickers.
+ꕤ *$prefixnewpack » $prefixnewstickerpack*
+> Crear paquete nuevo.
+ꕤ *$prefixsetpackprivate » $prefixsetpackpriv » $prefixpackprivate*
+> Poner paquete en privado.
+ꕤ *$prefixsetpackpublic » $prefixsetpackpub » $prefixpackpublic*
+> Poner paquete en público.
+ꕤ *$prefixsetstickermeta » $prefixsetmeta*
+> Configurar autor y pack por defecto.
+ꕤ *$prefixsticker » $prefixs*
+> Convertir imagen/video a sticker.
+ꕤ *$prefixsetstickerpackdesc » $prefixsetpackdesc » $prefixpackdesc*
+> Cambiar descripción del pack.
+ꕤ *$prefixsetstickerpackname » $prefixsetpackname » $prefixpackname*
+> Cambiar nombre del pack.
+ꕤ *$prefixstickeradd » $prefixaddsticker*
+> Agregar sticker a un pack.
+ꕤ *$prefixstickerdel » $prefixdelsticker*
+> Eliminar sticker de un pack.
+ꕤ *$prefixstickerpacks » $prefixpacklist*
+> Ver lista de packs.
+ꕤ *$prefixbrat » $prefixbratv » $prefixqc » $prefixemojimix*
+> Crear sticker con texto.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *GROUPS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos para *Administradores* de grupos.
-✦ *#tag • #hidetag • #invocar • #tagall* + [mensaje]
-> ⸙ Envía un mensaje mencionando a todos los usuarios del grupo.
-✦ *#detect • #alertas* + [enable/disable]
-> ⸙ Activar/desactivar las alertas de promote/demote
-✦ *#antilink • #antienlace* + [enable/disable]
-> ⸙ Activar/desactivar el antienlace
-✦ *#bot* + [enable/disable]
-> ⸙ Activar/desactivar al bot
-✦ *#close • #cerrar*
-> ⸙ Cerrar el grupo para que solo los administradores puedan enviar mensajes.
-✦ *#demote* + <@usuario> | {mencion}
-> ⸙ Descender a un usuario de administrador.
-✦ *#economy* + [enable/disable]
-> ⸙ Activar/desactivar los comandos de economía
-✦ *#gacha* + [enable/disable]
-> ⸙ Activar/desactivar los comandos de Gacha y Games.
-✦ *#welcome • #bienvenida* + [enable/disable]
-> ⸙ Activar/desactivar la bienvenida y despedida.
-✦ *#setbye* + [texto]
-> ⸙ Establecer un mensaje de despedida personalizado.
-✦ *#setprimary* + [@bot]
-> ⸙ Establece un bot como primario del grupo.
-✦ *#setwelcome* + [texto]
-> ⸙ Establecer un mensaje de bienvenida personalizado.
-✦ *#kick* + <@usuario> | {mencion}
-> ⸙ Expulsar a un usuario del grupo.
-✦ *#nsfw* + [enable/disable]
-> ⸙ Activar/desactivar los comandos NSFW
-✦ *#onlyadmin* + [enable/disable]
-> ⸙ Permitir que solo los administradores puedan utilizar los comandos.
-✦ *#open • #abrir*
-> ⸙ Abrir el grupo para que todos los usuarios puedan enviar mensajes.
-✦ *#promote* + <@usuario> | {mencion}
-> ⸙ Ascender a un usuario a administrador.
-✦ *#add • #añadir • #agregar* + {número}
-> ⸙ Invita a un usuario a tu grupo.
-✦ *admins • admin* + [texto]
-> ⸙ Mencionar a los admins para solicitar ayuda.
-✦ *#restablecer • #revoke*
-> ⸙ Restablecer enlace del grupo.
-✦ *#addwarn • #warn* + <@usuario> | {mencion}
-> ⸙ Advertir aún usuario.
-✦ *#unwarn • #delwarn* + <@usuario> | {mencion}
-> ⸙ Quitar advertencias de un usuario.
-✦ *#advlist • #listadv*
-> ⸙ Ver lista de usuarios advertidos.
-✦ *#inactivos • #kickinactivos*
-> ⸙ Ver y eliminar a usuarios inactivos.
-✦ *#listnum • #kicknum* [texto]
-> ⸙ Eliminar usuarios con prefijo de país.
-✦ *#gpbanner • #groupimg*
-> ⸙ Cambiar la imagen del grupo.
-✦ *#gpname • #groupname* [texto]
-> ⸙ Cambiar la nombre del grupo.
-✦ *#gpdesc • #groupdesc* [texto]
-> ⸙ Cambiar la descripción del grupo.
-✦ *#del • #delete* + {citar un mensaje}
-> ⸙ Eliminar un mensaje.
-✦ *#linea • #listonline*
-> ⸙ Ver lista de usuarios en linea.
-✦ *#gp • #infogrupo*
-> ⸙ Ver la Informacion del grupo.
-✦ *#link*
-> ⸙ Ver enlace de invitación del grupo.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅׅ
+  utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜
+> ✐ Comandos de Utilidades.
+ꕤ *$prefixmenu » $prefixhelp » $prefixayuda*
+> Ver el menú de comandos.
+ꕤ *$prefixbots » $prefixsockets*
+> Ver número de bots activos.
+ꕤ *$prefixstatus » $prefixestado*
+> Ver estado del bot.
+ꕤ *$prefixping » $prefixp » $prefixspeed*
+> Medir tiempo de respuesta.
+ꕤ *$prefixreport » $prefixreporte*
+> Enviar reporte a moderadores.
+ꕤ *$prefixsug » $prefixsuggest*
+> Enviar sugerencia.
+ꕤ *$prefixinvite » $prefixinvitar*
+> Invitar bot a grupo.
+ꕤ *$prefixia » $prefixchatgpt*
+> Consultar IA.
+ꕤ *$prefixgetpic » $prefixpfp*
+> Ver foto de perfil de usuario.
+ꕤ *$prefixtoimage » $prefixtoimg*
+> Convertir sticker a imagen.
+ꕤ *$prefixtourl*
+> Convertir media en enlace.
+ꕤ *$prefixsay » $prefixdecir*
+> Repetir un mensaje.
+ꕤ *$prefixtrad » $prefixtraducir » $prefixtranslate*
+> Traducir texto.
+ꕤ *$prefixget » $prefixfetch*
+> Solicitud GET a una URL.
+ꕤ *$prefixhd » $prefixenhance » $prefixremini*
+> Mejorar calidad de imagen.
+ꕤ *$prefixgitclone » $prefixgit*
+> Descargar repositorio de GitHub.
+ꕤ *$prefixinspect » $prefixinspeccionar*
+> Ver datos de grupos/canales.
+ꕤ *$prefixread » $prefixreadviewonce*
+> Leer contenido view-once.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *ANIME* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✿ Comandos de reacciones de anime.
-✦ *#angry • #enojado* + <mencion>
-> ⸙ Estar enojado
-✦ *#bath • #bañarse* + <mencion>
-> ⸙ Bañarse
-✦ *#bite • #morder* + <mencion>
-> ⸙ Muerde a alguien
-✦ *#bleh • #lengua* + <mencion>
-> ⸙ Sacar la lengua
-✦ *#blush • #sonrojarse* + <mencion>
-> ⸙ Sonrojarte
-✦ *#bored • #aburrido* + <mencion>
-> ⸙ Estar aburrido
-✦ *#clap • #aplaudir* + <mencion>
-> ⸙ Aplaudir
-✦ *#coffee • #cafe • #café* + <mencion>
-> ⸙ Tomar café
-✦ *#cry • #llorar* + <mencion>
-> ⸙ Llorar por algo o alguien
-✦ *#cuddle • #acurrucarse* + <mencion>
-> ⸙ Acurrucarse
-✦ *#dance • #bailar* + <mencion>
-> ⸙ Sacate los pasitos prohíbidos
-✦ *#dramatic • #drama* + <mencion>
-> ⸙ Drama
-✦ *#drunk • #borracho* + <mencion>
-> ⸙ Estar borracho
-✦ *#eat • #comer* + <mencion>
-> ⸙ Comer algo delicioso
-✦ *#facepalm • #palmada* + <mencion>
-> ⸙ Darte una palmada en la cara
-✦ *#happy • #feliz* + <mencion>
-> ⸙ Salta de felicidad
-✦ *#hug • #abrazar* + <mencion>
-> ⸙ Dar un abrazo
-✦ *#impregnate • #preg • #preñar • #embarazar* + <mencion>
-> ⸙ Embarazar a alguien
-✦ *#kill • #matar* + <mencion>
-> ⸙ Toma tu arma y mata a alguien
-✦ *#kiss • #muak* + <mencion>
-> ⸙ Dar un beso
-✦ *#kisscheek • #beso* + <mencion>
-> ⸙ Beso en la mejilla
-✦ *#laugh • #reirse* + <mencion>
-> ⸙ Reírte de algo o alguien
-✦ *#lick • #lamer* + <mencion>
-> ⸙ Lamer a alguien
-✦ *#love • #amor • #enamorado • #enamorada* + <mencion>
-> ⸙ Sentirse enamorado
-✦ *#pat • #palmadita • #palmada* + <mencion>
-> ⸙ Acaricia a alguien
-✦ *#poke • #picar* + <mencion>
-> ⸙ Picar a alguien
-✦ *#pout • #pucheros* + <mencion>
-> ⸙ Hacer pucheros
-✦ *#punch • #pegar • #golpear* + <mencion>
-> ⸙ Dar un puñetazo
-✦ *#run • #correr* + <mencion>
-> ⸙ Correr
-✦ *#sad • #triste* + <mencion>
-> ⸙ Expresar tristeza
-✦ *#scared • #asustado • #asustada* + <mencion>
-> ⸙ Estar asustado
-✦ *#seduce • #seducir* + <mencion>
-> ⸙ Seducir a alguien
-✦ *#shy • #timido • #timida* + <mencion>
-> ⸙ Sentir timidez
-✦ *#slap • #bofetada* + <mencion>
-> ⸙ Dar una bofetada
-✦ *#sleep • #dormir* + <mencion>
-> ⸙ Tumbarte a dormir
-✦ *#smoke • #fumar* + <mencion>
-> ⸙ Fumar
-✦ *#spit • #escupir* + <mencion>
-> ⸙ Escupir
-✦ *#step • #pisar* + <mencion>
-> ⸙ Pisar a alguien
-✦ *#think • #pensar* + <mencion>
-> ⸙ Pensar en algo
-✦ *#walk • #caminar* + <mencion>
-> ⸙ Caminar
-✦ *#wink • #guiñar* + <mencion>
-> ⸙ Guiñar el ojo
-✦ *#cringe • #avergonzarse* + <mencion>
-> ⸙ Sentir vergüenza ajena
-✦ *#smug • #presumir* + <mencion>
-> ⸙ Presumir con estilo
-✦ *#smile • #sonreir* + <mencion>
-> ⸙ Sonreír con ternura
-✦ *#highfive • #5* + <mencion>
-> ⸙ Chocar los cinco
-✦ *#bully • #bullying* + <mencion>
-> ⸙ Molestar a alguien
-✦ *#handhold • #mano* + <mencion>
-> ⸙ Tomarse de la mano
-✦ *#wave • #ola • #hola* + <mencion>
-> ⸙ Saludar con la mano
-✦ *#waifu*
-> ⸙ Buscar una waifu aleatoria.
-✦ *#ppcouple • #ppcp*
-> ⸙ Genera imágenes para amistades o parejas.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯
+  grupo: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *GROUPS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos para administradores de grupos.
+ꕤ *$prefixalerts » $prefixalertas*
+> Activar/desactivar alertas de grupo.
+ꕤ *$prefixantilinks » $prefixantienlaces*
+> Activar/desactivar antienlaces.
+ꕤ *$prefixbot*
+> Activar/desactivar bot en grupo.
+ꕤ *$prefixclose » $prefixcerrar*
+> Cerrar grupo para solo admins.
+ꕤ *$prefixgp » $prefixgroupinfo*
+> Información del grupo.
+ꕤ *$prefixdelwarn*
+> Eliminar advertencias.
+ꕤ *$prefixdemote*
+> Bajar admin.
+ꕤ *$prefixeconomy » $prefixeconomia*
+> Activar/desactivar economía.
+ꕤ *$prefixgacha » $prefixrpg*
+> Activar/desactivar gacha.
+ꕤ *$prefixgoodbye » $prefixdespedida*
+> Activar/desactivar despedida.
+ꕤ *$prefixsetgpbaner*
+> Cambiar imagen del grupo.
+ꕤ *$prefixsetgpname*
+> Cambiar nombre del grupo.
+ꕤ *$prefixsetgpdesc*
+> Cambiar descripción del grupo.
+ꕤ *$prefixkick*
+> Expulsar usuario.
+ꕤ *$prefixnsfw*
+> Activar/desactivar NSFW.
+ꕤ *$prefixonlyadmin » $prefixadminonly*
+> Solo admins pueden usar comandos.
+ꕤ *$prefixopen » $prefixabrir*
+> Abrir grupo para todos.
+ꕤ *$prefixpromote*
+> Subir a admin.
+ꕤ *$prefixsetgoodbye*
+> Mensaje personalizado de despedida.
+ꕤ *$prefixsetprimary*
+> Definir bot primario del grupo.
+ꕤ *$prefixsetwarnlimit*
+> Definir limite de warns.
+ꕤ *$prefixsetwelcome*
+> Mensaje personalizado de bienvenida.
+ꕤ *$prefixtag » $prefixhidetag » $prefixtagall*
+> Mencionar a todos los miembros.
+ꕤ *$prefixmsgcount » $prefixcount » $prefixmessages » $prefixmensajes*
+> Conteo de mensajes por usuario.
+ꕤ *$prefixtopcount » $prefixtopmessages » $prefixtopmsgcount » $prefixtopmensajes*
+> Top de mensajes del grupo.
+ꕤ *$prefixtopinactive » $prefixtopinactivos » $prefixtopinactiveusers*
+> Top de usuarios inactivos.
+ꕤ *$prefixwarn*
+> Dar advertencia.
+ꕤ *$prefixwarns*
+> Ver advertencias de usuario.
+ꕤ *$prefixwelcome » $prefixbienvenida*
+> Activar/desactivar bienvenida.
+ꕤ *$prefixlink » $prefixrevoke*
+> Obtener/restablecer enlace del grupo.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 
-╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *NSFW* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-✦ *#danbooru • #dbooru* + [Tags]
-> ⸙ Buscar imagenes en Danbooru
-✦ *#gelbooru • #gbooru* + [Tags]
-> ⸙ Buscar imagenes en Gelbooru
-✦ *#rule34 • #r34* + [Tags]
-> ⸙ Buscar imagenes en Rule34
-✦ *#xvideos •#xvideosdl* + [Link]
-> ⸙ Descargar un video Xvideos. 
-✦ *#xnxx •#xnxxdl* + [Link]
-> ⸙ Descargar un video Xnxx.
-╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`.trim()
-await conn.sendMessage(m.chat, { 
-text: txt,
-contextInfo: {
-mentionedJid: [userId],
-isForwarded: true,
-forwardedNewsletterMessageInfo: {
-newsletterJid: channelRD.id,
-serverMessageId: '',
-newsletterName: channelRD.name
-},
-externalAdReply: {
- title: botDisplayName,
- body: textbot,
- mediaType: 1,
- mediaUrl: redes,
- sourceUrl: redes,
- thumbnail: await (await fetch(bannerUrl)).buffer(),
- showAdAttribution: false,
- containsAutoReply: true,
- renderLargerThumbnail: true
- }}}, { quoted: m })
+  nsfw: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *NSFW* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos NSFW (Contenido para adultos).
+ꕤ *$prefixxnxx*
+> Buscar/descargar videos de XNXX.
+ꕤ *$prefixxvideos*
+> Buscar/descargar videos de XVideos.
+ꕤ *$prefixdanbooru » $prefixdbooru*
+> Buscar imágenes en Danbooru.
+ꕤ *$prefixgelbooru » $prefixgbooru*
+> Buscar imágenes en Gelbooru.
+ꕤ *$prefixrule34 » $prefixr34*
+> Buscar imágenes en Rule34.
+ꕤ *$prefixanal » $prefixviolar*
+> Hacer un anal.
+ꕤ *$prefixblowjob » $prefixmamada » $prefixbj*
+> Dar una mamada.
+ꕤ *$prefixcum*
+> Venirse en alguien.
+ꕤ *$prefixfuck » $prefixcoger*
+> Follarte a alguien.
+ꕤ *$prefixlickpussy*
+> Lamer un coño.
+ꕤ *$prefixorgy » $prefixorgia*
+> Organizar una orgía.
+ꕤ *$prefixsixnine » $prefix69*
+> Hacer un 69 con alguien.
+ꕤ *$prefixspank » $prefixnalgada*
+> Dar una nalgada.
+ꕤ *$prefixthighjob*
+> Hacer una entrepierna.
+ꕤ *$prefixundress » $prefixencuerar*
+> Desnudar a alguien.
+ꕤ *$prefixyaoi*
+> Momento muy intenso.
+ꕤ *$prefixyuri » $prefixtijeras*
+> Hacer tijeras.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
+
+  anime: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *ANIME* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos de reacciones de Anime.
+ꕤ *$prefixwaifu » $prefixneko*
+> Buscar waifu aleatoria.
+ꕤ *$prefixppcouple » $prefixppcp*
+> Generar imágenes de pareja.
+ꕤ *$prefixpeek » $prefixmirar*
+> Mirar a alguien.
+ꕤ *$prefixcomfort » $prefixconsolar*
+> Consolar a alguien.
+ꕤ *$prefixthinkhard » $prefixpensar*
+> Pensar intensamente.
+ꕤ *$prefixcurious » $prefixcurioso*
+> Mostrar curiosidad.
+ꕤ *$prefixsniff » $prefixoler*
+> Oler a alguien.
+ꕤ *$prefixstare*
+> Mirar fijamente.
+ꕤ *$prefixtrip » $prefixtropezar*
+> Tropezar con alguien.
+ꕤ *$prefixblowkiss » $prefixbesito*
+> Mandar un besito.
+ꕤ *$prefixsnuggle » $prefixacurrucar*
+> Acurrucarse con alguien.
+ꕤ *$prefixangry » $prefixenojado*
+> Estar enojado.
+ꕤ *$prefixbored » $prefixaburrido*
+> Estar aburrido.
+ꕤ *$prefixclap » $prefixaplaudir*
+> Aplaudir.
+ꕤ *$prefixcoffee » $prefixcafe*
+> Tomar café.
+ꕤ *$prefixtickle » $prefixcosquillas*
+> Hacer cosquillas.
+ꕤ *$prefixscream » $prefixgritar*
+> Gritar.
+ꕤ *$prefixpush » $prefixempujar*
+> Empujar a alguien.
+ꕤ *$prefixjump » $prefixsaltar*
+> Saltar.
+ꕤ *$prefixdraw » $prefixdibujar*
+> Dibujar.
+ꕤ *$prefixdrunk » $prefixborracho*
+> Estar borracho.
+ꕤ *$prefixkisscheek » $prefixbeso*
+> Dar un beso en la mejilla.
+ꕤ *$prefixlaugh » $prefixreir*
+> Reírse de alguien.
+ꕤ *$prefixlove » $prefixamor*
+> Sentirse enamorado.
+ꕤ *$prefixpout » $prefixmueca*
+> Hacer pucheros.
+ꕤ *$prefixpunch » $prefixgolpear*
+> Dar un puñetazo.
+ꕤ *$prefixrun » $prefixcorrer*
+> Correr.
+ꕤ *$prefixsad » $prefixtriste*
+> Expresar tristeza.
+ꕤ *$prefixscared » $prefixasustado*
+> Estar asustado.
+ꕤ *$prefixseduce » $prefixseducir*
+> Seducir a alguien.
+ꕤ *$prefixshy » $prefixtimido*
+> Sentir timidez.
+ꕤ *$prefixsleep » $prefixdormir*
+> Tumbarse a dormir.
+ꕤ *$prefixsmoke » $prefixfumar*
+> Fumar.
+ꕤ *$prefixspit » $prefixescupir*
+> Escupir.
+ꕤ *$prefixstep » $prefixpisar*
+> Pisar a alguien.
+ꕤ *$prefixthink*
+> Pensar en algo.
+ꕤ *$prefixwalk » $prefixcaminar*
+> Caminar.
+ꕤ *$prefixhug » $prefixabrazar*
+> Dar un abrazo.
+ꕤ *$prefixkill » $prefixmatar*
+> Tomar tu arma y atacar a alguien.
+ꕤ *$prefixeat » $prefixnom » $prefixcomer*
+> Comer algo delicioso.
+ꕤ *$prefixkiss » $prefixmuak*
+> Dar un beso.
+ꕤ *$prefixwink*
+> Guiñar un ojo.
+ꕤ *$prefixpat*
+> Acariciar a alguien.
+ꕤ *$prefixhappy » $prefixfeliz*
+> Saltar de felicidad.
+ꕤ *$prefixbully*
+> Molestar a alguien.
+ꕤ *$prefixbite » $prefixmorder*
+> Morder a alguien.
+ꕤ *$prefixblush*
+> Sonrojarse.
+ꕤ *$prefixwave*
+> Saludar con la mano.
+ꕤ *$prefixbath*
+> Bañarse.
+ꕤ *$prefixsmug*
+> Actuar presumido.
+ꕤ *$prefixsmile*
+> Sonreír.
+ꕤ *$prefixhighfive*
+> Chocar esos cinco.
+ꕤ *$prefixhandhold*
+> Tomar de la mano.
+ꕤ *$prefixcringe*
+> Hacer una mueca incómoda.
+ꕤ *$prefixbonk*
+> Dar un golpe divertido.
+ꕤ *$prefixcry*
+> Llorar.
+ꕤ *$prefixlick*
+> Lamer a alguien.
+ꕤ *$prefixslap*
+> Dar una bofetada.
+ꕤ *$prefixdance*
+> Bailar.
+ꕤ *$prefixcuddle*
+> Acurrucarse.
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 }
 
-handler.help = ['menu']
+function safeString(value) {
+  return typeof value === 'string' ? value : value == null ? '' : String(value)
+}
+
+function valueToString(value) {
+  if (Array.isArray(value)) return valueToString(value[0])
+  return safeString(value)
+}
+
+function firstFilled(...values) {
+  for (const value of values) {
+    const out = valueToString(value).trim()
+    if (out) return out
+  }
+  return ''
+}
+
+function digitsOnly(value) {
+  return safeString(value).replace(/[^0-9]/g, '')
+}
+
+function replaceAll(text, map) {
+  let out = safeString(text)
+  for (const [key, value] of Object.entries(map)) {
+    out = out.split(key).join(safeString(value))
+  }
+  return out
+}
+
+function getOwnerLabel() {
+  const rawOwner = Array.isArray(global?.owner) ? global.owner[0] : global?.owner
+  const raw = Array.isArray(rawOwner) ? rawOwner[0] : rawOwner
+  const candidate = firstFilled(raw)
+  if (!candidate) return ''
+
+  const ownerDigits = digitsOnly(candidate)
+  if (ownerDigits) {
+    const ownerJid = `${ownerDigits}@s.whatsapp.net`
+    const ownerName = firstFilled(global?.db?.data?.users?.[ownerJid]?.name)
+    return ownerName || ownerDigits
+  }
+
+  return candidate
+}
+
+function normalizeOwnerCandidate(rawCandidate) {
+  const candidate = firstFilled(rawCandidate)
+  if (!candidate) return ''
+
+  const ownerToken = candidate.toLowerCase().trim()
+  const ownerBase = ownerToken.includes('@') ? ownerToken.split('@')[0] : ownerToken
+  if (['auto', 'usuario', 'user', 'none', 'null', 'undefined', 'n/a', 'na', '-'].includes(ownerToken) ||
+    ['auto', 'usuario', 'user', 'none', 'null', 'undefined', 'n/a', 'na', '-'].includes(ownerBase)) {
+    return ''
+  }
+
+  const ownerDigits = digitsOnly(candidate)
+  if (ownerDigits && (candidate.includes('@') || /^\+?\d+$/.test(candidate))) {
+    const ownerJid = `${ownerDigits}@s.whatsapp.net`
+    const ownerName = firstFilled(global?.db?.data?.users?.[ownerJid]?.name)
+    return ownerName || ownerDigits
+  }
+
+  return candidate
+}
+
+function getMenuBotSettings(conn) {
+  const botJid = firstFilled(conn?.user?.jid, conn?.user?.id)
+  if (!botJid) return {}
+  const settings = global?.db?.data?.settings?.[botJid]
+  return settings && typeof settings === 'object' ? settings : {}
+}
+
+function resolveMenuOwner(conn, botSettings = {}) {
+  const cfg = conn?.subbotRuntimeConfig || {}
+  const hidden =
+    cfg?.hideOwner === true ||
+    cfg?.hideowner === true ||
+    cfg?.ownerHidden === true ||
+    botSettings?.hideOwner === true ||
+    botSettings?.hideowner === true ||
+    botSettings?.ownerHidden === true
+  if (hidden) return 'Oculto por privacidad'
+
+  const cfgOwner = normalizeOwnerCandidate(cfg?.owner)
+  if (cfgOwner) return cfgOwner
+
+  const settingsOwner = normalizeOwnerCandidate(
+    firstFilled(
+      botSettings?.owner,
+      botSettings?.botOwner,
+      botSettings?.developer,
+      botSettings?.dev
+    )
+  )
+  if (settingsOwner) return settingsOwner
+
+  const selfJidRaw = safeString(conn?.user?.jid || conn?.user?.id)
+  const selfDigits = digitsOnly(selfJidRaw.split('@')[0].split(':')[0])
+  const subbots = global?.db?.data?.panel?.subbots || {}
+
+  let record = selfDigits ? subbots[selfDigits] : null
+  if (!record && selfDigits) {
+    record = Object.values(subbots).find((r) => {
+      const num = digitsOnly(r?.numero)
+      const code = digitsOnly(r?.code)
+      const id = digitsOnly(r?.id)
+      return num === selfDigits || code === selfDigits || id === selfDigits
+    }) || null
+  }
+
+  const candidate = normalizeOwnerCandidate(firstFilled(record?.owner, record?.usuario))
+  if (candidate) return candidate
+
+  return getOwnerLabel() || 'Oculto por privacidad'
+}
+
+function resolveMenuLink(botSettings = {}) {
+  const rawLink = firstFilled(
+    botSettings?.link,
+    botSettings?.url,
+    botSettings?.channel,
+    botSettings?.canal,
+    global?.channel,
+    global?.canal,
+    'https://whatsapp.com/channel/0029VbBZ4YX4inoqvA74nA20'
+  )
+  return /^https?:\/\//i.test(rawLink)
+    ? rawLink
+    : 'https://whatsapp.com/channel/0029VbBZ4YX4inoqvA74nA20'
+}
+
+function resolveBotType(conn, botSettings = {}) {
+  const isMain = conn?.user?.jid && global?.conn?.user?.jid && conn.user.jid === global.conn.user.jid
+  const isSelf = botSettings?.self === true
+  if (isMain) return isSelf ? 'Principal/Owner (Self)' : 'Principal/Owner'
+  return isSelf ? 'Sub Bot (Self)' : 'Sub Bot'
+}
+
+async function sendSingleMenu(m, conn, text) {
+  if (!text) return
+  const mention = m?.sender ? [m.sender] : []
+
+  try {
+    const baseRcanal = global?.rcanal
+    if (baseRcanal?.contextInfo) {
+      const payload = {
+        ...baseRcanal,
+        contextInfo: {
+          ...baseRcanal.contextInfo,
+          mentionedJid: mention,
+        },
+      }
+      await conn.sendMessage(m.chat, { text, ...payload }, { quoted: m })
+    } else {
+      await conn.sendMessage(m.chat, { text, mentions: mention }, { quoted: m })
+    }
+  } catch {
+    await conn.sendMessage(m.chat, { text }, { quoted: m })
+  }
+}
+
+const handler = async (m, { conn, usedPrefix }) => {
+  const prefix = safeString(usedPrefix || '#').trim() || '#'
+  const botSettings = getMenuBotSettings(conn)
+  const cfg = conn?.subbotRuntimeConfig || {}
+  const botname = firstFilled(cfg?.name, botSettings?.botname, botSettings?.name, global?.botname, 'Bot')
+  const sender = m?.sender ? m.sender.split('@')[0] : 'usuario'
+  const owner = resolveMenuOwner(conn, botSettings)
+  const users = Object.keys(global?.db?.data?.users || {}).length
+
+  const now = new Date()
+  const tiempo = now.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+  const tempo = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+
+  const link = resolveMenuLink(botSettings)
+
+  const botType = resolveBotType(conn, botSettings)
+
+  const fullMenu = `${bodyMenu}\n\n${Object.values(menuObject).join('\n\n')}`
+  const mapped = replaceAll(fullMenu, {
+    '$owner': owner,
+    '$botType': botType,
+    '$version': firstFilled(botSettings?.version, botSettings?.vs, global?.vs, '^3.0 - Latest'),
+    '$device': `node-${process.version} | ${process.platform}/${process.arch}`,
+    '$tiempo': tiempo,
+    '$tempo': tempo,
+    '$users': users.toLocaleString(),
+    '$link': link,
+    '$cat': '. *(˶ᵔ ᵕ ᵔ˶)*',
+    '$sender': sender,
+    '$namebot': botname,
+    '$botname': botname,
+    '$prefixqr': `${prefix}qr`,
+    '$prefixcode': `${prefix}code`,
+    '$prefix': prefix,
+  })
+
+  await sendSingleMenu(m, conn, mapped)
+}
+
+handler.help = ['menu', 'help', 'allmenu']
 handler.tags = ['main']
-handler.command = ['menu', 'menú', 'help']
+handler.command = ['menu', 'menú', 'help', 'allmenu', 'ayuda']
 
 export default handler

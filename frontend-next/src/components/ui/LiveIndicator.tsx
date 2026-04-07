@@ -28,9 +28,9 @@ export function LiveIndicator({
             : state === 'live'
               ? { scale: [1, 1.2, 1], opacity: [0.9, 1, 0.9] }
               : state === 'warning'
-                ? { scale: [1, 1.28, 1], opacity: [0.9, 1, 0.9] }
+                ? { scale: [1, 1.18, 1], opacity: [0.9, 1, 0.9] }
                 : state === 'danger'
-                  ? { scale: [1, 1.35, 1], opacity: [0.85, 1, 0.85] }
+                  ? { scale: [1, 1.22, 1], opacity: [0.88, 1, 0.88] }
                   : { opacity: 0.65 }
         }
         transition={
@@ -39,9 +39,9 @@ export function LiveIndicator({
             : state === 'danger'
               ? { duration: 0.85, repeat: Infinity, ease: 'easeInOut' }
               : state === 'warning'
-                ? { duration: 1.1, repeat: Infinity, ease: 'easeInOut' }
+                ? { duration: 1.35, repeat: Infinity, ease: 'easeInOut' }
                 : state === 'live'
-                  ? { duration: 1.35, repeat: Infinity, ease: 'easeInOut' }
+                  ? { duration: 1.7, repeat: Infinity, ease: 'easeInOut' }
                   : { duration: 0.2 }
         }
       />
@@ -50,4 +50,3 @@ export function LiveIndicator({
     </span>
   );
 }
-

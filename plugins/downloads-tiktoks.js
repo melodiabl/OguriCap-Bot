@@ -6,12 +6,15 @@ const isUrl = /(?:https:?\/{2})?(?:www\.|vm\.|vt\.|t\.)?tiktok\.com\/([^\s&]+)/g
 try {
 await m.react('🕒')
 if (isUrl) {
- const mel = global.APIs.MelodyApi?.url
-if (mel) {
-try {
-const r = await axios.get(`${mel}/download/tiktok?url=${encodeURIComponent(text)}`, { timeout: 20000 })
-const out = r.data?.result
-if (r.data?.status && out && (out.video_nowm || (Array.isArray(out.slides) && out.slides.length))) {
+  const melApi = global.APIs.MelodyApi
+  const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+  const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+  const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+ if (mel) {
+ try {
+ const r = await axios.get(`${mel}/download/tiktok?url=${encodeURIComponent(text)}`, { timeout: 20000, headers: melHeaders })
+ const out = r.data?.result
+ if (r.data?.status && out && (out.video_nowm || (Array.isArray(out.slides) && out.slides.length))) {
 const caption = createCaption(out.description || 'No disponible', { nickname: 'TikTok', unique_id: 'tiktok' }, 'No disponible')
 if (Array.isArray(out.slides) && out.slides.length) {
 const medias = out.slides.slice(0, 10).map(s => ({ type: 'image', data: { url: s.url }, caption }))
@@ -43,12 +46,15 @@ await conn.sendMessage(m.chat, { audio: { url: music }, mimetype: 'audio/mp4', f
 }} else {
 await conn.sendMessage(m.chat, { video: { url: play }, caption }, { quoted: m })
 }} else {
- const mel = global.APIs.MelodyApi?.url
-if (mel) {
-try {
-const r = await axios.get(`${mel}/search/tiktok?q=${encodeURIComponent(text)}`, { timeout: 20000 })
-const results = Array.isArray(r.data?.result) ? r.data.result.filter(v => v.play) : []
-if (r.data?.status && results.length >= 2) {
+  const melApi = global.APIs.MelodyApi
+  const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+  const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+  const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+ if (mel) {
+ try {
+ const r = await axios.get(`${mel}/search/tiktok?q=${encodeURIComponent(text)}`, { timeout: 20000, headers: melHeaders })
+ const results = Array.isArray(r.data?.result) ? r.data.result.filter(v => v.play) : []
+ if (r.data?.status && results.length >= 2) {
 const medias = results.slice(0, 10).map(v => ({ type: 'video', data: { url: v.play }, caption: createSearchCaption(v) }))
 await conn.sendSylphy(m.chat, medias, { quoted: m })
 await m.react('✔️')

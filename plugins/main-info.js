@@ -7,6 +7,36 @@ import fetch from 'node-fetch'
 const exec = promisify(cp.exec).bind(cp)
 const linkRegex = /https:\/\/chat\.whatsapp\.com\/([0-9A-Za-z]{20,24})/i
 
+const normalizeWhatsAppNumber = (val) => String(val || '').replace(/[^0-9]/g, '')
+
+const getDevJid = () => {
+  const raw = (global?.suittag != null ? global.suittag : (typeof suittag !== 'undefined' ? suittag : null))
+  const digits = normalizeWhatsAppNumber(raw)
+  if (digits) return `${digits}@s.whatsapp.net`
+
+  // Fallback: primer owner
+  const owner0 = Array.isArray(global?.owner) ? global.owner[0] : null
+  const ownerDigits = normalizeWhatsAppNumber(Array.isArray(owner0) ? owner0[0] : owner0)
+  return ownerDigits ? `${ownerDigits}@s.whatsapp.net` : null
+}
+
+const pickPrimaryConn = (conn) => {
+  try {
+    if (global?.conn?.user?.jid && typeof global.conn.sendMessage === 'function') return global.conn
+  } catch { }
+  return conn
+}
+
+const getConnLabel = (c) => {
+  try {
+    const jid = c?.user?.jid || ''
+    if (!jid) return 'unknown'
+    return String(jid).replace(/@.*/, '')
+  } catch {
+    return 'unknown'
+  }
+}
+
 const handler = async (m, { conn, text, command, usedPrefix, args }) => {
 try {
 const nombre = m.pushName || 'Anónimo'
@@ -20,20 +50,46 @@ if (!text) return conn.reply(m.chat, '❀ Escribe la sugerencia que quieres envi
 if (text.length < 10) return conn.reply(m.chat, 'ꕥ La sugerencia debe tener más de 10 caracteres.', m)
 await m.react('🕒')
 const sug = `❀ 𝗦𝗨𝗚𝗘𝗥𝗘𝗡𝗖𝗜𝗔 𝗥𝗘𝗖𝗜𝗕𝗜𝗗𝗔\n\nꕥ *Usuario* » ${nombre}\n✩ *Tag* » ${tag}\n✿ *Sugerencia* » ${text}\n✦ *Chat* » ${chatLabel}\n✰ *Fecha* » ${horario}\n♤ *InfoBot* » ${botname} / ${vs}`
-await conn.sendMessage(`${suittag}@s.whatsapp.net`, { text: sug, mentions: [m.sender, ...usertag] }, { quoted: m })
-await m.react('✔️')
-m.reply('❀ La sugerencia ha sido enviada al desarrollador. Gracias por contribuir a mejorar nuestra experiencia.')
-break
+ const devJid = getDevJid()
+ if (!devJid) return conn.reply(m.chat, '❀ No está configurado el número para recibir sugerencias/reportes.', m)
+ const primaryConn = pickPrimaryConn(conn)
+ if (process.env.DEBUG_REPORT === '1') {
+ console.log(`[REPORT] suggest -> ${devJid} via ${getConnLabel(primaryConn)} (msgLen=${String(text || '').length})`)
+ }
+ try {
+ await primaryConn.sendMessage(devJid, { text: sug, mentions: [m.sender, ...usertag] })
+ if (process.env.DEBUG_REPORT === '1') console.log(`[REPORT] suggest sent ok -> ${devJid}`)
+ } catch (e) {
+ if (process.env.DEBUG_REPORT === '1') console.error('[REPORT] suggest send failed:', e?.message || e)
+ if (primaryConn !== conn) await conn.sendMessage(devJid, { text: sug, mentions: [m.sender, ...usertag] })
+ else throw e
+ }
+ await m.react('✔️')
+ m.reply('❀ La sugerencia ha sido enviada al desarrollador. Gracias por contribuir a mejorar nuestra experiencia.')
+ break
 }
 case 'report': case 'reportar': {
 if (!text) return conn.reply(m.chat, '❀ Por favor, ingresa el error que deseas reportar.', m)
 if (text.length < 10) return conn.reply(m.chat, 'ꕥ Especifique mejor el error, mínimo 10 caracteres.', m)
 await m.react('🕒')
 const rep = `❀ 𝗥𝗘𝗣𝗢𝗥𝗧𝗘 𝗥𝗘𝗖𝗜𝗕𝗜𝗗𝗢\n\nꕥ *Usuario* » ${nombre}\n✩ *Tag* » ${tag}\n✿ *Reporte* » ${text}\n✦ *Chat* » ${chatLabel}\n✰ *Fecha* » ${horario}\n♤ *InfoBot* » ${botname} / ${vs}`
-await conn.sendMessage(`${suittag}@s.whatsapp.net`, { text: rep, mentions: [m.sender, ...usertag] }, { quoted: m })
-await m.react('✔️')
-m.reply('❀ El informe ha sido enviado al desarrollador. Ten en cuenta que cualquier reporte falso podría resultar en restricciones en el uso del *Bot*.')
-break
+ const devJid = getDevJid()
+ if (!devJid) return conn.reply(m.chat, '❀ No está configurado el número para recibir sugerencias/reportes.', m)
+ const primaryConn = pickPrimaryConn(conn)
+ if (process.env.DEBUG_REPORT === '1') {
+ console.log(`[REPORT] report -> ${devJid} via ${getConnLabel(primaryConn)} (msgLen=${String(text || '').length})`)
+ }
+ try {
+ await primaryConn.sendMessage(devJid, { text: rep, mentions: [m.sender, ...usertag] })
+ if (process.env.DEBUG_REPORT === '1') console.log(`[REPORT] report sent ok -> ${devJid}`)
+ } catch (e) {
+ if (process.env.DEBUG_REPORT === '1') console.error('[REPORT] report send failed:', e?.message || e)
+ if (primaryConn !== conn) await conn.sendMessage(devJid, { text: rep, mentions: [m.sender, ...usertag] })
+ else throw e
+ }
+ await m.react('✔️')
+ m.reply('❀ El informe ha sido enviado al desarrollador. Ten en cuenta que cualquier reporte falso podría resultar en restricciones en el uso del *Bot*.')
+ break
 }
 case 'invite': {
 if (!text) return m.reply(`❀ Debes enviar un enlace para invitar el Bot a tu grupo.`)
@@ -43,13 +99,15 @@ await m.react('🕒')
 const invite = `❀ 𝗜𝗡𝗩𝗜𝗧𝗔𝗖𝗜𝗢𝗡 𝗔 𝗨𝗡 𝗚𝗥𝗨𝗣𝗢\n\nꕥ *Usuario* » ${nombre}\n✩ *Tag* » ${tag}\n✿ *Chat* » ${chatLabel}\n✰ *Fecha* » ${horario}\n♤ *InfoBot* » ${botname} / ${vs}\n✦ *Link* » ${text}`
 const mainBotNumber = global.conn.user.jid.split('@')[0]
 const senderBotNumber = conn.user.jid.split('@')[0]
-if (mainBotNumber === senderBotNumber)
-await conn.sendMessage(`${suittag}@s.whatsapp.net`, { text: invite, mentions: [m.sender, ...usertag] }, { quoted: m })
-else
-await conn.sendMessage(`${senderBotNumber}@s.whatsapp.net`, { text: invite, mentions: [m.sender, ...usertag] }, { quoted: m })
-await m.react('✔️')
-m.reply('❀ El enlace fue enviado correctamente. ¡Gracias por tu invitación! ฅ^•ﻌ•^ฅ')
-break
+ if (mainBotNumber === senderBotNumber) {
+ const devJid = getDevJid()
+ if (devJid) await conn.sendMessage(devJid, { text: invite, mentions: [m.sender, ...usertag] })
+ } else {
+ await conn.sendMessage(`${senderBotNumber}@s.whatsapp.net`, { text: invite, mentions: [m.sender, ...usertag] })
+ }
+ await m.react('✔️')
+ m.reply('❀ El enlace fue enviado correctamente. ¡Gracias por tu invitación! ฅ^•ﻌ•^ฅ')
+ break
 }
 case 'speedtest': case 'stest': {
 await m.react('🕒')

@@ -18,7 +18,7 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 import QRCode from 'qrcode';
 
 type SubbotType = 'qr' | 'code';
@@ -118,7 +118,7 @@ export default function SubbotsPage() {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen debe ser menor a 2MB');
+      notify.error('La imagen debe ser menor a 2MB');
       return;
     }
 
@@ -135,11 +135,11 @@ export default function SubbotsPage() {
     try {
       setActionLoading('save-settings');
       await api.updateSubbotSettings(settingsSubbot.code, settingsForm);
-      toast.success(`Configuración de "${settingsForm.alias || settingsSubbot.code}" actualizada`);
+      notify.success(`Configuración de "${settingsForm.alias || settingsSubbot.code}" actualizada`);
       handleCloseSettingsModal();
       loadSubbots(); 
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'No se pudo guardar la configuración');
+      notify.error(err?.response?.data?.error || 'No se pudo guardar la configuración');
     } finally {
       setActionLoading(null);
     }
@@ -153,7 +153,7 @@ export default function SubbotsPage() {
         setSubbots((Array.isArray(response) ? response : response.subbots || []).map(normalizeSubbot));
       }
     } catch {
-      toast.error('No se pudieron cargar los subbots');
+      notify.error('No se pudieron cargar los subbots');
     } finally {
       setLoading(false);
     }
@@ -167,6 +167,45 @@ export default function SubbotsPage() {
       // silencioso
     }
   }, []);
+
+  const refreshAll = useCallback(async () => {
+    try {
+      await loadCapacity();
+    } catch {}
+    await loadSubbots();
+  }, [loadCapacity, loadSubbots]);
+
+  const reindexAllSubbots = useCallback(async () => {
+    try {
+      setActionLoading('reindex');
+      const res = await api.reindexSubbots();
+      const removed = Number(res?.removed_symlinks || 0) || 0;
+      const count = Number(res?.count || 0) || 0;
+      notify.success(`Reindex completado (${count})${removed ? ` • symlinks rotos: ${removed}` : ''}`);
+      await refreshAll();
+    } catch (err: any) {
+      notify.error(err?.response?.data?.error || 'No se pudo reindexar los subbots');
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refreshAll]);
+
+  const normalizeAllSubbots = useCallback(async () => {
+    try {
+      setActionLoading('normalize');
+      const res = await api.normalizeSubbots();
+      const rep = res?.report;
+      const migrated = Number(rep?.migrated || 0) || 0;
+      const online = Number(rep?.skipped_online || 0) || 0;
+      const conflicts = Number(rep?.conflicts || 0) || 0;
+      notify.success(`Normalizado: ${migrated} • online: ${online} • conflictos: ${conflicts}`);
+      await refreshAll();
+    } catch (err: any) {
+      notify.error(err?.response?.data?.error || 'No se pudo normalizar las carpetas de subbots');
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refreshAll]);
 
   // Fallback sin intervalos (solo cuando no hay Socket.IO)
   useEffect(() => {
@@ -192,6 +231,14 @@ export default function SubbotsPage() {
   // Socket events
   useEffect(() => {
     if (!socket) return;
+
+    const upsert = (incoming: Subbot) => {
+      setSubbots(prev => {
+        const idx = prev.findIndex(s => s.code === incoming.code || s.codigo === incoming.code);
+        if (idx === -1) return [incoming, ...prev];
+        return prev.map((s, i) => (i === idx ? incoming : s));
+      });
+    };
 
     const handleSubbotDeleted = (data: { subbotCode: string }) => {
       setSubbots(prev => prev.filter(s => s.code !== data.subbotCode && s.codigo !== data.subbotCode));
@@ -258,7 +305,13 @@ export default function SubbotsPage() {
     const handleSubbotUpdated = (data: { subbot: any }) => {
       if (!data?.subbot) return;
       const updatedSubbot = normalizeSubbot(data.subbot);
-      setSubbots(prev => prev.map(s => (s.code === updatedSubbot.code || s.codigo === updatedSubbot.code) ? updatedSubbot : s));
+      upsert(updatedSubbot);
+    };
+
+    const handleSubbotCreated = (data: { subbot: any }) => {
+      if (!data?.subbot) return;
+      const created = normalizeSubbot(data.subbot);
+      upsert(created);
     };
 
     socket.on('subbot:deleted', handleSubbotDeleted);
@@ -266,6 +319,7 @@ export default function SubbotsPage() {
     socket.on('subbot:connected', handleSubbotConnected);
     socket.on('subbot:pairingCode', handlePairingCode);
     socket.on('subbot:qr', handleQRCode);
+    socket.on('subbot:created', handleSubbotCreated);
     socket.on('subbot:updated', handleSubbotUpdated);
 
     return () => {
@@ -274,6 +328,7 @@ export default function SubbotsPage() {
       socket.off('subbot:connected', handleSubbotConnected);
       socket.off('subbot:pairingCode', handlePairingCode);
       socket.off('subbot:qr', handleQRCode);
+      socket.off('subbot:created', handleSubbotCreated);
       socket.off('subbot:updated', handleSubbotUpdated);
     };
   }, [socket, loadSubbots]); // Removido subbots, pendingPairingSubbotCode y showPhoneModal para estabilidad
@@ -339,10 +394,10 @@ export default function SubbotsPage() {
       if (response) {
         const newSubbot = normalizeSubbot(response);
         setSubbots(prev => [newSubbot, ...prev]);
-        toast.success('¡Instancia QR creada! Escanea el código que aparecerá abajo.');
+        notify.success('¡Instancia QR creada! Escanea el código que aparecerá abajo.');
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al crear la instancia QR');
+      notify.error(err?.response?.data?.error || 'Error al crear la instancia QR');
     } finally {
       setActionLoading(null);
     }
@@ -350,7 +405,7 @@ export default function SubbotsPage() {
 
   const createCodeSubbot = async () => {
     if (!phoneNumber.trim()) {
-      toast.error('Por favor, ingresa un número de teléfono');
+      notify.error('Por favor, ingresa un número de teléfono');
       return;
     }
     try {
@@ -366,15 +421,15 @@ export default function SubbotsPage() {
           setCurrentPairingSubbot(newSubbot.code);
           setShowPairingModal(true);
           setShowPhoneModal(false);
-          toast.success('Código de vinculación generado con éxito');
+          notify.success('Código de vinculación generado con éxito');
         } else {
           setPendingPairingSubbotCode(newSubbot.code);
-          toast.success('Instancia creada. Generando código de vinculación...');
+          notify.success('Instancia creada. Generando código de vinculación...');
         }
         setPhoneNumber('');
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al crear la instancia por código');
+      notify.error(err?.response?.data?.error || 'Error al crear la instancia por código');
     } finally {
       setActionLoading(null);
     }
@@ -387,9 +442,9 @@ export default function SubbotsPage() {
       setActionLoading(`delete-${key}`);
       await api.deleteSubbot(key);
       setSubbots(prev => prev.filter(s => String(s.id) !== key && s.code !== key && s.codigo !== key));
-      toast.success('Subbot eliminado correctamente');
+      notify.success('Subbot eliminado correctamente');
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al eliminar subbot');
+      notify.error(err?.response?.data?.error || 'Error al eliminar subbot');
     } finally {
       setActionLoading(null);
     }
@@ -409,17 +464,17 @@ export default function SubbotsPage() {
           setSelectedSubbot(subbot);
           setShowQR(true);
     } else {
-      toast.error('QR no disponible para este subbot');
+      notify.error('QR no disponible para este subbot');
     }
   }
 } catch {
-  toast.error('Error obteniendo QR');
+  notify.error('Error obteniendo QR');
 }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copiado al portapapeles');
+    notify.success('Copiado al portapapeles');
   };
 
   const getStatusColor = (subbot: Subbot) => {
@@ -445,7 +500,57 @@ export default function SubbotsPage() {
   const formatDate = (dateString: string) => new Date(dateString).toLocaleString('es-ES');
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page relative overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[10%] top-[10%] h-52 w-52 rounded-full bg-oguri-gold/18 blur-3xl"
+          animate={{ x: [0, 16, 0], y: [0, 14, 0], opacity: [0.18, 0.36, 0.18] }}
+          transition={{ repeat: Infinity, duration: 10.6, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[14%] h-56 w-56 rounded-full bg-oguri-blue/18 blur-3xl"
+          animate={{ x: [0, -20, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={{ repeat: Infinity, duration: 11.2, ease: 'easeInOut', delay: 0.4 }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Bot className="h-3.5 w-3.5 text-oguri-cyan" />
+              Hangar multicuenta
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Subbots con look operativo futurista</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Gestión visual de flotas, autenticación QR/pairing y estado vivo de cada instancia con ambiente propio.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Flota</p>
+              <p className="mt-2 text-lg font-black text-white">{subbots.length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Online</p>
+              <p className="mt-2 text-lg font-black text-white">{subbots.filter(s => s.isOnline).length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Canal</p>
+              <p className="mt-2 text-lg font-black text-white">{isSocketConnected ? 'LIVE' : 'LOCAL'}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title={isUsuario ? 'Mis SubBots' : 'Gestión de Subbots'}
@@ -511,17 +616,23 @@ export default function SubbotsPage() {
 
       {/* Create Subbot */}
       <Reveal>
-        <Card animated delay={0.2} className="p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Crear Nuevo Subbot</h2>
+        <Card animated delay={0.2} className="p-5 sm:p-6 shadow-glow-oguri-blue">
+          <div className="panel-card-heading mb-5">
+            <div className="panel-card-icon"><Bot className="w-5 h-5" /></div>
+            <div>
+              <h2 className="panel-card-title">Crear Nuevo Subbot</h2>
+              <p className="panel-card-description">Elige QR o pairing code para vincular otra cuenta de WhatsApp.</p>
+            </div>
+          </div>
           {capacity && (
-            <div className="mb-4 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 flex flex-wrap gap-x-4 gap-y-1">
-              <span><span className="text-gray-400">Capacidad:</span> {capacity.effectiveMax}</span>
-              <span><span className="text-gray-400">Disponibles:</span> {capacity.remaining}</span>
-              <span><span className="text-gray-400">Recomendado:</span> {capacity.recommendedMax}</span>
-              <span><span className="text-gray-400">Auto:</span> {capacity.autoLimit ? 'Si' : 'No'}</span>
+            <div className="panel-note-card mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[rgb(var(--text-secondary))]">
+              <span><span className="text-muted">Capacidad:</span> {capacity.effectiveMax}</span>
+              <span><span className="text-muted">Disponibles:</span> {capacity.remaining}</span>
+              <span><span className="text-muted">Recomendado:</span> {capacity.recommendedMax}</span>
+              <span><span className="text-muted">Auto:</span> {capacity.autoLimit ? 'Si' : 'No'}</span>
             </div>
           )}
-          <div className="flex gap-4">
+          <div className="panel-actions-wrap">
             <Button onClick={createQRSubbot} loading={actionLoading === 'qr'} variant="primary" icon={<QrCode className="w-5 h-5" />}>
               Crear QR Subbot
             </Button>
@@ -529,145 +640,178 @@ export default function SubbotsPage() {
               Crear CODE Subbot
             </Button>
           </div>
-          <p className="text-sm text-gray-400 mt-3">
-            • <strong className="text-gray-300">QR Subbot:</strong> Escanea el código QR con WhatsApp<br />
-            • <strong className="text-gray-300">CODE Subbot:</strong> Usa el código de emparejamiento
-          </p>
+          <div className="panel-note-card mt-4 space-y-2 text-sm text-muted">
+            <p>
+            • <strong className="text-[rgb(var(--text-primary))]">QR Subbot:</strong> Escanea el código QR con WhatsApp<br />
+            • <strong className="text-[rgb(var(--text-primary))]">CODE Subbot:</strong> Usa el código de emparejamiento
+            </p>
           {isSocketConnected && (
             <p className="text-sm text-emerald-400 mt-2 flex items-center gap-2">
               <Zap className="w-4 h-4" />
               Los códigos QR y de pairing aparecerán automáticamente en tiempo real
             </p>
           )}
+          </div>
         </Card>
       </Reveal>
 
       {/* Subbots List */}
-      <Card animated delay={0.3} className="overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-xl font-semibold text-white">Subbots Activos</h2>
-          <p className="text-gray-400 mt-1">
-            <AnimatedNumber value={subbots.length} /> subbot{subbots.length !== 1 ? 's' : ''} configurado{subbots.length !== 1 ? 's' : ''}
-          </p>
+      <Card animated delay={0.3} className="overflow-hidden shadow-glow-oguri-mixed">
+        <div className="flex flex-col gap-4 border-b border-border/15 p-5 text-center sm:p-6 sm:text-left xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Subbots Activos</h2>
+            <p className="mt-1 text-muted">
+              <AnimatedNumber value={subbots.length} /> subbot{subbots.length !== 1 ? 's' : ''} configurado{subbots.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+
+          <div className="panel-actions-wrap shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshAll}
+              disabled={loading}
+              icon={<RefreshCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />}
+            >
+              Refrescar
+            </Button>
+            {canDeleteSubbots && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={normalizeAllSubbots}
+                loading={actionLoading === 'normalize'}
+                icon={<Smartphone className="w-4 h-4" />}
+                title="Renombra carpetas reales a pushname (solo offline)"
+              >
+                Normalizar
+              </Button>
+              )}
+            {canDeleteSubbots && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={reindexAllSubbots}
+                loading={actionLoading === 'reindex'}
+                icon={<RefreshCw className="w-4 h-4" />}
+                title="Reescanea Sessions/SubBot y repara symlinks rotos"
+              >
+                Reindexar
+              </Button>
+            )}
+          </div>
         </div>
 
         {loading ? (
           <div className="p-8 text-center">
             <RefreshCw className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
-            <p className="text-gray-400">Cargando subbots...</p>
+            <p className="text-muted">Cargando subbots...</p>
           </div>
         ) : subbots.length === 0 ? (
-          <div className="p-8 text-center">
-            <Bot className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">No hay subbots</h3>
-            <p className="text-gray-400">Crea tu primer subbot para comenzar</p>
+            <div className="p-8 text-center">
+            <Bot className="mx-auto mb-4 h-16 w-16 text-muted" />
+            <h3 className="mb-2 text-lg font-medium text-foreground">No hay subbots</h3>
+            <p className="text-muted">Crea tu primer subbot para comenzar</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 xl:grid-cols-2 2xl:grid-cols-3">
             {subbots.map((subbot, index) => (
-              <motion.div key={subbot.id || subbot.code} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }} className="p-4 md:p-6 hover:bg-white/5 transition-colors">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex flex-wrap items-center gap-3 md:gap-6">
-                    <div className="flex items-center gap-2 min-w-[120px]">
-                      {subbot.isOnline ? <Wifi className="w-5 h-5 text-emerald-400" /> : <WifiOff className="w-5 h-5 text-gray-500" />}
-                      <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-medium border ${getStatusColor(subbot)}`}>
-                        {getStatusText(subbot)}
-                      </span>
+              <motion.div key={subbot.id || subbot.code} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }} className="panel-surface-soft panel-terminal-row p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-border/15 bg-card/60">
+                      {subbot.customBanner ? (
+                        <img src={subbot.customBanner} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <Bot className="w-5 h-5 text-muted" />
+                      )}
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {subbot.type === 'qr' ? <QrCode className="w-4 h-4 text-blue-400" /> : <Key className="w-4 h-4 text-emerald-400" />}
-                      <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-medium border ${
-                        subbot.type === 'qr' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                      }`}>
-                        {subbot.type === 'qr' ? 'QR Code' : 'Pairing Code'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                      <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/15 overflow-hidden shrink-0 flex items-center justify-center">
-                        {subbot.customBanner ? (
-                          <img src={subbot.customBanner} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <Bot className="w-4 h-4 text-gray-500" />
-                        )}
-                      </div>
-                      <span className="text-sm text-gray-200 font-medium truncate max-w-[150px] md:max-w-none">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">
                         {subbot.displayName || subbot.customName || subbot.whatsappName || subbot.numero || subbot.code}
-                      </span>
-                      <code className="text-[10px] text-gray-500 font-mono bg-white/5 px-2 py-1 rounded shrink-0">{subbot.code}</code>
-                    </div>
-
-                    {subbot.numero && (
-                      <div className="flex items-center gap-2 text-gray-400 hidden sm:flex">
-                        <Smartphone className="w-4 h-4" />
-                        <span className="text-sm">{subbot.numero}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between lg:justify-end gap-4 border-t lg:border-t-0 border-white/5 pt-3 lg:pt-0">
-                    <div className="text-left lg:text-right text-[10px] md:text-sm text-gray-500">
-                      <div className="flex lg:block gap-2">
-                        <span>Creado: {formatDate(subbot.fecha_creacion)}</span>
-                        <span className="lg:hidden">•</span>
-                        <span>Usuario: {subbot.usuario}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 shrink-0">
-                      {subbot.type === 'qr' && !subbot.isOnline && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => viewQR(subbot)}
-                          className="px-3"
-                          icon={<QrCode className="w-4 h-4" />}
-                        >
-                          Ver QR
-                        </Button>
-                      )}
-                      {subbot.type === 'code' && !subbot.isOnline && (
-                        <Button
-                          variant="success"
-                          size="sm"
-                          onClick={() => {
-                            if (subbot.pairingCode) {
-                              setCurrentPairingCode(subbot.pairingCode);
-                              setCurrentPairingSubbot(subbot.code);
-                              setShowPairingModal(true);
-                            } else {
-                              toast.error('Generando código... espera un momento');
-                            }
-                          }}
-                          className="px-3"
-                          icon={<Key className="w-4 h-4" />}
-                        >
-                          Ver Código
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openSettings(subbot)}
-                        title="Configuración"
-                        className="h-9 w-9 text-gray-400 hover:text-white"
-                        icon={<Settings className="w-4 h-4" />}
-                      />
-                      {canDeleteSubbots && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteSubbot(subbot.code)}
-                          disabled={actionLoading === `delete-${subbot.code}`}
-                          title="Eliminar"
-                          className="h-9 w-9 text-gray-400 hover:text-red-400"
-                          loading={actionLoading === `delete-${subbot.code}`}
-                          icon={<Trash2 className="w-4 h-4" />}
-                        />
-                      )}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-muted">{subbot.code}</p>
                     </div>
                   </div>
+                  <span className={`badge ${getStatusColor(subbot)}`}>{getStatusText(subbot)}</span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className={`badge ${subbot.type === 'qr' ? 'badge-info' : 'badge-success'}`}>
+                    {subbot.type === 'qr' ? <QrCode className="w-3 h-3" /> : <Key className="w-3 h-3" />}
+                    {subbot.type === 'qr' ? 'QR Code' : 'Pairing Code'}
+                  </span>
+                  <span className="badge badge-info">
+                    {subbot.isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                    {subbot.isOnline ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div className="panel-data-row">
+                    <span className="panel-data-row__label">Numero</span>
+                    <span className="panel-data-row__value">{subbot.numero || 'Sin numero'}</span>
+                  </div>
+                  <div className="panel-data-row">
+                    <span className="panel-data-row__label">Usuario</span>
+                    <span className="panel-data-row__value">{subbot.usuario}</span>
+                  </div>
+                  <div className="panel-data-row">
+                    <span className="panel-data-row__label">Creado</span>
+                    <span className="panel-data-row__value">{formatDate(subbot.fecha_creacion)}</span>
+                  </div>
+                </div>
+
+                <div className="panel-actions-wrap mt-4 border-t border-border/15 pt-4">
+                  {subbot.type === 'qr' && !subbot.isOnline && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => viewQR(subbot)}
+                      icon={<QrCode className="w-4 h-4" />}
+                    >
+                      Ver QR
+                    </Button>
+                  )}
+                  {subbot.type === 'code' && !subbot.isOnline && (
+                    <Button
+                      variant="success"
+                      size="sm"
+                      onClick={() => {
+                        if (subbot.pairingCode) {
+                          setCurrentPairingCode(subbot.pairingCode);
+                          setCurrentPairingSubbot(subbot.code);
+                          setShowPairingModal(true);
+                        } else {
+                          notify.warning('Generando código... espera un momento');
+                        }
+                      }}
+                      icon={<Key className="w-4 h-4" />}
+                    >
+                      Ver Código
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openSettings(subbot)}
+                    title="Configuración"
+                    className="h-9 w-9 text-muted hover:text-foreground"
+                    icon={<Settings className="w-4 h-4" />}
+                  />
+                  {canDeleteSubbots && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteSubbot(subbot.code)}
+                      disabled={actionLoading === `delete-${subbot.code}`}
+                      title="Eliminar"
+                      className="h-9 w-9 text-muted hover:text-red-400"
+                      loading={actionLoading === `delete-${subbot.code}`}
+                      icon={<Trash2 className="w-4 h-4" />}
+                    />
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -677,44 +821,47 @@ export default function SubbotsPage() {
 
       {/* Phone Modal */}
       <Modal isOpen={showPhoneModal} onClose={handleClosePhoneModal} title="Crear Subbot con Código">
-        <p className="text-sm text-gray-400 mb-4">
-          Ingresa el número de WhatsApp (con código de país) para generar el código de emparejamiento.
-        </p>
-        <div className="mb-4">
-          <label className="text-sm text-gray-400 mb-1 block">Número de WhatsApp</label>
+        <div className="space-y-5">
+          <p className="panel-field-hint">
+            Ingresa el número de WhatsApp (con código de país) para generar el código de emparejamiento.
+          </p>
+          <div className="panel-field">
+            <label className="panel-field-label">Número de WhatsApp</label>
           <input type="tel" placeholder="Ejemplo: 01231313" value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             className="input-glass w-full"
             data-autofocus />
-        </div>
+          </div>
         {isSocketConnected && (
-          <p className="text-sm text-emerald-400 mb-4 flex items-center gap-2">
+            <p className="text-sm text-emerald-400 flex items-center gap-2">
             <Zap className="w-4 h-4" />
             El código aparecerá automáticamente
           </p>
         )}
-        <div className="flex gap-3">
+          <div className="panel-modal-actions">
           <Button onClick={handleClosePhoneModal} variant="secondary" className="flex-1">Cancelar</Button>
           <Button onClick={createCodeSubbot} loading={actionLoading === 'code'} disabled={!phoneNumber.trim()} variant="success" className="flex-1">
             Crear Subbot
           </Button>
+          </div>
         </div>
       </Modal>
 
       {/* Pairing Code Modal */}
       <Modal isOpen={showPairingModal && !!currentPairingCode} onClose={handleClosePairingModal} className="text-center">
-        <div className="w-16 h-16 mx-auto mb-4 bg-emerald-500/20 rounded-full flex items-center justify-center">
+        <div className="panel-stack-center space-y-4">
+        <div className="w-16 h-16 mx-auto bg-emerald-500/20 rounded-full flex items-center justify-center">
           <Key className="w-8 h-8 text-emerald-400" />
         </div>
-        <h3 className="text-xl font-semibold text-white mb-2">¡Código de Pairing Generado!</h3>
-        <p className="text-sm text-gray-400 mb-4">Ingresa este código en WhatsApp para vincular el subbot</p>
-        <div className="bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-xl p-6 mb-4 border border-emerald-500/30">
+        <h3 className="text-xl font-semibold text-foreground">¡Código de Pairing Generado!</h3>
+        <p className="text-sm text-muted">Ingresa este código en WhatsApp para vincular el subbot</p>
+        <div className="bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-xl p-6 border border-emerald-500/30 w-full">
           <motion.code initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-4xl font-mono font-bold text-emerald-400 tracking-wider">
             {currentPairingCode}
           </motion.code>
         </div>
-        <p className="text-xs text-gray-500 mb-4">Subbot: <code className="text-gray-400">{currentPairingSubbot}</code></p>
-        <div className="flex gap-3">
+        <p className="text-xs text-muted">Subbot: <code className="text-[rgb(var(--text-secondary))]">{currentPairingSubbot}</code></p>
+        <div className="panel-modal-actions w-full">
           <Button onClick={() => copyToClipboard(currentPairingCode!)} variant="success" className="flex-1" icon={<Copy className="w-4 h-4" />}>
             Copiar Código
           </Button>
@@ -722,14 +869,16 @@ export default function SubbotsPage() {
             Cerrar
           </Button>
         </div>
+        </div>
       </Modal>
 
       {/* QR Modal */}
       <Modal isOpen={showQR && !!selectedSubbot && !!qrImage} onClose={handleCloseQRModal} className="text-center">
-        <h3 className="text-xl font-semibold text-white mb-4">Código QR del Subbot</h3>
-        {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto mb-4 rounded-xl bg-white p-2" decoding="async" />}
-        <p className="text-sm text-gray-400 mb-4">Escanea este código con WhatsApp para conectar el subbot</p>
-        <div className="flex gap-2 justify-center">
+        <div className="panel-stack-center space-y-4">
+          <h3 className="text-xl font-semibold text-foreground">Código QR del Subbot</h3>
+          {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-xl bg-white p-2" decoding="async" />}
+          <p className="text-sm text-muted">Escanea este código con WhatsApp para conectar el subbot</p>
+        <div className="panel-modal-actions w-full justify-center">
           <Button onClick={() => {
             if (qrImage && selectedSubbot) {
               const link = document.createElement('a');
@@ -744,68 +893,69 @@ export default function SubbotsPage() {
             Copiar Datos
           </Button>
         </div>
+        </div>
       </Modal>
 
       {/* Settings Modal */}
       <Modal isOpen={showSettingsModal} onClose={handleCloseSettingsModal} title="Configuración de Subbot">
-        <div className="space-y-4">
-          <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-            <div className="text-xs text-gray-400 mb-2">Identidad del SubBot (Menu)</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Nombre (menu)</label>
+        <div className="space-y-5">
+          <div className="panel-readonly-block">
+            <div className="mb-2 text-xs text-muted">Identidad del SubBot (Menu)</div>
+            <div className="panel-form-grid gap-3">
+              <div className="panel-field">
+                <label className="panel-field-label">Nombre (menu)</label>
                 <input
                   type="text"
                   placeholder="Ej: Shadow SubBot"
                   value={settingsForm.customName}
                   onChange={(e) => setSettingsForm(prev => ({ ...prev, customName: e.target.value }))}
-                  className="input-glass w-full text-white"
+                  className="input-glass w-full"
                 />
               </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Prefijo</label>
+              <div className="panel-field">
+                <label className="panel-field-label">Prefijo</label>
                 <input
                   type="text"
                   placeholder="Ej: .  |  !  |  multi"
                   value={settingsForm.customPrefix}
                   onChange={(e) => setSettingsForm(prev => ({ ...prev, customPrefix: e.target.value }))}
-                  className="input-glass w-full text-white"
+                  className="input-glass w-full"
                 />
-                <p className="text-[10px] text-gray-500 mt-1">Usa &quot;multi&quot; para varios prefijos</p>
+                <p className="panel-field-hint">Usa &quot;multi&quot; para varios prefijos</p>
               </div>
-              <div className="md:col-span-2">
-                <label className="text-sm text-gray-400 mb-1 block">Banner URL (miniatura)</label>
+              <div className="panel-field md:col-span-2">
+                <label className="panel-field-label">Banner URL (miniatura)</label>
                 <input
                   type="text"
                   placeholder="https://..."
                   value={settingsForm.customBanner}
                   onChange={(e) => setSettingsForm(prev => ({ ...prev, customBanner: e.target.value }))}
-                  className="input-glass w-full text-white"
+                  className="input-glass w-full"
                 />
                 {settingsForm.customBanner ? (
-                  <div className="mt-2 w-full h-28 rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                  <div className="mt-2 h-28 w-full overflow-hidden rounded-xl border border-border/15 bg-card/55">
                     <img src={settingsForm.customBanner} alt="" className="w-full h-full object-cover" />
                   </div>
                 ) : null}
               </div>
-              <div className="md:col-span-2">
-                <label className="text-sm text-gray-400 mb-1 block">Video URL (opcional)</label>
+              <div className="panel-field md:col-span-2">
+                <label className="panel-field-label">Video URL (opcional)</label>
                 <input
                   type="text"
                   placeholder="https://..."
                   value={settingsForm.customVideo}
                   onChange={(e) => setSettingsForm(prev => ({ ...prev, customVideo: e.target.value }))}
-                  className="input-glass w-full text-white"
+                  className="input-glass w-full"
                 />
               </div>
             </div>
-            <div className="text-[10px] text-gray-500 mt-2">
+            <div className="panel-field-hint mt-2">
               Esto actualiza lo que ves en el menu del SubBot. Si el SubBot esta online, se aplica al instante.
             </div>
           </div>
 
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+          <div className="panel-field">
+            <label className="panel-field-label flex items-center gap-2">
               <Zap className="w-4 h-4 text-blue-400" /> Alias Local (Solo Panel)
             </label>
             <input
@@ -813,12 +963,12 @@ export default function SubbotsPage() {
               placeholder="Ej: Bot Ventas 1"
               value={settingsForm.alias}
               onChange={(e) => setSettingsForm(prev => ({ ...prev, alias: e.target.value }))}
-              className="input-glass w-full text-white"
+              className="input-glass w-full"
             />
           </div>
 
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+          <div className="panel-field">
+            <label className="panel-field-label flex items-center gap-2">
               <User className="w-4 h-4 text-blue-400" /> Nombre de Perfil (WhatsApp)
             </label>
             <input
@@ -826,37 +976,37 @@ export default function SubbotsPage() {
               placeholder="Nombre visible en WhatsApp"
               value={settingsForm.name}
               onChange={(e) => setSettingsForm(prev => ({ ...prev, name: e.target.value }))}
-              className="input-glass w-full text-white"
+              className="input-glass w-full"
             />
             {!settingsSubbot?.isOnline && (
-              <p className="text-[10px] text-amber-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> Requiere que el bot esté conectado para sincronizar con WhatsApp
+              <p className="panel-field-hint text-amber-500 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> Requiere que el bot esté conectado para sincronizar con WhatsApp
               </p>
             )}
           </div>
 
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+          <div className="panel-field">
+            <label className="panel-field-label flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-blue-400" /> Bio / Estado (WhatsApp)
             </label>
             <textarea
               placeholder="Estado de WhatsApp..."
               value={settingsForm.status}
               onChange={(e) => setSettingsForm(prev => ({ ...prev, status: e.target.value }))}
-              className="input-glass w-full text-white h-20 resize-none"
+              className="input-glass h-20 w-full resize-none"
             />
           </div>
 
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block flex items-center gap-2">
+          <div className="panel-field">
+            <label className="panel-field-label flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-blue-400" /> Foto de Perfil (WhatsApp)
             </label>
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20 shrink-0">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/20 bg-card/60">
                 {settingsForm.pfp ? (
                   <img src={settingsForm.pfp} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
-                  <ImageIcon className="w-8 h-8 text-gray-600" />
+                  <ImageIcon className="w-8 h-8 text-muted" />
                 )}
               </div>
               <div className="flex-1">
@@ -872,23 +1022,23 @@ export default function SubbotsPage() {
                   htmlFor="pfp-upload"
                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
                     !settingsSubbot?.isOnline 
-                      ? 'bg-gray-500/10 text-gray-500 cursor-not-allowed' 
-                      : 'bg-white/10 text-white hover:bg-white/20'
-                  }`}
+                      ? 'cursor-not-allowed bg-gray-500/10 text-gray-500' 
+                      : 'bg-card/75 text-foreground hover:bg-card/90 border border-border/15'
+                   }`}
                 >
                   <Download className="w-3 h-3" /> Seleccionar Imagen
                 </label>
-                <p className="text-[10px] text-gray-500 mt-1">Máx: 2MB. Recomendado: 640x640px</p>
+                <p className="panel-field-hint mt-1">Máx: 2MB. Recomendado: 640x640px</p>
               </div>
             </div>
             {!settingsSubbot?.isOnline && (
-              <p className="text-[10px] text-amber-500 mt-1 flex items-center gap-1">
+              <p className="panel-field-hint text-amber-500 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" /> Debes estar conectado para cambiar la foto
               </p>
             )}
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button onClick={handleCloseSettingsModal} variant="secondary" className="flex-1">
               Cancelar
             </Button>

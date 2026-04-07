@@ -119,7 +119,7 @@ export default function ProveedorLibraryPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       <PageHeader
         title={proveedor?.nombre ? `Biblioteca · ${proveedor.nombre}` : 'Biblioteca del Proveedor'}
         description="Sube y organiza contenido por título, capítulo y categoría (BL / Hetero / Otro)."

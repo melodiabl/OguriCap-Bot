@@ -6,28 +6,31 @@ const url = encodeURIComponent(args[0])
 await m.react('🕒')
 
  // MelodyApi first
- const mel = global.APIs?.MelodyApi?.url
- if (mel) {
-  try {
-   if (/(instagram\.com)/i.test(args[0])) {
-    const res = await fetch(`${mel}/download/instagram?url=${url}`)
-    const json = await res.json().catch(() => null)
-    const r = json?.result
-    if (json?.status && r) {
-     if (Array.isArray(r.downloadUrls) && r.downloadUrls.length) data = r.downloadUrls
-     else if (typeof r.url === 'string' && r.url) data = [r.url]
-    }
-   }
-  } catch { }
-
-  if (/(facebook\.com|fb\.watch)/i.test(args[0]) && !data.length) {
+  const melApi = global.APIs?.MelodyApi
+  const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+  const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+  const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+  if (mel) {
    try {
-    const res = await fetch(`${mel}/download/facebook?url=${url}`)
-    const json = await res.json().catch(() => null)
-    const r = json?.result
-    if (json?.status && r) {
-     const direct =
-      r?.media?.video_hd ||
+    if (/(instagram\.com)/i.test(args[0])) {
+     const res = await fetch(`${mel}/download/instagram?url=${url}`, { headers: melHeaders })
+     const json = await res.json().catch(() => null)
+     const r = json?.result
+     if (json?.status && r) {
+      if (Array.isArray(r.downloadUrls) && r.downloadUrls.length) data = r.downloadUrls
+      else if (typeof r.url === 'string' && r.url) data = [r.url]
+     }
+    }
+   } catch { }
+
+   if (/(facebook\.com|fb\.watch)/i.test(args[0]) && !data.length) {
+    try {
+     const res = await fetch(`${mel}/download/facebook?url=${url}`, { headers: melHeaders })
+     const json = await res.json().catch(() => null)
+     const r = json?.result
+     if (json?.status && r) {
+      const direct =
+       r?.media?.video_hd ||
       r?.video_hd ||
       r?.hd ||
       r?.url ||

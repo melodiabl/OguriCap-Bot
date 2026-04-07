@@ -99,7 +99,7 @@ const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
       <div
         ref={setRefs}
         role="tablist"
-        className={cn('relative flex items-center gap-2 border-b border-white/10', className)}
+        className={cn('relative flex items-center gap-2 border-b border-border/15', className)}
         {...props}
       >
         {children}

@@ -11,8 +11,8 @@ global.botNumber = undefined //Ejemplo: 573218138672
 
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
-global.owner = ['51900373696','595974154768', '51921826291']
-global.suittag = [] 
+global.owner = ['595974154768', '51900373696', '51921826291']
+global.suittag = '595974154768'
 global.prems = []
 
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
@@ -51,10 +51,9 @@ ch1: "120363404287449613@newsletter"
 global.APIs = {
   // Primary API (your own). Single source of truth.
   // Set this to your domain (no trailing slash).
-  MelodyApi: {
-    url: 'https://api.melodiaauris.qzz.io',
-    key: null
-  },
+  // IMPORTANTE: usa la API key COMPLETA (se muestra solo al crear/rotar).
+  // Lo que ves como "Prefix" en el panel NO siempre funciona como key.
+  MelodyApi: { url: 'https://api.melodiaauris.qzz.io', key: 'OguriCap-Bot' },
   xyro: { url: "https://api.xyro.site", key: null },
   yupra: { url: "https://api.yupra.my.id", key: null },
   vreden: { url: "https://api.vreden.web.id", key: null },
@@ -62,6 +61,19 @@ global.APIs = {
   zenzxz: { url: "https://api.zenzxz.my.id", key: null },
   siputzx: { url: "https://api.siputzx.my.id", key: null },
   adonix: { url: "https://api-adonix.ultraplus.click", key: 'Yuki-WaBot' }
+}
+
+// Download progress bar (for streaming downloads that send Content-Length).
+// Styles: classic | blocks | dots | mini
+global.downloadProgress = {
+  enabled: true,
+  style: 'blocks',
+  width: 16,
+  // WhatsApp puede rate-limitar si editas demasiado seguido.
+  updateMs: 2200,
+  minBytes: 512 * 1024,
+  // Safety cap for raw downloads (avoid wasting bandwidth if WhatsApp rejects big files)
+  maxRawBytes: 120 * 1024 * 1024
 }
 
 // Backward/forward compatibility aliases (do not edit URLs here).

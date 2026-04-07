@@ -126,7 +126,25 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     newSocket.on(SOCKET_EVENTS.BOT_STATUS, (data: BotStatus) => setBotStatus(data));
 
     newSocket.on(SOCKET_EVENTS.BOT_QR, (data) => {
-      setBotStatus(prev => prev ? { ...prev, qrCode: data.qr } : null);
+      setBotStatus(prev => {
+        if (!prev) {
+          return {
+            connected: false,
+            isConnected: false,
+            connecting: true,
+            status: 'connecting',
+            connectionStatus: 'connecting',
+            phone: null,
+            qrCode: data.qr,
+            pairingCode: null,
+            pairingPhone: null,
+            uptime: '0m',
+            lastSeen: null,
+            timestamp: new Date().toISOString(),
+          }
+        }
+        return { ...prev, qrCode: data.qr }
+      });
     });
 
     newSocket.on(SOCKET_EVENTS.BOT_PAIRING_CODE, (data: BotPairingCodeEvent) => {

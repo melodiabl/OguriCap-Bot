@@ -22,6 +22,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
     loadMore,
     hasMore,
   } = useNotifications();
@@ -29,7 +30,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
   const reduceMotion = useReducedMotion();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, right: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 8 });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -39,10 +40,12 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
   useEffect(() => {
     if (isOpen && buttonRef?.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      });
+      const gap = 8;
+      const width = Math.min(28 * 16, Math.max(0, window.innerWidth - 16)); // max-w-md(28rem) vs w-[calc(100vw-1rem)]
+      const desiredLeft = rect.right - width;
+      const maxLeft = Math.max(gap, window.innerWidth - width - gap);
+      const left = Math.min(Math.max(gap, desiredLeft), maxLeft);
+      setCoords({ top: rect.bottom + gap, left });
     }
   }, [isOpen, buttonRef]);
 
@@ -66,10 +69,12 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
     const handleResize = () => {
       if (buttonRef?.current) {
         const rect = buttonRef.current.getBoundingClientRect();
-        setCoords({
-          top: rect.bottom + 8,
-          right: window.innerWidth - rect.right,
-        });
+        const gap = 8;
+        const width = Math.min(28 * 16, Math.max(0, window.innerWidth - 16));
+        const desiredLeft = rect.right - width;
+        const maxLeft = Math.max(gap, window.innerWidth - width - gap);
+        const left = Math.min(Math.max(gap, desiredLeft), maxLeft);
+        setCoords({ top: rect.bottom + gap, left });
       }
     };
 
@@ -90,13 +95,20 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (notifications.length === 0) return;
+    const ok = window.confirm('¿Eliminar todas las notificaciones? Esta acción no se puede deshacer.');
+    if (!ok) return;
+    await deleteAllNotifications('all');
+  };
+
   const getTypeIcon = (tipo: string) => {
     const icons = {
-      info: <Info className="w-5 h-5 text-oguri-blue" />,
-      success: <CheckCircle className="w-5 h-5 text-oguri-cyan" />,
-      warning: <AlertTriangle className="w-5 h-5 text-oguri-gold" />,
-      error: <AlertCircle className="w-5 h-5 text-red-400" />,
-      system: <Bell className="w-5 h-5 text-oguri-purple" />,
+      info: <Info className="w-5 h-5 text-[rgb(var(--accent))]" />,
+      success: <CheckCircle className="w-5 h-5 text-[rgb(var(--success))]" />,
+      warning: <AlertTriangle className="w-5 h-5 text-[rgb(var(--warning))]" />,
+      error: <AlertCircle className="w-5 h-5 text-[rgb(var(--danger))]" />,
+      system: <Bell className="w-5 h-5 text-[rgb(var(--primary))]" />,
     };
     return icons[tipo as keyof typeof icons] || icons.info;
   };
@@ -128,7 +140,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[9998]"
+              className="fixed inset-0 z-[9998] bg-black/25 backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
               onClick={onClose}
             />
             
@@ -142,44 +154,57 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
               style={{
                 position: 'fixed',
                 top: `${coords.top}px`,
-                right: `${coords.right}px`,
+                left: `${coords.left}px`,
               }}
-              className="w-[calc(100vw-1rem)] max-w-md z-[9999] rounded-2xl glass-phantom border border-oguri-purple/20 shadow-glow-oguri-mixed overflow-hidden flex flex-col"
+              className="z-[9999] flex w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-border/15 bg-card/92 shadow-glow-oguri-mixed backdrop-blur-2xl"
             >
               {/* Header */}
-              <div className="p-4 border-b border-oguri-purple/10 bg-gradient-oguri-phantom">
+              <div className="border-b border-border/15 bg-gradient-oguri-phantom p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Bell className="w-5 h-5 text-oguri-lavender animate-pulse" />
-                    <h3 className="font-bold text-white tracking-tight">Notificaciones</h3>
+                    <h3 className="font-bold tracking-tight text-foreground">Notificaciones</h3>
                   </div>
                   {unreadCount > 0 && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-oguri-purple text-white rounded-full shadow-glow-oguri-purple"
+                      className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[rgb(var(--primary))] text-white rounded-full shadow-[0_0_18px_rgb(var(--primary)/0.35)]"
                     >
                       {unreadCount} nuevas
                     </motion.span>
                   )}
                 </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    className="text-[10px] font-bold uppercase tracking-widest text-oguri-lavender/60 hover:text-oguri-lavender transition-colors flex items-center gap-1 group"
-                  >
-                    <CheckCheck className="w-3 h-3 group-hover:animate-oguri-sparkle" />
-                    Sincronizar Aura (Leídas)
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="group flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[rgb(var(--text-secondary))] transition-colors hover:text-primary"
+                    >
+                      <CheckCheck className="w-3 h-3 group-hover:animate-oguri-sparkle" />
+                      Sincronizar Aura (Leídas)
+                    </button>
+                  )}
+
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={handleDeleteAll}
+                      className="group flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-red-400/80 transition-colors hover:text-red-400"
+                      title="Eliminar todas"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Vaciar
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* List */}
-              <div
-                ref={scrollRef}
-                className="max-h-[32rem] overflow-y-auto overscroll-contain scroll-smooth"
-                style={{ scrollbarWidth: 'thin' }}
-              >
+                <div
+                  ref={scrollRef}
+                  className="max-h-[calc(100vh-12rem)] md:max-h-[32rem] overflow-y-auto overscroll-contain scroll-smooth"
+                  style={{ scrollbarWidth: 'thin' }}
+                >
                 {isLoading && notifications.length === 0 ? (
                   <div className="p-8 flex flex-col items-center justify-center gap-3">
                     <Loader2 className="w-6 h-6 text-muted animate-spin" />
@@ -192,7 +217,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                     <p className="text-xs text-muted/60 text-center">Las notificaciones nuevas aparecerán aquí</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-border/10">
                     <AnimatePresence mode="popLayout">
                       {notifications.map((notification, index) => (
                         <motion.div
@@ -220,11 +245,11 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                             {/* Icon */}
                             <div className={cn(
                               'p-2 rounded-lg flex-shrink-0 transition-transform group-hover:scale-110',
-                              notification.tipo === 'error' && 'bg-red-500/10',
-                              notification.tipo === 'warning' && 'bg-oguri-gold/10',
-                              notification.tipo === 'success' && 'bg-oguri-cyan/10',
-                              notification.tipo === 'info' && 'bg-oguri-blue/10',
-                              notification.tipo === 'system' && 'bg-oguri-purple/10',
+                              notification.tipo === 'error' && 'bg-[rgb(var(--danger)/0.12)]',
+                              notification.tipo === 'warning' && 'bg-[rgb(var(--warning)/0.12)]',
+                              notification.tipo === 'success' && 'bg-[rgb(var(--success)/0.12)]',
+                              notification.tipo === 'info' && 'bg-[rgb(var(--accent)/0.12)]',
+                              notification.tipo === 'system' && 'bg-[rgb(var(--primary)/0.12)]',
                             )}>
                               {getTypeIcon(notification.tipo)}
                             </div>
@@ -257,7 +282,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                                   {formatDate(notification.fecha_creacion)}
                                 </span>
                                 {notification.categoria && (
-                                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-white/5 text-[rgb(var(--text-muted))] border border-white/10">
+                                  <span className="rounded-full border border-border/15 bg-card/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--text-muted))]">
                                     {notification.categoria}
                                   </span>
                                 )}
@@ -265,7 +290,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                             </div>
 
                             {/* Actions */}
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                               {!notification.leida && (
                                 <button
                                   onClick={(e) => {
@@ -298,7 +323,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
 
                 {/* Load More */}
                 {hasMore && notifications.length > 0 && (
-                  <div className="p-4 border-t border-white/10">
+                  <div className="border-t border-border/15 p-4">
                     <button
                       onClick={loadMore}
                       disabled={isLoading}

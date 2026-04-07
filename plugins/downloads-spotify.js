@@ -8,13 +8,16 @@ await m.react('🕒')
 
  // MelodyApi first for Spotify URLs
   try {
-   const mel = global.APIs.MelodyApi?.url
-   const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
-    if (mel && isSpotifyUrl) {
-     const r = await axios.get(`${mel}/download/spotify?url=${encodeURIComponent(text)}`, { timeout: 20000 })
-     if (r.data?.status && r.data?.result) {
-      const dl = r.data.result
-      try {
+    const melApi = global.APIs.MelodyApi
+    const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+    const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+    const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+    const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
+     if (mel && isSpotifyUrl) {
+      const r = await axios.get(`${mel}/download/spotify?url=${encodeURIComponent(text)}`, { timeout: 20000, headers: melHeaders })
+      if (r.data?.status && r.data?.result) {
+       const dl = r.data.result
+       try {
        await conn.sendMessage(m.chat, { audio: { url: dl }, fileName: `spotify.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
        await m.react('✔️')
        return
@@ -27,13 +30,16 @@ await m.react('🕒')
 
   // MelodyApi first for search queries (fallback to YouTube audio)
   try {
-   const mel = global.APIs.MelodyApi?.url
-   const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
-    if (mel && !isSpotifyUrl) {
-    const r = await axios.get(`${mel}/download/playspotify?q=${encodeURIComponent(text)}`, { timeout: 25000 })
-    const out = r.data?.result
-    const direct = out?.url
-    if (r.data?.status && typeof direct === 'string' && direct) {
+    const melApi = global.APIs.MelodyApi
+    const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
+    const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
+    const melHeaders = melKey ? { 'x-api-key': melKey } : {}
+    const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
+     if (mel && !isSpotifyUrl) {
+     const r = await axios.get(`${mel}/download/playspotify?q=${encodeURIComponent(text)}`, { timeout: 25000, headers: melHeaders })
+     const out = r.data?.result
+     const direct = out?.url
+     if (r.data?.status && typeof direct === 'string' && direct) {
      try {
       await conn.sendMessage(m.chat, { audio: { url: direct }, fileName: `play.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
       await m.react('✔️')

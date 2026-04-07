@@ -37,6 +37,7 @@ import {
   AtSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Switch } from '@/components/ui/Switch';
 import { Card, StatCard } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
@@ -49,7 +50,7 @@ import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useNotifications } from '@/contexts/NotificationContext';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 
 interface ConfigSection {
   key: string;
@@ -168,7 +169,7 @@ export default function ConfiguracionPage() {
       if (data?.configKey === 'main') {
         loadConfiguration(selectedConfig);
         loadVersionHistory(selectedConfig);
-        toast.success('Configuración actualizada por otro usuario');
+        notify.info('Configuración actualizada por otro usuario', { dedupeKey: 'config-updated-socket', dedupeMs: 8000 });
       }
     };
 
@@ -230,7 +231,7 @@ export default function ConfiguracionPage() {
       setConfigurations(configSections);
     } catch (error) {
       console.error('Error loading configurations:', error);
-      toast.error('Error cargando configuraciones');
+      notify.error('Error cargando configuraciones');
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +246,7 @@ export default function ConfiguracionPage() {
       setValidationErrors([]);
     } catch (error) {
       console.error('Error loading configuration:', error);
-      toast.error('Error cargando configuración');
+      notify.error('Error cargando configuración');
     }
   };
 
@@ -304,14 +305,14 @@ export default function ConfiguracionPage() {
     try {
       const res = await api.verifyEmailSmtp();
       if (res?.ok) {
-        toast.success('SMTP verificado');
+        notify.success('SMTP verificado');
       } else if (res?.skipped) {
-        toast.error(res?.reason || 'SMTP no configurado');
+        notify.warning(res?.reason || 'SMTP no configurado');
       } else {
-        toast.error(res?.reason || 'No se pudo verificar SMTP');
+        notify.error(res?.reason || 'No se pudo verificar SMTP');
       }
     } catch {
-      toast.error('Error verificando SMTP');
+      notify.error('Error verificando SMTP');
     } finally {
       setIsVerifyingEmail(false);
       refreshEmailStatus();
@@ -323,14 +324,14 @@ export default function ConfiguracionPage() {
     try {
       const res = await api.sendTestEmail(testEmailTo);
       if (res?.ok) {
-        toast.success('Email de prueba enviado');
+        notify.success('Email de prueba enviado');
       } else if (res?.skipped) {
-        toast.error(res?.reason || 'Email desactivado o SMTP no configurado');
+        notify.warning(res?.reason || 'Email desactivado o SMTP no configurado');
       } else {
-        toast.error(res?.reason || 'No se pudo enviar el email de prueba');
+        notify.error(res?.reason || 'No se pudo enviar el email de prueba');
       }
     } catch {
-      toast.error('Error enviando email de prueba');
+      notify.error('Error enviando email de prueba');
     } finally {
       setIsTestingEmail(false);
       refreshEmailStatus();
@@ -374,9 +375,9 @@ export default function ConfiguracionPage() {
     setSaving(true);
     try {
       await api.setBotGlobalOffMessage(globalOffMessage);
-      toast.success('Mensaje guardado');
+      notify.success('Mensaje guardado');
     } catch (err) {
-      toast.error('Error al guardar mensaje');
+      notify.error('Error al guardar mensaje');
     } finally {
       setSaving(false);
     }
@@ -387,9 +388,9 @@ export default function ConfiguracionPage() {
     try {
       const { currentIP, currentIPAllowed, adminIPsCount, adminIPs, myAdminIPs, ...payload } = systemConfig as any;
       await api.updateSystemConfig(payload);
-      toast.success('Configuración del sistema guardada');
+      notify.success('Configuración del sistema guardada');
     } catch (err) {
-      toast.error('Error al guardar configuración');
+      notify.error('Error al guardar configuración');
     } finally {
       setSaving(false);
     }
@@ -401,10 +402,10 @@ export default function ConfiguracionPage() {
     setSaving(true);
     try {
       await api.updateSystemConfig({ autoAddAdminIPOnLogin: next });
-      toast.success(next ? 'Auto-guardado de IP activado' : 'Auto-guardado de IP desactivado');
+      notify.success(next ? 'Auto-guardado de IP activado' : 'Auto-guardado de IP desactivado');
     } catch (err) {
       setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: !next }));
-      toast.error('No se pudo actualizar auto-guardado de IP');
+      notify.error('No se pudo actualizar auto-guardado de IP');
     } finally {
       setSaving(false);
     }
@@ -416,10 +417,10 @@ export default function ConfiguracionPage() {
     setSaving(true);
     try {
       await api.updateSystemConfig({ maintenanceMode: next });
-      toast.success(next ? 'Modo mantenimiento activado' : 'Modo mantenimiento desactivado');
+      notify.success(next ? 'Modo mantenimiento activado' : 'Modo mantenimiento desactivado');
     } catch (err) {
       setSystemConfig(prev => ({ ...prev, maintenanceMode: !next }));
-      toast.error('No se pudo aplicar modo mantenimiento');
+      notify.error('No se pudo aplicar modo mantenimiento');
     } finally {
       setSaving(false);
     }
@@ -429,9 +430,9 @@ export default function ConfiguracionPage() {
     setSaving(true);
     try {
       await api.updateBotConfig(botConfig);
-      toast.success('Configuración del bot guardada');
+      notify.success('Configuración del bot guardada');
     } catch (err) {
-      toast.error('Error al guardar configuración del bot');
+      notify.error('Error al guardar configuración del bot');
     } finally {
       setSaving(false);
     }
@@ -441,10 +442,10 @@ export default function ConfiguracionPage() {
     setSaving(true);
     try {
       const result = await api.addCurrentIPAsAdmin();
-      toast.success(`IP ${result.addedIP} agregada como administrador`);
+      notify.success(`IP ${result.addedIP} agregada como administrador`);
       loadAdvancedConfigs();
     } catch (err) {
-      toast.error('Error al agregar IP');
+      notify.error('Error al agregar IP');
     } finally {
       setSaving(false);
     }
@@ -480,7 +481,7 @@ export default function ConfiguracionPage() {
       await api.updateConfig('main', nextMain);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
       setHasChanges(false);
-      toast.success('Configuración guardada exitosamente');
+      notify.success('Configuración guardada exitosamente');
       
       // Recargar versiones
       loadVersionHistory(selectedConfig);
@@ -490,9 +491,9 @@ export default function ConfiguracionPage() {
       const validation = error?.response?.data?.validationErrors;
       if (Array.isArray(validation) && validation.length) {
         setValidationErrors(validation);
-        toast.error('Validación fallida');
+        notify.error('Validación fallida');
       } else {
-        toast.error('Error guardando configuración');
+        notify.error('Error guardando configuración');
       }
     } finally {
       setSaving(false);
@@ -504,11 +505,11 @@ export default function ConfiguracionPage() {
 
     try {
       await api.rollbackConfig('main', versionId);
-      toast.success('Rollback realizado exitosamente');
+      notify.success('Rollback realizado exitosamente');
       loadConfiguration(selectedConfig);
       loadVersionHistory(selectedConfig);
     } catch (error) {
-      toast.error('Error realizando rollback');
+      notify.error('Error realizando rollback');
     }
   };
 
@@ -523,9 +524,9 @@ export default function ConfiguracionPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Configuración exportada');
+      notify.success('Configuración exportada');
     } catch (error) {
-      toast.error('Error exportando configuración');
+      notify.error('Error exportando configuración');
     }
   };
 
@@ -535,10 +536,10 @@ export default function ConfiguracionPage() {
       const importedConfig = JSON.parse(text);
       
       setConfigData(importedConfig);
-      toast.success('Configuración importada exitosamente');
+      notify.success('Configuración importada exitosamente');
       loadVersionHistory(selectedConfig);
     } catch (error) {
-      toast.error('Error procesando archivo de configuración');
+      notify.error('Error procesando archivo de configuración');
     }
   };
 
@@ -548,7 +549,7 @@ export default function ConfiguracionPage() {
     setConfigData(JSON.parse(JSON.stringify(originalData)));
     setValidationErrors([]);
     setHasChanges(false);
-    toast.success('Cambios descartados');
+    notify.success('Cambios descartados');
   };
 
   const updateConfigValue = (path: string, value: any) => {
@@ -615,7 +616,7 @@ export default function ConfiguracionPage() {
     }
 
     return (
-      <div className="space-y-6">
+      <div className="panel-page">
         {selectedConfig === 'main' && renderMainConfigEditor()}
         {selectedConfig === 'system' && renderSystemConfigEditor()}
         {selectedConfig === 'bot' && renderBotConfigEditor()}
@@ -911,7 +912,7 @@ export default function ConfiguracionPage() {
       !emailEnabled ? 'Desactivado' : smtpHost ? 'SMTP listo' : 'Falta host';
 
     return (
-      <div className="space-y-6">
+      <div className="panel-page">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-white">Configuración de Notificaciones</h3>
@@ -919,17 +920,17 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {/* Email Service */}
-          <Card animated delay={0.1} className="p-6">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-primary-500/20 border border-white/10 shadow-inner-glow">
+          <Card animated delay={0.1} className="p-5 sm:p-6">
+            <div className="panel-card-header">
+              <div className="panel-card-heading">
+                <div className="panel-card-icon bg-gradient-to-br from-cyan-500/20 to-primary-500/20 text-cyan-200">
                   <Mail className="w-5 h-5 text-cyan-200" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-lg font-semibold text-white leading-tight">Email Service</h4>
-                  <p className="text-sm text-gray-400 mt-1">SMTP para seguridad, sistema y alertas.</p>
+                  <h4 className="panel-card-title">Email Service</h4>
+                  <p className="panel-card-description">SMTP para seguridad, sistema y alertas.</p>
                 </div>
               </div>
 
@@ -940,7 +941,7 @@ export default function ConfiguracionPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
+              <div className="panel-setting-row">
                 <div className="min-w-0">
                   <p className="font-semibold text-white">Estado</p>
                   <p className="text-sm text-gray-400">Activa/desactiva envíos por email.</p>
@@ -960,9 +961,9 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!emailEnabled ? 'opacity-60' : ''}`}>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Host SMTP</label>
+              <div className={`panel-form-grid ${!emailEnabled ? 'opacity-60' : ''}`}>
+                <div className="panel-field">
+                  <label className="panel-field-label">Host SMTP</label>
                   <div className="relative">
                     <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
@@ -976,8 +977,8 @@ export default function ConfiguracionPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Puerto</label>
+                <div className="panel-field">
+                  <label className="panel-field-label">Puerto</label>
                   <div className="relative">
                     <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
@@ -993,8 +994,8 @@ export default function ConfiguracionPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Usuario / Email</label>
+                <div className="panel-field">
+                  <label className="panel-field-label">Usuario / Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
@@ -1008,8 +1009,8 @@ export default function ConfiguracionPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Contraseña / App Password</label>
+                <div className="panel-field">
+                  <label className="panel-field-label">Contraseña / App Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
@@ -1024,7 +1025,7 @@ export default function ConfiguracionPage() {
                 </div>
               </div>
 
-              <div className={`flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 ${!emailEnabled ? 'opacity-60' : ''}`}>
+              <div className={`panel-setting-row ${!emailEnabled ? 'opacity-60' : ''}`}>
                 <div className="min-w-0">
                   <p className="font-semibold text-white flex items-center gap-2">
                     <Lock className="w-4 h-4 text-gray-400" /> Conexión segura (TLS)
@@ -1047,13 +1048,13 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="panel-note-card">
                 <p className="text-xs text-gray-400 leading-relaxed">
                   Tip: para Gmail usá “App Password” y el host `smtp.gmail.com` (puerto `587` con TLS o `465` seguro).
                 </p>
               </div>
 
-              <div className={`rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3 ${!emailEnabled ? 'opacity-60' : ''}`}>
+              <div className={`panel-note-card space-y-3 ${!emailEnabled ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-semibold text-white">Diagnóstico</p>
                   <Button
@@ -1098,8 +1099,8 @@ export default function ConfiguracionPage() {
                   </p>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Email para Alertas (Admin)</label>
+                <div className="panel-field">
+                  <label className="panel-field-label">Email para Alertas (Admin)</label>
                   <input
                     type="email"
                     value={testEmailTo}
@@ -1108,7 +1109,7 @@ export default function ConfiguracionPage() {
                     placeholder="tu-correo@ejemplo.com"
                     disabled={!emailEnabled}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="panel-field-hint">
                     Este es el correo donde recibirás las alertas críticas del sistema. Si lo dejas vacío, se usarán los correos configurados en las variables de entorno.
                   </p>
                 </div>
@@ -1142,15 +1143,15 @@ export default function ConfiguracionPage() {
           </Card>
 
           {/* WhatsApp */}
-          <Card animated delay={0.2} className="p-6">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-white/10 shadow-inner-glow">
+          <Card animated delay={0.2} className="p-5 sm:p-6">
+            <div className="panel-card-header">
+              <div className="panel-card-heading">
+                <div className="panel-card-icon bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-emerald-200">
                   <Bell className="w-5 h-5 text-emerald-200" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-lg font-semibold text-white leading-tight">WhatsApp</h4>
-                  <p className="text-sm text-gray-400 mt-1">Alertas directas a números administradores.</p>
+                  <h4 className="panel-card-title">WhatsApp</h4>
+                  <p className="panel-card-description">Alertas directas a números administradores.</p>
                 </div>
               </div>
 
@@ -1161,7 +1162,7 @@ export default function ConfiguracionPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
+              <div className="panel-setting-row">
                 <div className="min-w-0">
                   <p className="font-semibold text-white">Estado</p>
                   <p className="text-sm text-gray-400">Activa/desactiva envíos por WhatsApp.</p>
@@ -1181,8 +1182,8 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className={whatsappEnabled ? '' : 'opacity-60'}>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+              <div className={`panel-field ${whatsappEnabled ? '' : 'opacity-60'}`}>
+                <label className="panel-field-label">
                   Números de admin (separados por coma)
                 </label>
                 <input
@@ -1207,23 +1208,23 @@ export default function ConfiguracionPage() {
         </div>
 
         {/* Panel Notifications Settings */}
-        <Card animated delay={0.3} className="p-6 mt-6">
-          <div className="flex items-start gap-3 mb-6">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-primary-500/20 to-violet-500/20 border border-white/10 shadow-inner-glow">
-              <Bell className="w-5 h-5 text-primary-200" />
+          <Card animated delay={0.3} className="mt-6 p-5 sm:p-6">
+            <div className="panel-card-heading mb-6">
+              <div className="panel-card-icon bg-gradient-to-br from-primary-500/20 to-violet-500/20 text-primary-200">
+                <Bell className="w-5 h-5 text-primary-200" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="panel-card-title">Notificaciones del Panel</h4>
+                <p className="panel-card-description">Configura qué tipos de notificaciones quieres recibir en el panel.</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-lg font-semibold text-white leading-tight">Notificaciones del Panel</h4>
-              <p className="text-sm text-gray-400 mt-1">Configura qué tipos de notificaciones quieres recibir en el panel.</p>
-            </div>
-          </div>
 
-          <div className="space-y-4">
-            {/* Enabled Toggle */}
-            <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover-glass-bright">
-              <div className="min-w-0">
-                <p className="font-semibold text-white">Notificaciones Generales</p>
-                <p className="text-sm text-gray-400">Activa o desactiva todas las notificaciones del panel.</p>
+            <div className="space-y-4">
+              {/* Enabled Toggle */}
+              <div className="panel-setting-row">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white">Notificaciones Generales</p>
+                  <p className="text-sm text-gray-400">Activa o desactiva todas las notificaciones del panel.</p>
               </div>
               <button
                 type="button"
@@ -1241,10 +1242,10 @@ export default function ConfiguracionPage() {
             </div>
 
             {/* Category Toggles */}
-            <div className={`space-y-3 ${!notificationSettings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="min-w-0">
-                  <p className="font-medium text-white flex items-center gap-2">
+              <div className={`space-y-3 ${!notificationSettings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
+                <div className="panel-setting-row">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" />
                     Eventos del Bot
                   </p>
@@ -1264,9 +1265,9 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="min-w-0">
-                  <p className="font-medium text-white flex items-center gap-2">
+                <div className="panel-setting-row">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white flex items-center gap-2">
                     <Bot className="w-4 h-4 text-cyan-400" />
                     Usuarios / Comunidad
                   </p>
@@ -1286,9 +1287,9 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="min-w-0">
-                  <p className="font-medium text-white flex items-center gap-2">
+                <div className="panel-setting-row">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white flex items-center gap-2">
                     <Clock className="w-4 h-4 text-violet-400" />
                     Pedidos / Tareas
                   </p>
@@ -1308,9 +1309,9 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="min-w-0">
-                  <p className="font-medium text-white flex items-center gap-2">
+                <div className="panel-setting-row">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-red-400" />
                     Errores Críticos
                   </p>
@@ -1330,9 +1331,9 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="min-w-0">
-                  <p className="font-medium text-white flex items-center gap-2">
+                <div className="panel-setting-row">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white flex items-center gap-2">
                     <Bell className="w-4 h-4 text-primary-400" />
                     Push Notifications
                   </p>
@@ -1359,7 +1360,7 @@ export default function ConfiguracionPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Configuración"
@@ -1410,7 +1411,7 @@ export default function ConfiguracionPage() {
       />
 
       {/* System Stats */}
-      <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-4" delay={0.02} stagger={0.07}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.02} stagger={0.07}>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard title="Uptime" value={formatUptime(uptime)} icon={<Clock className="w-6 h-6" />} color="primary" delay={0} animated={false} />
         </StaggerItem>
@@ -1448,12 +1449,12 @@ export default function ConfiguracionPage() {
 
       {/* Advanced Configuration Sections */}
       {selectedConfig === 'main' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {/* Bot Global Control */}
-          <Card animated delay={0.2} className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-primary-500/20 text-primary-400"><Bot className="w-5 h-5" /></div>
-              <h2 className="text-lg font-semibold text-white">Control Global del Bot</h2>
+          <Card animated delay={0.2} className="p-5 sm:p-6">
+            <div className="panel-card-heading mb-6">
+              <div className="panel-card-icon"><Bot className="w-5 h-5" /></div>
+              <h2 className="panel-card-title">Control Global del Bot</h2>
             </div>
             <div className="flex items-center justify-center mb-6">
               <motion.div animate={contextGlobalState ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
@@ -1466,7 +1467,7 @@ export default function ConfiguracionPage() {
               </motion.div>
             </div>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+              <div className="panel-setting-row">
                 <div>
                   <p className="font-medium text-white">Estado Global</p>
                   <p className="text-sm text-gray-400">Activa o desactiva el bot en todos los grupos</p>
@@ -1477,7 +1478,7 @@ export default function ConfiguracionPage() {
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
                 </button>
               </div>
-              <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+              <div className="panel-setting-row">
                 <div>
                   <p className="font-medium text-white">Conexión</p>
                   <p className="text-sm text-gray-400">Estado de conexión con WhatsApp</p>
@@ -1491,10 +1492,10 @@ export default function ConfiguracionPage() {
           </Card>
 
           {/* Global Off Message */}
-          <Card animated delay={0.3} className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400"><Bell className="w-5 h-5" /></div>
-              <h2 className="text-lg font-semibold text-white">Mensaje de Bot Desactivado</h2>
+          <Card animated delay={0.3} className="p-5 sm:p-6">
+            <div className="panel-card-heading mb-6">
+              <div className="panel-card-icon text-amber-300"><Bell className="w-5 h-5" /></div>
+              <h2 className="panel-card-title">Mensaje de Bot Desactivado</h2>
             </div>
             <p className="text-sm text-gray-400 mb-4">Este mensaje se enviará cuando el bot esté desactivado globalmente</p>
             <textarea value={globalOffMessage} onChange={(e) => setGlobalOffMessage(e.target.value)}
@@ -1505,13 +1506,13 @@ export default function ConfiguracionPage() {
           </Card>
 
           {/* Bot Configuration */}
-          <Card animated delay={0.4} className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400"><Settings className="w-5 h-5" /></div>
-              <h2 className="text-lg font-semibold text-white">Configuración del Bot</h2>
+          <Card animated delay={0.4} className="p-5 sm:p-6">
+            <div className="panel-card-heading mb-6">
+              <div className="panel-card-icon text-cyan-300"><Settings className="w-5 h-5" /></div>
+              <h2 className="panel-card-title">Configuración del Bot</h2>
             </div>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="panel-setting-row">
                 <div>
                   <p className="font-medium text-white">Auto Reconexión</p>
                   <p className="text-xs text-gray-500">Reconectar automáticamente si se pierde la conexión</p>
@@ -1522,20 +1523,20 @@ export default function ConfiguracionPage() {
                     className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
                 </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Intentos de Reconexión</label>
+              <div className="panel-field">
+                <label className="panel-field-label">Intentos de Reconexión</label>
                 <input type="number" value={botConfig.maxReconnectAttempts}
                   onChange={(e) => setBotConfig({ ...botConfig, maxReconnectAttempts: parseInt(e.target.value) })}
                   className="input-glass w-full" min={1} max={20} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Intervalo de Reconexión (seg)</label>
+              <div className="panel-field">
+                <label className="panel-field-label">Intervalo de Reconexión (seg)</label>
                 <input type="number" value={botConfig.reconnectInterval}
                   onChange={(e) => setBotConfig({ ...botConfig, reconnectInterval: parseInt(e.target.value) })}
                   className="input-glass w-full" min={5} max={300} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Nivel de Log</label>
+              <div className="panel-field">
+                <label className="panel-field-label">Nivel de Log</label>
                 <Select value={botConfig.logLevel} onChange={(value) => setBotConfig({ ...botConfig, logLevel: value })} options={[
                   { value: 'error', label: 'Error' },
                   { value: 'warn', label: 'Warning' },
@@ -1550,13 +1551,13 @@ export default function ConfiguracionPage() {
           </Card>
 
           {/* System Configuration */}
-          <Card animated delay={0.5} className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-violet-500/20 text-violet-400"><Shield className="w-5 h-5" /></div>
-              <h2 className="text-lg font-semibold text-white">Configuración del Sistema</h2>
+          <Card animated delay={0.5} className="p-5 sm:p-6">
+            <div className="panel-card-heading mb-6">
+              <div className="panel-card-icon text-violet-300"><Shield className="w-5 h-5" /></div>
+              <h2 className="panel-card-title">Configuración del Sistema</h2>
             </div>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="panel-setting-row">
                 <div>
                   <p className="font-medium text-white">Modo Mantenimiento</p>
                   <p className="text-xs text-gray-500">Desactiva el acceso al panel temporalmente</p>
@@ -1567,25 +1568,29 @@ export default function ConfiguracionPage() {
                     </div>
                   )}
                 </div>
-                <button onClick={toggleMaintenanceMode}
-                  className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.maintenanceMode ? 'bg-orange-500' : 'bg-gray-600'}`}>
-                  <motion.div animate={{ x: systemConfig.maintenanceMode ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
-                </button>
+                <Switch
+                  checked={Boolean(systemConfig.maintenanceMode)}
+                  onCheckedChange={() => { void toggleMaintenanceMode(); }}
+                  variant="warning"
+                  label="Modo mantenimiento"
+                  className="self-start sm:self-auto"
+                />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="panel-setting-row">
                 <div>
                   <p className="font-medium text-white">Modo Debug</p>
                   <p className="text-xs text-gray-500">Habilita logs detallados para depuración</p>
                 </div>
-                <button onClick={() => setSystemConfig({ ...systemConfig, debugMode: !systemConfig.debugMode })}
-                  className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.debugMode ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-                  <motion.div animate={{ x: systemConfig.debugMode ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
-                </button>
+                <Switch
+                  checked={Boolean(systemConfig.debugMode)}
+                  onCheckedChange={(checked) => setSystemConfig({ ...systemConfig, debugMode: checked })}
+                  variant="primary"
+                  label="Modo debug"
+                  className="self-start sm:self-auto"
+                />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Límite de API (req/min)</label>
+              <div className="panel-field">
+                <label className="panel-field-label">Límite de API (req/min)</label>
                 <input type="number" value={systemConfig.apiRateLimit}
                   onChange={(e) => setSystemConfig({ ...systemConfig, apiRateLimit: parseInt(e.target.value) })}
                   className="input-glass w-full" min={10} max={1000} />
@@ -1597,20 +1602,24 @@ export default function ConfiguracionPage() {
                   <p className="text-xs text-gray-500">Define a quién avisar cuando un usuario abre un chat de soporte en el panel.</p>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="panel-setting-row">
                   <div>
                     <p className="font-medium text-white">Incluir Admins/Owner</p>
                     <p className="text-xs text-gray-500">Además de los destinatarios configurados abajo</p>
                   </div>
-                  <button onClick={() => setSystemConfig({ ...systemConfig, supportNotifyIncludeAdmins: !systemConfig.supportNotifyIncludeAdmins })}
-                    className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.supportNotifyIncludeAdmins ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-                    <motion.div animate={{ x: systemConfig.supportNotifyIncludeAdmins ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
-                  </button>
+                  <Switch
+                    checked={Boolean(systemConfig.supportNotifyIncludeAdmins)}
+                    onCheckedChange={(checked) =>
+                      setSystemConfig({ ...systemConfig, supportNotifyIncludeAdmins: checked })
+                    }
+                    variant="primary"
+                    label="Incluir admins/owner"
+                    className="self-start sm:self-auto"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Emails destino (separados por coma)</label>
+                <div className="panel-field">
+                  <label className="panel-field-label">Emails destino (separados por coma)</label>
                   <input
                     type="text"
                     value={systemConfig.supportNotifyEmailTo}
@@ -1620,8 +1629,8 @@ export default function ConfiguracionPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">WhatsApp destino (números, separados por coma)</label>
+                <div className="panel-field">
+                  <label className="panel-field-label">WhatsApp destino (números, separados por coma)</label>
                   <input
                     type="text"
                     value={systemConfig.supportNotifyWhatsAppTo}
@@ -1629,7 +1638,7 @@ export default function ConfiguracionPage() {
                     className="input-glass w-full"
                     placeholder=""
                   />
-                  <p className="text-xs text-gray-500 mt-1">Se ignoran símbolos; se usan solo números.</p>
+                  <p className="panel-field-hint">Se ignoran símbolos; se usan solo números.</p>
                 </div>
               </div>
               <Button variant="primary" className="w-full" icon={<Save className="w-4 h-4" />} onClick={saveSystemConfig} loading={isSaving}>
@@ -1639,13 +1648,13 @@ export default function ConfiguracionPage() {
           </Card>
 
           {/* Admin IPs Management */}
-          <Card animated delay={0.55} className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400"><Shield className="w-5 h-5" /></div>
-              <h2 className="text-lg font-semibold text-white">IPs de Administradores</h2>
+          <Card animated delay={0.55} className="p-5 sm:p-6">
+            <div className="panel-card-heading mb-6">
+              <div className="panel-card-icon text-blue-300"><Shield className="w-5 h-5" /></div>
+              <h2 className="panel-card-title">IPs de Administradores</h2>
             </div>
             <div className="space-y-4">
-	              <div className="p-4 rounded-xl bg-white/5">
+	              <div className="panel-readonly-block">
 	                <p className="text-sm text-gray-400 mb-2">Tu IP actual:</p>
 	                <p className="text-white font-mono text-lg">{systemConfig.currentIP || 'Cargando...'}</p>
 	                <p className="text-xs mt-2">
@@ -1665,19 +1674,18 @@ export default function ConfiguracionPage() {
                 </Button>
               </div>
               
-              <div className="p-4 rounded-xl bg-white/5">
+	              <div className="panel-setting-row">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm text-gray-300 font-medium">Auto-guardar IP al iniciar sesión</p>
                     <p className="text-xs text-gray-500">Agrega automáticamente la IP de Owner/Admin tras un login exitoso.</p>
                   </div>
-                  <button
-                    onClick={toggleAutoAddAdminIPOnLogin}
-                    className={`relative w-14 h-7 rounded-full transition-colors ${systemConfig.autoAddAdminIPOnLogin ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  >
-                    <motion.div animate={{ x: systemConfig.autoAddAdminIPOnLogin ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
-                  </button>
+                  <Switch
+                    checked={Boolean(systemConfig.autoAddAdminIPOnLogin)}
+                    onCheckedChange={() => { void toggleAutoAddAdminIPOnLogin(); }}
+                    variant="primary"
+                    label="Auto-guardar IP"
+                  />
                 </div>
               </div>
 
@@ -1686,7 +1694,7 @@ export default function ConfiguracionPage() {
                   <p className="text-sm text-gray-400 mb-2">Mis IPs permitidas durante mantenimiento:</p>
                   <div className="space-y-2">
                     {systemConfig.myAdminIPs.map((ip, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                      <div key={index} className="panel-data-row">
                         <span className="text-white font-mono">{ip}</span>
                         <span className="text-xs text-green-400">✓ Permitida</span>
                       </div>
@@ -1695,14 +1703,14 @@ export default function ConfiguracionPage() {
                 </div>
               )}
               
-              <div className="p-3 rounded-lg bg-white/5">
+              <div className="panel-note-card">
                 <p className="text-xs text-gray-400">
                   Total global de IPs permitidas:{' '}
                   <span className="text-white font-mono">{Number(systemConfig.adminIPsCount || 0)}</span>
                 </p>
               </div>
 
-              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-3">
                 <p className="text-xs text-yellow-400">
                   💡 Las IPs agregadas aquí podrán acceder al panel incluso durante el modo mantenimiento.
                   Localhost (127.0.0.1) está permitido por defecto.
@@ -1712,22 +1720,22 @@ export default function ConfiguracionPage() {
           </Card>
 
           {/* System Info */}
-          <Card animated delay={0.6} className="p-6 lg:col-span-2">
-            <h2 className="text-lg font-semibold text-white mb-6">Información del Sistema</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 rounded-xl bg-white/5">
+          <Card animated delay={0.6} className="p-5 sm:p-6 lg:col-span-2">
+            <h2 className="panel-card-title mb-6">Información del Sistema</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="panel-mini-tile">
                 <p className="text-xs text-gray-500 mb-1">CPU</p>
                 <p className="text-white font-medium truncate">{systemStats?.cpu?.model || 'N/A'}</p>
               </div>
-              <div className="p-4 rounded-xl bg-white/5">
+              <div className="panel-mini-tile">
                 <p className="text-xs text-gray-500 mb-1">Memoria Total</p>
                 <p className="text-white font-medium">{formatBytes(systemStats?.memory?.total || 0)}</p>
               </div>
-              <div className="p-4 rounded-xl bg-white/5">
+              <div className="panel-mini-tile">
                 <p className="text-xs text-gray-500 mb-1">Memoria Libre</p>
                 <p className="text-white font-medium">{formatBytes(systemStats?.memory?.free || 0)}</p>
               </div>
-              <div className="p-4 rounded-xl bg-white/5">
+              <div className="panel-mini-tile">
                 <p className="text-xs text-gray-500 mb-1">Heap Usado</p>
                 <p className="text-white font-medium">{formatBytes(systemStats?.memory?.heapUsed || 0)}</p>
               </div>
@@ -1738,11 +1746,11 @@ export default function ConfiguracionPage() {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-4"
+            className="panel-mini-tile"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/20">
@@ -1759,7 +1767,7 @@ export default function ConfiguracionPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="glass-card p-4"
+            className="panel-mini-tile"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-green-500/20">
@@ -1776,7 +1784,7 @@ export default function ConfiguracionPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="glass-card p-4"
+            className="panel-mini-tile"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-purple-500/20">
@@ -1793,7 +1801,7 @@ export default function ConfiguracionPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="glass-card p-4"
+            className="panel-mini-tile"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-yellow-500/20">
@@ -1808,10 +1816,10 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Sidebar de configuraciones */}
         <div className="lg:col-span-1">
-          <div className="glass-card p-4">
+          <div className="panel-side-shell">
             <h2 className="text-lg font-semibold text-white mb-4">Secciones</h2>
             <div className="space-y-2">
               {configurations.map((config) => {
@@ -1820,13 +1828,13 @@ export default function ConfiguracionPage() {
                   <button
                     key={config.key}
                     onClick={() => setSelectedConfig(config.key)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
                       selectedConfig === config.key
-                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                        ? 'border-primary/25 bg-primary/12 text-primary shadow-[0_16px_34px_-24px_rgba(var(--primary),0.45)]'
+                        : 'border-transparent text-gray-400 hover:border-white/10 hover:bg-white/[0.05] hover:text-white'
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <div className="panel-card-icon h-10 w-10 rounded-xl"><Icon className="w-5 h-5" /></div>
                     <div className="text-left">
                       <p className="font-medium">{config.name}</p>
                       <p className="text-xs opacity-70">{config.description}</p>
@@ -1840,10 +1848,10 @@ export default function ConfiguracionPage() {
 
         {/* Editor principal */}
         <div className="lg:col-span-3">
-          <div className="glass-card">
+          <div className="panel-editor-shell">
             {/* Header del editor */}
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between">
+            <div className="border-b border-white/10 p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-3">
                   <h2 className="text-lg font-semibold text-white">
                     {configurations.find(c => c.key === selectedConfig)?.name || 'Configuración'}
@@ -1855,7 +1863,7 @@ export default function ConfiguracionPage() {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     onClick={() => setShowJsonEditor(!showJsonEditor)}
                     variant="secondary"
@@ -1911,7 +1919,7 @@ export default function ConfiguracionPage() {
             )}
 
             {/* Contenido del editor */}
-            <div className="p-6">
+            <div className="p-5 sm:p-6">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
@@ -1931,7 +1939,7 @@ export default function ConfiguracionPage() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass-card"
+            className="panel-editor-shell"
           >
             <div className="p-4 border-b border-white/10">
               <h2 className="text-lg font-semibold text-white">
@@ -1941,7 +1949,7 @@ export default function ConfiguracionPage() {
             
             <div className="divide-y divide-white/5">
               {versions.length === 0 ? (
-                <div className="p-8 text-center">
+                <div className="panel-empty-state">
                   <History className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-400">No hay versiones registradas</p>
                 </div>

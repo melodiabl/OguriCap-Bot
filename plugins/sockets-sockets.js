@@ -72,7 +72,8 @@ try {
 } catch {}
 try {
   const aliasPath = path.join(global.jadi, cleanId)
-  if (fs.existsSync(aliasPath) && fs.lstatSync(aliasPath).isSymbolicLink()) fs.rmSync(aliasPath, { recursive: false, force: true })
+  // No usar existsSync: symlinks rotos retornan false.
+  if (fs.lstatSync(aliasPath).isSymbolicLink()) fs.rmSync(aliasPath, { recursive: false, force: true })
 } catch {}
 }, 3000)
 break
@@ -80,7 +81,7 @@ break
 case 'reload': {
 const rawId = conn.user?.id || ''
 const cleanId = jidDecode(rawId)?.user || rawId.split('@')[0]
-const sessionPath = path.join(global.jadi, cleanId)
+const sessionPath = conn.sessionPath || path.join(global.jadi, cleanId)
 if (!fs.existsSync(sessionPath)) return conn.reply(m.chat, '❀ Este comando solo puede ejecutarse desde una instancia Sub-Bot.', m)
 await m.react('🕒')
 if (typeof global.reloadHandler !== 'function')

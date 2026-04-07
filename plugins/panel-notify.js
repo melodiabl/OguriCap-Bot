@@ -8,8 +8,10 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
   if (!panel.notifications) panel.notifications = {}
 
   switch (command) {
-    case 'reportar':
-    case 'report': {
+    // Evitar conflicto con plugins/main-info.js (report/suggest)
+    case 'panelreport':
+    case 'panelreportar':
+    case 'panelreporte': {
       const mensaje = args.join(' ').trim()
       if (!mensaje) {
         return m.reply(`📝 *Reportar un problema*\n\nUso: ${usedPrefix}${command} <descripción del problema>\n\nEjemplo:\n${usedPrefix}${command} El comando /menu no funciona`)
@@ -49,8 +51,8 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
       return m.reply(`✅ *Reporte enviado*\n\nTu reporte ha sido enviado a los administradores.\n\n📝 ID: #${id}\n📋 Mensaje: ${mensaje}\n\nGracias por ayudarnos a mejorar.`)
     }
 
-    case 'sugerir':
-    case 'suggest': {
+    case 'panelsugerir':
+    case 'panelsuggest': {
       const mensaje = args.join(' ').trim()
       if (!mensaje) {
         return m.reply(`💡 *Enviar una sugerencia*\n\nUso: ${usedPrefix}${command} <tu sugerencia>\n\nEjemplo:\n${usedPrefix}${command} Agregar comando para descargar música`)
@@ -135,8 +137,8 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
   }
 }
 
-handler.help = ['reportar', 'sugerir', 'feedback']
+handler.help = ['panelreport', 'panelsugerir', 'feedback']
 handler.tags = ['tools']
-handler.command = ['reportar', 'report', 'sugerir', 'suggest', 'feedback']
+handler.command = ['panelreport', 'panelreportar', 'panelreporte', 'panelsugerir', 'panelsuggest', 'feedback']
 
 export default handler

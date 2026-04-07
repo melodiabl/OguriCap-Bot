@@ -73,7 +73,7 @@ export default function MaintenancePage() {
   };
 
   return (
-    <div className="min-h-screen mesh-bg flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="auth-shell">
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -88,19 +88,19 @@ export default function MaintenancePage() {
         />
       </div>
 
-      <div className="max-w-lg w-full relative z-10">
+      <div className="relative z-10 w-full max-w-lg">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="glass-card p-8 text-center"
+          className="auth-card text-center"
         >
           {/* Logo y icono animado */}
           <div className="flex items-center justify-center mb-6">
             <motion.div
               animate={reduceMotion ? undefined : { rotate: 360 }}
               transition={reduceMotion ? undefined : { duration: 2, repeat: Infinity, ease: "linear" }}
-              className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mr-4"
+              className="mr-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20"
             >
               <Wrench className="w-8 h-8 text-orange-400" />
             </motion.div>
@@ -109,24 +109,24 @@ export default function MaintenancePage() {
                 <Bot className="w-6 h-6 text-primary-400" />
                 <span className="text-xl font-bold gradient-text">Oguri Bot</span>
               </div>
-              <p className="text-sm text-gray-400">Panel de Control</p>
+              <p className="text-sm text-muted">Panel de Control</p>
             </div>
           </div>
 
           {/* Título */}
-          <h1 className="text-3xl font-bold text-white mb-4">
+          <h1 className="mb-4 text-3xl font-bold text-foreground">
             Sistema en Mantenimiento
           </h1>
 
           {/* Descripción */}
-          <p className="text-gray-300 mb-6 leading-relaxed">
+          <p className="mb-6 leading-relaxed text-[rgb(var(--text-secondary))]">
             Estamos realizando mejoras importantes en el sistema para brindarte una mejor experiencia. 
             El servicio estará disponible nuevamente en breve.
           </p>
 
           {/* Estado de conexión */}
           <div className="flex items-center justify-center mb-6">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+            <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${
               isOnline 
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
                 : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -137,17 +137,17 @@ export default function MaintenancePage() {
           </div>
 
           {/* Información adicional */}
-          <div className="bg-white/5 rounded-xl p-4 mb-6 space-y-3">
-            <div className="flex items-center justify-center text-gray-400">
+          <div className="panel-note-card mb-6 space-y-3 text-left sm:text-center">
+            <div className="flex items-center justify-center text-[rgb(var(--text-secondary))]">
               <Clock className="w-4 h-4 mr-2" />
               <span className="text-sm">Tiempo estimado: Unos minutos</span>
             </div>
-            <div className="flex items-center justify-center text-gray-400">
+            <div className="flex items-center justify-center text-[rgb(var(--text-secondary))]">
               <AlertTriangle className="w-4 h-4 mr-2" />
               <span className="text-sm">Disculpa las molestias ocasionadas</span>
             </div>
             {lastCheck && (
-              <div className="flex items-center justify-center text-gray-500 text-xs pt-2 border-t border-white/10">
+              <div className="flex items-center justify-center border-t border-border/15 pt-2 text-xs text-muted">
                 <RefreshCw className="w-3 h-3 mr-1" />
                 Última verificación: {formatLastCheck()}
               </div>
@@ -175,14 +175,14 @@ export default function MaintenancePage() {
           </Button>
 
           {/* Información adicional */}
-          <div className="text-xs text-gray-500 space-y-1">
+          <div className="space-y-1 text-xs text-muted">
             <p>El sistema se verifica automáticamente cada 30 segundos</p>
             <p>Serás redirigido automáticamente cuando termine el mantenimiento</p>
           </div>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-xs text-gray-500">
+          <div className="mt-8 border-t border-border/15 pt-6">
+            <p className="text-xs text-muted">
               © 2026 Oguri Bot Panel - Sistema de Gestión Avanzado
             </p>
           </div>
@@ -220,7 +220,7 @@ export default function MaintenancePage() {
               />
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-2">Trabajando en las mejoras...</p>
+          <p className="mt-2 text-xs text-muted">Trabajando en las mejoras...</p>
         </motion.div>
       </div>
     </div>

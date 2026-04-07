@@ -46,6 +46,142 @@ function readJsonSafe(filePath) {
   }
 }
 
+function normalizeWhatsAppNumber(value) {
+  return String(value || '').replace(/[^0-9]/g, '')
+}
+
+function resolvePanelUsernameByWhatsApp(panelDb, phoneDigits) {
+  try {
+    const digits = normalizeWhatsAppNumber(phoneDigits)
+    if (!digits) return null
+    const users = panelDb?.users && typeof panelDb.users === 'object' ? Object.values(panelDb.users) : []
+    for (const u of users) {
+      const wa = normalizeWhatsAppNumber(u?.whatsapp_number || u?.whatsapp || u?.phone)
+      if (wa && wa === digits) return String(u?.username || '').trim() || null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function getSockPhoneDigits(sock) {
+  try {
+    const jid =
+      sock?.user?.jid ||
+      sock?.user?.id ||
+      sock?.authState?.creds?.me?.jid ||
+      sock?.authState?.creds?.me?.id ||
+      ''
+    let base = String(jid || '').split('@')[0]
+    if (base.includes(':')) base = base.split(':')[0]
+    return normalizeWhatsAppNumber(base)
+  } catch {
+    return ''
+  }
+}
+
+function getStableSubbotKey(sock, fallback) {
+  try {
+    const fromCode = normalizeWhatsAppNumber(sock?.subbotCode || '')
+    if (fromCode) return fromCode
+    const fromJid = getSockPhoneDigits(sock)
+    if (fromJid) return fromJid
+    const fb = String(fallback || '').trim()
+    const fbDigits = normalizeWhatsAppNumber(fb)
+    return fbDigits || fb || 'unknown'
+  } catch {
+    return String(fallback || '').trim() || 'unknown'
+  }
+}
+
+const __subbotSessionDirCache = new Map()
+function resolveSubbotSessionDirByPhone(phoneDigits) {
+  try {
+    const digits = normalizeWhatsAppNumber(phoneDigits)
+    if (!digits) return ''
+
+    const root = path.resolve(global.jadi || 'Sessions/SubBot')
+    const now = Date.now()
+    const cached = __subbotSessionDirCache.get(digits)
+    if (cached && (now - cached.ts) < 30 * 1000) {
+      if (cached.dir && fs.existsSync(path.join(root, cached.dir))) return cached.dir
+      if (cached.dir === null) return digits
+    }
+
+    // Prefer panelDb mapping if available
+    try {
+      const rec = global.db?.data?.panel?.subbots?.[digits] || null
+      const fromRec = rec ? String(rec.session_dir || rec.sessionDir || rec.alias_dir || rec.aliasDir || '').trim() : ''
+      if (fromRec) {
+        const full = path.join(root, fromRec)
+        const st = fs.lstatSync(full)
+        if (st.isDirectory() && !st.isSymbolicLink()) {
+          __subbotSessionDirCache.set(digits, { dir: fromRec, ts: now })
+          return fromRec
+        }
+      }
+    } catch {}
+
+    if (!fs.existsSync(root)) {
+      __subbotSessionDirCache.set(digits, { dir: null, ts: now })
+      return digits
+    }
+
+    const entries = fs.readdirSync(root, { withFileTypes: true })
+    for (const ent of entries) {
+      if (!ent?.isDirectory?.()) continue
+      if (ent?.isSymbolicLink?.()) continue
+
+      const dirName = ent.name
+      const credsPath = path.join(root, dirName, 'creds.json')
+      const parsed = readJsonSafe(credsPath)
+      if (!parsed) continue
+
+      const me = parsed?.me || parsed?.creds?.me || null
+      const jid = String(me?.id || me?.jid || '').trim()
+      let base = jid ? jid.split('@')[0] : ''
+      if (base.includes(':')) base = base.split(':')[0]
+      const phone = normalizeWhatsAppNumber(base)
+      if (!phone || phone !== digits) continue
+
+      __subbotSessionDirCache.set(digits, { dir: dirName, ts: now })
+
+      // Backfill mapping
+      try {
+        if (global.db?.data?.panel) {
+          global.db.data.panel.subbots ||= {}
+          global.db.data.panel.subbots[digits] ||= {
+            id: digits,
+            code: digits,
+            codigo: digits,
+            tipo: 'qr',
+            usuario: 'auto',
+            numero: digits,
+            fecha_creacion: new Date().toISOString(),
+            estado: 'inactivo',
+          }
+          const rec = global.db.data.panel.subbots[digits]
+          rec.code = digits
+          rec.codigo = digits
+          rec.numero = rec.numero || digits
+          rec.session_dir = dirName
+          rec.alias_dir = dirName
+          const waName = String(me?.name || '').trim()
+          if (waName && !rec.nombre_whatsapp) rec.nombre_whatsapp = waName
+        }
+      } catch {}
+
+      return dirName
+    }
+
+    __subbotSessionDirCache.set(digits, { dir: null, ts: now })
+    return digits
+  } catch {
+    return normalizeWhatsAppNumber(phoneDigits) || ''
+  }
+}
+
 function normalizePrefixConfig(prefix) {
   const raw = String(prefix || '').trim()
   if (!raw) return null
@@ -55,41 +191,150 @@ function normalizePrefixConfig(prefix) {
   return raw
 }
 
+function parseBooleanConfig(value, fallback = false) {
+  if (typeof value === 'boolean') return value
+  if (value == null) return fallback
+  const raw = String(value).trim().toLowerCase()
+  if (['1', 'true', 'on', 'yes', 'si', 'sí'].includes(raw)) return true
+  if (['0', 'false', 'off', 'no'].includes(raw)) return false
+  return fallback
+}
+
 function applySubbotRuntimeConfig(sock, sessionDir) {
   try {
     const cfgPath = sessionDir ? path.join(sessionDir, 'config.json') : null
     const cfg = readJsonSafe(cfgPath) || {}
+    const hideOwner = parseBooleanConfig(cfg.hideOwner ?? cfg.hideowner ?? cfg.ownerHidden, false)
     sock.subbotRuntimeConfig = {
       name: typeof cfg.name === 'string' ? cfg.name.trim() : '',
       prefix: typeof cfg.prefix === 'string' ? cfg.prefix.trim() : '',
       banner: typeof cfg.banner === 'string' ? cfg.banner.trim() : '',
       video: typeof cfg.video === 'string' ? cfg.video.trim() : '',
+      owner: typeof cfg.owner === 'string' ? cfg.owner.trim() : '',
+      hideOwner,
+      hideowner: hideOwner,
+      ownerHidden: hideOwner,
     }
     const pref = normalizePrefixConfig(sock.subbotRuntimeConfig.prefix)
     if (pref) sock.prefix = pref
   } catch { }
 }
 const yukiJBOptions = {}
-if (global.conns instanceof Array) console.log()
-else global.conns = []
-function isSubBotConnected(jid) { return global.conns.some(sock => sock?.user?.jid && sock.user.jid.split("@")[0] === jid.split("@")[0]) }
-function sanitizeSessionAliasName(input) {
-  const raw = String(input || '').trim()
-  if (!raw) return ''
-  try {
-    const normalized = raw.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-    return normalized
-      .replace(/[^a-zA-Z0-9_-]+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 48)
-  } catch {
-    return raw
-      .replace(/[^a-zA-Z0-9_-]+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 48)
+
+function getConnReadyState(conn) {
+  return (
+    conn?.ws?.socket?.readyState ??
+    conn?.ws?.readyState ??
+    conn?.ws?.ws?.readyState ??
+    null
+  )
+}
+
+function isConnClosed(conn) {
+  const rs = getConnReadyState(conn)
+  return typeof rs === 'number' ? rs === ws.CLOSED : false
+}
+
+function ensureGlobalConns() {
+  if (!Array.isArray(global.conns)) global.conns = []
+  return global.conns
+}
+
+function pruneClosedConns() {
+  const conns = ensureGlobalConns()
+  for (let i = conns.length - 1; i >= 0; i--) {
+    const c = conns[i]
+    if (!c || typeof c !== 'object') {
+      conns.splice(i, 1)
+      continue
+    }
+    if (isConnClosed(c)) {
+      conns.splice(i, 1)
+      continue
+    }
   }
+  return conns
+}
+
+function getConnIdentity(conn) {
+  const subbotCode = conn?.subbotCode ? String(conn.subbotCode).trim() : ''
+  const sessionBase = conn?.sessionPath ? path.basename(String(conn.sessionPath)) : ''
+  const jid =
+    conn?.user?.jid ||
+    conn?.user?.id ||
+    conn?.authState?.creds?.me?.jid ||
+    conn?.authState?.creds?.me?.id ||
+    ''
+  const jidBase = jid ? String(jid).split('@')[0] : ''
+  return { subbotCode, sessionBase, jidBase }
+}
+
+function upsertSubbotConn(sock) {
+  const conns = pruneClosedConns()
+  const id = getConnIdentity(sock)
+  for (let i = conns.length - 1; i >= 0; i--) {
+    const c = conns[i]
+    if (!c || typeof c !== 'object') {
+      conns.splice(i, 1)
+      continue
+    }
+    if (c === sock) {
+      conns.splice(i, 1)
+      continue
+    }
+    if (isConnClosed(c)) {
+      conns.splice(i, 1)
+      continue
+    }
+    const cid = getConnIdentity(c)
+    if (id.subbotCode && cid.subbotCode && cid.subbotCode === id.subbotCode) {
+      conns.splice(i, 1)
+      continue
+    }
+    if (id.sessionBase && cid.sessionBase && cid.sessionBase === id.sessionBase) {
+      conns.splice(i, 1)
+      continue
+    }
+    if (id.jidBase && cid.jidBase && cid.jidBase === id.jidBase) {
+      conns.splice(i, 1)
+      continue
+    }
+  }
+  conns.push(sock)
+}
+
+function removeSubbotConn(sock) {
+  const conns = ensureGlobalConns()
+  for (let i = conns.length - 1; i >= 0; i--) {
+    if (conns[i] === sock) conns.splice(i, 1)
+  }
+  pruneClosedConns()
+}
+
+function countActiveSubbots() {
+  const conns = pruneClosedConns()
+  let count = 0
+  for (const c of conns) {
+    if (!c || typeof c !== 'object') continue
+    const rs = getConnReadyState(c)
+    if (typeof rs === 'number') {
+      if (rs === ws.OPEN) count++
+      continue
+    }
+    if (c?.user) count++
+  }
+  return count
+}
+
+function isSubBotConnected(jid) {
+  if (!jid) return false
+  const base = String(jid).split('@')[0]
+  const conns = pruneClosedConns()
+  return conns.some((sock) => {
+    const sjid = sock?.user?.jid || sock?.user?.id
+    if (!sjid) return false
+    return String(sjid).split('@')[0] === base
+  })
 }
 
 function generateSubbotCode(phoneNumber, sessionCode) {
@@ -127,7 +372,7 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner }) => {
   if (!globalThis.db.data.settings[conn.user.jid].jadibotmd) return m.reply(`ꕥ El Comando *${command}* está desactivado temporalmente.`)
   let time = global.db.data.users[m.sender].Subs + 120000
   if (new Date - global.db.data.users[m.sender].Subs < 120000) return conn.reply(m.chat, `ꕥ Debes esperar ${msToTime(time - new Date())} para volver a vincular un *Sub-Bot.*`, m)
-  let socklimit = global.conns.filter(sock => sock?.user).length
+  let socklimit = countActiveSubbots()
   const capCfg = global.db?.data?.panel?.whatsapp?.subbots || {}
   const cap = getSubbotCapacityInfo({
     hardMax: capCfg.hardMax ?? capCfg.hard_max,
@@ -145,9 +390,13 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner }) => {
     )
   }
   let mentionedJid = await m.mentionedJid
-  let who = mentionedJid && mentionedJid[0] ? mentionedJid[0] : m.fromMe ? conn.user.jid : m.sender
-  let id = `${who.split`@`[0]}`
-  let pathYukiJadiBot = path.join(global.jadi || 'Sessions/SubBot', id)
+  // Evitar colisiones: el SubBot siempre corresponde al que ejecuta el comando.
+  let who = m.fromMe ? conn.user.jid : m.sender
+  const root = global.jadi || 'Sessions/SubBot'
+  const idRaw = `${who.split`@`[0]}`
+  const phoneDigits = normalizeWhatsAppNumber(idRaw) || idRaw
+  const sessionDir = resolveSubbotSessionDirByPhone(phoneDigits) || phoneDigits
+  let pathYukiJadiBot = path.join(root, sessionDir)
   if (!fs.existsSync(pathYukiJadiBot)) {
     fs.mkdirSync(pathYukiJadiBot, { recursive: true })
   }
@@ -200,7 +449,9 @@ export async function yukiJadiBot(options) {
       resolve(payload)
     }
     const sessionCode = api?.code || path.basename(pathYukiJadiBot)
-    const resolvedSessionPath = path.resolve(pathYukiJadiBot)
+    const resolvedSessionPath = (() => {
+      try { return fs.realpathSync(pathYukiJadiBot) } catch { return path.resolve(pathYukiJadiBot) }
+    })()
     if (api) {
       const timeoutMs = Number(api.timeoutMs || 45000)
       if (Number.isFinite(timeoutMs) && timeoutMs > 0) setTimeout(() => resolveOnce({ success: false, error: 'timeout' }), timeoutMs)
@@ -219,7 +470,13 @@ export async function yukiJadiBot(options) {
         msgRetryCache,
         browser: ['Windows', 'Firefox'],
         version: version,
-        generateHighQualityLinkPreview: true
+        generateHighQualityLinkPreview: true,
+        markOnlineOnConnect: false,
+        syncFullHistory: false,
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 0,
+        keepAliveIntervalMs: 30000,
+        maxIdleTimeMs: 120000
       }
       let sock = makeWASocket(connectionOptions)
       // ─────────── METADATA SUBBOT (ANTIBOT / LINAJE)
@@ -232,14 +489,55 @@ export async function yukiJadiBot(options) {
        // ─────────── CONFIG SUBBOT (name/prefix/banner/video)
        applySubbotRuntimeConfig(sock, resolvedSessionPath)
       let isInit = true
+      let reconnectAttempts = 0
+      let reconnectTimer = null
+      let reconnectInProgress = false
+
+      const clearReconnectTimer = () => {
+        if (!reconnectTimer) return
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
+
+      const scheduleReconnect = (reasonCode) => {
+        if (reconnectInProgress || reconnectTimer) return false
+
+        const normalized = Number(reasonCode)
+        const attempt = reconnectAttempts + 1
+        const base = 1500 * (2 ** Math.min(reconnectAttempts, 4))
+        const jitter = Math.floor(Math.random() * 700)
+        const delayMs = Math.min(30000, base + jitter)
+
+        reconnectTimer = setTimeout(async () => {
+          reconnectTimer = null
+          if (reconnectInProgress) return
+
+          reconnectInProgress = true
+          reconnectAttempts = attempt
+
+          try {
+            console.log(chalk.cyan(`[RECONNECT] SubBot ${sessionCode} intento ${attempt} (razon: ${Number.isFinite(normalized) ? normalized : (reasonCode || 'desconocida')})`))
+            await creloadHandler(true).catch(console.error)
+          } finally {
+            reconnectInProgress = false
+          }
+        }, delayMs)
+
+        return true
+      }
+
       setTimeout(async () => {
-        if (!sock.user) {
+        // No limpiar si la conexión está realmente activa (sock.user puede ser undefined en algunos forks).
+        const credsPath = path.join(resolvedSessionPath, 'creds.json')
+        const hasCreds = (() => {
+          try { return fs.existsSync(credsPath) } catch { return false }
+        })()
+        if (!sock.user && !sock.isInit && getConnReadyState(sock) !== ws.OPEN && !hasCreds) {
           const subbotCodeCleanup = path.basename(pathYukiJadiBot)
           try { fs.rmSync(resolvedSessionPath, { recursive: true, force: true }) } catch { }
           try { sock.ws?.close() } catch { }
           sock.ev.removeAllListeners()
-          let i = global.conns.indexOf(sock)
-          if (i >= 0) global.conns.splice(i, 1)
+          removeSubbotConn(sock)
           console.log(`[AUTO-LIMPIEZA] Sesión ${subbotCodeCleanup} eliminada credenciales invalidos.`)
           // Emitir evento de subbot eliminado al panel
           try {
@@ -255,9 +553,13 @@ export async function yukiJadiBot(options) {
           } catch { }
           resolveOnce({ success: false, error: 'auto-limpieza' })
         }
-      }, 60000)
+      }, 180000)
       async function connectionUpdate(update) {
         const { connection, lastDisconnect, isNewLogin, qr } = update
+        const sessionDirBase = path.basename(resolvedSessionPath || pathYukiJadiBot || '')
+        const stableKey = getStableSubbotKey(sock, sessionDirBase)
+        const notifyDigits = normalizeWhatsAppNumber(stableKey)
+        const notifyJid = notifyDigits ? `${notifyDigits}@s.whatsapp.net` : null
         if (isNewLogin) sock.isInit = false
         if (qr && !mcode) {
           try {
@@ -356,32 +658,44 @@ export async function yukiJadiBot(options) {
           if (m?.sender) setTimeout(() => { conn.sendMessage(m.sender, { delete: codeBot.key }) }, 30000)
         }
         const endSesion = async (loaded) => {
-          if (!loaded) {
-            try {
-              sock.ws.close()
-            } catch {
-            }
-            sock.ev.removeAllListeners()
-            let i = global.conns.indexOf(sock)
-            if (i < 0) return
-            delete global.conns[i]
-            global.conns.splice(i, 1)
+        if (!loaded) {
+          try {
+            sock.ws.close()
+          } catch {
           }
+          sock.ev.removeAllListeners()
+          removeSubbotConn(sock)
         }
+      }
         const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode
         if (connection === 'close') {
+          sock.isInit = false
+          const reasonCode = Number(reason)
+          if ([401, 403, 405, 440].includes(reasonCode)) {
+            clearReconnectTimer()
+            reconnectInProgress = false
+            reconnectAttempts = 0
+          }
+
+          let reconnectScheduled = false
+          const queueReconnect = () => {
+            const scheduled = scheduleReconnect(reasonCode)
+            reconnectScheduled = reconnectScheduled || scheduled
+          }
+
+          try { removeSubbotConn(this || sock) } catch { }
           if (reason === 428) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ La conexión (+${path.basename(pathYukiJadiBot)}) fue cerrada inesperadamente. Intentando reconectar...\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
-            await creloadHandler(true).catch(console.error)
+            queueReconnect()
           }
           if (reason === 408) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ La conexión (+${path.basename(pathYukiJadiBot)}) se perdió o expiró. Razón: ${reason}. Intentando reconectar...\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
-            await creloadHandler(true).catch(console.error)
+            queueReconnect()
           }
           if (reason === 440) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ La conexión (+${path.basename(pathYukiJadiBot)}) fue reemplazada por otra sesión activa.\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
             try {
-              if (options.fromCommand) m?.chat ? await conn.sendMessage(`${path.basename(pathYukiJadiBot)}@s.whatsapp.net`, { text: '⚠︎ Hemos detectado una nueva sesión, borre la antigua sesión para continuar.\n\n> ☁︎ Si Hay algún problema vuelva a conectarse.' }, { quoted: m || null }) : ""
+              if (notifyJid && options.fromCommand) m?.chat ? await conn.sendMessage(notifyJid, { text: '⚠︎ Hemos detectado una nueva sesión, borre la antigua sesión para continuar.\n\n> ☁︎ Si Hay algún problema vuelva a conectarse.' }, { quoted: m || null }) : ""
             } catch (error) {
               console.error(chalk.bold.yellow(`⚠︎ Error 440 no se pudo enviar mensaje a: +${path.basename(pathYukiJadiBot)}`))
             }
@@ -389,57 +703,80 @@ export async function yukiJadiBot(options) {
           if (reason == 405 || reason == 401) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ La sesión (+${path.basename(pathYukiJadiBot)}) fue cerrada. Credenciales no válidas o dispositivo desconectado manualmente.\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
             try {
-              if (options.fromCommand) m?.chat ? await conn.sendMessage(`${path.basename(pathYukiJadiBot)}@s.whatsapp.net`, { text: '⚠︎ Sesión pendiente.\n\n> ☁︎ Vuelva a intentar nuevamente volver a ser *SUB-BOT*.' }, { quoted: m || null }) : ""
+              if (notifyJid && options.fromCommand) m?.chat ? await conn.sendMessage(notifyJid, { text: '⚠︎ Sesión pendiente.\n\n> ☁︎ Vuelva a intentar nuevamente volver a ser *SUB-BOT*.' }, { quoted: m || null }) : ""
             } catch (error) {
               console.error(chalk.bold.yellow(`⚠︎ Error 405 no se pudo enviar mensaje a: +${path.basename(pathYukiJadiBot)}`))
             }
-            const subbotCode = path.basename(pathYukiJadiBot)
+            const subbotCode = stableKey
             try {
-              if (sock?.sessionAliasPath) fs.rmSync(sock.sessionAliasPath, { recursive: false, force: true })
-              if (sock?.phoneAliasPath) fs.rmSync(sock.phoneAliasPath, { recursive: false, force: true })
               fs.rmSync(pathYukiJadiBot, { recursive: true, force: true })
             } catch { }
             // Emitir evento de subbot eliminado al panel
             try {
-              const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
+              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../lib/socket-io.js')
+
+              // Mantener el registro en el panel (solo marcar offline). Esto evita que "desaparezca".
+              try {
+                const rec = global.db?.data?.panel?.subbots?.[subbotCode]
+                if (rec) {
+                  const now = new Date().toISOString()
+                  rec.estado = 'inactivo'
+                  rec.isOnline = false
+                  rec.connected = false
+                  rec.ultima_actividad = now
+                  rec.qr_data = null
+                  rec.pairingCode = null
+                  rec.last_disconnect_reason = String(reason)
+                  emitSubbotUpdated(rec)
+                }
+              } catch { }
+
               emitSubbotDisconnected(subbotCode, reason)
-              emitSubbotDeleted(subbotCode)
 
               // Notificación persistente
               sendTemplateNotification('subbot_disconnected', { 
-                subbotCode,
+                subbotCode: stableKey,
                 reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`
               });
-            } catch { }
-            // Eliminar de la base de datos del panel
-            try {
-              if (global.db?.data?.panel?.subbots?.[subbotCode]) {
-                delete global.db.data.panel.subbots[subbotCode]
-              }
             } catch { }
           }
           if (reason === 500) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ Conexión perdida en la sesión (+${path.basename(pathYukiJadiBot)}). Borrando datos...\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
-            if (options.fromCommand) m?.chat ? await conn.sendMessage(`${path.basename(pathYukiJadiBot)}@s.whatsapp.net`, { text: '⚠︎ Conexión perdida.\n\n> ☁︎ Intenté conectarse manualmente para volver a ser *SUB-BOT*' }, { quoted: m || null }) : ""
-            return creloadHandler(true).catch(console.error)
+            if (notifyJid && options.fromCommand) m?.chat ? await conn.sendMessage(notifyJid, { text: '⚠︎ Conexión perdida.\n\n> ☁︎ Intenté conectarse manualmente para volver a ser *SUB-BOT*' }, { quoted: m || null }) : ""
+            queueReconnect()
+            return
           }
           if (reason === 515) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ Reinicio automático para la sesión (+${path.basename(pathYukiJadiBot)}).\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
-            await creloadHandler(true).catch(console.error)
+            queueReconnect()
           }
           if (reason === 403) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ Sesión cerrada o cuenta en soporte para la sesión (+${path.basename(pathYukiJadiBot)}).\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
-            const subbotCode403 = path.basename(pathYukiJadiBot)
+            const subbotCode403 = stableKey
             try {
-              if (sock?.sessionAliasPath) fs.rmSync(sock.sessionAliasPath, { recursive: false, force: true })
-              if (sock?.phoneAliasPath) fs.rmSync(sock.phoneAliasPath, { recursive: false, force: true })
               fs.rmSync(pathYukiJadiBot, { recursive: true, force: true })
             } catch { }
             // Emitir evento de subbot eliminado al panel
             try {
-              const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
+              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../lib/socket-io.js')
+
+              // Mantener el registro en el panel (solo marcar offline).
+              try {
+                const rec = global.db?.data?.panel?.subbots?.[subbotCode403]
+                if (rec) {
+                  const now = new Date().toISOString()
+                  rec.estado = 'inactivo'
+                  rec.isOnline = false
+                  rec.connected = false
+                  rec.ultima_actividad = now
+                  rec.qr_data = null
+                  rec.pairingCode = null
+                  rec.last_disconnect_reason = String(reason)
+                  emitSubbotUpdated(rec)
+                }
+              } catch { }
+
               emitSubbotDisconnected(subbotCode403, reason)
-              emitSubbotDeleted(subbotCode403)
 
               // Notificación persistente
               sendTemplateNotification('subbot_disconnected', { 
@@ -447,39 +784,76 @@ export async function yukiJadiBot(options) {
                 reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`
               });
             } catch { }
-            // Eliminar de la base de datos del panel
-            try {
-              if (global.db?.data?.panel?.subbots?.[subbotCode403]) {
-                delete global.db.data.panel.subbots[subbotCode403]
-              }
-            } catch { }
+          }
+
+          if (!reconnectScheduled && ![401, 403, 405, 440].includes(reasonCode)) {
+            console.log(chalk.bold.yellow(`→ Desconexión no clasificada de SubBot (+${path.basename(pathYukiJadiBot)}), aplicando reconexión segura...`))
+            queueReconnect()
           }
         }
         if (global.db.data == null) loadDatabase()
         if (connection == `open`) {
+          clearReconnectTimer()
+          reconnectInProgress = false
+          reconnectAttempts = 0
           if (!global.db.data?.users) loadDatabase()
           // Asegurar que el SUBBOT (su propia cuenta) siga los canales configurados
           await joinChannels(sock)
           let userName, userJid
           userName = sock.authState.creds.me.name || 'Anónimo'
-          userJid = sock.authState.creds.me.jid || `${path.basename(pathYukiJadiBot)}@s.whatsapp.net`
+          userJid = sock.authState.creds.me.jid || sock.authState.creds.me.id || notifyJid || ''
           try {
-            const phone = sock?.user?.jid ? String(sock.user.jid).split('@')[0] : String(userJid).split('@')[0]
+            const phone =
+              normalizeWhatsAppNumber(sock?.user?.jid ? String(sock.user.jid).split('@')[0] : '') ||
+              normalizeWhatsAppNumber(userJid) ||
+              notifyDigits ||
+              ''
             const whatsappName = sock?.authState?.creds?.me?.name ? String(sock.authState.creds.me.name).trim() : ''
+
+            const panelDb = global.db?.data?.panel
+            const ownerUsername = phone ? resolvePanelUsernameByWhatsApp(panelDb, phone) : null
 
             // Actualizar estado en la base de datos del panel
             try {
               const subbotCode = path.basename(pathYukiJadiBot)
+              const stableKey = String(phone || '').replace(/[^0-9]/g, '').trim() || subbotCode
               if (!global.db.data.panel.subbots) global.db.data.panel.subbots = {}
 
-              const prev = global.db.data.panel.subbots[subbotCode] || {}
-              global.db.data.panel.subbots[subbotCode] = {
+              // Usar clave estable por numero para evitar duplicados cuando la carpeta es pushname.
+              if (stableKey !== subbotCode && global.db.data.panel.subbots[subbotCode] && !global.db.data.panel.subbots[stableKey]) {
+                global.db.data.panel.subbots[stableKey] = global.db.data.panel.subbots[subbotCode]
+                delete global.db.data.panel.subbots[subbotCode]
+              } else if (stableKey !== subbotCode && global.db.data.panel.subbots[subbotCode] && global.db.data.panel.subbots[stableKey]) {
+                try {
+                  const a = global.db.data.panel.subbots[stableKey]
+                  const b = global.db.data.panel.subbots[subbotCode]
+                  for (const [k, v] of Object.entries(b || {})) {
+                    if (typeof a[k] === 'undefined' || a[k] === null || a[k] === '') a[k] = v
+                  }
+                  delete global.db.data.panel.subbots[subbotCode]
+                } catch { }
+              }
+
+              const hadRecord = Boolean(global.db.data.panel.subbots[stableKey])
+              const prev = global.db.data.panel.subbots[stableKey] || {}
+              const prevUsuario = String(prev?.usuario || '').trim()
+              const preferredUsuario = prevUsuario && prevUsuario.toLowerCase() !== 'auto'
+                ? prevUsuario
+                : (ownerUsername || String(api?.usuario || '').trim() || 'auto')
+              const sessionDirName = path.basename(resolvedSessionPath)
+              global.db.data.panel.subbots[stableKey] = {
                 ...prev,
-                id: prev?.id || subbotCode,
-                code: prev?.code || subbotCode,
-                codigo: prev?.codigo || subbotCode,
-                numero: phone || prev?.numero || null,
+                id: prev?.id || stableKey,
+                code: stableKey,
+                codigo: stableKey,
+                // Si el subbot viene de WhatsApp, intentamos asociar el usuario por numero.
+                usuario: preferredUsuario,
+                owner: String(prev?.owner || '').trim() || preferredUsuario,
+                created_from: prev?.created_from || (m?.sender ? 'whatsapp' : (api ? 'panel' : null)),
+                created_by_jid: prev?.created_by_jid || (m?.sender ? String(m.sender) : null),
+                numero: String(phone || '').replace(/[^0-9]/g, '').trim() || prev?.numero || null,
                 nombre_whatsapp: whatsappName || prev?.nombre_whatsapp || 'Anónimo',
+                session_dir: sessionDirName,
                 estado: 'activo',
                 isOnline: true,
                 connected: true,
@@ -487,21 +861,30 @@ export async function yukiJadiBot(options) {
                 ultima_actividad: new Date().toISOString(),
                 qr_data: null,
                 pairingCode: null,
-                alias_dir: prev?.alias_dir || null
+                alias_dir: sessionDirName
               }
+
+              // Normalizar identificador en el socket (clave estable por numero)
+              try { if (stableKey) sock.subbotCode = stableKey } catch {}
 
               // Emitir evento de subbot conectado al panel
               try {
-                const { emitSubbotConnected, emitSubbotStatus } = await import('../lib/socket-io.js')
-                emitSubbotConnected(subbotCode, phone)
+                const { emitSubbotConnected, emitSubbotStatus, emitSubbotUpdated, emitSubbotCreated } = await import('../lib/socket-io.js')
+                emitSubbotConnected(stableKey, phone)
                 // Emitir estado global para que el panel refresque rápido
                 emitSubbotStatus()
+
+                // Upsert en UI (para subbots creados desde WhatsApp)
+                try {
+                  emitSubbotUpdated(global.db.data.panel.subbots[stableKey])
+                  if (!hadRecord) emitSubbotCreated(global.db.data.panel.subbots[stableKey])
+                } catch { }
               } catch { }
 
               // Notificación persistente y email
               try {
                 sendTemplateNotification('subbot_connected', { 
-                  subbotCode, 
+                  subbotCode: stableKey, 
                   numero: phone,
                   nombre: whatsappName 
                 });
@@ -512,65 +895,10 @@ export async function yukiJadiBot(options) {
               console.warn('Error actualizando estado del subbot:', e.message)
             }
 
-            // Si el subbot fue creado desde el panel (code sb_*), crear un alias de carpeta con el nombre (fallback: número):
-            // Sessions/SubBot/<nombre_o_numero> -> Sessions/SubBot/<codigo>
-            try {
-              const shouldAlias = Boolean(api?.code && /^sb_/.test(String(api.code)))
-              if (shouldAlias) {
-                const root = path.resolve(global.jadi || 'Sessions/SubBot')
-                const targetPath = resolvedSessionPath
-                const baseFromName = whatsappName ? sanitizeSessionAliasName(whatsappName) : ''
-                const base = baseFromName || String(phone || sessionCode)
-                const targetReal = fs.realpathSync(targetPath)
-
-                let aliasDir = null
-                const candidates = [
-                  base,
-                  baseFromName && phone ? `${baseFromName}_${phone}` : null,
-                  phone ? `${base}_${phone}` : null,
-                  `${base}_${sessionCode}`,
-                ].filter(Boolean)
-
-                for (const cand of candidates) {
-                  const aliasPath = path.join(root, String(cand))
-                  if (fs.existsSync(aliasPath)) {
-                    try {
-                      const st = fs.lstatSync(aliasPath)
-                      if (st.isSymbolicLink()) {
-                        const real = fs.realpathSync(aliasPath)
-                        if (real === targetReal) {
-                          sock.sessionAliasPath = aliasPath
-                          aliasDir = String(cand)
-                          break
-                        }
-                      }
-                    } catch { }
-                    continue
-                  }
-                  try {
-                    fs.symlinkSync(targetPath, aliasPath, process.platform === 'win32' ? 'junction' : 'dir')
-                    sock.sessionAliasPath = aliasPath
-                    aliasDir = String(cand)
-                    break
-                  } catch { }
-                }
-
-                if (aliasDir) {
-                  sock.sessionAliasDir = aliasDir
-                  // Actualizar alias en la base de datos
-                  try {
-                    const subbotCode = path.basename(pathYukiJadiBot)
-                    if (global.db.data.panel.subbots[subbotCode]) {
-                      global.db.data.panel.subbots[subbotCode].alias_dir = aliasDir
-                    }
-                  } catch { }
-                }
-              }
-            } catch { }
             api?.onUpdate?.({
               numero: phone || null,
               nombre_whatsapp: whatsappName || null,
-              alias_dir: sock?.sessionAliasDir || null,
+              alias_dir: sessionDirName || null,
               qr_data: null,
               pairingCode: null,
               estado: 'activo',
@@ -579,7 +907,8 @@ export async function yukiJadiBot(options) {
           } catch { }
           console.log(chalk.bold.cyanBright(`\n❒⸺⸺⸺⸺【• SUB-BOT •】⸺⸺⸺⸺❒\n│\n│ ❍ ${userName} (+${path.basename(pathYukiJadiBot)}) conectado exitosamente.\n│\n❒⸺⸺⸺【• CONECTADO •】⸺⸺⸺❒`))
           sock.isInit = true
-          global.conns.push(sock)
+          sock.uptime = sock.uptime || Date.now()
+          upsertSubbotConn(sock)
           
           // ─────────── REGISTRAR SUBBOT EN JERARQUÍA GLOBAL (ANTIBOT)
           try {
@@ -601,37 +930,28 @@ export async function yukiJadiBot(options) {
           resolveOnce({ success: true, open: true })
         }
       }
-      setInterval(async () => {
-        if (!sock.user) {
-          const subbotCodeInterval = sock?.subbotCode || 'unknown'
-          try { sock.ws.close() } catch (e) { }
-          sock.ev.removeAllListeners()
-          let i = global.conns.indexOf(sock)
-          if (i < 0) return
-          delete global.conns[i]
-          global.conns.splice(i, 1)
-          // Emitir evento de subbot eliminado al panel
-          try {
-            const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
-            emitSubbotDisconnected(subbotCodeInterval, 'interval-cleanup')
-            emitSubbotDeleted(subbotCodeInterval)
-          } catch { }
-          // Eliminar de la base de datos del panel
-          try {
-            if (global.db?.data?.panel?.subbots?.[subbotCodeInterval]) {
-              delete global.db.data.panel.subbots[subbotCodeInterval]
-            }
-          } catch { }
-        } else {
-          // Actualizar última actividad si el subbot está activo
-          try {
-            const subbotCode = path.basename(pathYukiJadiBot)
-            if (global.db?.data?.panel?.subbots?.[subbotCode]) {
-              global.db.data.panel.subbots[subbotCode].ultima_actividad = new Date().toISOString()
-              global.db.data.panel.subbots[subbotCode].estado = 'activo'
-            }
-          } catch { }
-        }
+      // Mantenimiento ligero: NO cerrar sesiones por `sock.user` undefined (puede ser falso negativo).
+      setInterval(() => {
+        try {
+          const rs = getConnReadyState(sock)
+          const online = rs === ws.OPEN || Boolean(sock?.user) || Boolean(sock?.isInit)
+          const subbotCode = String(sock?.subbotCode || path.basename(pathYukiJadiBot) || '').trim() || 'unknown'
+
+          // Quitar de la lista global solo si realmente está cerrado.
+          if (!online && rs === ws.CLOSED) {
+            removeSubbotConn(sock)
+          }
+
+          // Refrescar metadata en panelDb (sin borrar registros)
+          const rec = global.db?.data?.panel?.subbots?.[subbotCode]
+          if (rec) {
+            const now = new Date().toISOString()
+            if (online) rec.ultima_actividad = now
+            rec.estado = online ? 'activo' : (String(rec.estado || '').toLowerCase() === 'error' ? 'error' : 'inactivo')
+            rec.isOnline = online
+            rec.connected = online
+          }
+        } catch { }
       }, 60000)
       let handler = await import('../handler.js')
       let creloadHandler = async function (restatConn) {
@@ -642,6 +962,7 @@ export async function yukiJadiBot(options) {
           console.error('⚠︎ Nuevo error: ', e)
         }
         if (restatConn) {
+          try { removeSubbotConn(sock) } catch { }
           const oldChats = sock.chats
           try { sock.ws.close() } catch { }
           sock.ev.removeAllListeners()

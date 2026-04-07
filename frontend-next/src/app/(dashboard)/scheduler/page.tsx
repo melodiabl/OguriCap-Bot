@@ -236,7 +236,7 @@ export default function SchedulerPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Programador de Mensajes"
