@@ -54,7 +54,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
         `├ ${usedPrefix}registro - Registrarse en el panel`,
         `├ ${usedPrefix}panel - Información del panel`,
         `├ ${usedPrefix}panelstats - Estadísticas (owner)`,
-        `└ ${usedPrefix}reportar - Reportar problemas`,
+        `└ ${usedPrefix}report - Reportar un problema`,
         ``,
         `🔧 *Funciones Principales:*`,
         ``,
@@ -94,7 +94,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
         `• Gestión de logs`,
         ``,
         `❓ *¿Necesitas ayuda?*`,
-        `Usa ${usedPrefix}reportar para enviar`,
+        `Usa ${usedPrefix}report para enviar`,
         `un reporte a los administradores.`
       ].join('\n')
 

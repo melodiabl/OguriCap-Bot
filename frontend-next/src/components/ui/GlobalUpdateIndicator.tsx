@@ -125,7 +125,7 @@ export const GlobalUpdateIndicator: React.FC = () => {
               <h3 className={`font-semibold text-sm ${config.textColor}`}>
                 {config.title}
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted">
                 {config.subtitle}
               </p>
             </div>
@@ -140,40 +140,40 @@ export const GlobalUpdateIndicator: React.FC = () => {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="text-center p-2 rounded-lg bg-white/5">
+            <div className="mb-3 grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-card/60 p-2 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Globe className="w-3 h-3 text-gray-400" />
-                <span className="text-xs text-gray-400">Grupos</span>
+                <Globe className="w-3 h-3 text-muted" />
+                <span className="text-xs text-muted">Grupos</span>
               </div>
-              <span className="text-sm font-bold text-white">
+              <span className="text-sm font-bold text-foreground">
                 {dashboardStats?.totalGrupos || 0}
               </span>
             </div>
             
-            <div className="text-center p-2 rounded-lg bg-white/5">
+            <div className="rounded-lg bg-card/60 p-2 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Zap className="w-3 h-3 text-gray-400" />
-                <span className="text-xs text-gray-400">SubBots</span>
+                <Zap className="w-3 h-3 text-muted" />
+                <span className="text-xs text-muted">SubBots</span>
               </div>
-              <span className="text-sm font-bold text-white">
+              <span className="text-sm font-bold text-foreground">
                 {dashboardStats?.totalSubbots || 0}
               </span>
             </div>
             
-            <div className="text-center p-2 rounded-lg bg-white/5">
+            <div className="rounded-lg bg-card/60 p-2 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Activity className="w-3 h-3 text-gray-400" />
-                <span className="text-xs text-gray-400">Activos</span>
+                <Activity className="w-3 h-3 text-muted" />
+                <span className="text-xs text-muted">Activos</span>
               </div>
-              <span className="text-sm font-bold text-white">
+              <span className="text-sm font-bold text-foreground">
                 {dashboardStats?.comunidad?.usuariosActivos || 0}
               </span>
             </div>
           </div>
 
           {/* Connection Status */}
-          <div className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+          <div className="flex items-center justify-between rounded-lg bg-card/60 p-2">
             <div className="flex items-center gap-2">
               <motion.div
                 animate={showPulse ? { scale: [1, 1.12, 1] } : { scale: 1 }}
@@ -185,7 +185,7 @@ export const GlobalUpdateIndicator: React.FC = () => {
                   <WifiOff className="w-4 h-4 text-red-400" />
                 )}
               </motion.div>
-              <span className="text-xs text-gray-300">
+              <span className="text-xs text-[rgb(var(--text-secondary))]">
                 Socket.IO {isConnected ? 'Conectado' : 'Desconectado'}
               </span>
             </div>
@@ -212,7 +212,7 @@ export const GlobalUpdateIndicator: React.FC = () => {
               animate={{ opacity: 1 }}
               className="mt-2 text-center"
             >
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted">
                 Última actualización: {formatDistanceToNow(lastUpdate, { locale: es, addSuffix: true })}
               </span>
             </motion.div>

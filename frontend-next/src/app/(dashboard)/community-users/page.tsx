@@ -159,7 +159,7 @@ export default function CommunityUsersPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Usuarios de la Comunidad"

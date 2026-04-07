@@ -557,7 +557,7 @@ export async function handler(chatUpdate) {
             }
           }
         }
-        if (!isOwners && !m.chat.endsWith('g.us') && !/code|p|ping|qr|estado|status|infobot|botinfo|report|reportar|invite|join|logout|suggest|help|menu/gim.test(m.text)) return
+        if (!isOwners && !m.chat.endsWith('g.us') && !/code|p|ping|qr|estado|status|infobot|botinfo|report|reportar|invite|join|logout|suggest|help|menu|panel|reg|registro|register|miregistro|panelinfo/gim.test(m.text)) return
         const adminMode = chat.modoadmin || false
         const allowInAdminMode = plugin?.allowInAdminMode === true
         const wa = plugin.botAdmin || plugin.admin || plugin.group || plugin || noPrefix || pluginPrefix || m.text.slice(0, 1) === pluginPrefix || plugin.command

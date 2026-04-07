@@ -1,32 +1,33 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useSocketBotStatus } from '@/contexts/SocketContext';
-import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
-import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
-import { useBotStatus } from '@/hooks/useRealTime';
-import { useNotifications } from '@/contexts/NotificationContext';
+import { AnimatePresence, motion } from 'framer-motion';
+import { LogOut } from 'lucide-react';
+
+import { useNavParticleBurst } from '@/components/ui/NavParticles';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { useNavParticleBurst } from '@/components/ui/NavParticles';
-import { LogOut } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
+import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { useSocketBotStatus } from '@/contexts/SocketContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useBotStatus } from '@/hooks/useRealTime';
 import { NAV_ITEMS, type NavColor } from '@/lib/navigation';
+import { cn } from '@/lib/utils';
 
 const colorClasses: Record<NavColor, string> = {
-  primary: 'text-oguri-purple bg-oguri-purple/20 shadow-glow-oguri-purple',
-  success: 'text-oguri-cyan bg-oguri-cyan/20 shadow-glow-oguri-cyan',
-  warning: 'text-oguri-gold bg-oguri-gold/20 shadow-glow-oguri-mixed',
-  danger: 'text-red-400 bg-red-500/20',
-  info: 'text-oguri-blue bg-oguri-blue/20 shadow-glow-oguri-blue',
-  violet: 'text-oguri-lavender bg-oguri-lavender/20 shadow-glow-oguri-lavender',
-  cyan: 'text-oguri-cyan bg-oguri-cyan/20 shadow-glow-oguri-cyan',
+  primary: 'text-oguri-purple bg-oguri-purple/15 border-oguri-purple/20 shadow-glow-oguri-purple',
+  success: 'text-oguri-cyan bg-oguri-cyan/15 border-oguri-cyan/20 shadow-glow-oguri-cyan',
+  warning: 'text-oguri-gold bg-oguri-gold/15 border-oguri-gold/20 shadow-glow-oguri-mixed',
+  danger: 'text-red-400 bg-red-500/15 border-red-500/20',
+  info: 'text-oguri-blue bg-oguri-blue/15 border-oguri-blue/20 shadow-glow-oguri-blue',
+  violet: 'text-oguri-lavender bg-oguri-lavender/15 border-oguri-lavender/20 shadow-glow-oguri-lavender',
+  cyan: 'text-oguri-cyan bg-oguri-cyan/15 border-oguri-cyan/20 shadow-glow-oguri-cyan',
 };
 
 interface SidebarProps {
@@ -41,10 +42,11 @@ const SidebarNavLink: React.FC<{
   children: React.ReactNode;
 }> = ({ href, onClose, className, children }) => {
   const { emit, layer } = useNavParticleBurst();
+
   return (
     <Link
       href={href}
-      onClick={(e) => {
+      onClick={() => {
         emit();
         onClose();
       }}
@@ -65,164 +67,211 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const botStatus = useSocketBotStatus();
   const { unreadCount } = useNotifications();
   const { isGloballyOn } = useBotGlobalState();
-  const { dashboardStats, botStatus: globalBotStatus, refreshAll } = useGlobalUpdate();
+  const { dashboardStats, botStatus: globalBotStatus } = useGlobalUpdate();
 
-  // Auto-refresh del sidebar - DISABLED to prevent resource exhaustion
-  // useAutoRefresh(refreshAll, { interval: 30000 });
-
-  const allowedMenuItems = NAV_ITEMS.filter(item => hasPermission(item.pageKey));
+  const allowedMenuItems = NAV_ITEMS.filter((item) => hasPermission(item.pageKey));
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;
 
   return (
     <>
-      {/* Mobile overlay */}
       <AnimatePresence>
         {isOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-            className="fixed inset-0 overlay-scrim z-40 lg:hidden"
-            />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          />
         )}
       </AnimatePresence>
 
-      {/* Sidebar - OGURI CAP REMODEL */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-screen w-72',
-          'glass-phantom border-r border-oguri-purple/20 sidebar-chrome',
-          'flex flex-col',
-          'transform transition-transform duration-300 ease-out',
+          'fixed left-0 top-0 z-50 flex h-screen w-72 flex-col overflow-hidden border-r border-border/15 bg-card/44 shadow-[0_20px_80px_-35px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-transform duration-300 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0'
         )}
       >
-        <div className="relative z-10 flex flex-col h-full">
-        {/* Logo with Oguri Aura */}
-        <div className="p-6 border-b border-oguri-purple/10">
-          <Link href="/" className="flex items-center gap-3 group">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(var(--primary),0.22),transparent_30%),radial-gradient(circle_at_80%_18%,rgba(var(--secondary),0.16),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(var(--accent),0.16),transparent_32%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:26px_26px]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="pointer-events-none absolute -left-10 top-10 h-40 w-40 rounded-full bg-primary/16 blur-3xl" />
+        <div className="pointer-events-none absolute -right-10 bottom-16 h-44 w-44 rounded-full bg-accent/14 blur-3xl" />
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[-20%] top-20 h-px w-[140%] bg-gradient-to-r from-transparent via-primary/30 to-transparent blur-[1px]"
+          animate={{ x: ['0%', '18%', '0%'], opacity: [0.14, 0.4, 0.14] }}
+          transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut' }}
+        />
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-[-25%] top-40 h-px w-[120%] bg-gradient-to-r from-transparent via-secondary/30 to-transparent blur-[1px]"
+          animate={{ x: ['0%', '-14%', '0%'], opacity: [0.08, 0.28, 0.08] }}
+          transition={{ repeat: Infinity, duration: 10.5, ease: 'easeInOut', delay: 0.6 }}
+        />
+
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="border-b border-border/15 px-5 py-6">
+            <Link href="/" className="flex items-center gap-3 rounded-[26px] border border-border/15 bg-card/55 px-4 py-3 transition-all hover:border-primary/20 hover:bg-card/75">
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                transition={{ duration: 0.2 }}
+                className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-mixed"
+              >
+                <div className="absolute inset-[2px] rounded-2xl bg-oguri-phantom-950/90" />
+                <Image
+                  src="/oguricap-avatar.png"
+                  alt="Oguri Cap"
+                  width={36}
+                  height={36}
+                  className="relative h-10 w-10 rounded-full border border-oguri-lavender/40 object-cover"
+                  priority
+                />
+              </motion.div>
+              <div className="min-w-0">
+                <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-border/15 bg-card/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-[rgb(var(--text-secondary))]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-glow-oguri-purple" />
+                  Aura Grid
+                </div>
+                <h1 className="truncate text-lg font-black tracking-tight text-foreground">OguriCap Bot</h1>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[rgb(var(--text-secondary))]">Panel vivo</p>
+              </div>
+            </Link>
+          </div>
+
+            <div className="relative mx-4 mt-4 rounded-[24px] border border-border/15 bg-card/42 p-4 shadow-[0_18px_42px_-26px_rgba(0,0,0,0.22)]">
             <motion.div
-              whileHover={{ rotate: 360, scale: 1.1 }}
-              transition={{ duration: 0.5 }}
-              className="relative w-12 h-12 rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-mixed animate-oguri-aura flex items-center justify-center overflow-hidden"
-            >
-              <div className="absolute inset-[2px] rounded-2xl bg-oguri-phantom-950/90" />
-              <Image
-                src="/oguricap-avatar.png"
-                alt="Oguri Cap"
-                width={36}
-                height={36}
-                className="relative w-10 h-10 rounded-full border border-oguri-lavender/40 object-cover group-hover:animate-eye-glow"
-                priority
-              />
-            </motion.div>
-            <div>
-              <h1 className="text-xl font-black text-gradient-oguri tracking-tight">OguriCap Bot</h1>
-              <p className="text-[10px] uppercase font-bold text-oguri-lavender/60 tracking-[0.1em]">Cinderella Gray Panel</p>
-            </div>
-          </Link>
-        </div>
-
-        {/* Bot Status Mini - Oguri Power Indicator */}
-        <div className="mx-4 mt-4 rounded-xl glass-oguri hover-oguri-glow p-4 animate-start-burst">
-          <div className="flex items-center justify-between mb-2">
-            <StatusIndicator
-              status={
-                !isGloballyOn ? 'offline' :
-                isConnecting ? 'connecting' : 
-                isConnected ? 'online' : 'offline'
-              }
-              size="sm"
+              aria-hidden="true"
+              className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+              animate={{ opacity: [0.25, 0.7, 0.25], scaleX: [0.96, 1.03, 0.96] }}
+              transition={{ repeat: Infinity, duration: 4.8, ease: 'easeInOut' }}
             />
-            <StatusBadge
-              tone={!isGloballyOn ? 'neutral' : isConnected ? 'success' : isConnecting ? 'warning' : 'danger'}
-              pulse={isConnected && isGloballyOn}
-            >
-              {!isGloballyOn ? 'OFF' : isConnecting ? 'SYNC' : isConnected ? 'LIVE' : 'DOWN'}
-            </StatusBadge>
-          </div>
-          <div className="text-xs text-gray-400">
-            {!isGloballyOn ? 'Bot Desactivado' : 
-             isConnected ? 'Bot Conectado' : 'Bot Desconectado'}
-          </div>
-          {dashboardStats && (
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>Grupos: {dashboardStats.totalGrupos || 0}</span>
-              <span>Usuarios: {dashboardStats.comunidad?.usuariosWhatsApp || 0}</span>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <StatusIndicator
+                status={!isGloballyOn ? 'offline' : isConnecting ? 'connecting' : isConnected ? 'online' : 'offline'}
+                size="sm"
+              />
+              <StatusBadge
+                tone={!isGloballyOn ? 'neutral' : isConnected ? 'success' : isConnecting ? 'warning' : 'danger'}
+                pulse={isConnected && isGloballyOn}
+              >
+                {!isGloballyOn ? 'OFF' : isConnecting ? 'SYNC' : isConnected ? 'LIVE' : 'DOWN'}
+              </StatusBadge>
             </div>
-          )}
-        </div>
+            <p className="text-sm font-semibold text-foreground">
+              {!isGloballyOn ? 'Bot desactivado globalmente' : isConnected ? 'Bot principal conectado' : 'Bot principal desconectado'}
+            </p>
+            {dashboardStats && (
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-muted">
+                <div className="rounded-xl border border-border/10 bg-card/55 px-3 py-2">
+                  <span className="block font-black text-foreground">{dashboardStats.totalGrupos || 0}</span>
+                  Grupos
+                </div>
+                <div className="rounded-xl border border-border/10 bg-card/55 px-3 py-2">
+                  <span className="block font-black text-foreground">{dashboardStats.comunidad?.usuariosWhatsApp || 0}</span>
+                  Comunidad
+                </div>
+              </div>
+            )}
+          </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <div className="space-y-1">
-            {allowedMenuItems.map((item, index) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.path;
+          <nav className="flex-1 overflow-y-auto px-3 py-4">
+            <div className="space-y-1.5">
+              {allowedMenuItems.map((item, index) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.path;
+                const showUnreadBadge = item.path === '/alertas' && unreadCount > 0;
 
-              return (
-                <motion.div
-                  key={item.path}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <SidebarNavLink
-                    href={item.path}
-                    onClose={onClose}
-                    className={cn(
-                      'group focus-ring-animated press-scale hover-outline-gradient',
-                      isActive ? 'sidebar-item-active' : 'sidebar-item'
-                    )}
+                return (
+                  <motion.div
+                    key={item.path}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.03 }}
                   >
-                    <div className={cn(
-                      'p-2 rounded-lg transition-colors',
-                      isActive ? colorClasses[item.color] : 'bg-white/5 group-hover:bg-white/10'
-                    )}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className="font-medium">{item.label}</span>
+                    <SidebarNavLink
+                      href={item.path}
+                      onClose={onClose}
+                      className={cn(
+                        'group flex items-center gap-3 overflow-hidden rounded-2xl border px-3 py-3 transition-all duration-300',
+                        isActive
+                          ? 'border-primary/20 bg-card/72 text-foreground shadow-[0_16px_40px_-28px_rgba(0,0,0,0.2)]'
+                          : 'border-transparent bg-transparent text-[rgb(var(--text-secondary))] hover:border-border/15 hover:bg-card/48 hover:text-foreground'
+                      )}
+                    >
+                      {isActive && (
+                        <motion.div
+                          aria-hidden="true"
+                          className="absolute inset-0 bg-[linear-gradient(135deg,rgba(var(--primary),0.14),rgba(var(--secondary),0.08),rgba(var(--accent),0.12))]"
+                          animate={{ opacity: [0.35, 0.6, 0.35] }}
+                          transition={{ repeat: Infinity, duration: 4.2, ease: 'easeInOut' }}
+                        />
+                      )}
+                      {isActive && (
+                        <>
+                          <motion.span
+                            aria-hidden="true"
+                            className="absolute right-4 top-3 h-1.5 w-1.5 rounded-full bg-white/85 shadow-[0_0_12px_rgba(255,255,255,0.35)]"
+                            animate={{ opacity: [0.2, 0.95, 0.2], scale: [0.8, 1.25, 0.8], y: [0, -2, 0] }}
+                            transition={{ repeat: Infinity, duration: 3.8, ease: 'easeInOut' }}
+                          />
+                          <motion.span
+                            aria-hidden="true"
+                            className="absolute right-7 bottom-3 h-1 w-1 rounded-full bg-oguri-cyan/85 shadow-[0_0_10px_rgba(70,195,207,0.45)]"
+                            animate={{ opacity: [0.18, 0.88, 0.18], scale: [0.8, 1.35, 0.8], x: [0, -2, 0] }}
+                            transition={{ repeat: Infinity, duration: 4.4, ease: 'easeInOut', delay: 0.7 }}
+                          />
+                        </>
+                      )}
+                      {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-full bg-gradient-to-b from-primary via-secondary to-accent shadow-glow-oguri-purple" />}
+                      <div
+                        className={cn(
+                          'relative z-10 flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-300',
+                          isActive ? colorClasses[item.color] : 'border-border/10 bg-card/55 group-hover:border-primary/15 group-hover:bg-card/75'
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
 
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute right-4 w-2 h-2 rounded-full bg-oguri-lavender shadow-glow-oguri-lavender animate-pulse"
-                      />
-                    )}
-                  </SidebarNavLink>
-                </motion.div>
-              );
-            })}
-          </div>
-        </nav>
+                      <div className="relative z-10 min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{item.label}</p>
+                      </div>
 
-        {/* User section */}
-        <div className="p-4 border-t border-white/10 space-y-3">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-            <div className="avatar">
-              {user?.username?.charAt(0).toUpperCase() || 'U'}
+                      {showUnreadBadge && (
+                        <span className="relative z-10 rounded-full bg-danger px-2 py-0.5 text-[10px] font-black text-white shadow-[0_0_20px_rgba(244,63,94,0.35)]">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+
+                      {isActive && <div className="relative z-10 h-2.5 w-2.5 rounded-full bg-oguri-lavender shadow-glow-oguri-lavender" />}
+                    </SidebarNavLink>
+                  </motion.div>
+                );
+              })}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">
-                {user?.username || 'Usuario'}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {user?.rol || 'usuario'}
-              </p>
+          </nav>
+
+          <div className="border-t border-border/15 p-4">
+            <div className="flex items-center gap-3 rounded-[24px] border border-border/15 bg-card/42 p-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-oguri-primary text-sm font-black text-white shadow-glow-oguri-purple">
+                {user?.username?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{user?.username || 'Usuario'}</p>
+                <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[rgb(var(--text-secondary))]">{user?.rol || 'usuario'}</p>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={logout}
+                className="rounded-xl border border-border/15 bg-card/55 p-2 text-muted transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300"
+                title="Cerrar sesión"
+              >
+                <LogOut className="h-5 w-5" />
+              </motion.button>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={logout}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors press-scale focus-ring-animated"
-              title="Cerrar sesión"
-            >
-              <LogOut className="w-5 h-5" />
-            </motion.button>
           </div>
-        </div>
         </div>
       </aside>
     </>

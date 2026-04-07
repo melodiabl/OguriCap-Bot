@@ -16,12 +16,12 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-10 w-full items-center justify-between rounded-xl px-4 py-2',
-      'bg-card/80 border border-border/30 text-white backdrop-blur-md',
-      'hover:bg-card/90 hover:border-border/50',
-      'focus:outline-none focus:border-white/40 focus:ring-2 focus:ring-white/10',
+      'flex h-11 w-full items-center justify-between rounded-2xl px-4 py-2 text-left',
+      'border border-border/15 bg-card/70 text-foreground shadow-[0_16px_34px_-26px_rgba(0,0,0,0.18)] backdrop-blur-xl',
+      'hover:border-primary/20 hover:bg-card/85',
+      'focus:outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/10',
       'disabled:cursor-not-allowed disabled:opacity-50',
-      'transition-all duration-200 shadow-sm',
+      'transition-all duration-200',
       className
     )}
     {...props}
@@ -79,8 +79,8 @@ const SelectContent = React.forwardRef<
       ref={ref}
       className={cn(
         // Must sit above our custom Modal (z-[9999])
-        'relative z-[10050] max-h-96 min-w-[8rem] overflow-hidden rounded-xl shadow-2xl',
-        'bg-card/80 border border-border/20 backdrop-blur-md',
+        'relative z-[10050] max-h-96 min-w-[8rem] overflow-hidden rounded-2xl shadow-2xl',
+        'border border-border/15 bg-card/85 backdrop-blur-2xl',
         'data-[state=open]:animate-fade-in',
         position === 'popper' &&
           'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
@@ -128,10 +128,10 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
       className={cn(
-        'relative flex w-full cursor-pointer select-none items-center rounded-lg py-2.5 pl-8 pr-2',
+        'relative flex w-full cursor-pointer select-none items-center rounded-xl py-2.5 pl-8 pr-2',
         'text-sm outline-none transition-all duration-150',
-        'text-foreground/80 hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white',
-        'data-[state=checked]:bg-white/15 data-[state=checked]:text-white data-[state=checked]:font-bold',
+        'text-foreground/80 hover:bg-white/10 hover:text-foreground focus:bg-white/10 focus:text-foreground',
+        'data-[state=checked]:bg-primary/12 data-[state=checked]:text-foreground data-[state=checked]:font-bold',
         'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className
       )}

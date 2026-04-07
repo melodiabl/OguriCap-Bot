@@ -18,7 +18,7 @@ import { useGroupsSmartRefresh } from '@/hooks/useSmartRefresh';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 import { Group } from '@/types';
 
 export default function GruposPage() {
@@ -43,7 +43,7 @@ export default function GruposPage() {
       setGroups(response?.items || response?.grupos || response?.data || []);
       setPagination(response?.pagination);
     } catch (err) {
-      toast.error('Error al cargar grupos');
+      notify.error('Error al cargar grupos');
     } finally {
       setLoading(false);
     }
@@ -89,9 +89,9 @@ export default function GruposPage() {
       setGroups(prev => prev.map(g =>
         g.wa_jid === group.wa_jid ? { ...g, bot_enabled: !g.bot_enabled } : g
       ));
-      toast.success(`Bot ${action === 'on' ? 'activado' : 'desactivado'} en ${group.nombre}`);
+      notify.success(`Bot ${action === 'on' ? 'activado' : 'desactivado'} en ${group.nombre}`);
     } catch (err) {
-      toast.error('Error al cambiar estado del bot');
+      notify.error('Error al cambiar estado del bot');
     }
   };
 
@@ -101,26 +101,26 @@ export default function GruposPage() {
       setGroups(prev => prev.map(g =>
         g.wa_jid === group.wa_jid ? { ...g, es_proveedor: !g.es_proveedor } : g
       ));
-      toast.success(`Grupo ${!group.es_proveedor ? 'marcado como' : 'desmarcado de'} proveedor`);
+      notify.success(`Grupo ${!group.es_proveedor ? 'marcado como' : 'desmarcado de'} proveedor`);
     } catch (err) {
-      toast.error('Error al cambiar estado de proveedor');
+      notify.error('Error al cambiar estado de proveedor');
     }
   };
 
   const syncWhatsAppGroups = async () => {
     if (!connectionStatus?.connected) {
-      toast.error('El bot debe estar conectado para sincronizar grupos.');
+      notify.error('El bot debe estar conectado para sincronizar grupos.');
       return;
     }
 
     try {
       setSyncing(true);
       const res = await api.syncWhatsAppGroups();
-      toast.success(res?.message || 'Grupos sincronizados');
+      notify.success(res?.message || 'Grupos sincronizados');
       setShowSyncModal(false);
       await manualRefresh();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al sincronizar grupos');
+      notify.error(err?.response?.data?.error || 'Error al sincronizar grupos');
     } finally {
       setSyncing(false);
     }
@@ -139,13 +139,13 @@ export default function GruposPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Banner de estado global */}
       {!globalBotState && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-500/10 border border-red-500/20 rounded-xl p-4"
+          className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4"
         >
           <div className="flex items-center gap-3">
             <PowerOff className="w-5 h-5 text-red-400" />
@@ -207,7 +207,7 @@ export default function GruposPage() {
       />
 
       {/* Stats */}
-      <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-4" delay={0.06} stagger={0.06}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.06} stagger={0.06}>
         <StaggerItem>
           <StatCard title="Total Grupos" value={stats.total} icon={<MessageSquare className="w-6 h-6" />} color="primary" delay={0} />
         </StaggerItem>
@@ -223,10 +223,10 @@ export default function GruposPage() {
       </Stagger>
 
       {/* Filters */}      {/* Filters */}
-      <Card animated delay={0.2} className="p-6">
-        <div className="flex flex-col md:flex-row gap-4">
+      <Card animated delay={0.2} className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
               type="text"
               placeholder="Buscar por nombre o JID..."
@@ -237,7 +237,7 @@ export default function GruposPage() {
             />
           </div>
           <Select value={botFilter} onValueChange={setBotFilter}>
-            <SelectTrigger className="md:w-40">
+            <SelectTrigger className="w-full xl:w-44">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -247,7 +247,7 @@ export default function GruposPage() {
             </SelectContent>
           </Select>
           <Select value={proveedorFilter} onValueChange={setProveedorFilter}>
-            <SelectTrigger className="md:w-40">
+            <SelectTrigger className="w-full xl:w-44">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -256,21 +256,21 @@ export default function GruposPage() {
               <SelectItem value="false">No Proveedores</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="primary" onClick={handleSearch}>Buscar</Button>
+          <Button variant="primary" onClick={handleSearch} className="xl:min-w-[120px]">Buscar</Button>
         </div>
       </Card>
 
       {/* Groups Grid */}
       <Card animated delay={0.3}>
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">Lista de Grupos</h2>
-          <p className="text-gray-400 text-sm mt-1">{groups.length} grupos mostrados</p>
+        <div className="border-b border-border/15 p-5 text-center sm:p-6 sm:text-left">
+          <h2 className="text-lg font-semibold text-foreground">Lista de Grupos</h2>
+          <p className="mt-1 text-sm text-muted">{groups.length} grupos mostrados</p>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+          <div className="grid grid-cols-1 gap-4 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="glass-card p-5">
+              <div key={i} className="panel-surface-soft p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Skeleton className="w-12 h-12 rounded-xl" />
@@ -285,7 +285,7 @@ export default function GruposPage() {
                   <Skeleton className="h-3 w-full rounded" />
                   <Skeleton className="h-3 w-2/3 rounded" />
                 </div>
-                <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                <div className="mt-4 flex items-center justify-between border-t border-border/15 pt-4">
                   <Skeleton className="h-4 w-24 rounded" />
                   <div className="flex items-center gap-2">
                     <SkeletonCircle className="h-9 w-9" />
@@ -298,7 +298,7 @@ export default function GruposPage() {
         ) : groups.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              icon={<MessageSquare className="w-6 h-6 text-gray-400" />}
+              icon={<MessageSquare className="w-6 h-6 text-muted" />}
               title="No hay grupos"
               description="No se encontraron grupos con los filtros aplicados"
               action={
@@ -309,7 +309,7 @@ export default function GruposPage() {
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+          <div className="grid grid-cols-1 gap-4 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
             <AnimatePresence>
               {groups.map((group, index) => (
                 <motion.div
@@ -318,7 +318,7 @@ export default function GruposPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ delay: index * 0.05 }}
-                  className="glass-card p-5 hover:border-primary-500/30 transition-all"
+                  className="panel-surface-soft p-5 transition-all hover:border-primary/25 hover:bg-white/[0.06]"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -328,8 +328,8 @@ export default function GruposPage() {
                         <MessageSquare className="w-6 h-6" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate">{group.nombre}</h3>
-                        <p className="text-xs text-gray-500 truncate">{group.wa_jid}</p>
+                        <h3 className="truncate font-semibold text-foreground">{group.nombre}</h3>
+                        <p className="truncate text-xs text-muted">{group.wa_jid}</p>
                       </div>
                     </div>
                     {group.es_proveedor && (
@@ -341,10 +341,17 @@ export default function GruposPage() {
                   </div>
 
                   {group.descripcion && (
-                    <p className="text-sm text-gray-400 mb-4 line-clamp-2">{group.descripcion}</p>
+                    <p className="mb-4 line-clamp-2 text-sm text-muted">{group.descripcion}</p>
                   )}
 
-                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                  <div className="space-y-3">
+                    <div className="panel-data-row">
+                      <span className="panel-data-row__label">JID</span>
+                      <span className="panel-data-row__value truncate">{group.wa_jid}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-border/15 pt-4">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm ${
                         globalBotState && group.bot_enabled 
@@ -365,7 +372,7 @@ export default function GruposPage() {
                         className={`p-2 rounded-lg transition-colors ${
                           group.es_proveedor
                             ? 'text-amber-400 bg-amber-500/10'
-                            : 'text-gray-400 hover:bg-white/5'
+                            : 'text-muted hover:bg-white/5'
                         }`}
                         title={group.es_proveedor ? 'Quitar proveedor' : 'Marcar como proveedor'}
                       >
@@ -374,11 +381,11 @@ export default function GruposPage() {
                       <motion.button
                         whileHover={{ scale: globalBotState ? 1.1 : 1 }}
                         whileTap={{ scale: globalBotState ? 0.9 : 1 }}
-                        onClick={() => globalBotState ? toggleBot(group) : toast.error('El bot está apagado globalmente')}
+                        onClick={() => globalBotState ? toggleBot(group) : notify.error('El bot está apagado globalmente')}
                         disabled={!globalBotState}
                         className={`p-2 rounded-lg transition-colors ${
                           !globalBotState
-                            ? 'text-gray-500 bg-gray-500/10 cursor-not-allowed opacity-50'
+                            ? 'cursor-not-allowed bg-gray-500/10 text-gray-500 opacity-50'
                             : group.bot_enabled
                             ? 'text-emerald-400 bg-emerald-500/10'
                             : 'text-red-400 bg-red-500/10'
@@ -409,8 +416,8 @@ export default function GruposPage() {
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="p-6 border-t border-white/10 flex items-center justify-between">
-            <p className="text-sm text-gray-400">
+          <div className="flex flex-col gap-3 border-t border-border/15 p-5 text-center sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:text-left">
+            <p className="text-sm text-muted">
               Página {pagination.page} de {pagination.totalPages}
             </p>
             <div className="flex gap-2">
@@ -429,7 +436,7 @@ export default function GruposPage() {
       <Modal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} title="Sincronizar Grupos de WhatsApp">
         <div className="space-y-4">
           {connectionStatus && (
-            <div className={`p-4 rounded-xl border ${
+            <div className={`rounded-2xl border p-4 ${
               connectionStatus.connected 
                 ? 'bg-emerald-500/10 border-emerald-500/20' 
                 : 'bg-red-500/10 border-red-500/20'
@@ -452,20 +459,20 @@ export default function GruposPage() {
             </div>
           )}
           
-          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
             <div className="flex items-center gap-2 mb-2">
               <MessageSquare className="w-5 h-5 text-blue-400" />
               <span className="text-sm font-medium text-blue-400">¿Qué hace la sincronización?</span>
             </div>
-            <p className="text-xs text-gray-400">
-              Obtiene la lista actual de grupos de WhatsApp y actualiza la base de datos.
-            </p>
+              <p className="text-xs text-muted">
+                Obtiene la lista actual de grupos de WhatsApp y actualiza la base de datos.
+              </p>
           </div>
 
-          <div className="space-y-3 pt-4">
+          <div className="panel-modal-actions">
             <Button
               variant="primary"
-              className="w-full"
+              className="flex-1"
               loading={syncing}
               disabled={syncing || !connectionStatus?.connected}
               icon={<RefreshCw className="w-4 h-4" />}
@@ -473,7 +480,7 @@ export default function GruposPage() {
             >
               Sincronización Simple
             </Button>
-            <Button variant="secondary" className="w-full" onClick={() => setShowSyncModal(false)} disabled={syncing}>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowSyncModal(false)} disabled={syncing}>
               Cancelar
             </Button>
           </div>

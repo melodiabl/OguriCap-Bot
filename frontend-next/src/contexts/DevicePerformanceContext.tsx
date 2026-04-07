@@ -4,7 +4,13 @@ import * as React from 'react';
 
 export type ViewportTier = 'mobile' | 'tablet' | 'desktop';
 
-export type DevicePerformance = {
+export type EffectsMode = 'auto' | 'full' | 'eco';
+export type VisualIntensity = 'normal' | 'vivid' | 'ultra';
+
+const EFFECTS_KEY = 'oguricap:effects-mode';
+const VISUAL_INTENSITY_KEY = 'oguricap:visual-intensity';
+
+export type DevicePerformanceSnapshot = {
   viewport: ViewportTier;
   width: number;
   height: number;
@@ -18,6 +24,17 @@ export type DevicePerformance = {
   reduceMotion: boolean;
   isLowEnd: boolean;
   performanceMode: boolean;
+
+  // UI effects quality (persisted)
+  effectsMode: EffectsMode;
+  visualIntensity: VisualIntensity;
+};
+
+export type DevicePerformance = DevicePerformanceSnapshot & {
+  setEffectsMode: (mode: EffectsMode) => void;
+  cycleEffectsMode: () => void;
+  setVisualIntensity: (mode: VisualIntensity) => void;
+  cycleVisualIntensity: () => void;
 };
 
 const DevicePerformanceContext = React.createContext<DevicePerformance | null>(null);
@@ -54,6 +71,24 @@ function readReduceMotion(): boolean {
   }
 }
 
+function isEffectsMode(v: unknown): v is EffectsMode {
+  return v === 'auto' || v === 'full' || v === 'eco';
+}
+
+function isVisualIntensity(v: unknown): v is VisualIntensity {
+  return v === 'normal' || v === 'vivid' || v === 'ultra';
+}
+
+function computePerformanceMode(opts: {
+  isLowEnd: boolean;
+  effectsMode: EffectsMode;
+}): boolean {
+  const { isLowEnd, effectsMode } = opts;
+  if (effectsMode === 'eco') return true;
+  if (effectsMode === 'full') return false;
+  return isLowEnd;
+}
+
 function computeIsLowEnd(opts: {
   viewport: ViewportTier;
   deviceMemoryGB: number | null;
@@ -61,28 +96,52 @@ function computeIsLowEnd(opts: {
   saveData: boolean;
 }): boolean {
   const { viewport, deviceMemoryGB, hardwareConcurrency, saveData } = opts;
-  const lowViewport = viewport === 'mobile';
+  const isMobile = viewport === 'mobile';
+  const isTablet = viewport === 'tablet';
+  const hasMemory = deviceMemoryGB !== null;
+  const hasCores = hardwareConcurrency !== null;
 
-  const lowMemory = deviceMemoryGB !== null ? deviceMemoryGB <= 4 : false;
-  const lowCores =
-    hardwareConcurrency !== null
-      ? hardwareConcurrency <= (viewport === 'desktop' ? 2 : 4)
-      : false;
+  // Menos agresivo en desktop; mas conservador en mobile/tablet para evitar trabas.
+  const lowMemory = hasMemory ? deviceMemoryGB! <= (viewport === 'desktop' ? 4 : 4) : false;
+  const lowCores = hasCores ? hardwareConcurrency! <= (viewport === 'desktop' ? 2 : 4) : false;
 
   // Desktop machines with 4 cores are common; avoid forcing "low" mode unless clearly constrained.
   if (viewport === 'desktop') return Boolean(saveData || (lowMemory && lowCores));
 
-  // Mobile: always prioritize smoothness.
-  if (lowViewport) return true;
+  // Mobile: prioritize smoothness, but allow full mode on clearly capable devices.
+  if (isMobile) {
+    if (saveData) return true;
+    if (!hasMemory && !hasCores) return true;
+
+    const mem = hasMemory ? deviceMemoryGB! : 0;
+    const cores = hasCores ? hardwareConcurrency! : 0;
+    const highEnd = (hasMemory && mem >= 6) || (hasCores && cores >= 8);
+    if (highEnd) return false;
+    return Boolean(lowMemory || lowCores);
+  }
 
   // Tablet: be conservative but not too aggressive.
+  if (isTablet) {
+    if (saveData) return true;
+    if (!hasMemory && !hasCores) return true;
+
+    const mem = hasMemory ? deviceMemoryGB! : 0;
+    const cores = hasCores ? hardwareConcurrency! : 0;
+    const highEnd = (hasMemory && mem >= 6) || (hasCores && cores >= 8);
+    if (highEnd) return false;
+    return Boolean(lowMemory || lowCores);
+  }
+
   return Boolean(saveData || lowMemory || lowCores);
 }
 
 export function DevicePerformanceProvider({ children }: { children: React.ReactNode }) {
+  const effectsModeRef = React.useRef<EffectsMode>('auto');
+  const visualIntensityRef = React.useRef<VisualIntensity>('vivid');
+
   // IMPORTANT: Initial state must be identical on server and client to avoid hydration errors.
   // We compute real device metrics after mount (useEffect).
-  const [state, setState] = React.useState<DevicePerformance>(() => ({
+  const [state, setState] = React.useState<DevicePerformanceSnapshot>(() => ({
     viewport: 'desktop',
     width: 1024,
     height: 768,
@@ -95,10 +154,84 @@ export function DevicePerformanceProvider({ children }: { children: React.ReactN
     saveData: false,
     reduceMotion: false,
     isLowEnd: false,
-    performanceMode: false,
+        performanceMode: false,
+
+    effectsMode: 'auto',
+    visualIntensity: 'vivid',
   }));
 
+  const setEffectsMode = React.useCallback((mode: EffectsMode) => {
+    effectsModeRef.current = mode;
+    try {
+      window.localStorage.setItem(EFFECTS_KEY, mode);
+    } catch {
+      // ignore
+    }
+
+    setState((prev) => ({
+      ...prev,
+      effectsMode: mode,
+      performanceMode: computePerformanceMode({
+        isLowEnd: prev.isLowEnd,
+        effectsMode: mode,
+      }),
+    }));
+  }, []);
+
+  const cycleEffectsMode = React.useCallback(() => {
+    const current = effectsModeRef.current;
+    const next: EffectsMode = current === 'auto' ? 'full' : current === 'full' ? 'eco' : 'auto';
+    setEffectsMode(next);
+  }, [setEffectsMode]);
+
+  const setVisualIntensity = React.useCallback((mode: VisualIntensity) => {
+    visualIntensityRef.current = mode;
+    try {
+      window.localStorage.setItem(VISUAL_INTENSITY_KEY, mode);
+    } catch {
+      // ignore
+    }
+
+    setState((prev) => ({
+      ...prev,
+      visualIntensity: mode,
+    }));
+  }, []);
+
+  const cycleVisualIntensity = React.useCallback(() => {
+    const current = visualIntensityRef.current;
+    const next: VisualIntensity = current === 'normal' ? 'vivid' : current === 'vivid' ? 'ultra' : 'normal';
+    setVisualIntensity(next);
+  }, [setVisualIntensity]);
+
   React.useEffect(() => {
+    // Load saved effects mode (once, after mount)
+    try {
+      const raw = window.localStorage.getItem(EFFECTS_KEY);
+      if (raw && isEffectsMode(raw)) {
+        effectsModeRef.current = raw;
+        setState((prev) => ({
+          ...prev,
+          effectsMode: raw,
+          performanceMode: computePerformanceMode({
+            isLowEnd: prev.isLowEnd,
+            effectsMode: raw,
+          }),
+        }));
+      }
+
+      const savedIntensity = window.localStorage.getItem(VISUAL_INTENSITY_KEY);
+      if (savedIntensity && isVisualIntensity(savedIntensity)) {
+        visualIntensityRef.current = savedIntensity;
+        setState((prev) => ({
+          ...prev,
+          visualIntensity: savedIntensity,
+        }));
+      }
+    } catch {
+      // ignore
+    }
+
     let raf = 0;
     const onResize = () => {
       cancelAnimationFrame(raf);
@@ -112,7 +245,11 @@ export function DevicePerformanceProvider({ children }: { children: React.ReactN
         const saveData = readSaveData();
         const reduceMotion = readReduceMotion();
         const isLowEnd = computeIsLowEnd({ viewport, deviceMemoryGB, hardwareConcurrency, saveData });
-        const performanceMode = reduceMotion || isLowEnd;
+
+        const performanceMode = computePerformanceMode({
+          isLowEnd,
+          effectsMode: effectsModeRef.current,
+        });
 
         setState({
           viewport,
@@ -128,6 +265,9 @@ export function DevicePerformanceProvider({ children }: { children: React.ReactN
           reduceMotion,
           isLowEnd,
           performanceMode,
+
+          effectsMode: effectsModeRef.current,
+          visualIntensity: visualIntensityRef.current,
         });
       });
     };
@@ -155,9 +295,20 @@ export function DevicePerformanceProvider({ children }: { children: React.ReactN
     root.dataset.viewport = state.viewport;
     root.dataset.perf = state.performanceMode ? 'low' : 'full';
     root.dataset.reduceMotion = state.reduceMotion ? 'true' : 'false';
-  }, [state.performanceMode, state.reduceMotion, state.viewport]);
+    root.dataset.intensity = state.visualIntensity;
+  }, [state.performanceMode, state.reduceMotion, state.viewport, state.visualIntensity]);
 
-  return <DevicePerformanceContext.Provider value={state}>{children}</DevicePerformanceContext.Provider>;
+  const value = React.useMemo<DevicePerformance>(() => {
+    return {
+      ...state,
+      setEffectsMode,
+      cycleEffectsMode,
+      setVisualIntensity,
+      cycleVisualIntensity,
+    };
+  }, [cycleEffectsMode, cycleVisualIntensity, setEffectsMode, setVisualIntensity, state]);
+
+  return <DevicePerformanceContext.Provider value={value}>{children}</DevicePerformanceContext.Provider>;
 }
 
 export function useDevicePerformance() {

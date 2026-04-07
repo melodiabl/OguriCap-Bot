@@ -110,12 +110,14 @@ export default function GruposManagementPage() {
       void refreshGroups();
       
       // Crear notificación automática
-      await api.createNotification({
-        title: `Bot ${isActive ? 'Desactivado' : 'Activado'} en Grupo`,
-        message: `El bot ha sido ${isActive ? 'desactivado' : 'activado'} en el grupo "${group.nombre}"`,
-        type: isActive ? 'warning' : 'success',
-        category: 'bot'
-      });
+      void api
+        .createNotification({
+          title: `Bot ${isActive ? 'Desactivado' : 'Activado'} en Grupo`,
+          message: `El bot ha sido ${isActive ? 'desactivado' : 'activado'} en el grupo "${group.nombre}"`,
+          type: isActive ? 'warning' : 'success',
+          category: 'bot',
+        })
+        .catch(() => {});
       
       notify.success(`Bot ${isActive ? 'desactivado' : 'activado'} en ${group.nombre}`);
     } catch (error) {
@@ -131,12 +133,14 @@ export default function GruposManagementPage() {
       await withLoading(
         async () => {
           await setGlobalState(false); // Usar el contexto
-          await api.createNotification({
-            title: 'Bot Desactivado Globalmente',
-            message: 'El bot ha sido desactivado en todos los grupos por el administrador',
-            type: 'warning',
-            category: 'bot',
-          });
+          void api
+            .createNotification({
+              title: 'Bot Desactivado Globalmente',
+              message: 'El bot ha sido desactivado en todos los grupos por el administrador',
+              type: 'warning',
+              category: 'bot',
+            })
+            .catch(() => {});
           await refreshGroups();
         },
         { message: 'Apagando bot global…', details: 'Aplicando cambios en todos los grupos.' }
@@ -158,12 +162,14 @@ export default function GruposManagementPage() {
       await withLoading(
         async () => {
           await setGlobalState(true); // Usar el contexto
-          await api.createNotification({
-            title: 'Bot Activado Globalmente',
-            message: 'El bot ha sido activado globalmente y está respondiendo en todos los grupos habilitados',
-            type: 'success',
-            category: 'bot',
-          });
+          void api
+            .createNotification({
+              title: 'Bot Activado Globalmente',
+              message: 'El bot ha sido activado globalmente y está respondiendo en todos los grupos habilitados',
+              type: 'success',
+              category: 'bot',
+            })
+            .catch(() => {});
           await refreshGroups();
         },
         { message: 'Encendiendo bot global…', details: 'Inicializando conexiones.' }
@@ -188,7 +194,57 @@ export default function GruposManagementPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page relative overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-cyan/18 blur-3xl"
+          animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
+          transition={{ repeat: Infinity, duration: 10.8, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-gold/18 blur-3xl"
+          animate={{ x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={{ repeat: Infinity, duration: 11.2, ease: 'easeInOut', delay: 0.5 }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Users className="h-3.5 w-3.5 text-oguri-cyan" />
+              Control por grupo
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Gestión global con ambiente operativo</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Estado del bot por grupo y tablero de notificaciones con mejor jerarquía visual.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Grupos</p>
+              <p className="mt-2 text-lg font-black text-white">{groups.length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Activos</p>
+              <p className="mt-2 text-lg font-black text-white">{activeGroups}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Alertas</p>
+              <p className="mt-2 text-lg font-black text-white">{notificationStats?.total || notifications.length}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title="Gestión de Grupos"

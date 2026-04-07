@@ -15,7 +15,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 import { User } from '@/types';
 
 export default function UsuariosPage() {
@@ -67,7 +67,7 @@ export default function UsuariosPage() {
       setUsers(usersData);
     } catch (err) {
       console.error('Error al cargar usuarios:', err);
-      toast.error('Error al cargar usuarios');
+      notify.error('Error al cargar usuarios');
       setUsers([]);
     } finally {
       setLoading(false);
@@ -83,13 +83,8 @@ export default function UsuariosPage() {
 
     const emailStr = editEmail.trim();
     const whatsappStr = editWhatsApp.trim();
-
-    if (!emailStr && !whatsappStr) {
-      toast.error('Debes ingresar Email o WhatsApp');
-      return;
-    }
     if (emailStr && !emailStr.includes('@')) {
-      toast.error('Email inválido');
+      notify.error('Email inválido');
       return;
     }
 
@@ -103,11 +98,11 @@ export default function UsuariosPage() {
       setUsers(prev =>
         prev.map(u => (u.id === selectedUser.id ? { ...u, ...updated } : u))
       );
-      toast.success('Usuario actualizado');
+      notify.success('Usuario actualizado');
       setShowEditModal(false);
       setSelectedUser(null);
     } catch (err) {
-      toast.error('Error al actualizar usuario');
+      notify.error('Error al actualizar usuario');
     }
   };
 
@@ -115,38 +110,34 @@ export default function UsuariosPage() {
     try {
       // Validaciones mejoradas
       if (!newUser.username.trim()) {
-        toast.error('El nombre de usuario es requerido');
+        notify.error('El nombre de usuario es requerido');
         return;
       }
 
       if (newUser.username.trim().length < 3) {
-        toast.error('El usuario debe tener al menos 3 caracteres');
+        notify.error('El usuario debe tener al menos 3 caracteres');
         return;
       }
 
       if (!newUser.password.trim()) {
-        toast.error('La contraseña es requerida');
+        notify.error('La contraseña es requerida');
         return;
       }
 
       if (newUser.password.length < 4) {
-        toast.error('La contraseña debe tener al menos 4 caracteres');
+        notify.error('La contraseña debe tener al menos 4 caracteres');
         return;
       }
 
       if (!newUser.rol) {
-        toast.error('Debes seleccionar un rol para el usuario');
+        notify.error('Debes seleccionar un rol para el usuario');
         return;
       }
 
       const emailStr = newUser.email?.trim?.() || '';
       const whatsappStr = newUser.whatsapp_number?.trim?.() || '';
-      if (!emailStr && !whatsappStr) {
-        toast.error('Debes ingresar Email o WhatsApp');
-        return;
-      }
       if (emailStr && !emailStr.includes('@')) {
-        toast.error('Email inválido');
+        notify.error('Email inválido');
         return;
       }
 
@@ -157,12 +148,25 @@ export default function UsuariosPage() {
       const newUserLevel = roleHierarchy[newUser.rol] || 1;
 
       if (newUserLevel > currentUserLevel) {
-        toast.error(`No tienes permisos para crear usuarios con rol ${newUser.rol}`);
+        notify.error(`No tienes permisos para crear usuarios con rol ${newUser.rol}`);
         return;
       }
 
-      await api.createUsuario(newUser as any);
-      toast.success(`Usuario creado correctamente como ${newUser.rol}`);
+      const created = await api.createUsuario(newUser as any);
+      notify.success(`Usuario creado correctamente como ${newUser.rol}`);
+
+      const delivery = created?.credentialsDelivery;
+      if (delivery?.delivered === 'whatsapp') {
+        notify.success('Credenciales enviadas por WhatsApp');
+      } else if (delivery?.delivered === 'email') {
+        notify.success('Credenciales enviadas por Email');
+      }
+
+      const warnings = Array.isArray(created?.warnings) ? created.warnings : [];
+      if (warnings.length > 0) {
+        notify.warning((warnings[0] || 'Usuario creado, pero no se pudieron enviar credenciales automáticamente.').toString());
+      }
+
       setShowCreateModal(false);
       setNewUser({ username: '', password: '', rol: '', email: '', whatsapp_number: '' });
       loadUsers();
@@ -178,7 +182,7 @@ export default function UsuariosPage() {
         errorMessage = err.message;
       }
       
-      toast.error(errorMessage);
+      notify.error(errorMessage);
     }
   };
 
@@ -186,26 +190,26 @@ export default function UsuariosPage() {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
     try {
       await api.deleteUsuario(userId);
-      toast.success('Usuario eliminado');
+      notify.success('Usuario eliminado');
       loadUsers();
     } catch (err) {
-      toast.error('Error al eliminar usuario');
+      notify.error('Error al eliminar usuario');
     }
   };
 
   const changePassword = async () => {
     if (!selectedUser || !newPassword) {
-      toast.error('Ingresa una nueva contraseña');
+      notify.error('Ingresa una nueva contraseña');
       return;
     }
     try {
       await api.changeUsuarioPassword(selectedUser.id, newPassword);
-      toast.success('Contraseña actualizada');
+      notify.success('Contraseña actualizada');
       setShowPasswordModal(false);
       setNewPassword('');
       setSelectedUser(null);
     } catch (err) {
-      toast.error('Error al cambiar contraseña');
+      notify.error('Error al cambiar contraseña');
     }
   };
 
@@ -248,9 +252,9 @@ export default function UsuariosPage() {
       setShowViewPasswordModal(true);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        toast.error('Solo los owners pueden ver contraseñas');
+        notify.error('Solo los owners pueden ver contraseñas');
       } else {
-        toast.error('Error al obtener contraseña');
+        notify.error('Error al obtener contraseña');
       }
     }
   };
@@ -319,8 +323,109 @@ export default function UsuariosPage() {
     exit: reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 },
   };
 
+  const actionButtonClass = 'flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] transition-all hover:border-white/20 hover:bg-white/[0.08]';
+
+  const renderUserActions = (user: User) => (
+    <div className="flex flex-wrap items-center gap-2">
+      {canViewPasswords() && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => handleViewPassword(user)}
+          className={`${actionButtonClass} text-green-400`}
+          title="Ver / generar contraseña"
+        >
+          <Eye className="w-4 h-4" />
+        </motion.button>
+      )}
+      {canEditUser(user) && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => handlePasswordUser(user)}
+          className={`${actionButtonClass} text-amber-400`}
+          title="Cambiar contraseña"
+        >
+          <Key className="w-4 h-4" />
+        </motion.button>
+      )}
+      {canEditUser(user) && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => handleEditUser(user)}
+          className={`${actionButtonClass} text-cyan-400`}
+          title="Editar usuario"
+        >
+          <Edit className="w-4 h-4" />
+        </motion.button>
+      )}
+      {canDeleteUser(user) && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => deleteUser(user.id)}
+          className={`${actionButtonClass} text-red-400`}
+          title="Eliminar usuario"
+        >
+          <Trash2 className="w-4 h-4" />
+        </motion.button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="panel-page relative overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-blue/18 blur-3xl"
+          animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
+          transition={{ repeat: Infinity, duration: 11.2, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-lavender/18 blur-3xl"
+          animate={{ x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={{ repeat: Infinity, duration: 10.6, ease: 'easeInOut', delay: 0.6 }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Users className="h-3.5 w-3.5 text-oguri-cyan" />
+              Control de acceso
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Centro operativo de usuarios</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Roles, permisos y cuentas del panel en una vista más clara y con más presencia visual.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Total</p>
+              <p className="mt-2 text-lg font-black text-white">{stats.total}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Admins</p>
+              <p className="mt-2 text-lg font-black text-white">{stats.admins}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Activos</p>
+              <p className="mt-2 text-lg font-black text-white">{stats.activos}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title="Gestión de Usuarios"
@@ -339,7 +444,7 @@ export default function UsuariosPage() {
       />
 
       {/* Stats */}
-      <Stagger className="grid grid-cols-2 md:grid-cols-5 gap-4" delay={0.06} stagger={0.06}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5" delay={0.06} stagger={0.06}>
         <StaggerItem>
           <StatCard title="Total" value={stats.total} icon={<Users className="w-6 h-6" />} color="primary" delay={0} />
         </StaggerItem>
@@ -358,8 +463,8 @@ export default function UsuariosPage() {
       </Stagger>
 
       {/* Filters */}
-      <Card animated delay={0.2} className="p-6">
-        <div className="flex flex-col md:flex-row gap-4">
+      <Card animated delay={0.2} className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -371,7 +476,7 @@ export default function UsuariosPage() {
             />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="md:w-48">
+            <SelectTrigger className="w-full lg:w-56">
               <SelectValue placeholder="Todos los roles" />
             </SelectTrigger>
             <SelectContent>
@@ -387,9 +492,9 @@ export default function UsuariosPage() {
 
       {/* Users Table */}
       <Card animated delay={0.3} className="overflow-hidden">
-        <div className="p-6 border-b border-white/10">
+        <div className="flex flex-col gap-2 border-b border-white/10 p-5 text-center sm:p-6 sm:text-left">
           <h2 className="text-lg font-semibold text-white">Lista de Usuarios</h2>
-          <p className="text-gray-400 text-sm mt-1">{filteredUsers.length} de {users.length} usuarios</p>
+          <p className="text-gray-400 text-sm">{filteredUsers.length} de {users.length} usuarios</p>
         </div>
 
         {loading ? (
@@ -441,165 +546,167 @@ export default function UsuariosPage() {
             </table>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="panel-empty-state">
             <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No hay usuarios</h3>
             <p className="text-gray-400">No se encontraron usuarios con los filtros aplicados</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table-glass w-full">
-              <thead>
-                <tr>
-                  <th>Usuario</th>
-                  <th>Contacto</th>
-                  <th>Rol</th>
-                  <th>Registro</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <motion.tbody variants={tbodyVariants} initial="hidden" animate="show">
-                <AnimatePresence mode="popLayout">
-                  {filteredUsers.map((user) => (
-                    <motion.tr
-                      key={user.id}
-                      layout="position"
-                      variants={rowVariants}
-                      exit="exit"
-                    >
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <div className="avatar">{user.username?.charAt(0).toUpperCase()}</div>
-                          <div>
-                            <p className="font-medium text-white">{user.username}</p>
-                            <p className="text-xs text-gray-500">ID: {user.id}</p>
+          <>
+            <div className="space-y-3 p-4 md:hidden">
+              {filteredUsers.map((user) => (
+                <motion.div
+                  key={user.id}
+                  layout
+                  variants={rowVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="panel-surface-soft p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="avatar">{user.username?.charAt(0).toUpperCase()}</div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-white">{user.username}</p>
+                        <p className="text-xs text-gray-500">ID: {user.id}</p>
+                      </div>
+                    </div>
+                    {getRoleBadge(user.rol)}
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="panel-data-row">
+                      <span className="panel-data-row__label">Email</span>
+                      <span className="panel-data-row__value break-all">{user.email || '-'}</span>
+                    </div>
+                    <div className="panel-data-row">
+                      <span className="panel-data-row__label">WhatsApp</span>
+                      <span className="panel-data-row__value">{user.whatsapp_number || '-'}</span>
+                    </div>
+                    <div className="panel-data-row">
+                      <span className="panel-data-row__label">Registro</span>
+                      <span className="panel-data-row__value">{formatDate(user.created_at || new Date().toISOString())}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`badge ${(user as any).activo !== false ? 'badge-success' : 'badge-danger'}`}>
+                        {(user as any).activo !== false ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {renderUserActions(user)}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="table-glass w-full">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Contacto</th>
+                    <th>Rol</th>
+                    <th>Registro</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <motion.tbody variants={tbodyVariants} initial="hidden" animate="show">
+                  <AnimatePresence mode="popLayout">
+                    {filteredUsers.map((user) => (
+                      <motion.tr
+                        key={user.id}
+                        layout="position"
+                        variants={rowVariants}
+                        exit="exit"
+                      >
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <div className="avatar">{user.username?.charAt(0).toUpperCase()}</div>
+                            <div>
+                              <p className="font-medium text-white">{user.username}</p>
+                              <p className="text-xs text-gray-500">ID: {user.id}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-300">{user.email || '-'}</span>
+                        </td>
+                        <td>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="w-4 h-4 text-gray-500" />
+                              <span className="text-gray-300">{user.email || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-gray-500" />
+                              <span className="text-gray-300">{user.whatsapp_number || '-'}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-300">{user.whatsapp_number || '-'}</span>
+                        </td>
+                        <td>{getRoleBadge(user.rol)}</td>
+                        <td>
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <Calendar className="w-4 h-4" />
+                            {formatDate(user.created_at || new Date().toISOString())}
                           </div>
-                        </div>
-                      </td>
-                      <td>{getRoleBadge(user.rol)}</td>
-                      <td>
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(user.created_at || new Date().toISOString())}
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`badge ${(user as any).activo !== false ? 'badge-success' : 'badge-danger'}`}>
-                          {(user as any).activo !== false ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {canViewPasswords() && (
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleViewPassword(user)}
-                              className="p-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
-                              title="Ver / generar contraseña"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                          {canEditUser(user) && (
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handlePasswordUser(user)}
-                              className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
-                              title="Cambiar contraseña"
-                            >
-                              <Key className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                          {canEditUser(user) && (
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleEditUser(user)}
-                              className="p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors"
-                              title="Editar usuario"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                          {canDeleteUser(user) && (
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => deleteUser(user.id)}
-                              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                              title="Eliminar usuario"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </motion.tbody>
-            </table>
-          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${(user as any).activo !== false ? 'badge-success' : 'badge-danger'}`}>
+                            {(user as any).activo !== false ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td>{renderUserActions(user)}</td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </motion.tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
       {/* Edit User Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Usuario">
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-white/5">
+        <div className="space-y-5">
+          <div className="panel-readonly-block">
             <p className="text-sm text-gray-400">Usuario</p>
             <p className="text-white font-medium">{selectedUser?.username}</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
-            <input
-              type="email"
-              value={editEmail}
-              onChange={(e) => setEditEmail(e.target.value)}
-              className="input-glass w-full"
-              placeholder="Email (opcional si hay WhatsApp)"
-            />
+          <div className="panel-form-grid">
+            <div className="panel-field">
+              <label className="panel-field-label">Email</label>
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="input-glass w-full"
+                placeholder="Email (opcional si hay WhatsApp)"
+              />
+            </div>
+            <div className="panel-field">
+              <label className="panel-field-label">WhatsApp</label>
+              <input
+                type="text"
+                value={editWhatsApp}
+                onChange={(e) => setEditWhatsApp(e.target.value)}
+                className="input-glass w-full"
+                placeholder="Número de WhatsApp (opcional si hay Email)"
+              />
+            </div>
+            <div className="panel-field sm:col-span-2">
+              <label className="panel-field-label">Nuevo Rol</label>
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="usuario">Usuario</SelectItem>
+                  <SelectItem value="moderador">Moderador</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  {canCreateOwner() && <SelectItem value="owner">Owner</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">WhatsApp</label>
-            <input
-              type="text"
-              value={editWhatsApp}
-              onChange={(e) => setEditWhatsApp(e.target.value)}
-              className="input-glass w-full"
-              placeholder="Número de WhatsApp (opcional si hay Email)"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Nuevo Rol</label>
-            <Select value={newRole} onValueChange={setNewRole}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar rol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="usuario">Usuario</SelectItem>
-                <SelectItem value="moderador">Moderador</SelectItem>
-                <SelectItem value="admin">Administrador</SelectItem>
-                {canCreateOwner() && <SelectItem value="owner">Owner</SelectItem>}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button variant="primary" className="flex-1" onClick={saveUserEdits}>
               Guardar
             </Button>
@@ -612,79 +719,76 @@ export default function UsuariosPage() {
 
       {/* Create User Modal */}
       <Modal isOpen={showCreateModal} onClose={handleCloseCreateModal} title="Crear Nuevo Usuario">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Usuario</label>
-            <input
-              type="text"
-              value={newUser.username}
-              onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-              className="input-glass w-full"
-              placeholder="Nombre de usuario (mín. 3 caracteres)"
-              data-autofocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Contraseña</label>
-            <input
-              type="password"
-              value={newUser.password}
-              onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-              className="input-glass w-full"
-              placeholder="Contraseña (mín. 4 caracteres)"
-            />
-            <p className="text-xs text-blue-400 mt-1">
-              💡 El usuario usará esta contraseña para hacer login
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">WhatsApp</label>
-            <input
-              type="text"
-              value={newUser.whatsapp_number}
-              onChange={(e) => setNewUser({ ...newUser, whatsapp_number: e.target.value })}
-              className="input-glass w-full"
-              placeholder="Número de WhatsApp (opcional)"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
-            <input
-              type="email"
-              value={newUser.email}
-              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-              className="input-glass w-full"
-              placeholder="Email (opcional)"
-            />
-            <p className="text-xs text-gray-500 mt-1">Debes ingresar Email o WhatsApp.</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
+        <div className="space-y-5">
+          <div className="panel-form-grid">
+            <div className="panel-field">
+              <label className="panel-field-label">Usuario</label>
+              <input
+                type="text"
+                value={newUser.username}
+                onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                className="input-glass w-full"
+                placeholder="Nombre de usuario (mín. 3 caracteres)"
+                data-autofocus
+              />
+            </div>
+            <div className="panel-field">
+              <label className="panel-field-label">Contraseña</label>
+              <input
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                className="input-glass w-full"
+                placeholder="Contraseña (mín. 4 caracteres)"
+              />
+              <p className="panel-field-hint text-blue-400">El usuario usará esta contraseña para hacer login.</p>
+            </div>
+            <div className="panel-field">
+              <label className="panel-field-label">WhatsApp</label>
+              <input
+                type="text"
+                value={newUser.whatsapp_number}
+                onChange={(e) => setNewUser({ ...newUser, whatsapp_number: e.target.value })}
+                className="input-glass w-full"
+                placeholder="5491123456789 (opcional)"
+              />
+              <p className="panel-field-hint">Opcional. Se guarda como contacto de WhatsApp del usuario.</p>
+            </div>
+            <div className="panel-field">
+              <label className="panel-field-label">Email</label>
+              <input
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                className="input-glass w-full"
+                placeholder="Email (opcional)"
+              />
+              <p className="panel-field-hint">Opcional. Si no ingresas Email/WhatsApp, no se podrán enviar credenciales automáticamente.</p>
+            </div>
+            <div className="panel-field sm:col-span-2">
+              <label className="panel-field-label">
               Rol <span className="text-red-400">*</span>
-            </label>
-            {!newUser.rol && (
-              <p className="text-xs text-amber-400 mb-2 flex items-center gap-1">
-                <span>⚠️</span> Selecciona el rol para el nuevo usuario
-              </p>
-            )}
-            <Select value={newUser.rol} onValueChange={(value) => setNewUser({ ...newUser, rol: value })}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar rol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="usuario">Usuario</SelectItem>
-                <SelectItem value="moderador">Moderador</SelectItem>
-                <SelectItem value="admin">Administrador</SelectItem>
-                {canCreateOwner() && <SelectItem value="owner">Owner</SelectItem>}
-              </SelectContent>
-            </Select>
-            {newUser.rol && (
-              <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1">
-                <span>✓</span> El usuario será creado como {newUser.rol}
-              </p>
-            )}
+              </label>
+              {!newUser.rol && (
+                <p className="panel-field-hint text-amber-400">Selecciona el rol para el nuevo usuario.</p>
+              )}
+              <Select value={newUser.rol} onValueChange={(value) => setNewUser({ ...newUser, rol: value })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="usuario">Usuario</SelectItem>
+                  <SelectItem value="moderador">Moderador</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  {canCreateOwner() && <SelectItem value="owner">Owner</SelectItem>}
+                </SelectContent>
+              </Select>
+              {newUser.rol && (
+                <p className="panel-field-hint text-emerald-400">El usuario será creado como {newUser.rol}.</p>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button 
               variant="primary" 
               className={`flex-1 ${!newUser.rol ? 'opacity-75 cursor-not-allowed' : ''}`}
@@ -702,13 +806,13 @@ export default function UsuariosPage() {
 
       {/* Password Modal */}
       <Modal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} title="Cambiar Contraseña">
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-white/5">
+        <div className="space-y-5">
+          <div className="panel-readonly-block">
             <p className="text-sm text-gray-400">Usuario</p>
             <p className="text-white font-medium">{selectedUser?.username}</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Nueva Contraseña</label>
+          <div className="panel-field">
+            <label className="panel-field-label">Nueva Contraseña</label>
             <input
               type="password"
               value={newPassword}
@@ -717,7 +821,7 @@ export default function UsuariosPage() {
               placeholder="Nueva contraseña"
             />
           </div>
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button variant="primary" className="flex-1" onClick={changePassword}>
               Cambiar Contraseña
             </Button>
@@ -734,8 +838,8 @@ export default function UsuariosPage() {
         onClose={() => setShowViewPasswordModal(false)}
         title={viewPasswordData?.reset ? 'Contraseña Temporal' : 'Contraseña'}
       >
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-white/5">
+        <div className="space-y-5">
+          <div className="panel-readonly-block">
             <p className="text-sm text-gray-400">Usuario</p>
             <p className="text-white font-medium">{viewPasswordData?.username}</p>
           </div>
@@ -751,7 +855,7 @@ export default function UsuariosPage() {
                   size="sm"
                   onClick={() => {
                     navigator.clipboard.writeText(viewPasswordData?.password || '');
-                    toast.success('Contraseña copiada al portapapeles');
+                    notify.success('Contraseña copiada al portapapeles');
                   }}
                 >
                   Copiar
@@ -775,7 +879,7 @@ export default function UsuariosPage() {
               </p>
             </div>
           )}
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button variant="secondary" className="w-full" onClick={() => setShowViewPasswordModal(false)}>
               Cerrar
             </Button>

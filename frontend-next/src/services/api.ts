@@ -2,9 +2,10 @@ import axios, { AxiosInstance } from 'axios'
 import { User, BotStatus, Aporte, Pedido, Proveedor, Group, DashboardStats } from '@/types'
 
 const API_URL =
-  process.env.NODE_ENV === 'production'
-    ? ''
-    : ((process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) || '')
+  // Prefer env when provided (useful behind proxies/tunnels)
+  ((process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) ||
+    // Default: same-origin in production
+    (process.env.NODE_ENV === 'production' ? '' : ''))
 
 class ApiService {
   private api: AxiosInstance
@@ -34,17 +35,43 @@ class ApiService {
 
     this.api.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.status === 401 && typeof window !== 'undefined') {
+      async (error) => {
+        const status = error?.response?.status
+
+        // Auth: hard fail -> logout
+        if (status === 401 && typeof window !== 'undefined') {
           localStorage.removeItem('token')
           try {
             const secure = window.location.protocol === 'https:' ? '; Secure' : ''
             document.cookie = `token=; Path=/; Max-Age=0; SameSite=Lax${secure}`
           } catch {}
           if (window.location.pathname !== '/login') window.location.href = '/login'
+          return Promise.reject(error)
         }
+
+        // Retry transient gateway/network errors (helps with intermittent 502)
+        try {
+          const config = error?.config
+          const method = String(config?.method || 'get').toLowerCase()
+          const isIdempotent = method === 'get' || method === 'head' || method === 'options'
+          const isTransient = status === 502 || status === 503 || status === 504 || !error?.response
+
+          if (config && isIdempotent && isTransient) {
+            ;(config as any).__retryCount = (config as any).__retryCount || 0
+            const retryCount = (config as any).__retryCount
+            const maxRetries = 2
+            if (retryCount < maxRetries) {
+              ;(config as any).__retryCount = retryCount + 1
+              const base = 450
+              const delay = base * Math.pow(2, retryCount) + Math.floor(Math.random() * 180)
+              await new Promise((r) => setTimeout(r, delay))
+              return this.api.request(config)
+            }
+          }
+        } catch {}
+
         return Promise.reject(error)
-      }
+      },
     )
   }
 
@@ -172,6 +199,16 @@ class ApiService {
 
   async getSubbotStatus() {
     const response = await this.api.get('/api/subbot/status')
+    return response.data
+  }
+
+  async reindexSubbots() {
+    const response = await this.api.post('/api/subbot/reindex')
+    return response.data
+  }
+
+  async normalizeSubbots(dryRun = false) {
+    const response = await this.api.post('/api/subbot/normalize', dryRun ? { dryRun: true } : {})
     return response.data
   }
 
@@ -506,6 +543,13 @@ class ApiService {
 
   async deleteNotification(id: number) {
     const response = await this.api.delete(`/api/notificaciones/${id}`);
+    return response.data;
+  }
+
+  async deleteAllNotifications(scope: 'all' | 'read' | 'unread' = 'all') {
+    const response = await this.api.delete('/api/notificaciones', {
+      params: { confirm: 'true', scope },
+    });
     return response.data;
   }
 

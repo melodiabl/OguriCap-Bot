@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { 
   BarChart, 
   Bar, 
@@ -31,12 +32,14 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useOguriTheme } from '@/contexts/OguriThemeContext';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DashboardCard } from '@/components/ui/DashboardCard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 
 interface MetricCard {
   title: string;
@@ -191,7 +194,7 @@ export default function AnalyticsPage() {
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Error loading analytics:', error);
-      toast.error('Error cargando analytics');
+      notify.error('Error cargando analytics');
     } finally {
       setIsLoading(false);
     }
@@ -285,9 +288,9 @@ export default function AnalyticsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success('Datos exportados correctamente');
+      notify.success('Datos exportados correctamente');
     } catch (error) {
-      toast.error('Error exportando datos');
+      notify.error('Error exportando datos');
     }
   };
 
@@ -319,11 +322,11 @@ export default function AnalyticsPage() {
     };
     
     return (
-      <div className="glass-card p-6">
+      <div className="panel-surface-soft p-5 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-400 mb-1">{metric.title}</p>
-            <p className="text-2xl font-bold text-white">
+            <p className="mb-1 text-sm text-muted">{metric.title}</p>
+            <p className="text-2xl font-bold text-foreground">
               <AnimatedNumber value={metric.value} duration={0.6} />
             </p>
             <div className="flex items-center mt-2">
@@ -334,7 +337,7 @@ export default function AnalyticsPage() {
               ) : null}
               <span className={`text-sm ${
                 metric.changeType === 'increase' ? 'text-green-400' : 
-                metric.changeType === 'decrease' ? 'text-red-400' : 'text-gray-400'
+                metric.changeType === 'decrease' ? 'text-red-400' : 'text-muted'
               }`}>
                 {metric.change > 0 ? '+' : ''}<AnimatedNumber value={metric.change} duration={0.6} />%
               </span>
@@ -342,10 +345,10 @@ export default function AnalyticsPage() {
           </div>
           <div
             className={cn(
-              'p-3 rounded-2xl border shadow-inner-glow ring-1 ring-white/10',
-              toneStyles[tone].chip
-            )}
-          >
+               'rounded-2xl border p-3 shadow-inner-glow ring-1 ring-border/10',
+               toneStyles[tone].chip
+             )}
+           >
             <div className={cn('w-6 h-6', toneStyles[tone].icon)}>
               <IconComponent />
             </div>
@@ -373,8 +376,57 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className={cn("space-y-6 transition-all duration-500", isInZone && "is-in-zone")}>
-      <div className="oguri-zone-overlay" />
+    <div className={cn("panel-page relative overflow-hidden transition-all duration-500", isInZone && "is-in-zone")}>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-lavender/20 blur-3xl"
+          animate={{ x: [0, 20, 0], y: [0, 18, 0], opacity: [0.24, 0.46, 0.24] }}
+          transition={{ repeat: Infinity, duration: 11, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/18 blur-3xl"
+          animate={{ x: [0, -18, 0], y: [0, 16, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={{ repeat: Infinity, duration: 10.4, ease: 'easeInOut', delay: 0.6 }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Trophy className="h-3.5 w-3.5 text-oguri-gold" />
+              Telemetria avanzada
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Cabina analytics estilo HUD</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Métricas con una atmósfera propia, glow de gráficos y sensación de panel táctico en tiempo real.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Refresh</p>
+              <p className="mt-2 text-lg font-black text-white">{autoRefresh ? 'AUTO' : 'PAUSA'}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Rango</p>
+              <p className="mt-2 text-lg font-black text-white">{timeRange.toUpperCase()}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Socket</p>
+              <p className="mt-2 text-lg font-black text-white">{socket ? 'LIVE' : 'HTTP'}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title="Logros de Carrera"
@@ -386,18 +438,19 @@ export default function AnalyticsPage() {
         icon={<Trophy className="w-6 h-6 text-oguri-gold animate-bounce" />}
         actions={
           <>
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as any)}
-                className="input-glass min-w-[110px]"
-              >
-                <option value="1h">1 Hora</option>
-                <option value="24h">24 Horas</option>
-                <option value="7d">7 Días</option>
-                <option value="30d">30 Días</option>
-              </select>
+            <div className="flex items-center gap-2 rounded-2xl border border-border/15 bg-card/60 px-3 py-2">
+              <Filter className="w-4 h-4 text-muted" />
+              <Select value={timeRange} onValueChange={(value) => setTimeRange(value as any)}>
+                <SelectTrigger className="min-w-[130px] border-0 bg-transparent px-0 shadow-none focus:ring-0">
+                  <SelectValue placeholder="Rango" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1h">1 Hora</SelectItem>
+                  <SelectItem value="24h">24 Horas</SelectItem>
+                  <SelectItem value="7d">7 Días</SelectItem>
+                  <SelectItem value="30d">30 Días</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button
@@ -424,7 +477,7 @@ export default function AnalyticsPage() {
       />
 
       {/* Métricas principales */}
-      <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" delay={0.06} stagger={0.06}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.06} stagger={0.06}>
         {metrics.map((metric, index) => (
           <StaggerItem key={index}>
             <MetricCard metric={metric} />
@@ -433,10 +486,9 @@ export default function AnalyticsPage() {
       </Stagger>
 
       {/* Gráficos */}
-      <Stagger className="grid grid-cols-1 lg:grid-cols-2 gap-6" delay={0.08} stagger={0.08}>
+      <Stagger className="grid grid-cols-1 gap-6 lg:grid-cols-2" delay={0.08} stagger={0.08}>
         <StaggerItem>
-          <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Comandos Ejecutados</h3>
+          <DashboardCard title="Comandos Ejecutados" description="Flujo por ventana temporal" variant="chart" icon={<Zap className="h-5 w-5" />}>
              <ResponsiveContainer width="100%" height={300}>
                <AreaChart data={commandsOverTime}>
                 <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
@@ -452,12 +504,11 @@ export default function AnalyticsPage() {
                 />
                </AreaChart>
              </ResponsiveContainer>
-          </div>
+          </DashboardCard>
         </StaggerItem>
 
         <StaggerItem>
-          <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Actividad de Usuarios</h3>
+          <DashboardCard title="Actividad de Usuarios" description="Movimiento y presencia reciente" variant="chart" icon={<Users className="h-5 w-5" />}>
              <ResponsiveContainer width="100%" height={300}>
                <LineChart data={userActivity}>
                 <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
@@ -473,27 +524,25 @@ export default function AnalyticsPage() {
                 />
                </LineChart>
              </ResponsiveContainer>
-          </div>
+          </DashboardCard>
         </StaggerItem>
 
         <StaggerItem>
-          <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Comandos Más Usados</h3>
+          <DashboardCard title="Comandos Más Usados" description="Top actual de interacción" variant="chart" icon={<TrendingUp className="h-5 w-5" />}>
              <ResponsiveContainer width="100%" height={300}>
                <BarChart data={topCommands} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
                 <XAxis type="number" stroke={colors.axis} />
                 <YAxis dataKey="name" type="category" stroke={colors.axis} width={80} />
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="value" fill={colors.info} radius={[0, 4, 4, 0]} />
+                 <Bar dataKey="value" fill={colors.info} radius={[0, 4, 4, 0]} />
                </BarChart>
              </ResponsiveContainer>
-          </div>
+          </DashboardCard>
         </StaggerItem>
 
         <StaggerItem>
-          <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Tasa de Errores</h3>
+          <DashboardCard title="Tasa de Errores" description="Incidentes y estabilidad" variant="chart" icon={<AlertTriangle className="h-5 w-5" />}>
              <ResponsiveContainer width="100%" height={300}>
                <AreaChart data={errorRates}>
                 <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
@@ -509,14 +558,13 @@ export default function AnalyticsPage() {
                 />
                </AreaChart>
              </ResponsiveContainer>
-          </div>
+          </DashboardCard>
         </StaggerItem>
       </Stagger>
 
       {/* Tiempo de respuesta */}
       <Reveal>
-        <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Tiempo de Respuesta Promedio</h3>
+        <DashboardCard title="Tiempo de Respuesta Promedio" description="Velocidad estimada del sistema" variant="chart" icon={<Activity className="h-5 w-5" />}>
            <ResponsiveContainer width="100%" height={200}>
              <LineChart data={responseTimeData}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
@@ -529,10 +577,10 @@ export default function AnalyticsPage() {
                 stroke={colors.warning}
                 strokeWidth={2}
                 dot={{ fill: colors.warning, strokeWidth: 2, r: 3 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+               />
+             </LineChart>
+           </ResponsiveContainer>
+        </DashboardCard>
       </Reveal>
     </div>
   );

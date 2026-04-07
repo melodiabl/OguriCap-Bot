@@ -40,17 +40,17 @@ export const AutoRefreshIndicator: React.FC<AutoRefreshIndicatorProps> = ({
       type="button"
       onClick={handleRefresh}
       disabled={!onRefresh || isRefreshing}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs disabled:opacity-60"
+      className="flex items-center gap-2 rounded-full border border-border/15 bg-card/60 px-3 py-1.5 text-xs text-[rgb(var(--text-secondary))] disabled:opacity-60"
       title={onRefresh ? 'Actualizar' : 'Tiempo real por Socket.IO'}
     >
       <motion.div
         animate={isRefreshing ? { rotate: 360 } : {}}
         transition={{ duration: 1, ease: "linear" }}
       >
-        <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'text-primary-400' : 'text-gray-400'}`} />
+        <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'text-primary-400' : 'text-muted'}`} />
       </motion.div>
-      <Clock className="w-3 h-3 text-gray-400" />
-      <span className="text-gray-400 font-mono">
+      <Clock className="w-3 h-3 text-muted" />
+      <span className="font-mono text-[rgb(var(--text-secondary))]">
         {isRefreshing ? 'Actualizando...' : onRefresh ? 'Actualizar' : formatTime(Math.round(interval / 1000))}
       </span>
     </button>

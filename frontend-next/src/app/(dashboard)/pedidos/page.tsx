@@ -16,7 +16,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { usePedidosSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
 import { notify } from '@/lib/notify';
 import { Pedido } from '@/types';
 
@@ -58,7 +57,7 @@ export default function PedidosPage() {
       setPedidos(response?.pedidos || response?.data || []);
       setPagination(response?.pagination);
     } catch (err) {
-      toast.error('Error al cargar pedidos');
+      notify.error('Error al cargar pedidos');
     } finally {
       setLoading(false);
     }
@@ -179,7 +178,7 @@ export default function PedidosPage() {
       await api.processPedidoWithLibrary(pedido.id, groupJid);
       const data = await api.getPedidoLibraryMatches(pedido.id);
       setLibraryMatches(data);
-      toast.success('Pedido procesado y listado');
+      notify.success('Pedido procesado y listado');
       clearPendingLibraryProcess(pedido.id);
     } catch (err: any) {
       const status = Number(err?.response?.status || 0);
@@ -193,7 +192,7 @@ export default function PedidosPage() {
         return;
       }
 
-      toast.error(apiError || 'Error procesando pedido');
+      notify.error(apiError || 'Error procesando pedido');
     } finally {
       setLibraryLoading(false);
     }
@@ -219,13 +218,13 @@ export default function PedidosPage() {
   const sendItemToWhatsApp = async (itemId: number) => {
     const jid = sendToJid.trim();
     if (!jid) {
-      toast.error('Ingresa un JID destino (ej: 1203630...@g.us)');
+      notify.error('Ingresa un JID destino (ej: 1203630...@g.us)');
       return;
     }
     try {
       setSendingItemId(itemId);
       const res = await api.sendLibraryItem(itemId, jid, { pedidoId: selectedPedido?.id, markCompleted: markCompletedOnSend });
-      toast.success('Enviado por WhatsApp');
+      notify.success('Enviado por WhatsApp');
       if (markCompletedOnSend && res?.pedido) {
         setPedidos(prev => prev.map(p => p.id === res.pedido.id ? { ...(p as any), ...(res.pedido as any) } : p));
         setSelectedPedido(prev => prev ? ({ ...(prev as any), ...(res.pedido as any) } as any) : prev);
@@ -233,7 +232,7 @@ export default function PedidosPage() {
     } catch (err: any) {
       const link = err?.response?.data?.link;
       if (link) {
-        toast.error('Archivo muy grande. Usa el link de descarga.');
+        notify.warning('Archivo muy grande. Usa el link de descarga.');
         window.open(link, '_blank', 'noopener,noreferrer');
         if (markCompletedOnSend) {
           const updated = err?.response?.data?.pedido
@@ -244,7 +243,7 @@ export default function PedidosPage() {
         }
         return;
       }
-      toast.error(err?.response?.data?.error || 'Error enviando');
+      notify.error(err?.response?.data?.error || 'Error enviando');
     } finally {
       setSendingItemId(null);
     }
@@ -257,17 +256,19 @@ export default function PedidosPage() {
       
       // Crear notificación automática
       const pedido = pedidos.find(p => p.id === id);
-      await api.createNotification({
-        title: `Pedido ${estado.replace('_', ' ')}`,
-        message: `El pedido "${pedido?.titulo}" ha cambiado a estado: ${estado.replace('_', ' ')}`,
-        type: estado === 'completado' ? 'success' : estado === 'cancelado' ? 'error' : 'info',
-        category: 'pedidos'
-      });
+      void api
+        .createNotification({
+          title: `Pedido ${estado.replace('_', ' ')}`,
+          message: `El pedido "${pedido?.titulo}" ha cambiado a estado: ${estado.replace('_', ' ')}`,
+          type: estado === 'completado' ? 'success' : estado === 'cancelado' ? 'error' : 'info',
+          category: 'pedidos',
+        })
+        .catch(() => {});
       
-      toast.success(`Pedido actualizado a ${estado}`);
+      notify.success(`Pedido actualizado a ${estado}`);
       loadStats();
     } catch (err) {
-      toast.error('Error al actualizar pedido');
+      notify.error('Error al actualizar pedido');
     }
   };
 
@@ -276,9 +277,9 @@ export default function PedidosPage() {
       // Usar API real de votos
       const response = await api.votePedido(id);
       setPedidos(prev => prev.map(p => p.id === id ? { ...p, votos: response.votos || ((p as any).votos || 0) + 1 } as any : p));
-      toast.success('Voto registrado');
+      notify.success('Voto registrado');
     } catch (err) {
-      toast.error('Error al votar');
+      notify.error('Error al votar');
     }
   };
   
@@ -286,13 +287,13 @@ export default function PedidosPage() {
     try {
       setDeleting(true);
       await api.deletePedido(pedido.id);
-      toast.success('Pedido eliminado');
+      notify.success('Pedido eliminado');
       setPedidos(prev => prev.filter(p => p.id !== pedido.id));
       if (selectedPedido?.id === pedido.id) setSelectedPedido(null);
       setDeleteTarget(null);
       loadStats();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al eliminar pedido');
+      notify.error(err?.response?.data?.error || 'Error al eliminar pedido');
     } finally {
       setDeleting(false);
     }
@@ -300,7 +301,7 @@ export default function PedidosPage() {
   const createPedido = async () => {
     try {
       if (!newPedido.titulo.trim()) {
-        toast.error('El título es requerido');
+        notify.error('El título es requerido');
         return;
       }
       setCreatingPedido(true);
@@ -308,20 +309,22 @@ export default function PedidosPage() {
       const result = await api.createPedido(pedidoData as any);
       
       // Crear notificación automática
-      await api.createNotification({
-        title: 'Nuevo Pedido Creado',
-        message: `Se ha creado el pedido "${newPedido.titulo}" con prioridad ${newPedido.prioridad}`,
-        type: 'info',
-        category: 'pedidos'
-      });
+      void api
+        .createNotification({
+          title: 'Nuevo Pedido Creado',
+          message: `Se ha creado el pedido "${newPedido.titulo}" con prioridad ${newPedido.prioridad}`,
+          type: 'info',
+          category: 'pedidos',
+        })
+        .catch(() => {});
       
-      toast.success('Pedido creado correctamente');
+      notify.success('Pedido creado correctamente');
       setShowCreateModal(false);
       setNewPedido({ titulo: '', descripcion: '', tipo: 'manhwa', prioridad: 'media' });
       loadPedidos();
       loadStats();
     } catch (err) {
-      toast.error('Error al crear pedido');
+      notify.error('Error al crear pedido');
     } finally {
       setCreatingPedido(false);
     }
@@ -331,7 +334,7 @@ export default function PedidosPage() {
     try {
       const titulo = newPedido.titulo.trim();
       if (!titulo) {
-        toast.error('El título es requerido');
+        notify.error('El título es requerido');
         return;
       }
 
@@ -347,13 +350,13 @@ export default function PedidosPage() {
       const res = await api.sendAIMessage({ message: prompt });
       const improved = String((res as any)?.response || '').trim();
       if (!improved) {
-        toast.error('La IA no devolvió contenido');
+        notify.error('La IA no devolvió contenido');
         return;
       }
       setNewPedido(prev => ({ ...prev, descripcion: improved }));
-      toast.success('Descripción mejorada');
+      notify.success('Descripción mejorada');
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error usando IA');
+      notify.error(err?.response?.data?.error || 'Error usando IA');
     } finally {
       setAiProcessing(false);
     }
@@ -394,8 +397,92 @@ export default function PedidosPage() {
     return new Date(dateString).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
+  const actionButtonClass = 'flex h-10 w-10 items-center justify-center rounded-xl border border-border/15 bg-card/60 transition-all hover:border-border/25 hover:bg-card/80';
+
+  const renderPedidoActions = (pedido: Pedido) => (
+    <div className="flex flex-wrap items-center gap-2">
+      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedPedido(pedido)} className={`${actionButtonClass} text-cyan-400`} title="Ver detalles">
+        <Eye className="w-4 h-4" />
+      </motion.button>
+      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => voteForPedido(pedido.id)} className={`${actionButtonClass} text-pink-400`} title="Votar pedido">
+        <Heart className="w-4 h-4" />
+      </motion.button>
+      {(isAdmin || isModerator) && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setDeleteTarget(pedido)}
+          className={`${actionButtonClass} text-red-400`}
+          title="Eliminar pedido"
+        >
+          <Trash2 className="w-4 h-4" />
+        </motion.button>
+      )}
+      {(isAdmin || isModerator) && pedido.estado === 'pendiente' && (
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => updateEstado(pedido.id, 'en_proceso')} className={`${actionButtonClass} text-amber-400`} title="Marcar en proceso">
+          <Loader2 className="w-4 h-4" />
+        </motion.button>
+      )}
+      {(isAdmin || isModerator) && pedido.estado === 'en_proceso' && (
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => updateEstado(pedido.id, 'completado')} className={`${actionButtonClass} text-emerald-400`} title="Marcar completado">
+          <CheckCircle className="w-4 h-4" />
+        </motion.button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="panel-page relative overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-gold/18 blur-3xl"
+          animate={{ x: [0, 16, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
+          transition={{ repeat: Infinity, duration: 10.8, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-purple/18 blur-3xl"
+          animate={{ x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={{ repeat: Infinity, duration: 11.2, ease: 'easeInOut', delay: 0.5 }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <ShoppingCart className="h-3.5 w-3.5 text-oguri-gold" />
+              Cola operativa
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Gestión de pedidos con lectura táctica</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Solicitudes, prioridad y seguimiento de la comunidad en una vista más intensa y fácil de escanear.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Items</p>
+              <p className="mt-2 text-lg font-black text-white">{pedidos.length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Pendientes</p>
+              <p className="mt-2 text-lg font-black text-white">{pedidos.filter((pedido) => pedido.estado === 'pendiente').length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Canal</p>
+              <p className="mt-2 text-lg font-black text-white">{smartRefreshConnected ? 'LIVE' : 'FALLBACK'}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title="Gestión de Pedidos"
@@ -431,7 +518,7 @@ export default function PedidosPage() {
       />
 
       {/* Stats */}
-      <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-4" delay={0.06} stagger={0.06}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.06} stagger={0.06}>
         <StaggerItem>
           <StatCard title="Total Pedidos" value={stats?.total || 0} icon={<ShoppingCart className="w-6 h-6" />} color="primary" delay={0} />
         </StaggerItem>
@@ -447,14 +534,14 @@ export default function PedidosPage() {
       </Stagger>
 
       {/* Filters */}      {/* Filters */}
-      <Card animated delay={0.2} className="p-6">
-        <div className="flex flex-col md:flex-row gap-4">
+      <Card animated delay={0.2} className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input type="text" placeholder="Buscar pedidos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadPedidos()} className="input-search w-full" />
           </div>
           <Select value={estadoFilter} onValueChange={setEstadoFilter}>
-            <SelectTrigger className="md:w-40"><SelectValue placeholder="Todos" /></SelectTrigger>
+            <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Todos" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="pendiente">Pendientes</SelectItem>
@@ -464,7 +551,7 @@ export default function PedidosPage() {
             </SelectContent>
           </Select>
           <Select value={prioridadFilter} onValueChange={setPrioridadFilter}>
-            <SelectTrigger className="md:w-40"><SelectValue placeholder="Todas" /></SelectTrigger>
+            <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Todas" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
               <SelectItem value="alta">Alta</SelectItem>
@@ -477,106 +564,118 @@ export default function PedidosPage() {
 
       {/* Pedidos Table */}
       <Card animated delay={0.3} className="overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">Lista de Pedidos</h2>
-          <p className="text-gray-400 text-sm mt-1">{pedidos.length} pedidos mostrados</p>
+        <div className="border-b border-border/15 p-5 text-center sm:p-6 sm:text-left">
+          <h2 className="text-lg font-semibold text-foreground">Lista de Pedidos</h2>
+          <p className="mt-1 text-sm text-muted">{pedidos.length} pedidos mostrados</p>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center">
+          <div className="panel-empty-state">
             <RefreshCw className="w-8 h-8 text-primary-400 animate-spin mx-auto mb-4" />
-            <p className="text-gray-400">Cargando pedidos...</p>
+            <p className="text-muted">Cargando pedidos...</p>
           </div>
         ) : pedidos.length === 0 ? (
-          <div className="p-12 text-center">
-            <ShoppingCart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">No hay pedidos</h3>
-            <p className="text-gray-400">No se encontraron pedidos con los filtros aplicados</p>
+          <div className="panel-empty-state">
+            <ShoppingCart className="mx-auto mb-4 h-16 w-16 text-muted" />
+            <h3 className="mb-2 text-lg font-medium text-foreground">No hay pedidos</h3>
+            <p className="text-muted">No se encontraron pedidos con los filtros aplicados</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table-glass w-full">
-              <thead>
-                <tr>
-                  <th>Pedido</th>
-                  <th>Prioridad</th>
-                  <th>Usuario</th>
-                  <th>Estado</th>
-                  <th>Votos</th>
-                  <th>Fecha</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {pedidos.map((pedido, index) => (
-                    <motion.tr
-                      key={pedido.id}
-                      layout="position"
-                      initial={{ opacity: 0, y: 16, scale: 0.99 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.99 }}
-                      transition={{
-                        delay: index * 0.03,
-                        opacity: { duration: 0.18, ease: 'easeOut' },
-                        filter: { duration: 0.22, ease: 'easeOut' },
-                        y: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
-                        scale: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
-                      }}
-                    >
-                      <td>
-                        <div className="max-w-xs">
-                          <p className="font-medium text-white truncate">{pedido.titulo}</p>
-                          <p className="text-xs text-gray-500 truncate">{pedido.contenido_solicitado || (pedido as any).descripcion}</p>
-                        </div>
-                      </td>
-                      <td>{getPrioridadBadge(pedido.prioridad)}</td>
-                      <td><span className="text-gray-300">{pedido.usuario?.username || (pedido as any).usuario || '-'}</span></td>
-                      <td>{getEstadoBadge(pedido.estado)}</td>
-                      <td><span className="text-white font-medium">{(pedido as any).votos || 0}</span></td>
-                      <td><span className="text-gray-400 text-sm">{formatDate(pedido.created_at)}</span></td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setSelectedPedido(pedido)} className="p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors" title="Ver detalles">
-                            <Eye className="w-4 h-4" />
-                          </motion.button>
-                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => voteForPedido(pedido.id)} className="p-2 rounded-lg text-pink-400 hover:bg-pink-500/10 transition-colors" title="Votar pedido">
-                            <Heart className="w-4 h-4" />
-                          </motion.button>
-                          {(isAdmin || isModerator) && (
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setDeleteTarget(pedido)}
-                              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                              title="Eliminar pedido"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                          {(isAdmin || isModerator) && pedido.estado === 'pendiente' && (
-                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => updateEstado(pedido.id, 'en_proceso')} className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors" title="Marcar en proceso">
-                              <Loader2 className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                          {(isAdmin || isModerator) && pedido.estado === 'en_proceso' && (
-                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => updateEstado(pedido.id, 'completado')} className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Marcar completado">
-                              <CheckCircle className="w-4 h-4" />
-                            </motion.button>
-                          )}
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="space-y-3 p-4 md:hidden">
+              {pedidos.map((pedido, index) => (
+                <motion.div
+                  key={pedido.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="panel-surface-soft p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">{pedido.titulo}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted">{pedido.contenido_solicitado || (pedido as any).descripcion}</p>
+                    </div>
+                    {getEstadoBadge(pedido.estado)}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {getPrioridadBadge(pedido.prioridad)}
+                    <span className="badge badge-info">{(pedido as any).votos || 0} votos</span>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="panel-data-row">
+                      <span className="panel-data-row__label">Usuario</span>
+                      <span className="panel-data-row__value">{pedido.usuario?.username || (pedido as any).usuario || '-'}</span>
+                    </div>
+                    <div className="panel-data-row">
+                      <span className="panel-data-row__label">Fecha</span>
+                      <span className="panel-data-row__value">{formatDate(pedido.created_at)}</span>
+                    </div>
+                  </div>
+
+                  <div className="panel-actions-wrap mt-4 border-t border-border/15 pt-4">
+                    {renderPedidoActions(pedido)}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="table-glass w-full">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    <th>Prioridad</th>
+                    <th>Usuario</th>
+                    <th>Estado</th>
+                    <th>Votos</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {pedidos.map((pedido, index) => (
+                      <motion.tr
+                        key={pedido.id}
+                        layout="position"
+                        initial={{ opacity: 0, y: 16, scale: 0.99 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.99 }}
+                        transition={{
+                          delay: index * 0.03,
+                          opacity: { duration: 0.18, ease: 'easeOut' },
+                          filter: { duration: 0.22, ease: 'easeOut' },
+                          y: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
+                          scale: { type: 'spring', stiffness: 420, damping: 34, mass: 0.85 },
+                        }}
+                      >
+                        <td>
+                          <div className="max-w-xs">
+                            <p className="truncate font-medium text-foreground">{pedido.titulo}</p>
+                            <p className="truncate text-xs text-muted">{pedido.contenido_solicitado || (pedido as any).descripcion}</p>
+                          </div>
+                        </td>
+                        <td>{getPrioridadBadge(pedido.prioridad)}</td>
+                        <td><span className="text-[rgb(var(--text-secondary))]">{pedido.usuario?.username || (pedido as any).usuario || '-'}</span></td>
+                        <td>{getEstadoBadge(pedido.estado)}</td>
+                        <td><span className="font-medium text-foreground">{(pedido as any).votos || 0}</span></td>
+                        <td><span className="text-sm text-muted">{formatDate(pedido.created_at)}</span></td>
+                        <td>{renderPedidoActions(pedido)}</td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {pagination && pagination.totalPages > 1 && (
-          <div className="p-6 border-t border-white/10 flex items-center justify-between">
-            <p className="text-sm text-gray-400">Página {pagination.page} de {pagination.totalPages}</p>
+          <div className="flex flex-col gap-3 border-t border-border/15 p-5 text-center sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:text-left">
+            <p className="text-sm text-muted">Página {pagination.page} de {pagination.totalPages}</p>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
               <Button variant="secondary" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
@@ -587,9 +686,9 @@ export default function PedidosPage() {
 
       {/* Create Modal */}
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nuevo Pedido">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Título del Pedido</label>
+        <div className="space-y-5">
+          <div className="panel-field">
+            <label className="panel-field-label">Título del Pedido</label>
             <input
               type="text"
               value={newPedido.titulo}
@@ -599,9 +698,9 @@ export default function PedidosPage() {
               data-autofocus
             />
           </div>
-          <div>
+          <div className="panel-field">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-400">Descripción</label>
+              <label className="panel-field-label">Descripción</label>
               <Button
                 variant="secondary"
                 size="sm"
@@ -614,9 +713,9 @@ export default function PedidosPage() {
             </div>
             <textarea value={newPedido.descripcion} onChange={(e) => setNewPedido({ ...newPedido, descripcion: e.target.value })} className="input-glass w-full h-24 resize-none" placeholder="Describe tu pedido..." />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Tipo de Contenido</label>
+          <div className="panel-form-grid">
+            <div className="panel-field">
+              <label className="panel-field-label">Tipo de Contenido</label>
               <Select value={newPedido.tipo} onValueChange={(value) => setNewPedido({ ...newPedido, tipo: value })}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -630,8 +729,8 @@ export default function PedidosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Prioridad</label>
+            <div className="panel-field">
+              <label className="panel-field-label">Prioridad</label>
               <Select value={newPedido.prioridad} onValueChange={(value) => setNewPedido({ ...newPedido, prioridad: value })}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -643,15 +742,15 @@ export default function PedidosPage() {
             </div>
           </div>
           {aiProcessing && (
-            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+            <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Bot className="w-5 h-5 text-blue-400 animate-pulse" />
                 <span className="text-sm font-medium text-blue-400">IA Procesando</span>
               </div>
-              <p className="text-xs text-gray-400">La IA está analizando tu pedido...</p>
+              <p className="text-xs text-muted">La IA está analizando tu pedido...</p>
             </div>
           )}
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button variant="primary" className="flex-1" onClick={createPedido} loading={creatingPedido} disabled={creatingPedido || aiProcessing}>
               Crear Pedido
             </Button>
@@ -665,36 +764,36 @@ export default function PedidosPage() {
       {/* Detail Modal */}
       <Modal isOpen={!!selectedPedido} onClose={() => setSelectedPedido(null)} title="Detalle del Pedido">
         {selectedPedido && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Estado</span>
+          <div className="space-y-5">
+            <div className="panel-data-row">
+              <span className="text-muted">Estado</span>
               {getEstadoBadge(selectedPedido.estado)}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Prioridad</span>
+            <div className="panel-data-row">
+              <span className="text-muted">Prioridad</span>
               {getPrioridadBadge(selectedPedido.prioridad)}
             </div>
-            <div className="p-4 rounded-xl bg-white/5">
-              <h4 className="font-medium text-white mb-2">{selectedPedido.titulo}</h4>
-              <p className="text-gray-400 text-sm">{selectedPedido.contenido_solicitado || (selectedPedido as any).descripcion}</p>
+            <div className="panel-readonly-block">
+              <h4 className="mb-2 font-medium text-foreground">{selectedPedido.titulo}</h4>
+              <p className="text-sm text-muted">{selectedPedido.contenido_solicitado || (selectedPedido as any).descripcion}</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 rounded-xl bg-white/5">
-                <p className="text-xs text-gray-500">Usuario</p>
-                <p className="text-white">{selectedPedido.usuario?.username || (selectedPedido as any).usuario || '-'}</p>
+            <div className="panel-form-grid">
+              <div className="panel-mini-tile">
+                <p className="text-xs text-muted">Usuario</p>
+                <p className="text-foreground">{selectedPedido.usuario?.username || (selectedPedido as any).usuario || '-'}</p>
               </div>
-              <div className="p-3 rounded-xl bg-white/5">
-                <p className="text-xs text-gray-500">Votos</p>
-                <p className="text-white">{(selectedPedido as any).votos || 0}</p>
+              <div className="panel-mini-tile">
+                <p className="text-xs text-muted">Votos</p>
+                <p className="text-foreground">{(selectedPedido as any).votos || 0}</p>
               </div>
             </div>
 
             {/* Delivery / Matches */}
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+            <div className="panel-readonly-block">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-sm font-medium text-white">Entrega de contenido</p>
-                  <p className="text-xs text-gray-500">Lista de capítulos/archivos encontrados en la biblioteca del proveedor.</p>
+                  <p className="text-sm font-medium text-foreground">Entrega de contenido</p>
+                  <p className="text-xs text-muted">Lista de capítulos/archivos encontrados en la biblioteca del proveedor.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {pendingLibraryProcessIds.has(selectedPedido.id) && (
@@ -716,9 +815,9 @@ export default function PedidosPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Grupo proveedor (para buscar)</label>
+              <div className="panel-form-grid mb-3">
+                <div className="panel-field">
+                  <label className="panel-field-label text-xs">Grupo proveedor (para buscar)</label>
                   <input
                     value={providerGroupJid}
                     onChange={(e) => setProviderGroupJid(e.target.value)}
@@ -726,8 +825,8 @@ export default function PedidosPage() {
                     className="input-glass w-full"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Enviar a (JID)</label>
+                <div className="panel-field">
+                  <label className="panel-field-label text-xs">Enviar a (JID)</label>
                   <input
                     value={sendToJid}
                     onChange={(e) => setSendToJid(e.target.value)}
@@ -737,7 +836,7 @@ export default function PedidosPage() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-xs text-gray-400 select-none mb-3">
+              <label className="mb-3 flex select-none items-center gap-2 text-xs text-muted">
                 <input
                   type="checkbox"
                   checked={markCompletedOnSend}
@@ -748,21 +847,21 @@ export default function PedidosPage() {
               </label>
 
               {libraryLoading ? (
-                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <div className="flex items-center gap-2 text-sm text-muted">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Cargando coincidencias...
                 </div>
               ) : (libraryMatches?.matches?.length ? (
                 <div className="space-y-2">
                   {libraryMatches.matches.slice(0, 8).map((m: any) => (
-                    <div key={m.id} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                    <div key={m.id} className="panel-data-row">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-white font-medium truncate">
+                          <p className="truncate font-medium text-foreground">
                             {m.item?.title || m.item?.originalName || `Archivo #${m.id}`}
                             {m.item?.chapter ? ` · Cap ${m.item.chapter}` : ''}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1 truncate">
+                          <p className="mt-1 truncate text-xs text-muted">
                             {String(m.item?.category || 'other').toUpperCase()} · {String(m.item?.format || 'file').toUpperCase()} · score {Math.round(Number(m.score || 0))}
                           </p>
                         </div>
@@ -772,7 +871,7 @@ export default function PedidosPage() {
                               href={m.item.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                              className="rounded-lg p-2 text-muted transition-colors hover:bg-white/5 hover:text-foreground"
                               title="Descargar"
                             >
                               <Download className="w-4 h-4" />
@@ -781,7 +880,7 @@ export default function PedidosPage() {
                           {(isAdmin || isModerator) && (
                             <button
                               onClick={() => sendItemToWhatsApp(Number(m.id))}
-                              className="p-2 rounded-lg text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors disabled:opacity-60"
+                               className="rounded-lg p-2 text-muted transition-colors hover:bg-emerald-500/10 hover:text-emerald-300 disabled:opacity-60"
                               title="Enviar por WhatsApp"
                               disabled={sendingItemId === Number(m.id)}
                             >
@@ -794,11 +893,11 @@ export default function PedidosPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">Aún no hay resultados. Procesa el pedido para buscar en la biblioteca.</p>
+                <p className="text-sm text-muted">Aún no hay resultados. Procesa el pedido para buscar en la biblioteca.</p>
               ))}
             </div>
 
-            <div className="flex gap-2 pt-4">
+            <div className="panel-modal-actions">
               <Button variant="secondary" className="flex-1" icon={<Heart className="w-4 h-4" />} onClick={() => { voteForPedido(selectedPedido.id); setSelectedPedido(null); }}>
                 Votar ({(selectedPedido as any).votos || 0})
               </Button>
@@ -834,11 +933,11 @@ export default function PedidosPage() {
       >
         {deleteTarget && (
           <div className="space-y-4">
-            <p className="text-gray-300 text-sm">
-              ¿Seguro que quieres eliminar el pedido <span className="text-white font-medium">#{deleteTarget.id}</span>?
+            <p className="text-sm text-[rgb(var(--text-secondary))]">
+              ¿Seguro que quieres eliminar el pedido <span className="font-medium text-foreground">#{deleteTarget.id}</span>?
               Esta acción no se puede deshacer.
             </p>
-            <div className="flex gap-3">
+            <div className="panel-modal-actions">
               <Button
                 variant="secondary"
                 className="flex-1"

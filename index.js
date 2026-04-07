@@ -159,9 +159,16 @@ const textOption = chalk.cyan
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
 const question = (texto) => new Promise((resolver) => rl.question(texto, resolver))
 let opcion
+const hasMainSessionCreds = fs.existsSync(`./${global.sessions}/creds.json`)
 
-// Verificar si hay argumento --no-prompt para modo panel (sin preguntas interactivas)
-const noPrompt = process.argv.includes("--no-prompt") || process.env.NO_PROMPT === '1'
+// Modo no interactivo para panel/containers (sin depender de NO_PROMPT)
+const noPromptEnv = ['1', 'true', 'yes'].includes(String(process.env.NO_PROMPT || '').toLowerCase())
+const runningInContainer = fs.existsSync('/.dockerenv') || process.env.CONTAINER === '1'
+const noPrompt =
+  process.argv.includes('--no-prompt') ||
+  noPromptEnv ||
+  !process.stdin.isTTY ||
+  (runningInContainer && process.env.PANEL_API !== '0')
 // Print (lib/print.js) en producción:
 // Antes se desactivaba automáticamente en modo panel/producción.
 // Ahora solo se desactiva si lo pides explícitamente (env).
@@ -204,6 +211,7 @@ try {
 // Exponer para el panel y reconexiones
 global.panelAuthMethod = panelAuthMethod
 global.panelPairingPhone = panelPairingPhone
+const shouldWaitForPanelAuthChoice = noPrompt && !methodCodeQR && !methodCode && !hasMainSessionCreds
 
 // ============================================
 // SELECCIÓN DE MÉTODO DE AUTENTICACIÓN
@@ -212,10 +220,12 @@ if (methodCodeQR) {
   opcion = '1'
 }
 
-if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.json`)) {
+if (!methodCodeQR && !methodCode && !hasMainSessionCreds) {
   if (noPrompt) {
-    // Modo panel: usar configuración del panel
-    if (panelAuthMethod === 'pairing' && panelPairingPhone) {
+    if (shouldWaitForPanelAuthChoice) {
+      console.log(chalk.cyan('[ ✿ ] Modo panel activo - Esperando que la API/panel elija el método de autenticación'))
+      console.log(chalk.cyan('[ ✿ ] No se iniciará QR ni pairing automáticamente hasta que el panel lo solicite'))
+    } else if (panelAuthMethod === 'pairing' && panelPairingPhone) {
       opcion = '2'
       phoneNumber = panelPairingPhone
       console.log(chalk.cyan('[ ✿ ] Modo panel activo - Usando código de emparejamiento'))
@@ -223,7 +233,7 @@ if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.j
       opcion = '1'
       console.log(chalk.cyan('[ ✿ ] Modo panel activo - Usando QR por defecto'))
     }
-    console.log(chalk.cyan('[ ✿ ] Puedes conectar desde el panel web o escanear el QR en la terminal'))
+    console.log(chalk.cyan('[ ✿ ] Puedes conectar desde el panel web y elegir QR o código cuando quieras'))
   } else {
     // Modo terminal: preguntar al usuario
     do {
@@ -311,8 +321,9 @@ if (process.env.PANEL_API !== '0') {
 // ============================================
 // MANEJO DE AUTENTICACIÓN
 // ============================================
-if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
-  if (opcion === '2' || methodCode || panelAuthMethod === 'pairing') {
+if (!hasMainSessionCreds) {
+  const shouldAutoPairingBootstrap = !noPrompt || methodCode
+  if ((opcion === '2' || methodCode || panelAuthMethod === 'pairing') && shouldAutoPairingBootstrap) {
     opcion = '2'
     if (!conn.authState.creds.registered) {
       let addNumber
@@ -335,25 +346,22 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
         addNumber = phoneNumber.replace(/\D/g, '')
       }
       
-      // Generar código de emparejamiento con código fijo del panel
+      // Generar código de emparejamiento
       setTimeout(async () => {
         try {
           console.log(chalk.cyan('[ ✿ ] Solicitando código de emparejamiento...'))
-          
-          // Usar código fijo del socket (sin pasar segundo parámetro, usa el default)
-          let codeBot = await global.conn.requestPairingCode(addNumber)
-          console.log(chalk.cyan('[ ✿ ] Usando código fijo del socket'))
-          
-          // Formatear el código si es necesario
-          if (typeof codeBot === 'string' && codeBot.length > 4) {
-            codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
+
+          const response = typeof global.getMainPairingCode === 'function'
+            ? await global.getMainPairingCode({ force: true, phoneNumber: addNumber })
+            : null
+          const codeBot = response?.pairingCode || null
+
+          if (!codeBot) {
+            throw new Error(response?.message || 'No se pudo generar código de emparejamiento')
           }
-          
+
           console.log(chalk.bold.white(chalk.bgMagenta(`[ ✿ ] Código de Emparejamiento:`)), chalk.bold.white(chalk.white(codeBot)))
           console.log(chalk.cyan('[ ✿ ] Ingresa este código en WhatsApp: Dispositivos Vinculados > Vincular Dispositivo > Vincular con número de teléfono'))
-          
-          // Guardar código para el panel
-          global.panelPairingCode = codeBot
         } catch (error) {
           console.error(chalk.red('❌ Error generando código:'), error.message)
         }
@@ -386,6 +394,7 @@ if (!opts['test']) {
 // VARIABLES GLOBALES PARA EL PANEL
 // ============================================
 global.panelApiMainQr = null
+global.panelPairingCode = null
 global.panelApiMainDisconnect = false
 global.reauthInProgress = false
 global.panelApiLastSeen = null
@@ -393,9 +402,11 @@ global.stopped = 'connecting'
 global.__panelLastConnState ||= null
 // Controla si el backend tiene permiso para emitir QR al panel
 global.panelAllowQr = false
+global.mainPairingGenerationPromise = global.mainPairingGenerationPromise || null
 
 // Estado de autenticacion on-demand (usado por panel-api.js)
-global.botAuthState = global.botAuthState || 'IDLE'
+global.botAuthState = global.botAuthState || 'DISCONNECTED'
+if (global.botAuthState === 'IDLE') global.botAuthState = 'DISCONNECTED'
 global.botAuthMethod = global.botAuthMethod || null
 global.botAuthPhone = global.botAuthPhone || null
 global.authRequestId = global.authRequestId || null
@@ -403,48 +414,296 @@ global.authRequestId = global.authRequestId || null
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const newAuthRequestId = (prefix = 'auth') => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
 
+const normalizeMainAuthState = (state) => {
+  if (state === 'CONNECTED' || state === 'AUTHENTICATING' || state === 'DISCONNECTED') return state
+  if (state === 'IDLE') return 'DISCONNECTED'
+  return 'DISCONNECTED'
+}
+
+const resetMainAuthSession = () => {
+  global.botAuthState = 'DISCONNECTED'
+  global.botAuthMethod = null
+  global.botAuthPhone = null
+  global.authRequestId = null
+}
+
+const setMainAuthSession = ({ state, method = null, phone = null, requestId = null } = {}) => {
+  global.botAuthState = normalizeMainAuthState(state)
+  global.botAuthMethod = method || null
+  global.botAuthPhone = phone || null
+  global.authRequestId = requestId || null
+}
+
+const sanitizeMainPhone = (value) => String(value || '').replace(/[^0-9]/g, '')
+
+const normalizeMainPairingCode = (raw) => {
+  const cleaned = String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (!cleaned || cleaned.length < 8) return null
+  if (cleaned.length === 8) return cleaned.match(/.{1,4}/g)?.join('-') || cleaned
+  return cleaned.match(/.{1,4}/g)?.slice(0, 3).join('-') || cleaned
+}
+
+const sanitizeMainPairKey = (value) => {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  const cleaned = raw.replace(/[^0-9A-Za-z_-]/g, '').slice(0, 32)
+  return cleaned || null
+}
+
+const getMaxMainPairingAgeMs = () => {
+  const parsed = Number.parseInt(process.env.PANEL_PAIRING_CODE_MAX_AGE_MS || '', 10)
+  if (!Number.isFinite(parsed)) return 5 * 60 * 1000
+  if (parsed < 30000) return 30000
+  if (parsed > 3600000) return 3600000
+  return parsed
+}
+
+const isFreshMainTimestamp = (ts, maxAgeMs) => {
+  if (!ts) return false
+  const time = Date.parse(String(ts))
+  if (!Number.isFinite(time)) return false
+  return Date.now() - time <= maxAgeMs
+}
+
+async function persistMainWhatsappConfig(mutator) {
+  try {
+    if (!global.db?.data) return
+    global.db.data.panel ||= {}
+    global.db.data.panel.whatsapp ||= {}
+    if (typeof mutator === 'function') mutator(global.db.data.panel.whatsapp)
+    if (global.db?.write) await global.db.write().catch(() => {})
+  } catch {}
+}
+
+async function clearStoredMainPairingCode() {
+  global.panelPairingCode = null
+  void persistMainWhatsappConfig((whatsapp) => {
+    whatsapp.pairingCode = null
+    whatsapp.pairingUpdatedAt = null
+  })
+}
+
+async function requestMainPairingCodeNow(phoneNumber, pairKey = null) {
+  if (!phoneNumber) {
+    return {
+      success: false,
+      available: false,
+      pairingCode: null,
+      code: null,
+      displayCode: null,
+      phoneNumber: null,
+      message: 'phoneNumber es requerido',
+    }
+  }
+
+  if (!global.conn || typeof global.conn.requestPairingCode !== 'function') {
+    return {
+      success: false,
+      available: false,
+      pairingCode: null,
+      code: null,
+      displayCode: null,
+      phoneNumber,
+      message: 'Conexion no disponible para pairing',
+    }
+  }
+
+  try {
+    const raw = pairKey
+      ? await global.conn.requestPairingCode(phoneNumber, pairKey)
+      : await global.conn.requestPairingCode(phoneNumber)
+    const pairingCode = normalizeMainPairingCode(raw)
+    if (!pairingCode) throw new Error('Código de pairing inválido')
+
+    global.panelPairingCode = pairingCode
+    global.panelPairingPhone = phoneNumber
+    setMainAuthSession({
+      state: 'AUTHENTICATING',
+      method: 'pairing',
+      phone: phoneNumber,
+      requestId: global.authRequestId || newAuthRequestId('pair'),
+    })
+
+    void persistMainWhatsappConfig((whatsapp) => {
+      whatsapp.authMethod = 'pairing'
+      whatsapp.pairingPhone = phoneNumber
+      whatsapp.pairingCode = pairingCode
+      whatsapp.pairingUpdatedAt = new Date().toISOString()
+    })
+
+    try {
+      const { emitBotPairingCode } = await import('./lib/socket-io.js')
+      if (typeof emitBotPairingCode === 'function') emitBotPairingCode(pairingCode, phoneNumber)
+    } catch {}
+
+    return {
+      success: true,
+      available: true,
+      pairingCode,
+      code: pairingCode,
+      displayCode: pairingCode,
+      phoneNumber,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      available: false,
+      pairingCode: null,
+      code: null,
+      displayCode: null,
+      phoneNumber,
+      message: error?.message || String(error),
+    }
+  }
+}
+
+function ensureMainPairingCodeGeneration(phoneNumber, pairKey = null) {
+  if (global.mainPairingGenerationPromise) return global.mainPairingGenerationPromise
+
+  global.mainPairingGenerationPromise = (async () => {
+    return await requestMainPairingCodeNow(phoneNumber, pairKey)
+  })().finally(() => {
+    global.mainPairingGenerationPromise = null
+  })
+
+  return global.mainPairingGenerationPromise
+}
+
+global.setMainAuthMethod = async function setMainAuthMethod(methodName, phoneNumber = null) {
+  const method = methodName === 'pairing' ? 'pairing' : 'qr'
+  const digits = method === 'pairing' ? sanitizeMainPhone(phoneNumber) : null
+
+  if (method === 'pairing' && !digits) {
+    return { success: false, error: 'phoneNumber invalido', method, phoneNumber: null }
+  }
+
+  const prevMethod = (global.panelAuthMethod || panelAuthMethod) === 'pairing' ? 'pairing' : 'qr'
+  const prevPhone = sanitizeMainPhone(global.panelPairingPhone || panelPairingPhone)
+  const nextPhone = method === 'pairing' ? digits : null
+  const shouldInvalidate = method !== 'pairing' || prevMethod !== method || prevPhone !== nextPhone
+
+  panelAuthMethod = method
+  panelPairingPhone = nextPhone
+  global.panelAuthMethod = method
+  global.panelPairingPhone = nextPhone
+
+  if (shouldInvalidate) global.panelPairingCode = null
+
+  void persistMainWhatsappConfig((whatsapp) => {
+    whatsapp.authMethod = method
+    whatsapp.pairingPhone = nextPhone
+    if (shouldInvalidate) {
+      whatsapp.pairingCode = null
+      whatsapp.pairingUpdatedAt = null
+    }
+  })
+
+  return { success: true, method, phoneNumber: nextPhone }
+}
+
+global.getMainPairingCode = async function getMainPairingCode(options = {}) {
+  const force = Boolean(options?.force)
+  const wait = options?.wait !== false
+  const pairKey = sanitizeMainPairKey(options?.pairKey || options?.customCode)
+  const optionPhone = sanitizeMainPhone(options?.phoneNumber)
+  const phoneNumber =
+    optionPhone ||
+    sanitizeMainPhone(global.botAuthPhone) ||
+    sanitizeMainPhone(global.panelPairingPhone) ||
+    sanitizeMainPhone(global.db?.data?.panel?.whatsapp?.pairingPhone)
+
+  if (!phoneNumber) {
+    return {
+      success: false,
+      available: false,
+      pairingCode: null,
+      code: null,
+      displayCode: null,
+      phoneNumber: null,
+      message: 'phoneNumber es requerido',
+    }
+  }
+
+  const methodResult = await global.setMainAuthMethod('pairing', phoneNumber)
+  if (!methodResult?.success) {
+    return {
+      success: false,
+      available: false,
+      pairingCode: null,
+      code: null,
+      displayCode: null,
+      phoneNumber,
+      message: methodResult?.error || 'No se pudo establecer el método pairing',
+    }
+  }
+
+  const maxAgeMs = getMaxMainPairingAgeMs()
+  const cachedCode = normalizeMainPairingCode(global.panelPairingCode || global.db?.data?.panel?.whatsapp?.pairingCode)
+  const updatedAt = global.db?.data?.panel?.whatsapp?.pairingUpdatedAt || null
+
+  if (!force && cachedCode && isFreshMainTimestamp(updatedAt, maxAgeMs)) {
+    global.panelPairingCode = cachedCode
+    global.panelPairingPhone = phoneNumber
+    try {
+      const { emitBotPairingCode } = await import('./lib/socket-io.js')
+      if (typeof emitBotPairingCode === 'function') emitBotPairingCode(cachedCode, phoneNumber)
+    } catch {}
+    return {
+      success: true,
+      available: true,
+      pairingCode: cachedCode,
+      code: cachedCode,
+      displayCode: cachedCode,
+      phoneNumber,
+    }
+  }
+
+  await clearStoredMainPairingCode()
+
+  if (!wait) {
+    ensureMainPairingCodeGeneration(phoneNumber, pairKey).catch(() => {})
+    return {
+      success: true,
+      available: false,
+      pending: true,
+      pairingCode: null,
+      code: null,
+      displayCode: null,
+      phoneNumber,
+      message: 'Código de pairing en generación',
+    }
+  }
+
+  return await ensureMainPairingCodeGeneration(phoneNumber, pairKey)
+}
+
 // Permite al panel iniciar auth QR bajo demanda
 global.startQrAuth = async function startQrAuth() {
   try {
-    // Si ya esta conectado, no hacer nada
     if (global.stopped === 'open' && global.conn?.user?.id) {
-      global.botAuthState = 'CONNECTED'
+      setMainAuthSession({ state: 'CONNECTED', phone: global.conn.user.id })
       return { success: true, state: 'CONNECTED', phoneNumber: global.conn.user.id }
     }
 
-    global.botAuthState = 'AUTHENTICATING'
-    global.botAuthMethod = 'qr'
-    global.botAuthPhone = null
-    global.authRequestId = newAuthRequestId('qr')
+    const methodResult = await global.setMainAuthMethod('qr')
+    if (!methodResult?.success) {
+      return { success: false, error: methodResult?.error || 'No se pudo establecer método QR' }
+    }
 
-    // Persistir preferencia en DB (in-memory)
-    try {
-      if (global.db?.data) {
-        global.db.data.panel ||= {}
-        global.db.data.panel.whatsapp ||= {}
-        global.db.data.panel.whatsapp.authMethod = 'qr'
-        global.db.data.panel.whatsapp.pairingPhone = null
-        global.db.data.panel.whatsapp.pairingCode = null
-        global.db.data.panel.whatsapp.pairingUpdatedAt = null
-        if (global.db?.write) await global.db.write().catch(() => {})
-      }
-    } catch {}
-
-    global.panelAuthMethod = 'qr'
-    global.panelPairingPhone = null
-    global.panelPairingCode = null
+    setMainAuthSession({ state: 'AUTHENTICATING', method: 'qr', requestId: newAuthRequestId('qr') })
     global.panelApiMainDisconnect = false
     global.panelApiMainQr = null
     global.panelAllowQr = true
 
-    // Reiniciar socket con metodo QR
     if (typeof global.reloadHandler === 'function') {
-      await global.reloadHandler(true).catch(() => {})
+      void global.reloadHandler(true).catch(() => {
+        resetMainAuthSession()
+      })
     }
 
     return { success: true }
   } catch (e) {
-    global.botAuthState = 'IDLE'
+    resetMainAuthSession()
     return { success: false, error: e?.message || String(e) }
   }
 }
@@ -452,99 +711,455 @@ global.startQrAuth = async function startQrAuth() {
 // Permite al panel iniciar auth pairing bajo demanda
 global.startPairingAuth = async function startPairingAuth(phoneNumber) {
   try {
-    const digits = String(phoneNumber || '').replace(/[^0-9]/g, '')
+    const digits = sanitizeMainPhone(phoneNumber)
     if (!digits) return { success: false, error: 'phoneNumber invalido' }
 
-    // Si ya esta conectado, no hacer nada
     if (global.stopped === 'open' && global.conn?.user?.id) {
-      global.botAuthState = 'CONNECTED'
+      setMainAuthSession({ state: 'CONNECTED', phone: global.conn.user.id })
       return { success: true, state: 'CONNECTED', phoneNumber: global.conn.user.id }
     }
 
-    global.botAuthState = 'AUTHENTICATING'
-    global.botAuthMethod = 'pairing'
-    global.botAuthPhone = digits
-    global.authRequestId = newAuthRequestId('pair')
+    const methodResult = await global.setMainAuthMethod('pairing', digits)
+    if (!methodResult?.success) {
+      return { success: false, error: methodResult?.error || 'No se pudo establecer método pairing' }
+    }
 
-    // Persistir preferencia en DB (in-memory)
-    try {
-      if (global.db?.data) {
-        global.db.data.panel ||= {}
-        global.db.data.panel.whatsapp ||= {}
-        global.db.data.panel.whatsapp.authMethod = 'pairing'
-        global.db.data.panel.whatsapp.pairingPhone = digits
-        global.db.data.panel.whatsapp.pairingCode = null
-        global.db.data.panel.whatsapp.pairingUpdatedAt = null
-        if (global.db?.write) await global.db.write().catch(() => {})
-      }
-    } catch {}
-
-    global.panelAuthMethod = 'pairing'
-    global.panelPairingPhone = digits
+    setMainAuthSession({ state: 'AUTHENTICATING', method: 'pairing', phone: digits, requestId: newAuthRequestId('pair') })
     global.panelApiMainDisconnect = false
     global.panelAllowQr = false
     global.panelApiMainQr = null
     global.panelPairingCode = null
 
-    // Reiniciar socket con metodo pairing
     if (typeof global.reloadHandler === 'function') {
-      await global.reloadHandler(true).catch(() => {})
+      void global.reloadHandler(true).catch(() => {
+        resetMainAuthSession()
+      })
     }
 
-    // Dar tiempo a que el socket inicialice
-    await sleep(1200)
-
-    if (!global.conn || typeof global.conn.requestPairingCode !== 'function') {
-      return { success: false, error: 'Conexion no disponible para pairing' }
-    }
-
-    const raw = await global.conn.requestPairingCode(digits)
-    let pairingCode = raw
-    if (typeof pairingCode === 'string' && pairingCode.length > 4) {
-      pairingCode = pairingCode.match(/.{1,4}/g)?.join('-') || pairingCode
-    }
-
-    global.panelPairingCode = pairingCode
-
-    try {
-      if (global.db?.data) {
-        global.db.data.panel ||= {}
-        global.db.data.panel.whatsapp ||= {}
-        global.db.data.panel.whatsapp.pairingCode = pairingCode
-        global.db.data.panel.whatsapp.pairingUpdatedAt = new Date().toISOString()
-        if (global.db?.write) await global.db.write().catch(() => {})
+    void (async () => {
+      await sleep(1200)
+      if (typeof global.getMainPairingCode !== 'function') return
+      const pairingResult = await global.getMainPairingCode({ force: true, phoneNumber: digits, wait: true })
+      if (!pairingResult?.available || !pairingResult?.pairingCode) {
+        resetMainAuthSession()
       }
-    } catch {}
+    })().catch(() => {
+      resetMainAuthSession()
+    })
 
-    try {
-      const { emitBotPairingCode } = await import('./lib/socket-io.js')
-      if (typeof emitBotPairingCode === 'function') emitBotPairingCode(pairingCode, digits)
-    } catch {}
-
-    return { success: true, pairingCode, displayCode: pairingCode, phoneNumber: digits }
+    return {
+      success: true,
+      pending: true,
+      pairingCode: null,
+      displayCode: null,
+      phoneNumber: digits,
+    }
   } catch (e) {
-    global.botAuthState = 'IDLE'
+    resetMainAuthSession()
     return { success: false, error: e?.message || String(e) }
   }
 }
 
-// Permite al panel cerrar el proceso de auth y quedar en IDLE
+// Permite al panel cerrar el proceso de auth y quedar desconectado
 global.closeAuthConnection = async function closeAuthConnection() {
   try {
     global.panelApiMainDisconnect = true
     try { global.panelAllowQr = false } catch {}
     try { global.panelApiMainQr = null } catch {}
     try { global.panelPairingCode = null } catch {}
-    try { global.botAuthState = 'IDLE' } catch {}
-    try { global.botAuthMethod = null } catch {}
-    try { global.botAuthPhone = null } catch {}
-    try { global.authRequestId = null } catch {}
+    try { resetMainAuthSession() } catch {}
+    try {
+      void persistMainWhatsappConfig((whatsapp) => {
+        whatsapp.pairingCode = null
+        whatsapp.pairingUpdatedAt = null
+      })
+    } catch {}
     try { global.conn?.ws?.close?.() } catch {}
     try { global.conn?.ev?.removeAllListeners?.() } catch {}
     return { success: true }
   } catch (e) {
     return { success: false, error: e?.message || String(e) }
   }
+}
+
+global.getMainAuthStatus = function getMainAuthStatus() {
+  const statusRaw = global.stopped || 'unknown'
+  const connected = statusRaw === 'open' && Boolean(global.conn?.user?.id)
+  let state = normalizeMainAuthState(global.botAuthState)
+
+  if (connected) state = 'CONNECTED'
+  if (state === 'CONNECTED' && !connected) state = 'DISCONNECTED'
+
+  const authenticating = state === 'AUTHENTICATING'
+  const disconnected = state === 'DISCONNECTED'
+  const method = authenticating ? (global.botAuthMethod || null) : null
+  const phone = authenticating ? (global.botAuthPhone || null) : (connected ? (global.conn?.user?.id || null) : null)
+
+  return {
+    state,
+    status: statusRaw,
+    connected,
+    authenticating,
+    disconnected,
+    method,
+    phone,
+    requestId: authenticating ? (global.authRequestId || null) : null,
+    qrAvailable: authenticating && method === 'qr' ? Boolean(global.panelApiMainQr) : false,
+    pairingCode: authenticating && method === 'pairing' ? (global.panelPairingCode || null) : null,
+    phoneNumber: connected ? (global.conn?.user?.id || null) : null,
+  }
+}
+
+global.startMainAuth = async function startMainAuth(options = {}) {
+  const targetMethod = options?.method === 'pairing' ? 'pairing' : 'qr'
+  const phoneNumber = targetMethod === 'pairing' ? sanitizeMainPhone(options?.phoneNumber) : null
+  const force = Boolean(options?.force)
+
+  if (targetMethod === 'pairing' && !phoneNumber) {
+    return { success: false, error: 'phoneNumber es requerido', state: 'DISCONNECTED', method: targetMethod }
+  }
+
+  const status = typeof global.getMainAuthStatus === 'function'
+    ? global.getMainAuthStatus()
+    : {
+        state: normalizeMainAuthState(global.botAuthState),
+        connected: Boolean(global.stopped === 'open' && global.conn?.user?.id),
+        authenticating: normalizeMainAuthState(global.botAuthState) === 'AUTHENTICATING',
+        method: global.botAuthMethod || null,
+        phone: global.botAuthPhone || null,
+        requestId: global.authRequestId || null,
+      }
+
+  if (status.connected) {
+    return {
+      success: true,
+      state: 'CONNECTED',
+      method: targetMethod,
+      message: 'El bot ya está conectado',
+      phone: global.conn?.user?.id || null,
+    }
+  }
+
+  if (status.authenticating && !force) {
+    const sameMethod = status.method === targetMethod
+    const samePhone = targetMethod !== 'pairing' || String(status.phone || '') === String(phoneNumber || '')
+
+    if (sameMethod && samePhone) {
+      return {
+        success: true,
+        state: 'AUTHENTICATING',
+        method: targetMethod,
+        message: targetMethod === 'qr' ? 'Autenticación QR ya iniciada' : 'Autenticación por pairing ya iniciada',
+        requestId: status.requestId || null,
+        pairingCode: targetMethod === 'pairing' ? (global.panelPairingCode || null) : null,
+        displayCode: targetMethod === 'pairing' ? (global.panelPairingCode || null) : null,
+        phoneNumber: targetMethod === 'pairing' ? phoneNumber : null,
+      }
+    }
+  }
+
+  const shouldReplaceCurrentAuth =
+    status.authenticating && (
+      force ||
+      status.method !== targetMethod ||
+      (targetMethod === 'pairing' && String(status.phone || '') !== String(phoneNumber || ''))
+    )
+
+  if (shouldReplaceCurrentAuth) {
+    try {
+      if (typeof global.closeAuthConnection === 'function') await global.closeAuthConnection()
+    } catch {}
+  }
+
+  if (targetMethod === 'pairing') {
+    if (typeof global.startPairingAuth !== 'function') return { success: false, error: 'Función de autenticación no disponible' }
+    const result = await global.startPairingAuth(phoneNumber)
+    if (!result?.success) return { success: false, error: result?.error || 'Error iniciando autenticación por pairing', state: normalizeMainAuthState(global.botAuthState) }
+    return {
+      success: true,
+      state: 'AUTHENTICATING',
+      method: 'pairing',
+      message: 'Autenticación por pairing iniciada',
+      requestId: global.authRequestId || null,
+      pairingCode: result.pairingCode || null,
+      displayCode: result.displayCode || result.pairingCode || null,
+      phoneNumber: result.phoneNumber || phoneNumber,
+    }
+  }
+
+  if (typeof global.startQrAuth !== 'function') return { success: false, error: 'Función de autenticación no disponible' }
+  const qrResult = await global.startQrAuth()
+  if (!qrResult?.success) return { success: false, error: qrResult?.error || 'Error iniciando autenticación QR', state: normalizeMainAuthState(global.botAuthState) }
+
+  return {
+    success: true,
+    state: 'AUTHENTICATING',
+    method: 'qr',
+    message: 'Autenticación QR iniciada',
+    requestId: global.authRequestId || null,
+  }
+}
+
+global.disconnectMainAuth = async function disconnectMainAuth() {
+  if (typeof global.closeAuthConnection !== 'function') {
+    return { success: false, error: 'Función de desconexión no disponible' }
+  }
+  const result = await global.closeAuthConnection()
+  if (!result?.success) return { success: false, error: result?.error || 'Error desconectando' }
+  return {
+    success: true,
+    state: 'DISCONNECTED',
+    message: 'Bot desconectado y listo para nueva autenticación',
+  }
+}
+
+global.handleMainBotBindingApiRoute = async function handleMainBotBindingApiRoute(context = {}) {
+  const {
+    req,
+    res,
+    url,
+    pathname,
+    method,
+    panelDb,
+    helpers = {},
+  } = context
+
+  const json = helpers?.json
+  const readJson = helpers?.readJson
+  const isOwnerOrAdmin = helpers?.isOwnerOrAdmin
+  const formatUptime = helpers?.formatUptime || ((seconds) => `${Math.max(0, Math.floor(Number(seconds) || 0))}s`)
+
+  if (typeof json !== 'function') return false
+
+  const httpMethod = String(method || 'GET').toUpperCase()
+  const isPath = (...paths) => paths.includes(pathname)
+  const toDigits = (value) => String(value || '').replace(/[^0-9]/g, '')
+
+  const requireAdminControl = () => {
+    if (!panelDb) {
+      json(res, 500, { error: 'DB no disponible' })
+      return false
+    }
+    if (typeof isOwnerOrAdmin === 'function' && !isOwnerOrAdmin(req, url, panelDb)) {
+      json(res, 403, { error: 'Permisos insuficientes' })
+      return false
+    }
+    return true
+  }
+
+  if (isPath('/api/bot/status') && httpMethod === 'GET') {
+    const statusRaw = global.stopped || 'unknown'
+    const connected = statusRaw === 'open'
+    const connecting = statusRaw === 'connecting'
+    const phone = global.conn?.user?.id || null
+    const qr = global.panelApiMainQr || null
+    json(res, 200, {
+      connected,
+      isConnected: connected,
+      connecting,
+      status: statusRaw,
+      connectionStatus: statusRaw,
+      phone,
+      qrCode: qr,
+      uptime: formatUptime(process.uptime()),
+      lastSeen: global.panelApiLastSeen || null,
+      timestamp: new Date().toISOString(),
+    })
+    return true
+  }
+
+  if (isPath('/api/bot/main/status') && httpMethod === 'GET') {
+    const statusRaw = global.stopped || 'unknown'
+    const connected = statusRaw === 'open'
+    const connecting = statusRaw === 'connecting'
+    const phone = global.conn?.user?.id || null
+    json(res, 200, {
+      connected,
+      isConnected: connected,
+      connecting,
+      status: statusRaw,
+      connectionStatus: statusRaw,
+      phone,
+      uptime: formatUptime(process.uptime()),
+      lastSeen: global.panelApiLastSeen || null,
+      timestamp: new Date().toISOString(),
+    })
+    return true
+  }
+
+  if (isPath('/api/bot/qr', '/api/bot/main/qr') && httpMethod === 'GET') {
+    const qrRaw = global.panelApiMainQr || null
+    if (!qrRaw) {
+      json(res, 200, { available: false, message: 'QR no disponible' })
+      return true
+    }
+    try {
+      const buffer = await qrcode.toBuffer(qrRaw, { scale: 8 })
+      json(res, 200, {
+        available: true,
+        qr: buffer.toString('base64'),
+        qrCode: qrRaw,
+        status: global.stopped || 'unknown',
+      })
+    } catch (error) {
+      json(res, 500, { error: error?.message || 'No se pudo generar QR' })
+    }
+    return true
+  }
+
+  if (isPath('/api/whatsapp/auth-method', '/api/bot/main/method') && httpMethod === 'POST') {
+    if (!requireAdminControl()) return true
+
+    const body = typeof readJson === 'function' ? await readJson(req).catch(() => ({})) : {}
+    const methodName = body?.method === 'pairing' ? 'pairing' : 'qr'
+    const phoneNumber = body?.phoneNumber ? toDigits(body.phoneNumber) : null
+
+    if (typeof global.setMainAuthMethod !== 'function') {
+      json(res, 500, { error: 'Función central de método no disponible' })
+      return true
+    }
+
+    const result = await global.setMainAuthMethod(methodName, phoneNumber)
+    if (!result?.success) {
+      json(res, 400, { error: result?.error || 'No se pudo guardar método de autenticación' })
+      return true
+    }
+
+    json(res, 200, {
+      success: true,
+      method: result.method || methodName,
+      phoneNumber: result.phoneNumber || null,
+    })
+    return true
+  }
+
+  if (isPath('/api/whatsapp/pairing-code', '/api/bot/main/pairing-code') && httpMethod === 'GET') {
+    if (!requireAdminControl()) return true
+
+    const force = ['1', 'true', 'yes'].includes(String(url?.searchParams?.get('force') || '').toLowerCase())
+    const pairKey = String(
+      url?.searchParams?.get('pairKey') ||
+      url?.searchParams?.get('pair_key') ||
+      url?.searchParams?.get('customCode') ||
+      url?.searchParams?.get('custom_code') ||
+      ''
+    ).trim() || null
+    const phoneNumber = panelDb?.whatsapp?.pairingPhone || global.panelPairingPhone || null
+
+    if (typeof global.getMainPairingCode !== 'function') {
+      json(res, 500, { error: 'Función central de pairing no disponible' })
+      return true
+    }
+
+    const result = await global.getMainPairingCode({ force, pairKey, phoneNumber, wait: false })
+    json(res, 200, {
+      available: Boolean(result?.available),
+      pending: Boolean(result?.pending),
+      pairingCode: result?.pairingCode || null,
+      code: result?.code || result?.pairingCode || null,
+      displayCode: result?.displayCode || result?.pairingCode || null,
+      phoneNumber: result?.phoneNumber || phoneNumber || null,
+      ...(result?.message ? { message: result.message } : {}),
+    })
+    return true
+  }
+
+  if (isPath('/api/bot/auth/qr', '/bot/auth/qr') && httpMethod === 'POST') {
+    if (!requireAdminControl()) return true
+
+    const body = typeof readJson === 'function' ? await readJson(req).catch(() => ({})) : {}
+    const force = Boolean(body?.force)
+
+    if (typeof global.startMainAuth !== 'function') {
+      json(res, 500, { error: 'Función central de autenticación no disponible' })
+      return true
+    }
+
+    const result = await global.startMainAuth({ method: 'qr', force })
+    if (!result?.success) {
+      json(res, 500, { error: result?.error || 'Error iniciando autenticación QR' })
+      return true
+    }
+
+    json(res, 200, {
+      success: true,
+      state: result.state || 'AUTHENTICATING',
+      method: 'qr',
+      message: result.message || 'Autenticación QR iniciada',
+      requestId: result.requestId || null,
+    })
+    return true
+  }
+
+  if (isPath('/api/bot/auth/pair', '/bot/auth/pair') && httpMethod === 'POST') {
+    if (!requireAdminControl()) return true
+
+    const body = typeof readJson === 'function' ? await readJson(req).catch(() => ({})) : {}
+    const phoneNumber = body?.phoneNumber ? toDigits(body.phoneNumber) : null
+    const force = Boolean(body?.force)
+
+    if (!phoneNumber) {
+      json(res, 400, { error: 'phoneNumber es requerido' })
+      return true
+    }
+
+    if (typeof global.startMainAuth !== 'function') {
+      json(res, 500, { error: 'Función central de autenticación no disponible' })
+      return true
+    }
+
+    const result = await global.startMainAuth({ method: 'pairing', phoneNumber, force })
+    if (!result?.success) {
+      const statusCode = result?.error === 'phoneNumber es requerido' ? 400 : 500
+      json(res, statusCode, { error: result?.error || 'Error iniciando autenticación por pairing' })
+      return true
+    }
+
+    json(res, 200, {
+      success: true,
+      state: result.state || 'AUTHENTICATING',
+      method: 'pairing',
+      message: result.message || 'Autenticación por pairing iniciada',
+      requestId: result.requestId || null,
+      pairingCode: result.pairingCode || null,
+      displayCode: result.displayCode || result.pairingCode || null,
+      phoneNumber: result.phoneNumber || phoneNumber,
+    })
+    return true
+  }
+
+  if (isPath('/api/bot/auth/status', '/bot/auth/status') && httpMethod === 'GET') {
+    if (typeof global.getMainAuthStatus !== 'function') {
+      json(res, 500, { error: 'Función central de estado no disponible' })
+      return true
+    }
+    json(res, 200, global.getMainAuthStatus())
+    return true
+  }
+
+  if (isPath('/api/bot/auth/disconnect', '/bot/auth/disconnect') && httpMethod === 'POST') {
+    if (!requireAdminControl()) return true
+
+    if (typeof global.disconnectMainAuth !== 'function') {
+      json(res, 500, { error: 'Función central de desconexión no disponible' })
+      return true
+    }
+
+    const result = await global.disconnectMainAuth()
+    if (!result?.success) {
+      json(res, 500, { error: result?.error || 'Error desconectando' })
+      return true
+    }
+
+    json(res, 200, {
+      success: true,
+      state: result.state || 'DISCONNECTED',
+      message: result.message || 'Bot desconectado y listo para nueva autenticación',
+    })
+    return true
+  }
+
+  return false
 }
 
 function pushPanelLog(entry) {
@@ -715,9 +1330,12 @@ async function connectionUpdate(update) {
 
     // Estado de autenticacion para el panel
     try {
-      global.botAuthState = 'AUTHENTICATING'
-      global.botAuthMethod = 'qr'
-      if (!global.authRequestId) global.authRequestId = newAuthRequestId('qr')
+      setMainAuthSession({
+        state: 'AUTHENTICATING',
+        method: 'qr',
+        phone: global.botAuthPhone || null,
+        requestId: global.authRequestId || newAuthRequestId('qr'),
+      })
     } catch {}
     
     // Guardar siempre el último QR generado
@@ -751,10 +1369,7 @@ async function connectionUpdate(update) {
     } catch {}
 
     try {
-      global.botAuthState = 'CONNECTED'
-      global.botAuthMethod = null
-      global.botAuthPhone = global.conn?.user?.id || null
-      global.authRequestId = null
+      setMainAuthSession({ state: 'CONNECTED', phone: global.conn?.user?.id || null })
     } catch {}
 
     // Limpiar código de pairing
@@ -784,8 +1399,14 @@ async function connectionUpdate(update) {
   if (connection === 'connecting') {
     global.stopped = 'connecting'
     try {
-      if (global.botAuthState !== 'AUTHENTICATING' && global.botAuthState !== 'CONNECTED') {
-        global.botAuthState = 'AUTHENTICATING'
+      const currentState = normalizeMainAuthState(global.botAuthState)
+      if (currentState !== 'AUTHENTICATING' && currentState !== 'CONNECTED') {
+        setMainAuthSession({
+          state: 'AUTHENTICATING',
+          method: global.botAuthMethod || global.panelAuthMethod || 'qr',
+          phone: global.botAuthPhone || global.panelPairingPhone || null,
+          requestId: global.authRequestId || newAuthRequestId('auth'),
+        })
       }
     } catch {}
   }
@@ -846,10 +1467,7 @@ async function connectionUpdate(update) {
     if (global.panelApiMainDisconnect) {
       console.log(chalk.yellow("→ Bot desconectado desde el panel"))
       try {
-        global.botAuthState = 'IDLE'
-        global.botAuthMethod = null
-        global.botAuthPhone = null
-        global.authRequestId = null
+        resetMainAuthSession()
       } catch {}
       return
     }
@@ -980,10 +1598,161 @@ if (global.yukiJadibts) {
     console.log(chalk.bold.cyan(`ꕥ La carpeta: ${global.jadi} ya está creada.`))
   }
   
-  const readRutaJadiBot = readdirSync(global.rutaJadiBot)
+  const creds = 'creds.json'
+
+  const readJsonSafe = (filePath) => {
+    try {
+      if (!filePath) return null
+      if (!existsSync(filePath)) return null
+      const raw = readFileSync(filePath, 'utf8')
+      if (!raw) return null
+      return JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+
+  const normalizeWhatsAppNumber = (value) => String(value || '').replace(/[^0-9]/g, '')
+
+  const sanitizeSessionAliasName = (input) => {
+    const raw = String(input || '').trim()
+    if (!raw) return ''
+    try {
+      const normalized = raw.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      return normalized
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 64)
+    } catch {
+      return raw
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 64)
+    }
+  }
+
+  const deriveSessionDirBaseFromPushname = (pushname) => {
+    const sanitized = sanitizeSessionAliasName(pushname)
+    if (!sanitized) return ''
+    const parts = sanitized.split('_').filter(Boolean)
+    const hasLetters = parts.some((p) => /[a-zA-Z]/.test(p))
+    if (!hasLetters) return sanitized
+
+    while (parts.length > 1 && /^[0-9]+$/.test(parts[0]) && parts.some((p) => /[a-zA-Z]/.test(p))) {
+      parts.shift()
+    }
+    while (parts.length > 1 && /^[0-9]+$/.test(parts[parts.length - 1]) && parts.some((p) => /[a-zA-Z]/.test(p))) {
+      parts.pop()
+    }
+
+    const result = parts.join('_').slice(0, 64)
+    return result || sanitized
+  }
+
+  const readCredsSummary = (dirPath) => {
+    try {
+      const parsed = readJsonSafe(join(dirPath, creds))
+      const me = parsed?.me || parsed?.creds?.me || null
+      const jid = String(me?.id || me?.jid || '').trim()
+      let base = jid ? jid.split('@')[0] : ''
+      if (base.includes(':')) base = base.split(':')[0]
+      const phone = base ? normalizeWhatsAppNumber(base) : ''
+      const name = String(me?.name || parsed?.name || '').trim()
+      return { phone: phone || null, name: name || null }
+    } catch {
+      return { phone: null, name: null }
+    }
+  }
+
+  const pickDesiredDirName = ({ root, currentPath, currentDir, phone, name }) => {
+    try {
+      const base = deriveSessionDirBaseFromPushname(name)
+      if (!base) return null
+      const last4 = phone ? String(phone).slice(-4) : ''
+      const preferSuffix = base.length <= 2
+      const candidates = (preferSuffix
+        ? [
+            last4 ? `${base}_${last4}` : null,
+            phone ? `${base}_${phone}` : null,
+            base,
+            `${base}_${currentDir}`,
+          ]
+        : [
+            base,
+            last4 ? `${base}_${last4}` : null,
+            phone ? `${base}_${phone}` : null,
+            `${base}_${currentDir}`,
+          ]
+      ).filter(Boolean)
+      for (const candRaw of candidates) {
+        const cand = sanitizeSessionAliasName(candRaw)
+        if (!cand) continue
+        if (cand === currentDir) return cand
+        const desiredPath = join(root, cand)
+        try {
+          const st = fs.lstatSync(desiredPath)
+          if (st.isSymbolicLink()) {
+            // No usamos symlinks en Sessions/SubBot: eliminar y tomar el nombre.
+            try { rmSync(desiredPath, { recursive: false, force: true }) } catch {}
+            return cand
+          }
+          continue
+        } catch {
+          return cand
+        }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  // Normalizar carpetas reales a pushname (solo carpetas numericas/sb_*).
+  try {
+    const root = global.rutaJadiBot
+    const entries = readdirSync(root, { withFileTypes: true })
+    let renamed = 0
+    for (const ent of entries) {
+      if (ent?.isSymbolicLink?.()) {
+        // Limpiar symlinks heredados/anteriores.
+        try { rmSync(join(root, ent.name), { recursive: false, force: true }) } catch {}
+        continue
+      }
+      if (!ent?.isDirectory?.()) continue
+      const dirName = ent.name
+      const currentPath = join(root, dirName)
+      if (!existsSync(join(currentPath, creds))) continue
+
+      const summary = readCredsSummary(currentPath)
+      const phone = normalizeWhatsAppNumber(summary?.phone || '')
+      const name = String(summary?.name || '').trim()
+      if (!phone || !name) continue
+
+      const desired = pickDesiredDirName({ root, currentPath, currentDir: dirName, phone, name })
+      if (!desired || desired === dirName) continue
+
+      const desiredPath = join(root, desired)
+      try {
+        fs.renameSync(currentPath, desiredPath)
+        renamed++
+      } catch {
+        // ignore
+      }
+    }
+    if (renamed > 0) console.log(chalk.cyan(`🧩 SubBots: ${renamed} carpeta(s) renombrada(s) a pushname al iniciar`))
+  } catch {}
+
+  // Autoiniciar sesiones (solo carpetas reales; no symlinks)
+  const readRutaJadiBot = readdirSync(global.rutaJadiBot, { withFileTypes: true })
   if (readRutaJadiBot.length > 0) {
-    const creds = 'creds.json'
-    for (const gjbts of readRutaJadiBot) {
+    for (const ent of readRutaJadiBot) {
+      if (!ent?.isDirectory?.()) continue
+      // Evitar duplicados: NO autoiniciar sesiones desde symlinks/aliases.
+      if (ent?.isSymbolicLink?.()) continue
+
+      const gjbts = ent.name
       const botPath = join(global.rutaJadiBot, gjbts)
       if (existsSync(botPath) && statSync(botPath).isDirectory()) {
         const readBotPath = readdirSync(botPath)
@@ -1050,6 +1819,19 @@ global.reload = async (_ev, filename) => {
 Object.freeze(global.reload)
 watch(pluginFolder, global.reload)
 await global.reloadHandler()
+
+if (shouldWaitForPanelAuthChoice) {
+  try {
+    console.log(chalk.cyan('[ ✿ ] Sesión principal vacía - dejando el bot en espera para autenticación on-demand desde la API'))
+    if (typeof global.closeAuthConnection === 'function') {
+      await global.closeAuthConnection()
+    }
+    try { resetMainAuthSession() } catch {}
+    global.stopped = 'close'
+  } catch (e) {
+    console.warn(chalk.yellow('⚠️  No se pudo dejar el bot principal en modo espera:'), e?.message || e)
+  }
+}
 
 // ============================================
 // UTILIDADES

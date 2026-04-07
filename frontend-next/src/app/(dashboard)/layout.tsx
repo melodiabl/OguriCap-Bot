@@ -22,26 +22,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="min-h-screen mesh-bg flex items-center justify-center p-6">
+      <div className="relative min-h-screen overflow-hidden bg-background px-6 py-10 text-foreground">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(var(--primary),0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(var(--accent),0.12),transparent_34%)]" />
+        <div className="relative flex min-h-[80vh] items-center justify-center">
         <motion.div
           initial={{ opacity: 0, y: 18, scale: 0.99 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="ultra-card ultra-card--glow ultra-card--interactive p-10 text-center w-full max-w-md"
+            className="relative w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-card/70 p-10 text-center shadow-[0_28px_90px_-40px_rgba(0,0,0,0.78)] backdrop-blur-2xl"
         >
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-primary/10" />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1.1, ease: 'linear' }}
-            className="w-16 h-16 mx-auto mb-5 rounded-3xl border border-white/15 bg-white/5 shadow-glow-lg flex items-center justify-center"
+                className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/15 bg-white/5 shadow-glow-oguri-mixed"
           >
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary-500 via-violet-600 to-cyan-500 shadow-glow" />
+                <div className="h-9 w-9 rounded-2xl bg-gradient-oguri-primary shadow-glow-oguri-purple" />
           </motion.div>
-          <p className="text-sm font-black tracking-[0.22em] uppercase text-gray-400">Cargando</p>
-          <p className="mt-2 text-xl font-extrabold text-white tracking-tight">Verificando autenticacion...</p>
-          <div className="mt-6 progress-bar">
-            <div className="progress-bar-fill w-[70%]" />
-          </div>
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-oguri-lavender/70">Cargando</p>
+              <p className="mt-2 text-xl font-extrabold tracking-tight text-white">Verificando autenticacion...</p>
+              <div className="mt-6 overflow-hidden rounded-full border border-white/10 bg-white/[0.04] p-1">
+                <motion.div
+                  className="h-2 rounded-full bg-gradient-to-r from-primary via-secondary to-accent shadow-glow-oguri-purple"
+                  animate={{ x: ['-18%', '18%', '-18%'] }}
+                  transition={{ repeat: Infinity, duration: 2.1, ease: 'easeInOut' }}
+                  style={{ width: '72%' }}
+                />
+              </div>
+            </div>
         </motion.div>
+        </div>
       </div>
     );
   }

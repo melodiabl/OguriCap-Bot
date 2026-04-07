@@ -25,11 +25,16 @@ const variantClasses: Record<BadgeVariant, string> = {
   danger: 'badge-danger',
   success: 'badge-success',
   warning: 'badge-warning',
-  outline: 'badge bg-white/5 text-gray-300 border border-white/10',
+  outline: 'badge border border-border/15 bg-card/60 text-[rgb(var(--text-secondary))]',
 };
 
-const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(({ className, variant = 'default', ...props }, ref) => {
-  return <div ref={ref} className={cn(variantClasses[variant], className)} {...props} />;
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(({ className, variant = 'default', children, ...props }, ref) => {
+  return (
+    <div ref={ref} className={cn(variantClasses[variant], className)} {...props}>
+      <span aria-hidden="true" className="badge__sheen" />
+      <span className="badge__content">{children}</span>
+    </div>
+  );
 });
 Badge.displayName = 'Badge';
 

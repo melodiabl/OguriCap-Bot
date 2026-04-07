@@ -18,7 +18,7 @@ import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 
 interface Proveedor {
   id: number;
@@ -111,7 +111,7 @@ export default function ProveedoresPage() {
       setAvailableGroups(groups);
     } catch (err) {
       console.error('Error loading available groups', err);
-      toast.error('No pude cargar la lista de grupos (revisá sesión/token del panel).');
+      notify.error('No pude cargar la lista de grupos (revisá sesión/token del panel).');
     } finally {
       setLoadingGroups(false);
     }
@@ -136,7 +136,7 @@ export default function ProveedoresPage() {
       setShowCreateModal(false);
       setNewProveedor({});
       setShowAdvancedCreate(false);
-      toast.success('Proveedor creado');
+      notify.success('Proveedor creado');
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Error al crear proveedor');
     }
@@ -147,7 +147,7 @@ export default function ProveedoresPage() {
       await api.updateProveedor(parseInt(jid) || 0, { estado } as any);
       setProveedores(prev => prev.map(p => p.jid === jid ? { ...p, estado: estado as any } : p));
       setSuccess('Estado actualizado');
-      toast.success('Estado actualizado');
+      notify.success('Estado actualizado');
     } catch (err) {
       setError('Error al actualizar estado');
     }
@@ -159,7 +159,7 @@ export default function ProveedoresPage() {
       await api.deleteProvider(jid);
       setProveedores(prev => prev.filter(p => p.jid !== jid));
       setSuccess('Proveedor eliminado');
-      toast.success('Proveedor eliminado');
+      notify.success('Proveedor eliminado');
     } catch (err) {
       setError('Error al eliminar proveedor');
     }
@@ -196,7 +196,7 @@ export default function ProveedoresPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Gestión de Proveedores"
@@ -218,7 +218,7 @@ export default function ProveedoresPage() {
       <AnimatePresence>
         {error && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="glass-card p-4 border-red-500/30 flex items-center gap-3">
+            className="panel-note-card flex items-center gap-3 border-red-500/30 text-red-400">
             <AlertCircle className="w-5 h-5 text-red-400" />
             <span className="text-red-400">{error}</span>
             <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
@@ -228,7 +228,7 @@ export default function ProveedoresPage() {
         )}
         {success && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="glass-card p-4 border-emerald-500/30 flex items-center gap-3">
+            className="panel-note-card flex items-center gap-3 border-emerald-500/30 text-emerald-400">
             <CheckCircle className="w-5 h-5 text-emerald-400" />
             <span className="text-emerald-400">{success}</span>
           </motion.div>
@@ -236,7 +236,7 @@ export default function ProveedoresPage() {
       </AnimatePresence>
 
       {/* Stats */}
-      <Stagger className="grid grid-cols-1 md:grid-cols-4 gap-6" delay={0.02} stagger={0.07}>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.02} stagger={0.07}>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <StatCard title="Total Proveedores" value={stats?.total || 0} icon={<Building2 className="w-6 h-6" />} color="violet" delay={0} animated={false} />
         </StaggerItem>
@@ -253,10 +253,10 @@ export default function ProveedoresPage() {
 
       {/* Filters */}
       <Reveal>
-        <Card animated delay={0.2} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card animated delay={0.2} className="p-5 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div className="md:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
               <input
                 type="text"
                 placeholder="Buscar proveedores..."
@@ -293,9 +293,9 @@ export default function ProveedoresPage() {
 
       {/* List */}
       <Card animated delay={0.3} className="overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-xl font-semibold text-white">Lista de Proveedores</h2>
-          <p className="text-gray-400 mt-1">
+        <div className="border-b border-border/15 p-5 text-center sm:p-6 sm:text-left">
+          <h2 className="text-xl font-semibold text-foreground">Lista de Proveedores</h2>
+          <p className="mt-1 text-muted">
             <AnimatedNumber value={filteredProveedores.length} /> de <AnimatedNumber value={proveedores.length} /> proveedores
           </p>
         </div>
@@ -303,7 +303,7 @@ export default function ProveedoresPage() {
         {loading ? (
           <div className="p-6 space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-start justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+              <div key={i} className="flex items-start justify-between gap-4 rounded-xl border border-border/15 bg-card/60 p-4">
                 <div className="flex-1 min-w-0 space-y-2">
                   <Skeleton className="h-4 w-56 rounded" />
                   <Skeleton className="h-3 w-full rounded" />
@@ -324,7 +324,7 @@ export default function ProveedoresPage() {
         ) : filteredProveedores.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              icon={<Building2 className="w-6 h-6 text-gray-400" />}
+              icon={<Building2 className="w-6 h-6 text-muted" />}
               title="No hay proveedores"
               description="No se encontraron proveedores con los filtros aplicados"
               action={
@@ -341,43 +341,43 @@ export default function ProveedoresPage() {
             />
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-border/10">
             {filteredProveedores.map((proveedor, index) => (
               <motion.div key={proveedor.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }} className="p-6 hover:bg-white/5 transition-colors">
-                <div className="flex items-start justify-between">
+                transition={{ delay: index * 0.05 }} className="p-5 transition-colors hover:bg-card/55 sm:p-6">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-white">{proveedor.nombre || 'Sin nombre'}</h3>
+                    <div className="mb-2 flex flex-wrap items-center gap-3">
+                      <h3 className="text-lg font-semibold text-foreground">{proveedor.nombre || 'Sin nombre'}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(proveedor.estado || 'inactivo')}`}>
                         {(proveedor.estado || 'inactivo').charAt(0).toUpperCase() + (proveedor.estado || 'inactivo').slice(1)}
                       </span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTypeColor(proveedor.tipo || 'general')}`}>
                         {(proveedor.tipo || 'general').charAt(0).toUpperCase() + (proveedor.tipo || 'general').slice(1)}
                       </span>
-                      <div className="flex items-center gap-1 text-amber-400">
-                        <Star className="w-4 h-4 fill-current" />
-                        <span className="text-sm">{(proveedor.rating || 0).toFixed(1)}</span>
+                        <div className="flex items-center gap-1 text-amber-400">
+                          <Star className="w-4 h-4 fill-current" />
+                          <span className="text-sm">{(proveedor.rating || 0).toFixed(1)}</span>
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-gray-400 mb-3 line-clamp-2">{proveedor.descripcion || 'Sin descripción'}</p>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <p className="mb-3 line-clamp-2 text-muted">{proveedor.descripcion || 'Sin descripción'}</p>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted">
                       <div className="flex items-center gap-1"><User className="w-4 h-4" />{proveedor.contacto || 'Sin contacto'}</div>
                       <div className="flex items-center gap-1"><Calendar className="w-4 h-4" />{proveedor.fecha_registro ? formatDate(proveedor.fecha_registro) : 'N/A'}</div>
                       <div className="flex items-center gap-1"><Activity className="w-4 h-4" />{proveedor.total_aportes || 0} aportes</div>
                       <div className="flex items-center gap-1"><MessageSquare className="w-4 h-4" />{proveedor.total_pedidos || 0} pedidos</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="panel-actions-wrap xl:justify-end">
                     <button
                       onClick={() => proveedor.jid && router.push(`/proveedores/${encodeURIComponent(proveedor.jid)}`)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                      className="rounded-lg p-2 text-muted transition-colors hover:bg-white/5 hover:text-foreground"
                       title="Biblioteca del proveedor"
                     >
                       <FolderOpen className="w-4 h-4" />
                     </button>
                     <button onClick={() => { setSelectedProveedor(proveedor); setShowViewModal(true); }}
-                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="Ver detalles">
+                      className="rounded-lg p-2 text-muted transition-colors hover:bg-white/5 hover:text-foreground" title="Ver detalles">
                       <Eye className="w-4 h-4" />
                     </button>
                     {proveedor.estado === 'activo' ? (
@@ -406,36 +406,36 @@ export default function ProveedoresPage() {
       {/* View Modal */}
       <Modal isOpen={showViewModal && !!selectedProveedor} onClose={() => setShowViewModal(false)} title={selectedProveedor?.nombre || ''}>
         {selectedProveedor && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-400">Estado</label>
+          <div className="space-y-5">
+            <div className="panel-form-grid">
+              <div className="panel-field">
+                <label className="panel-field-label">Estado</label>
                 <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-sm border ${getStatusColor(selectedProveedor.estado)}`}>
                   {selectedProveedor.estado}
                 </span>
               </div>
-              <div>
-                <label className="text-sm text-gray-400">Tipo</label>
+              <div className="panel-field">
+                <label className="panel-field-label">Tipo</label>
                 <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-sm border ${getTypeColor(selectedProveedor.tipo)}`}>
                   {selectedProveedor.tipo}
                 </span>
               </div>
             </div>
-            <div>
-              <label className="text-sm text-gray-400">Descripción</label>
-              <p className="mt-1 text-gray-100 bg-gray-800/60 p-3 rounded-xl">{selectedProveedor.descripcion}</p>
+            <div className="panel-field">
+              <label className="panel-field-label">Descripción</label>
+              <p className="panel-readonly-block mt-1">{selectedProveedor.descripcion}</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm text-gray-400">Contacto</label><p className="mt-1 text-gray-100">{selectedProveedor.contacto}</p></div>
-              <div><label className="text-sm text-gray-400">Rating</label>
+            <div className="panel-form-grid">
+              <div><label className="panel-field-label">Contacto</label><p className="mt-1 text-foreground">{selectedProveedor.contacto}</p></div>
+              <div><label className="panel-field-label">Rating</label>
                 <div className="mt-1 flex items-center gap-1 text-amber-400">
-                  <Star className="w-5 h-5 fill-current" /><span className="text-gray-100">{selectedProveedor.rating.toFixed(1)}</span>
+                  <Star className="w-5 h-5 fill-current" /><span className="text-foreground">{selectedProveedor.rating.toFixed(1)}</span>
                 </div>
               </div>
-              <div><label className="text-sm text-gray-400">Total Aportes</label><p className="mt-1 text-gray-100">{selectedProveedor.total_aportes}</p></div>
-              <div><label className="text-sm text-gray-400">Total Pedidos</label><p className="mt-1 text-gray-100">{selectedProveedor.total_pedidos}</p></div>
+              <div><label className="panel-field-label">Total Aportes</label><p className="mt-1 text-foreground">{selectedProveedor.total_aportes}</p></div>
+              <div><label className="panel-field-label">Total Pedidos</label><p className="mt-1 text-foreground">{selectedProveedor.total_pedidos}</p></div>
             </div>
-            <div className="flex justify-end">
+            <div className="panel-modal-actions justify-end">
               <Button onClick={() => setShowViewModal(false)} variant="secondary">Cerrar</Button>
             </div>
           </div>
@@ -444,17 +444,17 @@ export default function ProveedoresPage() {
 
       {/* Create Modal */}
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nuevo Proveedor">
-        <div className="space-y-4">
-          <p className="text-xs text-gray-500">
+        <div className="space-y-5">
+          <p className="panel-field-hint">
             El proveedor se asocia al grupo. El nombre se toma automáticamente del grupo (podés editarlo en opciones avanzadas).
           </p>
-          <div>
+          <div className="panel-field">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-sm text-gray-400">Grupo de WhatsApp *</label>
+              <label className="panel-field-label">Grupo de WhatsApp *</label>
               <button 
                 onClick={() => loadAvailableGroups({ sync: true })}
                 disabled={loadingGroups}
-                className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-foreground"
                 title="Refrescar lista de grupos"
               >
                 <RefreshCw className={`w-3 h-3 ${loadingGroups ? 'animate-spin' : ''}`} />
@@ -464,7 +464,7 @@ export default function ProveedoresPage() {
             {loadingGroups ? (
               <div className="input-glass w-full flex items-center justify-center py-3">
                 <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                <span className="text-gray-400">Cargando grupos...</span>
+                <span className="text-muted">Cargando grupos...</span>
               </div>
             ) : (
               <Select 
@@ -489,7 +489,7 @@ export default function ProveedoresPage() {
               />
             )}
             {availableGroups.length === 0 && !loadingGroups && (
-              <div className="text-xs text-gray-500 mt-2 space-y-2">
+              <div className="panel-field-hint mt-2 space-y-2">
                 <p>No hay grupos disponibles. Asegúrate de que el bot esté conectado a grupos.</p>
                 <button
                   type="button"
@@ -501,8 +501,8 @@ export default function ProveedoresPage() {
               </div>
             )}
           </div>
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block">Tipo *</label>
+          <div className="panel-field">
+            <label className="panel-field-label mb-1 block">Tipo *</label>
             <Select value={newProveedor.tipo || 'none'} onChange={(v) => setNewProveedor(p => ({ ...p, tipo: v === 'none' ? '' : v }))} options={[
               { value: 'none', label: 'Seleccionar tipo' },
               { value: 'manhwa', label: 'Manhwa' },
@@ -516,15 +516,15 @@ export default function ProveedoresPage() {
           <button
             type="button"
             onClick={() => setShowAdvancedCreate((v) => !v)}
-            className="text-xs text-gray-400 hover:text-white transition-colors underline"
+            className="text-xs text-muted hover:text-foreground transition-colors underline"
           >
             {showAdvancedCreate ? 'Ocultar opciones avanzadas' : 'Mostrar opciones avanzadas'}
           </button>
 
           {showAdvancedCreate && (
             <>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Nombre (opcional)</label>
+              <div className="panel-field">
+                <label className="panel-field-label mb-1 block">Nombre (opcional)</label>
                 <input
                   type="text"
                   value={newProveedor.nombre || ''}
@@ -533,8 +533,8 @@ export default function ProveedoresPage() {
                   placeholder="Si lo dejás vacío, usa el nombre del grupo"
                 />
               </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Descripción</label>
+              <div className="panel-field">
+                <label className="panel-field-label mb-1 block">Descripción</label>
                 <textarea
                   value={newProveedor.descripcion || ''}
                   onChange={(e) => setNewProveedor(p => ({ ...p, descripcion: e.target.value }))}
@@ -543,8 +543,8 @@ export default function ProveedoresPage() {
                   placeholder="Descripción del proveedor"
                 />
               </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Contacto</label>
+              <div className="panel-field">
+                <label className="panel-field-label mb-1 block">Contacto</label>
                 <input
                   type="text"
                   value={newProveedor.contacto || ''}
@@ -555,7 +555,7 @@ export default function ProveedoresPage() {
               </div>
             </>
           )}
-          <div className="flex gap-3 pt-4">
+          <div className="panel-modal-actions">
             <Button onClick={() => setShowCreateModal(false)} variant="secondary" className="flex-1">Cancelar</Button>
             <Button onClick={createProveedor} variant="primary" className="flex-1">Crear Proveedor</Button>
           </div>

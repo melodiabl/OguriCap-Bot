@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { AlertCircle, AlertTriangle, CheckCircle, Info, Zap } from 'lucide-react';
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
 import { useAuth } from './AuthContext';
@@ -42,6 +43,7 @@ interface NotificationContextValue {
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: number) => Promise<void>;
+  deleteAllNotifications: (scope?: 'all' | 'read' | 'unread') => Promise<void>;
   loadMore: () => Promise<void>;
   updateSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
   refresh: () => Promise<void>;
@@ -57,6 +59,9 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   critical: true,
   push: false,
 };
+
+const BROWSER_PUSH_LOCK_PREFIX = 'oguricap:push-lock:';
+const BROWSER_PUSH_LOCK_TTL_MS = 15000;
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
@@ -86,19 +91,19 @@ function formatNotificationTitle(notification: Notification) {
   
   // Si el título es genérico, intentar generar uno basado en la categoría
   const categoryTitles: Record<string, string> = {
-    sistema: '⚙️ Sistema',
-    bot: '🤖 Bot',
-    usuarios: '👤 Usuario',
-    tareas: '📅 Tarea',
-    error: '🚨 Error',
-    seguridad: '🛡️ Seguridad',
-    comando: '💻 Comando',
-    multimedia: '🖼️ Multimedia',
-    pago: '💳 Pago',
-    grupo: '👥 Grupo'
+    sistema: 'Sistema',
+    bot: 'Bot',
+    usuarios: 'Usuario',
+    tareas: 'Tarea',
+    error: 'Error',
+    seguridad: 'Seguridad',
+    comando: 'Comando',
+    multimedia: 'Multimedia',
+    pago: 'Pago',
+    grupo: 'Grupo'
   };
   
-  return categoryTitles[notification.categoria] || '🔔 Notificación';
+  return categoryTitles[notification.categoria] || 'Notificación';
 }
 
 function formatNotificationBody(notification: Notification) {
@@ -164,6 +169,26 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (now - timestamp > 30000) { // 30 segundos de ventana
         recentContentHashesRef.current.delete(hash);
       }
+    }
+  }, []);
+
+  const shouldShowBrowserPush = useCallback((contentHash: string) => {
+    if (typeof window === 'undefined') return false;
+    if (document.visibilityState === 'visible') return false;
+
+    try {
+      const key = `${BROWSER_PUSH_LOCK_PREFIX}${contentHash.slice(0, 32)}`;
+      const now = Date.now();
+      const last = Number(window.localStorage.getItem(key) || '0');
+
+      if (Number.isFinite(last) && now - last < BROWSER_PUSH_LOCK_TTL_MS) {
+        return false;
+      }
+
+      window.localStorage.setItem(key, String(now));
+      return true;
+    } catch {
+      return true;
     }
   }, []);
 
@@ -296,6 +321,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 : 'toast-custom toast-info';
 
         const toastOptions: any = {
+          id: `socket-toast-${contentHash.slice(0, 24)}`,
           duration: notification.tipo === 'error' ? 7000 : 5000,
           icon: getNotificationIcon(notification.tipo),
           className: toastClass,
@@ -336,7 +362,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // Show browser notification if push enabled
       // Las notificaciones push ahora comparten la misma lógica de deduplicación que los toasts
-      if (settings.push && 'Notification' in window && Notification.permission === 'granted') {
+      if (
+        settings.push &&
+        'Notification' in window &&
+        Notification.permission === 'granted' &&
+        shouldShowBrowserPush(contentHash)
+      ) {
         try {
           const title = formatNotificationTitle(notification);
           const body = formatNotificationBody(notification);
@@ -362,7 +393,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
     };
-  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash]);
+  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash, shouldShowBrowserPush]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {
@@ -402,6 +433,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  const deleteAllNotifications = useCallback(async (scope: 'all' | 'read' | 'unread' = 'all') => {
+    try {
+      await api.deleteAllNotifications(scope);
+
+      if (scope === 'all') {
+        setNotifications([]);
+        setUnreadCount(0);
+        setHasMore(false);
+        setPage(1);
+
+        seenNotificationsRef.current.clear();
+        recentContentHashesRef.current.clear();
+      } else {
+        // For partial clears, refresh state from server.
+        await loadNotifications(1, false);
+      }
+
+      notify.success(
+        scope === 'all'
+          ? 'Todas las notificaciones fueron eliminadas'
+          : scope === 'read'
+            ? 'Notificaciones leídas eliminadas'
+            : 'Notificaciones no leídas eliminadas'
+      );
+    } catch (err) {
+      notify.error('Error al eliminar notificaciones');
+    }
+  }, [loadNotifications]);
+
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   }, []);
@@ -418,10 +478,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
     loadMore,
     updateSettings,
     refresh,
-  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, toggleOpen, markAsRead, markAllAsRead, deleteNotification, loadMore, updateSettings, refresh]);
+  }), [notifications, unreadCount, settings, isLoading, isOpen, hasMore, toggleOpen, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications, loadMore, updateSettings, refresh]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
@@ -432,13 +493,23 @@ export function useNotifications() {
   return ctx;
 }
 
-function getNotificationIcon(tipo: string): string {
-  const icons: Record<string, string> = {
-    info: '\u2139\uFE0F',
-    success: '\u2705',
-    warning: '\u26A0\uFE0F',
-    error: '\u274C',
-    system: '\uD83D\uDEE1\uFE0F',
-  };
-  return icons[tipo] || '\u2139\uFE0F';
+function getNotificationIcon(tipo: string): React.ReactNode {
+  const icon =
+    tipo === 'error'
+      ? AlertCircle
+      : tipo === 'success'
+        ? CheckCircle
+        : tipo === 'warning'
+          ? AlertTriangle
+          : tipo === 'system'
+            ? Zap
+            : Info;
+
+  const Icon = icon;
+
+  return (
+    <span className="toast-icon" aria-hidden="true">
+      <Icon className="w-5 h-5" />
+    </span>
+  );
 }

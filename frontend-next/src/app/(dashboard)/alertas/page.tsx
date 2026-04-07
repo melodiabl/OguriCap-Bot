@@ -27,12 +27,14 @@ import {
   Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+import { notify } from '@/lib/notify';
 
 interface Alert {
   id: string;
@@ -97,14 +99,14 @@ export default function AlertasPage() {
       
       // Mostrar toast para alertas críticas
       if (data.severity >= 4) {
-        toast.error(`Alerta Crítica: ${data.ruleName}`, {
-          duration: 10000,
-          position: 'top-right'
+        notify.error(`Alerta Crítica: ${data.ruleName}`, {
+          dedupeKey: `critical-alert-${data.id}`,
+          dedupeMs: 10000,
         });
       } else if (data.severity >= 3) {
-        toast.error(`Alerta: ${data.ruleName}`, {
-          duration: 5000,
-          position: 'top-right'
+        notify.warning(`Alerta: ${data.ruleName}`, {
+          dedupeKey: `alert-${data.id}`,
+          dedupeMs: 5000,
         });
       }
     };
@@ -140,7 +142,7 @@ export default function AlertasPage() {
       setAlerts([]);
     } catch (error) {
       console.error('Error loading alerts:', error);
-      toast.error('Error cargando alertas');
+      notify.error('Error cargando alertas');
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +170,7 @@ export default function AlertasPage() {
       try {
         await api.acknowledgeAlert(alertId);
         await loadAlerts();
-        toast.success('Alerta reconocida');
+        notify.success('Alerta reconocida');
         return;
       } catch {}
 
@@ -177,9 +179,9 @@ export default function AlertasPage() {
           ? { ...alert, state: 'acknowledged', acknowledgedAt: new Date().toISOString() }
           : alert
       ));
-      toast.success('Alerta reconocida');
+      notify.success('Alerta reconocida');
     } catch (error) {
-      toast.error('Error reconociendo alerta');
+      notify.error('Error reconociendo alerta');
     }
   };
 
@@ -189,7 +191,7 @@ export default function AlertasPage() {
       try {
         await api.resolveAlert(alertId);
         await loadAlerts();
-        toast.success('Alerta resuelta');
+        notify.success('Alerta resuelta');
         return;
       } catch {}
 
@@ -198,9 +200,9 @@ export default function AlertasPage() {
           ? { ...alert, state: 'resolved', resolvedAt: new Date().toISOString() }
           : alert
       ));
-      toast.success('Alerta resuelta');
+      notify.success('Alerta resuelta');
     } catch (error) {
-      toast.error('Error resolviendo alerta');
+      notify.error('Error resolviendo alerta');
     }
   };
 
@@ -210,16 +212,16 @@ export default function AlertasPage() {
       try {
         await api.updateAlertRule(ruleId, { enabled });
         await loadRules();
-        toast.success(enabled ? 'Regla habilitada' : 'Regla deshabilitada');
+        notify.success(enabled ? 'Regla habilitada' : 'Regla deshabilitada');
         return;
       } catch {}
 
       setRules(prev => prev.map(rule => 
         rule.id === ruleId ? { ...rule, enabled } : rule
       ));
-      toast.success(enabled ? 'Regla habilitada' : 'Regla deshabilitada');
+      notify.success(enabled ? 'Regla habilitada' : 'Regla deshabilitada');
     } catch (error) {
-      toast.error('Error actualizando regla');
+      notify.error('Error actualizando regla');
     }
   };
 
@@ -229,13 +231,13 @@ export default function AlertasPage() {
       try {
         await api.suppressAlertRule(ruleId, duration);
         await loadRules();
-        toast.success(`Regla suprimida por ${duration / 60} minutos`);
+        notify.success(`Regla suprimida por ${duration / 60} minutos`);
         return;
       } catch {}
 
-      toast.success(`Regla suprimida por ${duration / 60} minutos`);
+      notify.success(`Regla suprimida por ${duration / 60} minutos`);
     } catch (error) {
-      toast.error('Error suprimiendo regla');
+      notify.error('Error suprimiendo regla');
     }
   };
 
@@ -344,7 +346,7 @@ export default function AlertasPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Sistema de Alertas"
@@ -370,70 +372,28 @@ export default function AlertasPage() {
       />
 
       {/* Stats Cards */}
-      <Stagger className="grid grid-cols-1 md:grid-cols-4 gap-4" delay={0.02} stagger={0.06}>
-        <StaggerItem whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }} className="glass-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-500/20">
-              <Bell className="w-5 h-5 text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Activas</p>
-              <p className="text-xl font-bold text-white">
-                <AnimatedNumber value={alerts.filter(a => a.state === 'active').length} />
-              </p>
-            </div>
-          </div>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.02} stagger={0.06}>
+        <StaggerItem>
+          <StatCard title="Activas" value={alerts.filter(a => a.state === 'active').length} icon={<Bell className="w-6 h-6 text-red-400" />} color="danger" delay={0} animated={false} />
         </StaggerItem>
-
-        <StaggerItem whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }} className="glass-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-yellow-500/20">
-              <Eye className="w-5 h-5 text-yellow-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Reconocidas</p>
-              <p className="text-xl font-bold text-white">
-                <AnimatedNumber value={alerts.filter(a => a.state === 'acknowledged').length} />
-              </p>
-            </div>
-          </div>
+        <StaggerItem>
+          <StatCard title="Reconocidas" value={alerts.filter(a => a.state === 'acknowledged').length} icon={<Eye className="w-6 h-6 text-yellow-400" />} color="warning" delay={0} animated={false} />
         </StaggerItem>
-
-        <StaggerItem whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }} className="glass-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/20">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Resueltas</p>
-              <p className="text-xl font-bold text-white">
-                <AnimatedNumber value={alerts.filter(a => a.state === 'resolved').length} />
-              </p>
-            </div>
-          </div>
+        <StaggerItem>
+          <StatCard title="Resueltas" value={alerts.filter(a => a.state === 'resolved').length} icon={<CheckCircle className="w-6 h-6 text-green-400" />} color="success" delay={0} animated={false} />
         </StaggerItem>
-
-        <StaggerItem whileHover={{ y: -6, scale: 1.01, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }} className="glass-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/20">
-              <Settings className="w-5 h-5 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Reglas</p>
-              <p className="text-xl font-bold text-white">
-                <AnimatedNumber value={rules.filter(r => r.enabled).length} />/<AnimatedNumber value={rules.length} />
-              </p>
-            </div>
-          </div>
+        <StaggerItem>
+          <StatCard title="Reglas" value={rules.filter(r => r.enabled).length} subtitle={`${rules.length} totales`} icon={<Settings className="w-6 h-6 text-blue-400" />} color="info" delay={0} animated={false} />
         </StaggerItem>
       </Stagger>
 
       {/* Filtros */}
-      <div className="glass-card p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <Card>
+        <CardContent className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
                 type="text"
                 placeholder="Buscar alertas..."
@@ -444,8 +404,8 @@ export default function AlertasPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center gap-2 rounded-2xl border border-border/15 bg-card/60 px-3 py-2">
+            <Filter className="w-4 h-4 text-muted" />
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as any)}
@@ -458,7 +418,7 @@ export default function AlertasPage() {
             </select>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-2xl border border-border/15 bg-card/60 px-3 py-2">
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value as any)}
@@ -483,27 +443,27 @@ export default function AlertasPage() {
             Actualizar
           </Button>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Lista de alertas */}
-      <div className="glass-card">
-        <div className="p-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">
+      <Card>
+        <CardHeader>
+          <CardTitle>
             Alertas ({filteredAlerts.length})
-          </h2>
-        </div>
+          </CardTitle>
+        </CardHeader>
         
-        <div className="divide-y divide-white/5">
+        <CardContent className="p-0">
+        <div className="divide-y divide-border/10">
           <AnimatePresence>
             {filteredAlerts.length === 0 ? (
-              <div className="p-8 text-center">
-                <Bell className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">
-                  {alerts.length === 0 
-                    ? 'No hay alertas registradas' 
-                    : 'No se encontraron alertas con los filtros aplicados'
-                  }
-                </p>
+              <div className="p-6">
+                <EmptyState
+                  icon={<Bell className="w-6 h-6 text-muted" />}
+                  title={alerts.length === 0 ? 'No hay alertas registradas' : 'Sin resultados'}
+                  description={alerts.length === 0 ? 'No hay alertas registradas' : 'No se encontraron alertas con los filtros aplicados'}
+                />
               </div>
             ) : (
               filteredAlerts.map((alert) => (
@@ -512,7 +472,7 @@ export default function AlertasPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className={`p-4 hover:bg-white/5 transition-colors border-l-4 ${
+                  className={`p-4 transition-colors hover:bg-card/55 border-l-4 ${
                     alert.state === 'active' ? 'border-red-500' :
                     alert.state === 'acknowledged' ? 'border-yellow-500' :
                     alert.state === 'resolved' ? 'border-green-500' :
@@ -536,20 +496,20 @@ export default function AlertasPage() {
                           </span>
                         </div>
                         
-                        <div className="flex items-center gap-1 text-gray-400">
+                        <div className="flex items-center gap-1 text-muted">
                           {getTypeIcon(alert.type)}
                           <span className="text-xs">{alert.type}</span>
                         </div>
                         
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted">
                           {getTimeSince(alert.triggeredAt)}
                         </span>
                       </div>
                       
-                      <h3 className="font-medium text-white mb-1">{alert.ruleName}</h3>
-                      <p className="text-sm text-gray-400 mb-2">{alert.message}</p>
+                      <h3 className="mb-1 font-medium text-foreground">{alert.ruleName}</h3>
+                      <p className="mb-2 text-sm text-muted">{alert.message}</p>
                       
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
                         <span>Métrica: {alert.details.metric}</span>
                         <span>Valor: {alert.details.value}</span>
                         <span>Umbral: {alert.details.threshold}</span>
@@ -559,7 +519,7 @@ export default function AlertasPage() {
                       {alert.tags.length > 0 && (
                         <div className="flex items-center gap-1 mt-2">
                           {alert.tags.map(tag => (
-                            <span key={tag} className="px-2 py-1 bg-white/10 rounded text-xs text-gray-300">
+                            <span key={tag} className="rounded px-2 py-1 text-xs text-[rgb(var(--text-secondary))] bg-card/70 border border-border/10">
                               {tag}
                             </span>
                           ))}
@@ -608,7 +568,8 @@ export default function AlertasPage() {
             )}
           </AnimatePresence>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Reglas de alerta */}
       <AnimatePresence>
@@ -617,21 +578,21 @@ export default function AlertasPage() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass-card"
+            className="panel-editor-shell"
           >
-            <div className="p-4 border-b border-white/10">
-              <h2 className="text-lg font-semibold text-white">
+            <div className="border-b border-border/15 p-5 sm:p-6">
+              <h2 className="text-lg font-semibold text-foreground">
                 Reglas de Alerta ({rules.length})
               </h2>
             </div>
             
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-border/10">
               {rules.map((rule) => (
-                <div key={rule.id} className="p-4">
-                  <div className="flex items-center justify-between">
+                <div key={rule.id} className="p-4 sm:p-5">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-medium text-white">{rule.name}</h3>
+                      <div className="mb-2 flex flex-wrap items-center gap-3">
+                        <h3 className="font-medium text-foreground">{rule.name}</h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(rule.severity)}`}>
                           {getSeverityLabel(rule.severity)}
                         </span>
@@ -642,9 +603,9 @@ export default function AlertasPage() {
                         </span>
                       </div>
                       
-                      <p className="text-sm text-gray-400 mb-2">{rule.description}</p>
+                      <p className="mb-2 text-sm text-muted">{rule.description}</p>
                       
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
                         <span>Métrica: {rule.metric}</span>
                         <span>Condición: {rule.condition} {rule.threshold}</span>
                         <span>Duración: {rule.duration}s</span>
@@ -655,7 +616,7 @@ export default function AlertasPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="panel-actions-wrap xl:justify-end">
                       <Button
                         onClick={() => toggleRule(rule.id, !rule.enabled)}
                         variant="secondary"

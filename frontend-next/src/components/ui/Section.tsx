@@ -33,22 +33,22 @@ export function Section({
     <section className={cn('section-container', className)}>
       {hasHeader && (
         <header className={cn('section-header', headerClassName)}>
-          <div className="flex items-start gap-3 min-w-0">
+          <div className="flex min-w-0 flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:text-left">
             {icon ? <div className="shrink-0">{icon}</div> : null}
             <div className="min-w-0">
               {title ? (
-                <h3 className="text-lg font-semibold text-white [html[data-theme=light]_&]:text-gray-900 truncate">
+                <h3 className="truncate text-lg font-semibold text-foreground">
                   {title}
                 </h3>
               ) : null}
               {description ? (
-                <p className="text-sm text-gray-400 [html[data-theme=light]_&]:text-gray-600 truncate">
+                <p className="truncate text-sm text-muted">
                   {description}
                 </p>
               ) : null}
             </div>
           </div>
-          {actions ? <div className="shrink-0 flex items-center gap-2">{actions}</div> : null}
+          {actions ? <div className="panel-actions-wrap shrink-0">{actions}</div> : null}
         </header>
       )}
 

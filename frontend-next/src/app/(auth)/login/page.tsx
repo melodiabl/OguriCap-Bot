@@ -256,8 +256,8 @@ export default function LoginPage() {
   // Mostrar pantalla de carga mientras se verifica el mantenimiento
   if (isCheckingMaintenance) {
     return (
-      <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
-        <div className="text-center">
+      <div className="auth-shell">
+        <div className="panel-stack-center relative z-10">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-oguri-primary flex items-center justify-center shadow-glow-oguri-mixed mb-4 relative animate-oguri-aura">
             <div className="absolute inset-[3px] rounded-2xl bg-oguri-phantom-950/90" />
             <Image
@@ -278,13 +278,13 @@ export default function LoginPage() {
   // Mostrar pantalla de mantenimiento si está activo
   if (isMaintenanceMode && !maintenanceAccessAllowed && !showMaintenanceLogin) {
     return (
-      <div className="min-h-screen mesh-bg flex items-center justify-center p-4">
+      <div className="auth-shell">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full text-center"
+          className="relative z-10 w-full max-w-md text-center"
         >
-          <div className="glass-card p-8">
+          <div className="auth-card">
             <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-glow mb-6">
               <Wrench className="w-10 h-10 text-white" />
             </div>
@@ -350,7 +350,7 @@ export default function LoginPage() {
   const enableBgMotion = !reduceMotion && !performanceMode;
 
   return (
-    <div className="min-h-screen mesh-bg flex items-center lg:items-stretch justify-center p-4 lg:p-10 relative overflow-hidden">
+    <div className="auth-shell lg:items-stretch">
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -392,7 +392,7 @@ export default function LoginPage() {
                 alt="Oguri Cap"
                 width={96}
                 height={96}
-                className="relative w-20 h-20 rounded-3xl object-cover border border-white/40"
+                className="relative w-20 h-20 rounded-3xl object-cover border border-border/20"
                 priority
               />
             </div>
@@ -414,7 +414,7 @@ export default function LoginPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 + index * 0.1 }}
-                className="flex items-center gap-4 p-4 rounded-2xl bg-card/20 border border-border/20 backdrop-blur-sm hover-glass-bright"
+                className="flex items-center gap-4 rounded-2xl border border-border/15 bg-card/60 p-4 backdrop-blur-xl transition-all hover:border-primary/20 hover:bg-card/78"
               >
                 <div
                   className={cn(
@@ -446,14 +446,14 @@ export default function LoginPage() {
               animate={{ scale: 1 }}
               className="lg:hidden text-center mb-5 [@media(max-height:740px)]:mb-3"
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4 relative">
+              <div className="relative mb-4 mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-glow">
                 <div className="absolute inset-[3px] rounded-2xl bg-slate-950/90" />
                 <Image
                   src="/oguricap-login.png"
                   alt="Oguri Cap"
                   width={56}
                   height={56}
-                  className="relative w-12 h-12 rounded-2xl object-cover border border-white/50"
+                  className="relative w-12 h-12 rounded-2xl object-cover border border-border/25"
                   priority
                 />
               </div>
@@ -465,7 +465,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="glass-card p-6 sm:p-7 [@media(max-height:740px)]:p-5"
+              className="auth-card [@media(max-height:740px)]:p-5 sm:p-7"
             >
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-black tracking-tight mb-1">
@@ -574,7 +574,7 @@ export default function LoginPage() {
                       onExpire={() => {
                         setTurnstileToken(null);
                       }}
-                      theme="dark"
+                      theme="auto"
                       size="normal"
                     />
                   </div>

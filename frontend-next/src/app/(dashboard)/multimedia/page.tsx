@@ -152,24 +152,28 @@ export default function MultimediaPage() {
       const uploadPromises = selectedFiles.map(file => api.uploadMultimedia(file));
       await Promise.all(uploadPromises);
       
-      await api.createNotification({
-        title: 'Archivos Multimedia Subidos',
-        message: `Se subieron ${selectedFiles.length} archivo(s) multimedia correctamente`,
-        type: 'success',
-        category: 'multimedia'
-      });
+      void api
+        .createNotification({
+          title: 'Archivos Multimedia Subidos',
+          message: `Se subieron ${selectedFiles.length} archivo(s) multimedia correctamente`,
+          type: 'success',
+          category: 'multimedia',
+        })
+        .catch(() => {});
       
       toast.success(`${selectedFiles.length} archivo(s) subido(s) correctamente`);
       setShowUploadModal(false);
       setSelectedFiles([]);
       loadData();
     } catch (err: any) {
-      await api.createNotification({
-        title: 'Error al Subir Archivos',
-        message: err?.response?.data?.error || 'Error al subir archivos multimedia',
-        type: 'error',
-        category: 'multimedia'
-      });
+      void api
+        .createNotification({
+          title: 'Error al Subir Archivos',
+          message: err?.response?.data?.error || 'Error al subir archivos multimedia',
+          type: 'error',
+          category: 'multimedia',
+        })
+        .catch(() => {});
       
       toast.error(err?.response?.data?.error || 'Error al subir archivos');
     } finally {
@@ -227,7 +231,7 @@ export default function MultimediaPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <PageHeader
         title="Gestión de Multimedia"

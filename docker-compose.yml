@@ -41,6 +41,7 @@ services:
     env_file:
       - .env
     environment:
+      - PANEL_URL=https://melodiaauris.qzz.io
       - NO_PROMPT=1
     volumes:
       - ./Sessions:/app/Sessions

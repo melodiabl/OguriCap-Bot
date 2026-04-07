@@ -5,7 +5,61 @@ import { cn } from '@/lib/utils';
 
 type NotifyOptions = ToastOptions & {
   title?: string;
+  dedupeKey?: string;
+  dedupeMs?: number;
 };
+
+const recentToasts = new Map<string, { id: string; timestamp: number }>();
+
+function normalizeNotifyPart(value?: string) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function buildNotifyKey(type: string, title: string | undefined, message: string, explicitKey?: string) {
+  return explicitKey || `${type}|${normalizeNotifyPart(title)}|${normalizeNotifyPart(message)}`;
+}
+
+function cleanupRecentToasts(now = Date.now()) {
+  for (const [key, value] of recentToasts.entries()) {
+    if (now - value.timestamp > 30000) recentToasts.delete(key);
+  }
+}
+
+function showDedupedToast(
+  type: 'info' | 'success' | 'warning' | 'error' | 'system',
+  defaultTitle: string,
+  message: string,
+  options?: NotifyOptions,
+) {
+  const dedupeMs = Math.max(500, Number(options?.dedupeMs || 5000));
+  const title = options?.title || defaultTitle;
+  const key = buildNotifyKey(type, title, message, options?.dedupeKey);
+  const now = Date.now();
+
+  cleanupRecentToasts(now);
+
+  const existing = recentToasts.get(key);
+  if (existing && now - existing.timestamp < dedupeMs) {
+    return existing.id;
+  }
+
+  const toastId = `notify:${key}`;
+  recentToasts.set(key, { id: toastId, timestamp: now });
+
+  const { dedupeKey: _dedupeKey, dedupeMs: _dedupeMs, title: _title, ...toastOptions } = options || {};
+
+  return toast.custom(
+    (t) => (
+      <div className={cn(t.visible ? 'animate-enter' : 'animate-leave')}>
+        <CustomToast type={type} title={title} message={message} />
+      </div>
+    ),
+    { id: toastId, ...toastOptions }
+  );
+}
 
 const CustomToast = ({ 
   title, 
@@ -39,54 +93,19 @@ const CustomToast = ({
 
 export const notify = {
   success(message: string, options?: NotifyOptions) {
-    return toast.custom(
-      (t) => (
-        <div className={cn(t.visible ? 'animate-enter' : 'animate-leave')}>
-          <CustomToast type="success" title={options?.title || 'Éxito'} message={message} />
-        </div>
-      ),
-      { duration: 4000, position: 'top-right', ...options }
-    );
+    return showDedupedToast('success', 'Éxito', message, { duration: 4000, ...options });
   },
   error(message: string, options?: NotifyOptions) {
-    return toast.custom(
-      (t) => (
-        <div className={cn(t.visible ? 'animate-enter' : 'animate-leave')}>
-          <CustomToast type="error" title={options?.title || 'Error'} message={message} />
-        </div>
-      ),
-      { duration: 6000, position: 'top-right', ...options }
-    );
+    return showDedupedToast('error', 'Error', message, { duration: 6000, ...options });
   },
   warning(message: string, options?: NotifyOptions) {
-    return toast.custom(
-      (t) => (
-        <div className={cn(t.visible ? 'animate-enter' : 'animate-leave')}>
-          <CustomToast type="warning" title={options?.title || 'Atención'} message={message} />
-        </div>
-      ),
-      { duration: 5000, position: 'top-right', ...options }
-    );
+    return showDedupedToast('warning', 'Atención', message, { duration: 5000, ...options });
   },
   info(message: string, options?: NotifyOptions) {
-    return toast.custom(
-      (t) => (
-        <div className={cn(t.visible ? 'animate-enter' : 'animate-leave')}>
-          <CustomToast type="info" title={options?.title || 'Información'} message={message} />
-        </div>
-      ),
-      { duration: 4000, position: 'top-right', ...options }
-    );
+    return showDedupedToast('info', 'Información', message, { duration: 4000, ...options });
   },
   system(message: string, options?: NotifyOptions) {
-    return toast.custom(
-      (t) => (
-        <div className={cn(t.visible ? 'animate-enter' : 'animate-leave')}>
-          <CustomToast type="system" title={options?.title || 'Sistema'} message={message} />
-        </div>
-      ),
-      { duration: 5000, position: 'top-right', ...options }
-    );
+    return showDedupedToast('system', 'Sistema', message, { duration: 5000, ...options });
   },
   dismiss(toastId?: string) {
     toast.dismiss(toastId);

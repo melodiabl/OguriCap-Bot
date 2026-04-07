@@ -1,6 +1,6 @@
 export default function DashboardLoading() {
   return (
-    <div className="space-y-6">
+    <div className="panel-page">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-2">
@@ -18,7 +18,7 @@ export default function DashboardLoading() {
         {Array.from({ length: 4 }).map((_, idx) => (
           <div
             key={idx}
-            className="ultra-card p-6"
+            className="panel-surface p-6"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="skeleton h-4 w-24 rounded" />
@@ -31,8 +31,8 @@ export default function DashboardLoading() {
       </div>
 
       {/* Table */}
-      <div className="ultra-card overflow-hidden">
-        <div className="p-6 border-b border-white/10">
+      <div className="panel-editor-shell overflow-hidden">
+        <div className="border-b border-border/15 p-6">
           <div className="skeleton h-5 w-40 rounded mb-2" />
           <div className="skeleton h-4 w-56 rounded" />
         </div>

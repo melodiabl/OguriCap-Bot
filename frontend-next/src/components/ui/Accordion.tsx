@@ -106,11 +106,11 @@ export function AccordionTrigger({
       aria-expanded={!!open}
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-white">{children}</span>
+        <span className="block text-sm font-semibold text-foreground">{children}</span>
       </span>
       <ChevronDown
         className={cn(
-          'w-5 h-5 text-gray-400 transition-transform duration-200',
+          'w-5 h-5 text-muted transition-transform duration-200',
           open && 'rotate-180'
         )}
       />
@@ -140,4 +140,3 @@ export function AccordionContent({
     </div>
   );
 }
-

@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
   FileText, 
@@ -54,6 +54,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
+import { TerminalLogViewer } from '@/components/logs/TerminalLogViewer';
 import { SOCKET_EVENTS, useSocketConnection } from '@/contexts/SocketContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -173,6 +174,14 @@ export default function LogsPage() {
   const { user } = useAuth();
   const canControl = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
   const reduceMotion = useReducedMotion();
+  const chartColors = useMemo(() => ({
+    primary: 'rgb(var(--primary))',
+    primaryFill: 'rgb(var(--primary) / 0.2)',
+    success: 'rgb(var(--success))',
+    successFill: 'rgb(var(--success) / 0.18)',
+    grid: 'rgb(var(--border) / 0.18)',
+    axis: 'rgb(var(--text-secondary) / 1)',
+  }), []);
 
   const normalizeLogEntry = (raw: any): LogEntry => {
     const timestampRaw = raw?.timestamp ?? raw?.fecha ?? raw?.date ?? raw?.createdAt ?? raw?.time;
@@ -569,7 +578,57 @@ export default function LogsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="panel-page relative overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-emerald-400/16 blur-3xl"
+          animate={reduceMotion ? { opacity: 0.28 } : { x: [0, 18, 0], y: [0, 16, 0], opacity: [0.18, 0.36, 0.18] }}
+          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 11.4, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-blue/16 blur-3xl"
+          animate={reduceMotion ? { opacity: 0.24 } : { x: [0, -18, 0], y: [0, 18, 0], opacity: [0.16, 0.34, 0.16] }}
+          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 10.8, ease: 'easeInOut', delay: 0.6 }}
+        />
+      </div>
+
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.14),rgba(var(--page-b),0.10),rgba(var(--page-c),0.10))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Shield className="h-3.5 w-3.5 text-emerald-300" />
+              Observabilidad total
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Centro de logs con HUD táctico</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Eventos, métricas y sistema en una cabina con lectura rápida, brillo técnico y textura tipo consola viva.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Modo</p>
+              <p className="mt-2 text-lg font-black text-white">{activeTab === 'logs' ? 'LOGS' : 'SYSTEM'}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Refresh</p>
+              <p className="mt-2 text-lg font-black text-white">{autoRefresh ? 'AUTO' : 'MANUAL'}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Errores</p>
+              <p className="mt-2 text-lg font-black text-white">{stats?.errorCount || 0}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       <PageHeader
         title="Logs y Monitoreo"
         description="Visualiza logs del sistema, métricas y estado de servicios en tiempo real."
@@ -607,14 +666,31 @@ export default function LogsPage() {
         }
       />
 
+      {stats && (
+        <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.04} stagger={0.05}>
+          <StaggerItem>
+            <StatCard title="Logs Totales" value={stats.totalLogs || 0} subtitle={`${stats.bufferSize || 0} en buffer`} icon={<FileText className="h-6 w-6 text-primary" />} color="primary" />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard title="Errores" value={stats.errorCount || 0} subtitle={`${stats.warnCount || 0} warnings`} icon={<AlertCircle className="h-6 w-6 text-red-400" />} color="danger" />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard title="Archivos" value={stats.diskUsage?.fileCount || 0} subtitle={stats.diskUsage?.formattedSize || '0 B'} icon={<HardDrive className="h-6 w-6 text-cyan-300" />} color="info" />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard title="Uptime" value={formatUptime((stats.uptime || 0) * 1000)} subtitle={`${stats.activeStreams || 0} streams`} icon={<Clock className="h-6 w-6 text-emerald-300" />} color="success" />
+          </StaggerItem>
+        </Stagger>
+      )}
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <div className="flex items-center justify-between mb-4">
+        <div className="panel-setting-row mb-4">
           <TabsList>
             <TabsTrigger value="logs">Logs del Sistema</TabsTrigger>
             <TabsTrigger value="system">Estado del Sistema</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Auto-refresh:</span>
+            <span className="text-xs text-muted">Auto-refresh:</span>
             <input
               type="checkbox"
               checked={autoRefresh}
@@ -632,14 +708,14 @@ export default function LogsPage() {
             transition={{ duration: 0.2 }}
           >
             {showFilters && (
-              <Card className="mb-6">
+              <Card className="mb-6 shadow-glow-oguri-cyan">
                 <CardHeader>
                   <CardTitle>Opciones de Filtro</CardTitle>
                   <CardDescription>Refina la búsqueda de logs por nivel, categoría y fecha.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1.5">Buscar</label>
+                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="panel-field">
+                    <label className="panel-field-label text-xs">Buscar</label>
                     <input
                       type="text"
                       placeholder="Buscar mensaje o datos..."
@@ -648,8 +724,8 @@ export default function LogsPage() {
                       className="input-glass w-full"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1.5">Nivel</label>
+                  <div className="panel-field">
+                    <label className="panel-field-label text-xs">Nivel</label>
                     <Select value={selectedLevel} onValueChange={setSelectedLevel}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Todos los niveles" />
@@ -662,8 +738,8 @@ export default function LogsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1.5">Categoría</label>
+                  <div className="panel-field">
+                    <label className="panel-field-label text-xs">Categoría</label>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Todas las categorías" />
@@ -676,8 +752,8 @@ export default function LogsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1.5">Fecha Inicio</label>
+                  <div className="panel-field">
+                    <label className="panel-field-label text-xs">Fecha Inicio</label>
                     <input
                       type="date"
                       value={startDate}
@@ -685,8 +761,8 @@ export default function LogsPage() {
                       className="input-glass w-full"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1.5">Fecha Fin</label>
+                  <div className="panel-field">
+                    <label className="panel-field-label text-xs">Fecha Fin</label>
                     <input
                       type="date"
                       value={endDate}
@@ -698,11 +774,11 @@ export default function LogsPage() {
               </Card>
             )}
 
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle>Logs Recientes</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('json')}>Exportar JSON</Button>
+              <Card className="overflow-hidden shadow-glow-oguri-blue">
+                <CardHeader className="flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle>Logs Recientes</CardTitle>
+                  <div className="panel-actions-wrap">
+                    <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('json')}>Exportar JSON</Button>
                   {/* <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('csv')}>Exportar CSV</Button> */}
                 </div>
               </CardHeader>
@@ -720,9 +796,9 @@ export default function LogsPage() {
                     description="Ajusta tus filtros o espera a que se generen nuevos logs."
                   />
                 ) : (
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-border/10">
                     {logs.map((log, index) => (
-                      <div key={index} className="py-4">
+                      <div key={index} className="panel-terminal-row px-4 py-4">
                         <div className="flex items-start gap-4">
                           <div className="flex-shrink-0">
                             <Badge className={getLevelColorClass(log.level)}>
@@ -733,21 +809,21 @@ export default function LogsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">{formatTimestamp(log.timestamp)}</span>
+                                <span className="text-xs text-muted">{formatTimestamp(log.timestamp)}</span>
                                 <Badge className={getCategoryColorClass(log.category)}>
                                   <span className="capitalize">{log.category}</span>
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button variant="ghost" size="icon" onClick={() => copyLogToClipboard(log)} title="Copiar log">
-                                  <Copy className="w-4 h-4 text-gray-500 hover:text-white" />
+                                  <Copy className="w-4 h-4 text-muted hover:text-foreground" />
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={() => toggleLogExpansion(index)} title="Ver detalles">
-                                  {expandedLogs.has(index) ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                                  {expandedLogs.has(index) ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
                                 </Button>
                               </div>
                             </div>
-                            <p className="text-sm text-white/90 leading-relaxed break-words">
+                            <p className="text-sm text-foreground leading-relaxed break-words">
                               {log.message}
                             </p>
                             <AnimatePresence>
@@ -757,7 +833,7 @@ export default function LogsPage() {
                                   animate={{ opacity: 1, height: 'auto' }}
                                   exit={{ opacity: 0, height: 0 }}
                                   transition={{ duration: 0.2 }}
-                                  className="mt-3 p-3 rounded-lg bg-white/5 border border-white/10 text-xs font-mono overflow-x-auto"
+                                  className="panel-readonly-block mt-3 overflow-x-auto text-xs font-mono"
                                 >
                                   <pre className="whitespace-pre-wrap break-all">{JSON.stringify(log.data, null, 2)}</pre>
                                   {log.stack && log.stack.length > 0 && (
@@ -777,6 +853,18 @@ export default function LogsPage() {
                 )}
               </CardContent>
             </Card>
+
+            {canControl && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Terminal en Vivo</CardTitle>
+                  <CardDescription>Flujo de salida reciente del sistema en tiempo real.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TerminalLogViewer />
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         )}
 
@@ -786,7 +874,7 @@ export default function LogsPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
           >
             <Card>
               <CardHeader>
@@ -795,23 +883,23 @@ export default function LogsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <h4 className="text-sm font-semibold text-white mb-2">Uso de CPU</h4>
+                  <h4 className="mb-2 text-sm font-semibold text-foreground">Uso de CPU</h4>
                   <Progress value={systemMetrics.cpu.usage} className="w-full" />
                   <p className="text-xs text-muted mt-1">{systemMetrics.cpu.usage.toFixed(2)}% de {systemMetrics.cpu.cores} núcleos</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white mb-2">Uso de Memoria</h4>
+                  <h4 className="mb-2 text-sm font-semibold text-foreground">Uso de Memoria</h4>
                   <Progress value={systemMetrics.memory.usage} className="w-full" />
                   <p className="text-xs text-muted mt-1">{formatBytes(systemMetrics.memory.used)} / {formatBytes(systemMetrics.memory.total)}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white mb-2">Uso de Disco</h4>
+                  <h4 className="mb-2 text-sm font-semibold text-foreground">Uso de Disco</h4>
                   <Progress value={systemMetrics.disk.usage} className="w-full" />
                   <p className="text-xs text-muted mt-1">{systemMetrics.disk.used} / {systemMetrics.disk.total}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white mb-2">Uptime</h4>
-                  <p className="text-sm text-white">{formatUptime(systemMetrics.uptime * 1000)}</p>
+                  <h4 className="mb-2 text-sm font-semibold text-foreground">Uptime</h4>
+                  <p className="text-sm text-foreground">{formatUptime(systemMetrics.uptime * 1000)}</p>
                 </div>
               </CardContent>
             </Card>
@@ -823,10 +911,10 @@ export default function LogsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {Object.entries(systemStatus.systems).map(([key, isRunning]) => (
-                  <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div key={key} className="panel-setting-row">
                     <div className="flex items-center gap-3">
                       {getSystemStatusIcon(key, isRunning)}
-                      <span className="text-sm font-medium capitalize text-white">{key.replace(/([A-Z])/g, ' $1')}</span>
+                      <span className="text-sm font-medium capitalize text-foreground">{key.replace(/([A-Z])/g, ' $1')}</span>
                     </div>
                     <Badge className={isRunning ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}>
                       {isRunning ? 'Activo' : 'Inactivo'}
@@ -847,38 +935,38 @@ export default function LogsPage() {
                     <AreaChart data={metricsHistory}>
                       <defs>
                         <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                          <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0}/>
                         </linearGradient>
                         <linearGradient id="colorMemory" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
+                          <stop offset="5%" stopColor={chartColors.success} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={chartColors.success} stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <XAxis 
                         dataKey="timestamp" 
                         tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} 
-                        stroke="#6b7280"
-                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        stroke={chartColors.axis}
+                        tick={{ fill: chartColors.axis, fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <YAxis 
-                        stroke="#6b7280"
-                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        stroke={chartColors.axis}
+                        tick={{ fill: chartColors.axis, fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         unit="%"
                       />
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} opacity={0.5} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', borderRadius: '8px' }}
-                        labelStyle={{ color: '#e5e7eb' }}
-                        itemStyle={{ color: '#d1d5db' }}
+                        contentStyle={{ backgroundColor: 'rgb(var(--surface-elevated))', border: '1px solid rgb(var(--border) / 0.15)', borderRadius: '12px' }}
+                        labelStyle={{ color: 'rgb(var(--text-primary))' }}
+                        itemStyle={{ color: 'rgb(var(--text-secondary))' }}
                         formatter={(value: number, name: string) => [`${value.toFixed(2)}%`, name === 'cpu' ? 'CPU' : 'Memoria']}
                       />
-                      <Area type="monotone" dataKey="cpu" stroke="#8884d8" fillOpacity={1} fill="url(#colorCpu)" />
-                      <Area type="monotone" dataKey="memory" stroke="#82ca9d" fillOpacity={1} fill="url(#colorMemory)" />
+                      <Area type="monotone" dataKey="cpu" stroke={chartColors.primary} fillOpacity={1} fill="url(#colorCpu)" />
+                      <Area type="monotone" dataKey="memory" stroke={chartColors.success} fillOpacity={1} fill="url(#colorMemory)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -900,13 +988,13 @@ export default function LogsPage() {
                 {alerts.length > 0 ? (
                   <div className="space-y-3">
                     {alerts.map(alert => (
-                      <div key={alert.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div key={alert.id} className="panel-setting-row">
                         <div className={`w-2 h-2 rounded-full ${getSeverityColor(alert.severity)}`} />
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-white">{alert.title}</p>
+                          <p className="text-sm font-medium text-foreground">{alert.title}</p>
                           <p className="text-xs text-muted">{alert.message}</p>
                         </div>
-                        <span className="text-xs text-gray-500">{formatTimestamp(alert.timestamp)}</span>
+                        <span className="text-xs text-muted">{formatTimestamp(alert.timestamp)}</span>
                       </div>
                     ))}
                   </div>
@@ -935,9 +1023,9 @@ export default function LogsPage() {
                   {reports.length > 0 ? (
                     <div className="space-y-3">
                       {reports.map(report => (
-                        <div key={report.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                        <div key={report.id} className="panel-setting-row">
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-white">{report.title}</p>
+                            <p className="text-sm font-medium text-foreground">{report.title}</p>
                             <p className="text-xs text-muted">{report.type} - {formatTimestamp(report.generatedAt)}</p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -946,11 +1034,11 @@ export default function LogsPage() {
                             </Badge>
                             {report.status === 'completed' && (
                               <Button variant="ghost" size="icon" onClick={() => downloadReport(report)} title="Descargar Reporte">
-                                <Download className="w-4 h-4 text-gray-500 hover:text-white" />
+                                <Download className="w-4 h-4 text-muted hover:text-foreground" />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => deleteReport(report.id)} title="Eliminar Reporte">
-                              <Trash2 className="w-4 h-4 text-gray-500 hover:text-red-400" />
+                              <Trash2 className="w-4 h-4 text-muted hover:text-red-400" />
                             </Button>
                           </div>
                         </div>
