@@ -72,6 +72,34 @@ export default function RootLayout({
                 document.documentElement.dataset.intensity = intensity;
                 document.documentElement.dataset.pagePreset = pagePreset;
                 document.documentElement.style.colorScheme = theme;
+
+                // Load color palette
+                const savedPalette = localStorage.getItem('oguricap:color-palette');
+                if (savedPalette) {
+                  const palettes = {
+                    'default': { p: '#6366f1', s: '#8b5cf6', a: '#06b6d4' },
+                    'emerald': { p: '#10b981', s: '#06b6d4', a: '#6366f1' },
+                    'rose': { p: '#f43f5e', s: '#ec4899', a: '#f59e0b' },
+                    'purple': { p: '#a855f7', s: '#d946ef', a: '#8b5cf6' },
+                    'blue': { p: '#3b82f6', s: '#0ea5e9', a: '#06b6d4' },
+                    'amber': { p: '#f59e0b', s: '#f97316', a: '#eab308' },
+                    'teal': { p: '#14b8a6', s: '#06b6d4', a: '#10b981' },
+                    'violet': { p: '#7c3aed', s: '#a855f7', a: '#c026d3' }
+                  };
+                  const palette = palettes[savedPalette];
+                  if (palette) {
+                    const hexToRgb = (hex) => {
+                      const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);
+                      return result ? parseInt(result[1], 16) + ' ' + parseInt(result[2], 16) + ' ' + parseInt(result[3], 16) : '99 102 241';
+                    };
+                    document.documentElement.style.setProperty('--page-a', hexToRgb(palette.p));
+                    document.documentElement.style.setProperty('--page-b', hexToRgb(palette.s));
+                    document.documentElement.style.setProperty('--page-c', hexToRgb(palette.a));
+                    document.documentElement.style.setProperty('--primary', hexToRgb(palette.p));
+                    document.documentElement.style.setProperty('--secondary', hexToRgb(palette.s));
+                    document.documentElement.style.setProperty('--accent', hexToRgb(palette.a));
+                  }
+                }
               } catch (e) {
                 document.documentElement.dataset.theme = 'dark';
                 document.documentElement.dataset.intensity = 'vivid';

@@ -136,16 +136,8 @@ export default function AiChatPage() {
     <div className="panel-page relative flex min-h-0 min-h-full flex-col overflow-hidden">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
         <div className="module-atmosphere" />
-        <motion.div
-          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-lavender/18 blur-3xl"
-          animate={reduceMotion ? { opacity: 0.28 } : { x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 10.8, ease: 'easeInOut' }}
-        />
-        <motion.div
-          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/18 blur-3xl"
-          animate={reduceMotion ? { opacity: 0.24 } : { x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 11.2, ease: 'easeInOut', delay: 0.5 }}
-        />
+        <div className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-lavender/18 blur-3xl opacity-30" />
+        <div className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/18 blur-3xl opacity-30" />
       </div>
 
       <motion.div

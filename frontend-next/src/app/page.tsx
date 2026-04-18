@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Activity,
   ArrowRight,
@@ -24,6 +24,8 @@ import {
   Terminal,
   Users,
   Zap,
+  PlayCircle,
+  Command
 } from 'lucide-react';
 
 const featureGroups = [
@@ -31,750 +33,348 @@ const featureGroups = [
     title: 'Comunidad activa',
     description: 'Bienvenida, menciones, reglas, admins, warns, tagall, hidetag y control de actividad.',
     icon: Users,
-    accent: 'text-[#25d366]',
-    pulse: 'from-[#25d366] to-[#2dd4bf]',
+    color: 'text-primary-400',
+    bg: 'bg-primary-500/10',
+    border: 'group-hover:border-primary-500/50',
+    shadow: 'group-hover:shadow-[0_0_30px_rgba(var(--primary),0.15)]',
   },
   {
-    title: 'Diversion y juegos',
-    description: 'RPG, economia, casino, ruleta, minas, aventura, perfiles, niveles y rankings.',
+    title: 'Diversión y juegos',
+    description: 'RPG, economía, casino, ruleta, minas, aventura, perfiles, niveles y rankings.',
     icon: Gamepad2,
-    accent: 'text-[#ff4d8d]',
-    pulse: 'from-[#ff4d8d] to-[#f59e0b]',
+    color: 'text-secondary-400',
+    bg: 'bg-secondary-500/10',
+    border: 'group-hover:border-secondary-500/50',
+    shadow: 'group-hover:shadow-[0_0_30px_rgba(var(--secondary),0.15)]',
   },
   {
     title: 'Gacha y waifus',
-    description: 'Rolls, claims, harem, trades, rarezas, top waifus y coleccion viva por usuario.',
+    description: 'Rolls, claims, harem, trades, rarezas, top waifus y colección viva por usuario.',
     icon: Sparkles,
-    accent: 'text-[#f59e0b]',
-    pulse: 'from-[#f59e0b] to-[#25d366]',
+    color: 'text-accent-400',
+    bg: 'bg-accent-500/10',
+    border: 'group-hover:border-accent-500/50',
+    shadow: 'group-hover:shadow-[0_0_30px_rgba(var(--accent),0.15)]',
   },
   {
-    title: 'Multimedia rapida',
-    description: 'Stickers, imagen a sticker, musica, descargas, letras, busquedas y contenido compartido.',
+    title: 'Multimedia rápida',
+    description: 'Stickers, imagen a sticker, música, descargas, letras, búsquedas y contenido compartido.',
     icon: ImageIcon,
-    accent: 'text-[#2dd4bf]',
-    pulse: 'from-[#2dd4bf] to-[#7dd3fc]',
+    color: 'text-primary-300',
+    bg: 'bg-primary-400/10',
+    border: 'group-hover:border-primary-400/50',
+    shadow: 'group-hover:shadow-[0_0_30px_rgba(var(--primary),0.15)]',
   },
   {
-    title: 'Herramientas utiles',
-    description: 'Traductor, Wikipedia, Google, IP lookup, screenshots web, QR, uploader y utilidades diarias.',
+    title: 'Herramientas útiles',
+    description: 'Traductor, Wikipedia, Google, IP lookup, screenshots web, QR, uploader y utilidades.',
     icon: Terminal,
-    accent: 'text-[#7dd3fc]',
-    pulse: 'from-[#7dd3fc] to-[#25d366]',
+    color: 'text-secondary-300',
+    bg: 'bg-secondary-400/10',
+    border: 'group-hover:border-secondary-400/50',
+    shadow: 'group-hover:shadow-[0_0_30px_rgba(var(--secondary),0.15)]',
   },
   {
     title: 'SubBots y panel',
-    description: 'Instancias separadas, estado del bot, grupos, aportes, recursos, logs, alertas y tareas.',
+    description: 'Instancias separadas, estado del bot, grupos, aportes, recursos, logs y alertas.',
     icon: Bot,
-    accent: 'text-[#a3e635]',
-    pulse: 'from-[#a3e635] to-[#ff4d8d]',
+    color: 'text-accent-300',
+    bg: 'bg-accent-400/10',
+    border: 'group-hover:border-accent-400/50',
+    shadow: 'group-hover:shadow-[0_0_30px_rgba(var(--accent),0.15)]',
   },
 ];
 
-const liveCommands = [
-  '/menu',
-  '/sticker',
-  '/play',
-  '/daily',
-  '/mine',
-  '/rollwaifu',
-  '/tagall',
-  '/hidetag',
-  '/traducir',
-  '/spotify',
-  '/warns',
-  '/infogrupo',
-  '/top',
-  '/claim',
+const stats = [
+  { value: '100+', label: 'Comandos' },
+  { value: '24/7', label: 'Actividad' },
+  { value: 'Multi', label: 'SubBots' },
+  { value: 'Live', label: 'Panel' },
 ];
 
-const commandCategories = [
-  {
-    title: 'Grupo',
-    color: 'text-[#25d366]',
-    commands: ['/menu', '/admins', '/tagall', '/hidetag', '/warns', '/infogrupo'],
-  },
-  {
-    title: 'RPG',
-    color: 'text-[#ff4d8d]',
-    commands: ['/daily', '/work', '/mine', '/hunt', '/casino', '/baltop'],
-  },
-  {
-    title: 'Gacha',
-    color: 'text-[#f59e0b]',
-    commands: ['/rollwaifu', '/harem', '/claim', '/trade', '/winfo', '/topwaifus'],
-  },
-  {
-    title: 'Media',
-    color: 'text-[#2dd4bf]',
-    commands: ['/sticker', '/toimg', '/play', '/spotify', '/tiktok', '/pinterest'],
-  },
-];
+const fadeIn = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-50px" },
+  transition: { duration: 0.5, ease: "easeOut" }
+};
 
-const panelHighlights = [
-  { label: 'Bot principal', value: 'conexion y QR', icon: Bot, tone: 'text-[#25d366]' },
-  { label: 'Grupos', value: 'sync y permisos', icon: MessageSquare, tone: 'text-[#2dd4bf]' },
-  { label: 'Aportes', value: 'revision y estados', icon: Package, tone: 'text-[#ff4d8d]' },
-  { label: 'Recursos', value: 'CPU, memoria y disco', icon: Server, tone: 'text-[#f59e0b]' },
-  { label: 'Alertas', value: 'eventos importantes', icon: Shield, tone: 'text-[#a3e635]' },
-  { label: 'Logs', value: 'lectura tecnica', icon: Activity, tone: 'text-[#7dd3fc]' },
-];
+const staggerContainer = {
+  initial: { opacity: 0 },
+  whileInView: { 
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
 
-const botFlow = [
-  { command: '/menu', response: 'Grupo, RPG, Gacha, Media, Tools.' },
-  { command: '/sticker', response: 'Envia imagen. La convierto ahora.' },
-  { command: '/daily', response: '+350 coins. Racha activa.' },
-  { command: '/tagall', response: 'Mencion lista para admins.' },
-];
+const fadeInVariant = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { 
+    opacity: 1, y: 0,
+    transition: { duration: 0.5, ease: "easeOut" }
+  }
+};
 
-const activityRows = [
-  { label: 'Mensajes procesados', value: '1.2k', icon: MessageSquare, color: 'bg-[#25d366]' },
-  { label: 'Stickers creados', value: '342', icon: ImageIcon, color: 'bg-[#2dd4bf]' },
-  { label: 'Partidas RPG', value: '89', icon: Gamepad2, color: 'bg-[#ff4d8d]' },
-  { label: 'Alertas resueltas', value: '27', icon: Shield, color: 'bg-[#f59e0b]' },
-];
-
-const panelOps = [
-  { label: 'Estado bot', value: 'online', icon: Bot, tone: 'text-[#25d366]', progress: 100 },
-  { label: 'CPU host', value: '38%', icon: Gauge, tone: 'text-[#2dd4bf]', progress: 38 },
-  { label: 'Comunidad', value: 'sync', icon: Users, tone: 'text-[#ff4d8d]', progress: 74 },
-  { label: 'Alertas', value: '3 live', icon: Shield, tone: 'text-[#f59e0b]', progress: 52 },
-];
-
-const controlRoutes = [
-  { label: 'Dashboard', icon: Activity, color: 'bg-[#25d366]' },
-  { label: 'Bot', icon: Bot, color: 'bg-[#2dd4bf]' },
-  { label: 'Grupos', icon: MessageSquare, color: 'bg-[#ff4d8d]' },
-  { label: 'Recursos', icon: Server, color: 'bg-[#f59e0b]' },
-  { label: 'Aportes', icon: Package, color: 'bg-[#a3e635]' },
-];
-
-const liveAudit = [
-  { title: 'QR y sesion sincronizados', meta: 'bot principal', tone: 'text-[#25d366]' },
-  { title: 'SubBot listo para comandos', meta: 'instancia secundaria', tone: 'text-[#2dd4bf]' },
-  { title: 'Grupo actualizado', meta: 'permisos y reglas', tone: 'text-[#ff4d8d]' },
-];
-
-function FloatingSignal({ delay = 0, className = '' }: { delay?: number; className?: string }) {
-  const reduceMotion = useReducedMotion();
-
+export default function Home() {
   return (
-    <motion.div
-      aria-hidden="true"
-      className={`absolute h-px bg-gradient-to-r from-transparent via-[#25d366]/80 to-transparent ${className}`}
-      animate={reduceMotion ? { opacity: 0.48 } : { x: ['-14%', '14%', '-14%'], opacity: [0.12, 0.88, 0.12] }}
-      transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 5.8, delay, ease: 'easeInOut' }}
-    />
-  );
-}
-
-function CommandTicker({ reverse = false }: { reverse?: boolean }) {
-  const reduceMotion = useReducedMotion();
-  const commands = [...liveCommands, ...liveCommands];
-
-  return (
-    <div className="relative overflow-hidden border-y border-white/10 bg-white/[0.035] py-3">
-      <motion.div
-        className="flex w-max gap-3"
-        animate={reduceMotion ? { x: 0 } : { x: reverse ? ['-50%', '0%'] : ['0%', '-50%'] }}
-        transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 24, ease: 'linear' }}
-      >
-        {commands.map((command, index) => (
-          <span
-            key={`${command}-${index}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#25d366]/18 bg-[#0d0f0e]/80 px-4 py-2 font-mono text-xs font-black text-[#c7f9d8] shadow-[0_0_24px_rgba(37,211,102,0.08)]"
-          >
-            <span className="h-1.5 w-1.5 rounded-lg bg-[#25d366]" />
-            {command}
-          </span>
-        ))}
-      </motion.div>
-    </div>
-  );
-}
-
-function FloatingCommandCloud() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden lg:block">
-      {[
-        { text: '/play', className: 'left-[52%] top-[22%]', delay: 0, color: 'border-[#2dd4bf]/35 text-[#b9fff5]' },
-        { text: '/daily', className: 'left-[76%] top-[18%]', delay: 0.8, color: 'border-[#25d366]/35 text-[#c7f9d8]' },
-        { text: '/rollwaifu', className: 'left-[60%] top-[72%]', delay: 1.3, color: 'border-[#ff4d8d]/35 text-[#ffd1df]' },
-        { text: '/tagall', className: 'left-[84%] top-[56%]', delay: 1.9, color: 'border-[#f59e0b]/35 text-[#ffe4a3]' },
-      ].map((item) => (
-        <motion.span
-          key={item.text}
-          className={`absolute rounded-lg border bg-[#0d0f0e]/70 px-3 py-2 font-mono text-xs font-black backdrop-blur-md ${item.className} ${item.color}`}
-          animate={reduceMotion ? { opacity: 0.55 } : { y: [0, -18, 0], opacity: [0.42, 1, 0.42] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 4.8, delay: item.delay, ease: 'easeInOut' }}
-        >
-          {item.text}
-        </motion.span>
-      ))}
-    </div>
-  );
-}
-
-function LiveBotConsole() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <motion.div
-      className="glass-card relative mx-auto mt-10 w-full max-w-[29rem] overflow-hidden rounded-2xl border border-white/20 bg-[#101512]/70 shadow-[0_26px_90px_rgba(37,211,102,0.18)] backdrop-blur-2xl lg:absolute lg:right-0 lg:top-24 lg:mt-0 lg:max-w-[24rem] xl:max-w-[29rem]"
-      initial={reduceMotion ? false : { opacity: 0, y: 24, rotate: 1.5 }}
-      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: [0, -10, 0], rotate: [1.5, 0.4, 1.5] }}
-      transition={reduceMotion ? { duration: 0.12 } : { opacity: { duration: 0.5 }, y: { repeat: Infinity, duration: 7, ease: 'easeInOut' }, rotate: { repeat: Infinity, duration: 7, ease: 'easeInOut' } }}
-    >
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#25d366] to-transparent" />
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/oguricap-avatar.png"
-            alt=""
-            width={44}
-            height={44}
-            className="h-11 w-11 rounded-lg object-cover"
-            priority
-          />
-          <div>
-            <p className="text-sm font-black text-white">OguriCap-Bot</p>
-            <p className="flex items-center gap-2 text-xs font-bold text-[#25d366]">
-              <motion.span
-                className="h-2 w-2 rounded-lg bg-[#25d366]"
-                animate={reduceMotion ? { opacity: 1 } : { scale: [1, 1.6, 1], opacity: [0.65, 1, 0.65] }}
-                transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 1.4 }}
-              />
-              online ahora
-            </p>
-          </div>
-        </div>
-        <Radio className="h-5 w-5 text-[#2dd4bf]" />
-      </div>
-
-      <div className="space-y-3 p-4">
-        {botFlow.map((message, index) => (
-          <motion.div
-            key={message.command}
-            className="space-y-2"
-            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.18 + index * 0.12 }}
-          >
-            <div className="flex justify-end">
-              <motion.div
-                className="rounded-lg bg-[#25d366] px-3 py-2 font-mono text-xs font-black text-[#07100d]"
-                animate={reduceMotion ? { opacity: 1 } : { boxShadow: ['0 0 0 rgba(37,211,102,0)', '0 0 26px rgba(37,211,102,0.32)', '0 0 0 rgba(37,211,102,0)'] }}
-                transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 3.2, delay: index * 0.4 }}
-              >
-                {message.command}
-              </motion.div>
+    <main className="min-h-screen bg-[#060807] text-[#f2f6f3] selection:bg-[#25d366]/30">
+      {/* Navbar Premium */}
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.05] bg-[#060807]/60 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-3 transition-transform hover:scale-105">
+            <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-white/10 shadow-[0_0_15px_rgba(37,211,102,0.2)]">
+              <Image src="/oguricap-avatar.png" alt="Logo" fill className="object-cover" />
             </div>
-            <div className="flex justify-start">
-              <div className="max-w-[84%] rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2 text-sm text-white">
-                {message.response}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-
-        <div className="flex items-center gap-2 rounded-lg border border-[#2dd4bf]/18 bg-[#2dd4bf]/8 px-3 py-2 text-xs font-bold text-[#b9fff5]">
-          <span>Oguri esta escribiendo</span>
-          <span className="flex gap-1">
-            {[0, 1, 2].map((dot) => (
-              <motion.span
-                key={dot}
-                className="h-1.5 w-1.5 rounded-lg bg-[#2dd4bf]"
-                animate={reduceMotion ? { opacity: 0.7 } : { y: [0, -4, 0], opacity: [0.35, 1, 0.35] }}
-                transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 0.9, delay: dot * 0.16 }}
-              />
-            ))}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function ActivityPanel() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <div className="rounded-lg border border-white/10 bg-[#101512] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-black text-white">Actividad en vivo</p>
-          <p className="text-xs font-semibold text-white/52">resumen del ecosistema</p>
-        </div>
-        <Clock3 className="h-5 w-5 text-[#25d366]" />
-      </div>
-
-      <div className="space-y-3">
-        {activityRows.map((row, index) => {
-          const Icon = row.icon;
-          return (
-            <motion.div
-              key={row.label}
-              className="rounded-lg border border-white/10 bg-white/[0.035] p-3"
-              initial={reduceMotion ? false : { opacity: 0, x: 12 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ delay: index * 0.08 }}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2 text-sm font-bold text-white/74">
-                  <Icon className="h-4 w-4 text-white/54" />
-                  {row.label}
-                </span>
-                <span className="font-mono text-sm font-black text-white">{row.value}</span>
-              </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-lg bg-white/10">
-                <motion.div
-                  className={`h-full rounded-lg ${row.color}`}
-                  animate={reduceMotion ? { width: `${58 + index * 9}%` } : { width: [`${38 + index * 7}%`, `${74 + index * 5}%`, `${52 + index * 8}%`] }}
-                  transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 3.8, delay: index * 0.32, ease: 'easeInOut' }}
-                />
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function PanelControlPreview() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.25 }}
-      className="glass-card relative overflow-hidden rounded-2xl border border-white/10 bg-[#111713]/80 p-6 shadow-[0_22px_70px_rgba(37,211,102,0.15)] backdrop-blur-xl"
-    >
-      <motion.div
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#2dd4bf] to-transparent"
-        animate={reduceMotion ? { opacity: 0.7 } : { x: ['-100%', '100%'] }}
-        transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 4, ease: 'linear' }}
-      />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(37,211,102,0.16),transparent_32%),radial-gradient(circle_at_88%_10%,rgba(45,212,191,0.12),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(255,77,141,0.10),transparent_34%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.14] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:26px_26px]" />
-
-      <div className="relative z-10">
-        <div className="mb-5 flex flex-col gap-4 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <Image
-              src="/oguricap-avatar.png"
-              alt="OguriCap-Bot"
-              width={44}
-              height={44}
-              className="h-11 w-11 rounded-lg object-cover"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-black text-white">Centro de control</p>
-              <p className="text-xs text-white/56">operacion privada en vivo</p>
-            </div>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-lg border border-[#25d366]/25 bg-[#25d366]/10 px-3 py-2 text-xs font-black text-[#c7f9d8]">
-            <motion.span
-              className="h-2 w-2 rounded-lg bg-[#25d366]"
-              animate={reduceMotion ? { opacity: 0.8 } : { scale: [1, 1.6, 1], opacity: [0.45, 1, 0.45] }}
-              transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 1.4 }}
-            />
-            LIVE
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {panelOps.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <motion.div
-                key={item.label}
-                className="rounded-lg border border-white/10 bg-white/[0.045] p-4"
-                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <Icon className={`h-5 w-5 ${item.tone}`} />
-                  <span className="font-mono text-xs font-black text-white">{item.value}</span>
-                </div>
-                <p className="text-xs font-black text-white/68">{item.label}</p>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-lg bg-white/10">
-                  <motion.div
-                    className="h-full rounded-lg bg-gradient-to-r from-[#25d366] via-[#2dd4bf] to-[#ff4d8d]"
-                    animate={reduceMotion ? { width: `${item.progress}%` } : { width: [`${Math.max(18, item.progress - 20)}%`, `${item.progress}%`, `${Math.max(24, item.progress - 10)}%`] }}
-                    transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 3.4, delay: index * 0.22, ease: 'easeInOut' }}
-                  />
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 rounded-lg border border-white/10 bg-black/15 p-3">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-xs font-black text-white/64">Rutas del panel</p>
-            <Lock className="h-4 w-4 text-[#25d366]" />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {controlRoutes.map((item) => {
-              const Icon = item.icon;
-              return (
-                <span key={item.label} className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 text-xs font-bold text-white/76">
-                  <span className={`h-2 w-2 rounded-lg ${item.color}`} />
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {liveAudit.map((item, index) => (
-            <motion.div
-              key={item.title}
-              className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3"
-              animate={reduceMotion ? { opacity: 1 } : { borderColor: ['rgba(255,255,255,0.10)', 'rgba(37,211,102,0.32)', 'rgba(255,255,255,0.10)'] }}
-              transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 3.2, delay: index * 0.46 }}
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#25d366] text-sm font-black text-[#07100d]">
-                {index + 1}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-black text-white">{item.title}</p>
-                <p className={`mt-1 text-xs font-semibold ${item.tone}`}>{item.meta}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <Link
-          href="/login"
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-black text-[#0d0f0e] transition hover:bg-[#d7ffe4]"
-        >
-          Abrir login
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
-    </motion.div>
-  );
-}
-
-export default function PublicHomePage() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <main className="min-h-screen overflow-hidden bg-[#0d0f0e] text-[#f2f6f3]">
-      <section className="relative overflow-hidden px-4 pb-14 pt-5 sm:px-6 lg:min-h-[88svh] lg:px-8">
-        <div aria-hidden="true" className="absolute inset-0">
-          <Image
-            src="/oguricap-login.png"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover opacity-[0.18] grayscale"
-            priority
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_24%,rgba(37,211,102,0.22),transparent_28%),linear-gradient(115deg,#0d0f0e_0%,rgba(13,15,14,0.96)_42%,rgba(13,15,14,0.66)_100%)]" />
-          <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:42px_42px]" />
-          
-          <motion.div
-            className="absolute -left-20 top-20 h-96 w-96 rounded-full bg-primary/22 blur-[120px]"
-            animate={{ x: [0, 40, 0], y: [0, 30, 0], opacity: [0.15, 0.35, 0.15] }}
-            transition={{ repeat: Infinity, duration: 12, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="absolute -right-20 bottom-20 h-[500px] w-[500px] rounded-full bg-secondary/18 blur-[140px]"
-            animate={{ x: [0, -30, 0], y: [0, -40, 0], opacity: [0.12, 0.3, 0.12] }}
-            transition={{ repeat: Infinity, duration: 15, ease: 'easeInOut', delay: 1 }}
-          />
-
-          <motion.div
-            className="absolute inset-x-[-20%] top-[18%] h-px bg-gradient-to-r from-transparent via-[#2dd4bf]/90 to-transparent"
-            animate={reduceMotion ? { opacity: 0.45 } : { x: ['-16%', '16%', '-16%'], opacity: [0.16, 0.84, 0.16] }}
-            transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 6.4, ease: 'easeInOut' }}
-          />
-          <FloatingSignal className="left-0 top-[42%] w-full" delay={0.4} />
-          <FloatingSignal className="left-0 top-[68%] w-full" delay={1.1} />
-        </div>
-
-        <FloatingCommandCloud />
-
-        <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.055] px-3 py-2 backdrop-blur-md">
-            <Image
-              src="/oguricap-avatar.png"
-              alt="OguriCap-Bot"
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-lg object-cover"
-              priority
-            />
-            <span className="text-sm font-black text-white">OguriCap-Bot</span>
+            <span className="font-bold tracking-tight text-white">OguriCap<span className="text-primary">-Bot</span></span>
           </Link>
-
-          <nav className="hidden items-center gap-6 text-sm font-semibold text-white/72 md:flex">
-            <a href="#funciones" className="transition-colors hover:text-white">Funciones</a>
-            <a href="#comandos" className="transition-colors hover:text-white">Comandos</a>
-            <a href="#panel" className="transition-colors hover:text-white">Panel</a>
-          </nav>
-
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25d366] px-5 py-2.5 text-sm font-black text-[#07100d] shadow-[0_0_15px_rgba(37,211,102,0.4)] transition-all hover:scale-105 hover:bg-[#7bed9f]"
-          >
-            Login
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </header>
-
-        <div className="relative z-10 mx-auto max-w-7xl pt-16 sm:pt-20 lg:min-h-[64svh] lg:pt-24">
-          <LiveBotConsole />
-
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55 }}
-            className="max-w-3xl lg:max-w-[37rem] xl:max-w-3xl"
-          >
-            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-[#25d366]/30 bg-[#25d366]/10 px-3 py-2 text-sm font-bold text-[#a7f3c7]">
-              <motion.span
-                className="h-2 w-2 rounded-lg bg-[#25d366]"
-                animate={reduceMotion ? { opacity: 1 } : { scale: [1, 1.8, 1], opacity: [0.5, 1, 0.5] }}
-                transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 1.3 }}
-              />
-              Bot de WhatsApp para comunidad
-            </div>
-
-            <h1 className="max-w-3xl text-4xl font-black leading-[1.08] text-white sm:text-5xl lg:text-6xl">
-              OguriCap-Bot mueve tus grupos con <span className="bg-gradient-to-r from-[#25d366] to-[#2dd4bf] bg-clip-text text-transparent">comandos, juegos y control</span> en vivo.
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-white/74 sm:text-lg">
-              Gestiona grupos, crea stickers, descarga contenido, juega RPG, usa gacha, conecta SubBots y revisa todo desde un panel privado.
-            </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25d366] px-6 py-3.5 text-sm font-black text-[#07100d] shadow-[0_0_20px_rgba(37,211,102,0.3)] transition-all duration-300 hover:scale-105 hover:bg-[#7bed9f] hover:shadow-[0_0_35px_rgba(37,211,102,0.6)] active:scale-95"
-              >
-                Entrar al panel
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a
-                href="#funciones"
-                className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.03] px-6 py-3.5 text-sm font-black text-white backdrop-blur-sm transition-all duration-300 hover:border-[#2dd4bf]/60 hover:bg-white/[0.08] hover:shadow-[0_0_20px_rgba(45,212,191,0.2)] active:scale-95"
-              >
-                Ver lo que ofrece
-              </a>
-            </div>
-          </motion.div>
-
-          <div className="mt-10 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-[37rem] xl:max-w-3xl">
-            {[
-              ['100+', 'comandos'],
-              ['24/7', 'actividad'],
-              ['Multi', 'SubBots'],
-              ['Live', 'panel'],
-            ].map(([value, label], index) => (
-              <motion.div
-                key={label}
-                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + index * 0.08 }}
-                whileHover={reduceMotion ? undefined : { y: -6, scale: 1.05, borderColor: 'rgba(37,211,102,0.6)' }}
-                className="glass-card group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-5 shadow-lg backdrop-blur-md transition-all"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#25d366]/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <p className="relative z-10 text-3xl font-black text-white transition-colors duration-300 group-hover:text-[#25d366]">{value}</p>
-                <p className="relative z-10 mt-1 text-sm font-bold text-white/60">{label}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <CommandTicker />
-
-      <section id="funciones" className="px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
-            <div>
-              <p className="mb-3 text-sm font-black text-[#25d366]">Funciones</p>
-              <h2 className="text-3xl font-black leading-tight text-white sm:text-4xl">Lo que ofrece OguriCap-Bot</h2>
-              <p className="mt-4 text-base leading-7 text-white/66">
-                Modulos para mover comunidades, automatizar tareas repetidas y mantener visible lo que pasa en el bot.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {featureGroups.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <motion.article
-                    key={feature.title}
-                    initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.96 }}
-                    whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: true, amount: 0.25 }}
-                    transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    whileHover={reduceMotion ? undefined : { y: -8, scale: 1.02, backgroundColor: 'rgba(255,255,255,0.02)' }}
-                    className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-[#141816]/60 p-7 shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-500 hover:border-[#2dd4bf]/40 hover:shadow-[0_0_40px_rgba(45,212,191,0.15)]"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                    <motion.div
-                      aria-hidden="true"
-                      className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${feature.pulse}`}
-                      animate={reduceMotion ? { opacity: 0.7 } : { x: ['-100%', '100%'], opacity: [0.2, 0.95, 0.2] }}
-                      transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 3.6, delay: index * 0.22, ease: 'easeInOut' }}
-                    />
-                    <div className="relative z-10">
-                      <div className={`mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${feature.accent}`}>
-                        <Icon className="h-7 w-7" />
-                      </div>
-                      <h3 className="text-xl font-black text-white">{feature.title}</h3>
-                      <p className="mt-3 text-sm leading-relaxed text-white/62">{feature.description}</p>
-                    </div>
-                  </motion.article>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="comandos" className="border-y border-white/10 bg-[#121411] px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
-          <div>
-            <p className="mb-3 text-sm font-black text-[#ff4d8d]">Comandos</p>
-            <h2 className="text-3xl font-black leading-tight text-white sm:text-4xl">Categorias listas para usar en WhatsApp</h2>
-            <p className="mt-4 text-base leading-7 text-white/66">
-              El menu organiza grupo, juegos, gacha, multimedia y herramientas para que cada comando tenga un lugar claro.
-            </p>
-            <div className="mt-8">
-              <ActivityPanel />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {commandCategories.map((category, index) => (
-              <motion.div
-                key={category.title}
-                initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.25 }}
-                transition={{ delay: index * 0.06 }}
-                className="rounded-lg border border-white/10 bg-[#0d0f0e] p-5"
-              >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className={`text-base font-black ${category.color}`}>{category.title}</h3>
-                  <motion.span
-                    className="h-2 w-2 rounded-lg bg-current"
-                    animate={reduceMotion ? { opacity: 0.7 } : { scale: [1, 1.7, 1], opacity: [0.35, 1, 0.35] }}
-                    transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 1.5, delay: index * 0.2 }}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {category.commands.map((command, commandIndex) => (
-                    <motion.span
-                      key={command}
-                      className="rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 font-mono text-xs font-bold text-[#c7f9d8]"
-                      whileHover={reduceMotion ? undefined : { y: -3, scale: 1.03 }}
-                      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.3 }}
-                      transition={{ delay: commandIndex * 0.025 }}
-                    >
-                      {command}
-                    </motion.span>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <CommandTicker reverse />
-
-      <section id="panel" className="px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-            <div>
-              <p className="mb-3 text-sm font-black text-[#2dd4bf]">Panel privado</p>
-              <h2 className="text-3xl font-black leading-tight text-white sm:text-4xl">Control operativo despues del login</h2>
-              <p className="mt-4 text-base leading-7 text-white/66">
-                Estado del bot principal, subbots, grupos, aportes, recursos, logs y alertas para administrar sin entrar al servidor.
-              </p>
-
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                {panelHighlights.map((item, index) => {
-                  const Icon = item.icon;
-                  return (
-                    <motion.div
-                      key={item.label}
-                      className="rounded-lg border border-white/10 bg-[#141816] p-4"
-                      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.25 }}
-                      transition={{ delay: index * 0.04 }}
-                      whileHover={reduceMotion ? undefined : { y: -4 }}
-                    >
-                      <Icon className={`mb-3 h-5 w-5 ${item.tone}`} />
-                      <p className="font-black text-white">{item.label}</p>
-                      <p className="mt-1 text-sm text-white/60">{item.value}</p>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <PanelControlPreview />
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 pb-16 sm:px-6 lg:px-8">
-        <motion.div
-          className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-[#25d366]/40 bg-gradient-to-br from-[#25d366] to-[#2dd4bf] p-6 text-[#07100d] shadow-[0_0_60px_rgba(37,211,102,0.3)] sm:p-10"
-          whileInView={reduceMotion ? undefined : { y: [0, -6, 0] }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={reduceMotion ? { duration: 0.12 } : { duration: 0.8 }}
-        >
-          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <h2 className="text-2xl font-black sm:text-3xl">OguriCap-Bot listo para operar.</h2>
-              <p className="mt-2 max-w-2xl text-sm font-semibold text-[#07100d]/72">
-                Entra al panel para conectar, sincronizar, revisar actividad y administrar modulos.
-              </p>
-            </div>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#07100d] px-6 py-3.5 text-sm font-black text-white shadow-xl transition-all hover:scale-105 hover:bg-[#1b241f]"
+          <div className="hidden items-center gap-8 md:flex">
+            <a href="#features" className="text-sm font-medium text-white/60 transition-colors hover:text-white">Características</a>
+            <a href="#commands" className="text-sm font-medium text-white/60 transition-colors hover:text-white">Comandos</a>
+            <Link 
+              href="/login" 
+              className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-white/5 px-5 py-2 text-sm font-semibold text-white transition-all hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-95 border border-white/10"
             >
-              Login
-              <ArrowRight className="h-4 w-4" />
+              <span>Panel de Control</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
-        </motion.div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative flex min-h-[100svh] items-center justify-center overflow-hidden pt-16">
+        {/* CSS-only optimized background effects */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary-500/10 blur-[120px] rounded-full opacity-50" />
+          <div className="absolute left-[20%] top-[20%] w-[400px] h-[400px] bg-secondary-500/10 blur-[100px] rounded-full opacity-40" />
+          <div className="absolute right-[20%] bottom-[20%] w-[500px] h-[500px] bg-accent-500/10 blur-[100px] rounded-full opacity-40" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_10%,transparent_100%)]" />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary-300 backdrop-blur-md"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
+              </span>
+              Sistema Operativo y Estable
+            </motion.div>
+
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="mx-auto max-w-4xl text-5xl font-black tracking-tight text-white sm:text-7xl lg:text-8xl"
+            >
+              Potencia tu grupo de <br className="hidden sm:block" />
+              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-shimmer">
+                WhatsApp al máximo
+              </span>
+            </motion.h1>
+
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="mx-auto mt-6 max-w-2xl text-lg text-white/60 sm:text-xl leading-relaxed"
+            >
+              OguriCap-Bot automatiza tareas, divierte a tus usuarios con juegos RPG y Gacha, proporciona descargas multimedia y mucho más, todo en tiempo real.
+            </motion.p>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            >
+              <Link
+                href="/login"
+                className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-accent px-8 py-4 text-base font-bold text-white shadow-[0_0_40px_rgba(var(--primary),0.3)] transition-all hover:scale-105 hover:shadow-[0_0_60px_rgba(var(--primary),0.5)] active:scale-95 sm:w-auto"
+              >
+                <span>Acceder al Dashboard</span>
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <a
+                href="#features"
+                className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 py-4 text-base font-bold text-white backdrop-blur-md transition-all hover:bg-white/10 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] active:scale-95 sm:w-auto"
+              >
+                <Command className="h-5 w-5 opacity-70 transition-opacity group-hover:opacity-100" />
+                <span>Explorar funciones</span>
+              </a>
+            </motion.div>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.5 }}
+            className="mx-auto mt-20 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4"
+          >
+            {stats.map((stat, i) => (
+              <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-6 text-center backdrop-blur-sm transition-all hover:border-white/10 hover:bg-white/[0.04]">
+                <div className="text-3xl font-black text-white transition-transform group-hover:-translate-y-1 group-hover:text-primary">{stat.value}</div>
+                <div className="mt-1 text-sm font-medium text-white/50">{stat.label}</div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
       </section>
 
-      <footer className="border-t border-white/10 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-white/54 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 OguriCap-Bot</p>
-          <div className="flex flex-wrap gap-4">
-            <span className="inline-flex items-center gap-2"><CheckCircle className="h-4 w-4 text-[#25d366]" /> WhatsApp</span>
-            <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#ff4d8d]" /> Comunidad</span>
-            <span className="inline-flex items-center gap-2"><Download className="h-4 w-4 text-[#2dd4bf]" /> Multimedia</span>
-            <span className="inline-flex items-center gap-2"><Send className="h-4 w-4 text-[#f59e0b]" /> Panel</span>
-            <span className="inline-flex items-center gap-2"><Zap className="h-4 w-4 text-[#a3e635]" /> SubBots</span>
+      {/* Features Section */}
+      <section id="features" className="relative py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            {...fadeIn}
+            className="mx-auto max-w-2xl text-center"
+          >
+            <h2 className="text-sm font-bold uppercase tracking-widest text-primary">Características Premium</h2>
+            <p className="mt-2 text-3xl font-black tracking-tight text-white sm:text-5xl">Todo lo que necesitas en un solo bot</p>
+            <p className="mt-4 text-lg text-white/60">Diseñado para alto rendimiento y máxima diversión en tus grupos.</p>
+          </motion.div>
+
+          <motion.div 
+            variants={staggerContainer}
+            initial="initial"
+            whileInView="whileInView"
+            viewport={{ once: true, margin: "-50px" }}
+            className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {featureGroups.map((feature, i) => {
+              const Icon = feature.icon;
+              return (
+                <motion.div
+                  key={i}
+                  variants={fadeInVariant}
+                  className={`group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0d0b] p-8 transition-all duration-300 hover:-translate-y-2 ${feature.border} ${feature.shadow}`}
+                >
+                  <div className={`mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${feature.bg} ${feature.color} transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                    <Icon className="h-7 w-7" />
+                  </div>
+                  <h3 className="mb-3 text-xl font-bold text-white">{feature.title}</h3>
+                  <p className="text-sm leading-relaxed text-white/60">{feature.description}</p>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Live Preview / Panel Teaser */}
+      <section id="commands" className="relative overflow-hidden py-24 sm:py-32 bg-[#080b09]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(var(--primary),0.05),transparent_50%)]" />
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
+            <motion.div {...fadeIn}>
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-accent/10 px-4 py-1.5 text-sm font-semibold text-accent-400">
+                <Radio className="h-4 w-4" /> Centro de Control en Vivo
+              </div>
+              <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+                Administra sin escribir código.
+              </h2>
+              <p className="mt-6 text-lg text-white/60 leading-relaxed">
+                El panel de OguriCap te permite gestionar SubBots, grupos, recursos del servidor y revisar logs en tiempo real con una interfaz moderna, ultra rápida y sin cuelgues.
+              </p>
+
+              <ul className="mt-8 space-y-4">
+                {[
+                  'Monitoreo de CPU y Memoria en vivo',
+                  'Gestión de SubBots con QRs dinámicos',
+                  'Logs y Alertas unificadas sin latencia',
+                  'Diseño responsive y dark mode nativo'
+                ].map((item, i) => (
+                  <motion.li 
+                    key={i} 
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3 text-white/80"
+                  >
+                    <CheckCircle className="h-5 w-5 text-primary" />
+                    <span>{item}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, rotateY: 10 }}
+              whileInView={{ opacity: 1, scale: 1, rotateY: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="relative rounded-2xl border border-white/10 bg-[#0d120f] shadow-[0_0_50px_rgba(var(--primary),0.1)] p-2 backdrop-blur-xl"
+            >
+              <div className="absolute inset-x-0 -top-px mx-auto h-px w-1/2 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
+              <div className="rounded-xl border border-white/5 bg-[#060807] p-6">
+                <div className="mb-6 flex items-center justify-between border-b border-white/5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/20 p-2 text-primary">
+                      <Server className="h-full w-full" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">Oguri Main Instance</div>
+                      <div className="text-xs text-primary">Online • 24ms ping</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { label: 'CPU Usage', val: '12%', color: 'bg-primary' },
+                    { label: 'Memory', val: '458 MB', color: 'bg-secondary' },
+                    { label: 'Active Chats', val: '1,245', color: 'bg-accent' }
+                  ].map((stat, i) => (
+                    <div key={i} className="flex flex-col gap-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/60">{stat.label}</span>
+                        <span className="font-mono text-white">{stat.val}</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                        <div className={`h-full rounded-full ${stat.color} opacity-80`} style={{ width: i === 0 ? '12%' : i === 1 ? '45%' : '78%' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24 sm:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center">
+           <div className="h-[500px] w-[500px] bg-gradient-to-tr from-primary to-accent rounded-full blur-[150px] opacity-20" />
+        </div>
+        <div className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+          <motion.div {...fadeIn}>
+            <h2 className="text-4xl font-black text-white sm:text-5xl">¿Listo para mejorar tu comunidad?</h2>
+            <p className="mt-6 text-xl text-white/60">Únete a cientos de grupos que ya disfrutan de OguriCap-Bot.</p>
+            <div className="mt-10 flex justify-center gap-4">
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-8 py-4 text-sm font-bold text-black shadow-xl transition-all hover:scale-105 hover:bg-gray-100"
+              >
+                Ingresar al Sistema
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/5 bg-[#060807] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row text-sm text-white/40">
+          <p>© {new Date().getFullYear()} OguriCap-Bot. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> WhatsApp Ready</span>
+            <span className="flex items-center gap-2"><Zap className="h-4 w-4 text-accent" /> High Performance</span>
           </div>
         </div>
       </footer>

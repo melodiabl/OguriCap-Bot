@@ -446,16 +446,7 @@ export default function LogsPage() {
     return formatDateTime(timestamp, { second: '2-digit' });
   };
 
-  const formatUptime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
 
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    return `${minutes}m ${seconds % 60}s`;
-  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -750,7 +741,7 @@ export default function LogsPage() {
             <StatCard title="Archivos" value={stats.diskUsage?.fileCount || 0} subtitle={stats.diskUsage?.formattedSize || '0 B'} icon={<HardDrive className="h-6 w-6 text-cyan-300" />} color="info" />
           </StaggerItem>
           <StaggerItem>
-            <StatCard title="Uptime" value={formatUptime((stats.uptime || 0) * 1000)} subtitle={`${stats.activeStreams || 0} streams`} icon={<Clock className="h-6 w-6 text-emerald-300" />} color="success" />
+            <StatCard title="Uptime" value={formatSecondsUptime(stats.uptime || 0)} subtitle={`${stats.activeStreams || 0} streams`} icon={<Clock className="h-6 w-6 text-emerald-300" />} color="success" />
           </StaggerItem>
         </Stagger>
       )}

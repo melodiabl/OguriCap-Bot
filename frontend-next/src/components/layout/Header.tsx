@@ -83,17 +83,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(var(--primary),0.16),transparent_24%),radial-gradient(circle_at_right_bottom,rgba(var(--accent),0.14),transparent_26%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:30px_30px]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-      <motion.div
+      <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-10 top-0 h-24 w-40 rounded-full bg-primary/14 blur-3xl"
-        animate={reduceMotion ? { opacity: 0.55 } : { x: [0, 18, 0], opacity: [0.28, 0.62, 0.28] }}
-        transition={reduceMotion ? { duration: 0.1 } : { repeat: Infinity, duration: 9.2, ease: 'easeInOut' }}
+        className="pointer-events-none absolute -left-10 top-0 h-24 w-40 rounded-full bg-primary/14 blur-3xl opacity-50"
       />
-      <motion.div
+      <div
         aria-hidden="true"
-        className="pointer-events-none absolute right-0 top-1 h-20 w-32 rounded-full bg-secondary/16 blur-3xl"
-        animate={reduceMotion ? { opacity: 0.45 } : { x: [0, -16, 0], opacity: [0.18, 0.42, 0.18] }}
-        transition={reduceMotion ? { duration: 0.1 } : { repeat: Infinity, duration: 8.4, ease: 'easeInOut', delay: 0.4 }}
+        className="pointer-events-none absolute right-0 top-1 h-20 w-32 rounded-full bg-secondary/16 blur-3xl opacity-40"
       />
 
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-3 py-3 lg:py-4">
