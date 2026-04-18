@@ -719,23 +719,16 @@ body>* {
 body::before {
   content: '';
   position: fixed;
-  inset: var(--aurora-inset);
+  inset: 0;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 20% 20%, rgb(var(--page-a) / 0.20), transparent 45%),
-    radial-gradient(circle at 80% 25%, rgb(var(--page-b) / 0.18), transparent 48%),
-    radial-gradient(circle at 45% 85%, rgb(var(--page-c) / 0.15), transparent 52%),
-    conic-gradient(from 140deg at 50% 50%,
-      rgb(var(--page-a) / 0.16),
-      rgb(var(--page-b) / 0.14),
-      rgb(var(--page-c) / 0.12),
-      rgb(var(--page-d) / 0.12),
-      rgb(var(--page-a) / 0.16));
-  filter: blur(var(--aurora-blur)) saturate(calc(var(--chrome-sat) * 1.05));
-  opacity: calc(var(--aurora-opacity) * var(--visual-layer-opacity) * var(--preset-layer-multiplier));
-  transform: translate3d(0, 0, 0);
-  animation: auroraShift 14s ease-in-out infinite;
+    radial-gradient(circle at 20% 20%, rgb(var(--page-a) / 0.15), transparent 45%),
+    radial-gradient(circle at 80% 25%, rgb(var(--page-b) / 0.12), transparent 48%),
+    radial-gradient(circle at 45% 85%, rgb(var(--page-c) / 0.10), transparent 52%);
+  filter: blur(var(--aurora-blur));
+  opacity: calc(var(--aurora-opacity) * var(--visual-layer-opacity));
+  /* Removed auroraShift infinite animation for performance */
 }
 
 body::after {
@@ -744,12 +737,9 @@ body::after {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    repeating-linear-gradient(90deg, rgb(var(--shine) / 0.02) 0 1px, transparent 1px 38px),
-    repeating-linear-gradient(0deg, rgb(var(--shine) / 0.022) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(0deg, rgb(var(--mask) / 0.18) 0 1px, transparent 1px 3px);
+  background: repeating-linear-gradient(0deg, rgb(var(--mask) / 0.10) 0 1px, transparent 1px 3px);
   mix-blend-mode: overlay;
-  opacity: calc(0.35 * var(--glow-boost) * var(--visual-scan-opacity) * var(--preset-scan-multiplier));
+  opacity: 0.2;
 }
 
 html[data-intensity="ultra"] body::before {
