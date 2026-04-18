@@ -222,7 +222,7 @@ function LiveBotConsole() {
 
   return (
     <motion.div
-      className="relative mx-auto mt-10 w-full max-w-[29rem] overflow-hidden rounded-lg border border-white/12 bg-[#101512]/88 shadow-[0_26px_90px_rgba(0,0,0,0.48)] backdrop-blur-xl lg:absolute lg:right-0 lg:top-24 lg:mt-0 lg:max-w-[24rem] xl:max-w-[29rem]"
+      className="glass-card relative mx-auto mt-10 w-full max-w-[29rem] overflow-hidden rounded-2xl border border-white/20 bg-[#101512]/70 shadow-[0_26px_90px_rgba(37,211,102,0.18)] backdrop-blur-2xl lg:absolute lg:right-0 lg:top-24 lg:mt-0 lg:max-w-[24rem] xl:max-w-[29rem]"
       initial={reduceMotion ? false : { opacity: 0, y: 24, rotate: 1.5 }}
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: [0, -10, 0], rotate: [1.5, 0.4, 1.5] }}
       transition={reduceMotion ? { duration: 0.12 } : { opacity: { duration: 0.5 }, y: { repeat: Infinity, duration: 7, ease: 'easeInOut' }, rotate: { repeat: Infinity, duration: 7, ease: 'easeInOut' } }}
@@ -352,7 +352,7 @@ function PanelControlPreview() {
       initial={reduceMotion ? false : { opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
-      className="relative overflow-hidden rounded-lg border border-white/10 bg-[#111713] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.32)]"
+      className="glass-card relative overflow-hidden rounded-2xl border border-white/10 bg-[#111713]/80 p-6 shadow-[0_22px_70px_rgba(37,211,102,0.15)] backdrop-blur-xl"
     >
       <motion.div
         aria-hidden="true"
@@ -528,7 +528,7 @@ export default function PublicHomePage() {
 
           <Link
             href="/login"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25d366] px-4 py-2 text-sm font-black text-[#07100d] transition hover:bg-[#7bed9f]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25d366] px-5 py-2.5 text-sm font-black text-[#07100d] shadow-[0_0_15px_rgba(37,211,102,0.4)] transition-all hover:scale-105 hover:bg-[#7bed9f]"
           >
             Login
             <ArrowRight className="h-4 w-4" />
@@ -554,7 +554,7 @@ export default function PublicHomePage() {
             </div>
 
             <h1 className="max-w-3xl text-4xl font-black leading-[1.08] text-white sm:text-5xl lg:text-6xl">
-              OguriCap-Bot mueve tus grupos con comandos, juegos y control en vivo.
+              OguriCap-Bot mueve tus grupos con <span className="bg-gradient-to-r from-[#25d366] to-[#2dd4bf] bg-clip-text text-transparent">comandos, juegos y control</span> en vivo.
             </h1>
 
             <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-white/74 sm:text-lg">
@@ -564,14 +564,14 @@ export default function PublicHomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25d366] px-5 py-3 text-sm font-black text-[#07100d] transition hover:bg-[#7bed9f]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25d366] px-6 py-3.5 text-sm font-black text-[#07100d] shadow-[0_0_20px_rgba(37,211,102,0.3)] transition-all duration-300 hover:scale-105 hover:bg-[#7bed9f] hover:shadow-[0_0_35px_rgba(37,211,102,0.6)] active:scale-95"
               >
                 Entrar al panel
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
                 href="#funciones"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/16 bg-white/[0.055] px-5 py-3 text-sm font-black text-white transition hover:border-[#2dd4bf]/50 hover:bg-white/[0.09]"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.03] px-6 py-3.5 text-sm font-black text-white backdrop-blur-sm transition-all duration-300 hover:border-[#2dd4bf]/60 hover:bg-white/[0.08] hover:shadow-[0_0_20px_rgba(45,212,191,0.2)] active:scale-95"
               >
                 Ver lo que ofrece
               </a>
@@ -590,11 +590,12 @@ export default function PublicHomePage() {
                 initial={reduceMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + index * 0.08 }}
-                whileHover={reduceMotion ? undefined : { y: -4, borderColor: 'rgba(37,211,102,0.42)' }}
-                className="rounded-lg border border-white/10 bg-white/[0.055] p-4 backdrop-blur-md"
+                whileHover={reduceMotion ? undefined : { y: -6, scale: 1.05, borderColor: 'rgba(37,211,102,0.6)' }}
+                className="glass-card group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-5 shadow-lg backdrop-blur-md transition-all"
               >
-                <p className="text-2xl font-black text-white">{value}</p>
-                <p className="mt-1 text-sm font-semibold text-white/60">{label}</p>
+                <div className="absolute inset-0 bg-gradient-to-br from-[#25d366]/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <p className="relative z-10 text-3xl font-black text-white transition-colors duration-300 group-hover:text-[#25d366]">{value}</p>
+                <p className="relative z-10 mt-1 text-sm font-bold text-white/60">{label}</p>
               </motion.div>
             ))}
           </div>
@@ -625,7 +626,7 @@ export default function PublicHomePage() {
                     viewport={{ once: true, amount: 0.25 }}
                     transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     whileHover={reduceMotion ? undefined : { y: -8, scale: 1.02, backgroundColor: 'rgba(255,255,255,0.02)' }}
-                    className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[#141816]/60 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-md transition-all duration-300 hover:border-white/20"
+                    className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-[#141816]/60 p-7 shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-500 hover:border-[#2dd4bf]/40 hover:shadow-[0_0_40px_rgba(45,212,191,0.15)]"
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                     <motion.div
@@ -742,7 +743,7 @@ export default function PublicHomePage() {
 
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
         <motion.div
-          className="mx-auto max-w-7xl overflow-hidden rounded-lg border border-white/10 bg-[#25d366] p-6 text-[#07100d] sm:p-8"
+          className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-[#25d366]/40 bg-gradient-to-br from-[#25d366] to-[#2dd4bf] p-6 text-[#07100d] shadow-[0_0_60px_rgba(37,211,102,0.3)] sm:p-10"
           whileInView={reduceMotion ? undefined : { y: [0, -6, 0] }}
           viewport={{ once: true, amount: 0.3 }}
           transition={reduceMotion ? { duration: 0.12 } : { duration: 0.8 }}
@@ -756,7 +757,7 @@ export default function PublicHomePage() {
             </div>
             <Link
               href="/login"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#07100d] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1b241f]"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#07100d] px-6 py-3.5 text-sm font-black text-white shadow-xl transition-all hover:scale-105 hover:bg-[#1b241f]"
             >
               Login
               <ArrowRight className="h-4 w-4" />
