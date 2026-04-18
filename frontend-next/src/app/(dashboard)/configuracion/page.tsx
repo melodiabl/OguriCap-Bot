@@ -652,7 +652,7 @@ export default function ConfiguracionPage() {
     );
   };
 
-  const renderConfigEditor = useMemo(() => {
+  const renderConfigEditor = () => {
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -691,7 +691,7 @@ export default function ConfiguracionPage() {
       case 'notifications': return renderNotificationsConfigEditor();
       default: return null;
     }
-  }, [selectedConfig, configData, showJsonEditor, isLoading, renderBotConfigEditor, renderMainConfigEditor, renderNotificationsConfigEditor, renderSecurityConfigEditor, renderSystemConfigEditor]);
+  };
 
   const selectedConfigMeta = configurations.find((section) => section.key === selectedConfig);
 
@@ -886,7 +886,7 @@ export default function ConfiguracionPage() {
                        </Button>
                     </div>
                     <div className="flex-1 p-8">
-                       {renderConfigEditor}
+                       {renderConfigEditor()}
                     </div>
                   </Card>
                 </motion.div>

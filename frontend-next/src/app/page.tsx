@@ -101,9 +101,18 @@ const fadeIn = {
 
 const staggerContainer = {
   initial: { opacity: 0 },
-  whileInView: { opacity: 1 },
-  viewport: { once: true, margin: "-50px" },
-  transition: { staggerChildren: 0.1 }
+  whileInView: { 
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const fadeInVariant = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { 
+    opacity: 1, y: 0,
+    transition: { duration: 0.5, ease: "easeOut" }
+  }
 };
 
 export default function Home() {
@@ -233,6 +242,7 @@ export default function Home() {
             variants={staggerContainer}
             initial="initial"
             whileInView="whileInView"
+            viewport={{ once: true, margin: "-50px" }}
             className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
           >
             {featureGroups.map((feature, i) => {
@@ -240,7 +250,7 @@ export default function Home() {
               return (
                 <motion.div
                   key={i}
-                  variants={fadeIn}
+                  variants={fadeInVariant}
                   className={`group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0d0b] p-8 transition-all duration-300 hover:-translate-y-2 ${feature.border} ${feature.shadow}`}
                 >
                   <div className={`mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${feature.bg} ${feature.color} transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>

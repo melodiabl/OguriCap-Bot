@@ -564,7 +564,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
     };
-  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, cleanupRecentHashes, generateContentHash, shouldShowBrowserPush, openNotificationTarget, showBrowserPushNotification]);
+  }, [socket, authLoading, isAuthenticated, user, shouldShowNotification, settings, preferences, cleanupRecentHashes, generateContentHash, shouldShowBrowserPush, openNotificationTarget, showBrowserPushNotification]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {
