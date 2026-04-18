@@ -55,6 +55,7 @@
     "commander": "^11.1.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
+    "deep-email-validator": "^0.1.21",
     "dotenv": "^17.2.3",
     "express": "^4.22.1",
     "express-rate-limit": "^7.5.1",

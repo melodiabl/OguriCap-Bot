@@ -40,17 +40,14 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
           className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px]"
         />
         
-        {/* Border Beam / Sheen */}
-        {!reduceMotion && (
-          <motion.div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-0 rounded-[inherit] border border-transparent [mask-image:linear-gradient(white,white)] [mask-clip:padding-box,border-box] [mask-composite:intersect]",
-              "before:absolute before:inset-[-100%] before:bg-[conic-gradient(from_0deg,transparent_0,transparent_25%,rgb(var(--primary))_50%,transparent_75%,transparent_100%)] before:animate-[spin_4s_linear_infinite]"
-            )}
-            style={{ opacity: glow ? 0.6 : 0.2 }}
-          />
-        )}
+        {/* Simplified Border / Sheen for performance */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-[inherit] border transition-opacity duration-300",
+            glow ? "border-primary/30" : "border-white/5 group-hover:border-white/10"
+          )}
+        />
 
         {/* Top Shine */}
         <div
@@ -218,12 +215,9 @@ export const StatCard: React.FC<StatCardProps> = ({
     >
       {/* Background Accent */}
       <div className={cn('absolute -right-10 -top-10 h-28 w-28 blur-3xl transition-opacity duration-500 group-hover:opacity-100', colorGlowClasses[color])} />
-      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-      <motion.div
+      <div
         aria-hidden="true"
-        className={cn('absolute left-[-25%] top-0 h-px w-1/2 bg-gradient-to-r blur-[1px]', colorStreakClasses[color])}
-        animate={shouldAnimate ? { x: ['0%', '260%'] } : { x: '0%' }}
-        transition={shouldAnimate ? { repeat: Infinity, duration: 6.5, ease: 'easeInOut', delay } : { duration: 0 }}
+        className={cn('absolute left-0 top-0 h-px w-1/2 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-500', colorStreakClasses[color])}
       />
       
       <div className="relative z-10">
