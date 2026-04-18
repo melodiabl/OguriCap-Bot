@@ -1231,15 +1231,23 @@ html[data-perf="full"] .aura-flow-layer::before {
   }
 
   .glass-card {
-    @apply rounded-3xl backdrop-blur-2xl;
+    @apply rounded-[2rem] backdrop-blur-3xl transition-all duration-300;
     position: relative;
     overflow: hidden;
-    border: 1px solid rgb(var(--border) / 0.14);
-    background: linear-gradient(180deg, rgb(var(--card) / 0.84), rgb(var(--surface-elevated) / 0.74));
+    border: 1px solid rgb(var(--border) / 0.2);
+    background: linear-gradient(180deg, rgb(var(--card) / 0.75), rgb(var(--surface-elevated) / 0.65));
     box-shadow:
-      0 24px 70px rgb(var(--shadow-rgb) / 0.24),
-      inset 0 0 0 1px rgb(var(--shine) / 0.05);
-    backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
+      0 30px 80px rgb(var(--shadow-rgb) / 0.3),
+      inset 0 0 0 1px rgb(var(--shine) / 0.1);
+    backdrop-filter: blur(calc(var(--chrome-blur) * 1.5)) saturate(calc(var(--chrome-sat) * 1.2));
+  }
+  
+  /* Interacciones premium globales para tarjetas de cristal */
+  @media (hover: hover) {
+    html:not([data-perf="low"]) .glass-card:hover {
+      box-shadow: 0 40px 90px rgb(var(--primary) / 0.15), inset 0 0 0 1px rgb(var(--shine) / 0.2);
+      transform: translateY(-4px) scale(1.01);
+    }
   }
 
   .card {
@@ -1317,7 +1325,7 @@ html[data-perf="full"] .aura-flow-layer::before {
   }
 
   .btn-primary {
-    @apply relative overflow-hidden px-6 py-3 rounded-2xl font-black uppercase tracking-widest;
+    @apply relative overflow-hidden px-6 py-3 rounded-2xl font-black uppercase tracking-widest transition-all duration-300;
     color: rgb(var(--text-on-accent) / 1);
     background: linear-gradient(90deg, rgb(var(--primary) / 1), rgb(var(--secondary) / 1), rgb(var(--accent) / 1));
     background-size: 200% 100%;
@@ -1325,6 +1333,17 @@ html[data-perf="full"] .aura-flow-layer::before {
     box-shadow:
       0 18px 42px rgb(var(--primary) / 0.28),
       inset 0 0 0 1px rgb(var(--shine) / 0.08);
+  }
+
+  @media (hover: hover) {
+    html:not([data-perf="low"]) .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 24px 50px rgb(var(--primary) / 0.5), inset 0 0 0 1px rgb(var(--shine) / 0.3);
+    }
+  }
+
+  html:not([data-perf="low"]) .btn-primary:active {
+    transform: scale(0.96);
   }
 
   .btn-primary::before {
