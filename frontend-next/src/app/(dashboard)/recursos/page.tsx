@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, 
@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useOguriTheme } from '@/contexts/OguriThemeContext';
-import { cn } from '@/lib/utils';
+import { cn, formatUptime } from '@/lib/utils';
 import api from '@/services/api';
 import { notify } from '@/lib/notify';
 
@@ -135,13 +135,63 @@ export default function RecursosPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(5000);
 
-  const { socket } = useSocketConnection();
+  const { socket, isConnected: isSocketConnected } = useSocketConnection();
   const { isInZone } = useOguriTheme();
 
+  // Wrap loaders in useCallback to fix dependency warning
+  const loadResourceStats = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const stats = await api.getResourcesStats();
+      const current = (stats as any)?.current || null;
+
+      if (current) {
+        setMetrics(current);
+        setAlertStates((stats as any)?.alerts || null);
+        setThresholds((stats as any)?.thresholds || null);
+        setIsMonitoring(Boolean((stats as any)?.isMonitoring));
+        setUpdateInterval(Number((stats as any)?.updateInterval) || 5000);
+        return;
+      }
+    } catch (error) {
+      console.error('Error loading resource stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const loadHistoricalData = useCallback(async () => {
+    try {
+      const historyRes = await api.getResourcesHistory(60).catch(() => ({ history: [] }));
+      const historyRaw = (historyRes as any)?.history;
+      setHistoricalData(Array.isArray(historyRaw) ? historyRaw : []);
+    } catch (error) {
+      console.error('Error loading historical data:', error);
+    }
+  }, []);
+
+  // Initial load on mount
   useEffect(() => {
     loadResourceStats();
     loadHistoricalData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch when socket connects
+  useEffect(() => {
+    if (isSocketConnected) {
+      loadResourceStats();
+    }
+  }, [isSocketConnected, loadResourceStats]);
+
+  // Also refetch on window focus
+  useEffect(() => {
+    const onFocus = () => loadResourceStats();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadResourceStats]);
+
+  // Sin intervalo - solo live via socket
 
   useEffect(() => {
     if (!socket) return;
@@ -174,38 +224,7 @@ export default function RecursosPage() {
       socket.off('resource:metrics', handleMetricsUpdate);
       socket.off('resource:alert', handleAlertStateChanged);
     };
-  }, [socket]);
-
-  const loadResourceStats = async () => {
-    try {
-      setIsLoading(true);
-      const stats = await api.getResourcesStats();
-      const current = (stats as any)?.current || null;
-
-      if (current) {
-        setMetrics(current);
-        setAlertStates((stats as any)?.alerts || null);
-        setThresholds((stats as any)?.thresholds || null);
-        setIsMonitoring(Boolean((stats as any)?.isMonitoring));
-        setUpdateInterval(Number((stats as any)?.updateInterval) || 5000);
-        return;
-      }
-    } catch (error) {
-      console.error('Error loading resource stats:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadHistoricalData = async () => {
-    try {
-      const historyRes = await api.getResourcesHistory(60).catch(() => ({ history: [] }));
-      const historyRaw = (historyRes as any)?.history;
-      setHistoricalData(Array.isArray(historyRaw) ? historyRaw : []);
-    } catch (error) {
-      console.error('Error loading historical data:', error);
-    }
-  };
+  }, [socket, loadResourceStats]);
 
   const toggleMonitoring = async () => {
     try {
@@ -288,6 +307,50 @@ export default function RecursosPage() {
     return 'bg-green-500';
   };
 
+  const resourceLanes = metrics
+    ? [
+        {
+          label: 'Monitoreo',
+          value: isMonitoring ? 'Activo y grabando' : 'Detenido',
+          description: isMonitoring ? 'Recibe eventos en tiempo real del sistema.' : 'Puedes iniciarlo para vigilar CPU, RAM y disco en vivo.',
+          icon: <Activity className="w-4 h-4" />,
+          badge: isMonitoring ? 'live' : 'idle',
+          badgeClassName: isMonitoring ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+          glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+        },
+        {
+          label: 'Presion del host',
+          value: `CPU ${metrics.cpu.usage.toFixed(0)}%`,
+          description: `RAM ${metrics.memory.usage.toFixed(0)}% · Disco ${metrics.disk.usage.toFixed(0)}%`,
+          icon: <Gauge className="w-4 h-4" />,
+          badge: alertStates?.cpu === 'critical' || alertStates?.memory === 'critical' || alertStates?.disk === 'critical' ? 'alto' : 'estable',
+          badgeClassName:
+            alertStates?.cpu === 'critical' || alertStates?.memory === 'critical' || alertStates?.disk === 'critical'
+              ? 'border-red-500/20 bg-red-500/10 text-red-300'
+              : 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan',
+          glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+        },
+        {
+          label: 'Motor del bot',
+          value: String(metrics.bot.connection.status || 'offline').toUpperCase(),
+          description: `${metrics.bot.subbots.connected}/${metrics.bot.subbots.total} subbots y ${metrics.bot.database.groups} grupos registrados.`,
+          icon: <Zap className="w-4 h-4" />,
+          badge: metrics.bot.connection.status === 'connected' ? 'online' : 'offline',
+          badgeClassName: metrics.bot.connection.status === 'connected' ? 'border-violet-400/20 bg-violet-500/10 text-violet-300' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+          glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
+        },
+        {
+          label: 'Canal del panel',
+          value: isSocketConnected ? 'Tiempo real' : 'Fallback',
+          description: `Host ${metrics.network.hostname} · Node ${metrics.process.version}`,
+          icon: <Wifi className="w-4 h-4" />,
+          badge: isSocketConnected ? 'socket' : 'local',
+          badgeClassName: isSocketConnected ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/[0.05] text-white/70',
+          glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
+        },
+      ]
+    : [];
+
   if (isLoading) {
     return (
       <div className="panel-empty-state min-h-[60vh]">
@@ -298,7 +361,57 @@ export default function RecursosPage() {
   }
 
   return (
-    <div className={cn("panel-page transition-all duration-500", isInZone && "is-in-zone")}>
+    <div className={cn("panel-page relative overflow-hidden transition-all duration-500", isInZone && "is-in-zone")}>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[440px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-gold/18 blur-3xl"
+          animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
+          transition={{ repeat: Infinity, duration: 11.2, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/18 blur-3xl"
+          animate={{ x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={{ repeat: Infinity, duration: 10.6, ease: 'easeInOut', delay: 0.6 }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(45,212,191,0.12),rgba(59,130,246,0.10))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Utensils className="h-3.5 w-3.5 text-oguri-gold" />
+              Paddock energetico
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Recursos con lectura viva del host</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              CPU, memoria, disco y estado del bot en una cabina visual que deja claro cuando el sistema esta estable y cuando pide atencion.
+            </p>
+          </div>
+          <div className="panel-hero-meta-grid">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Monitoreo</p>
+              <p className="mt-2 text-lg font-black text-white">{isMonitoring ? 'ACTIVO' : 'PAUSADO'}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Canal</p>
+              <p className="mt-2 text-lg font-black text-white">{isSocketConnected ? 'LIVE' : 'LOCAL'}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Tiempo Real</p>
+              <p className="mt-2 text-lg font-black text-white">{isSocketConnected ? 'SOCKET' : 'MANUAL'}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       <PageHeader
         title="Paddock de Alimentación"
         description="Estado de energía y recursos de Oguri Cap"
@@ -321,6 +434,38 @@ export default function RecursosPage() {
         }
       />
 
+      {metrics && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {resourceLanes.map((lane, index) => (
+            <motion.div
+              key={lane.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+              className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+            >
+              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                    {lane.icon}
+                  </div>
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                    {lane.badge}
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                  <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
       <Reveal>
         <div className="panel-setting-row">
           <div className="flex items-center gap-3">
@@ -338,7 +483,6 @@ export default function RecursosPage() {
           </div>
           <div className="panel-actions-wrap sm:justify-end">
             <Badge variant={isMonitoring ? 'success' : 'danger'}>{isMonitoring ? 'Activo' : 'Detenido'}</Badge>
-            <Badge variant="outline">Intervalo: {Math.round(updateInterval / 1000)}s</Badge>
           </div>
         </div>
       </Reveal>
@@ -427,7 +571,7 @@ export default function RecursosPage() {
             <div className="space-y-3">
               <div className="panel-data-row"><span className="panel-data-row__label">Node</span><span className="panel-data-row__value">{metrics.process.version}</span></div>
               <div className="panel-data-row"><span className="panel-data-row__label">PID</span><span className="panel-data-row__value">{metrics.process.pid}</span></div>
-              <div className="panel-data-row"><span className="panel-data-row__label">Uptime</span><span className="panel-data-row__value">{Math.round(metrics.process.uptime / 60)} min</span></div>
+              <div className="panel-data-row"><span className="panel-data-row__label">Uptime</span><span className="panel-data-row__value">{formatUptime(metrics.process.uptime)}</span></div>
               <div className="panel-data-row"><span className="panel-data-row__label">Restarts</span><span className="panel-data-row__value">{metrics.process.restarts}</span></div>
               <div className="panel-data-row"><span className="panel-data-row__label">Errores</span><span className="panel-data-row__value">{metrics.process.errors}</span></div>
             </div>

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const SOCKET_EVENTS = {
   BOT_STATUS: 'bot:status',
@@ -47,13 +48,6 @@ interface BotStatus {
   timestamp: string;
 }
 
-interface BotPairingCodeEvent {
-  pairingCode?: string | null;
-  displayCode?: string | null;
-  phoneNumber?: string | null;
-  timestamp: string;
-}
-
 interface SubbotEvent {
   subbotCode: string;
   qr?: string;
@@ -83,6 +77,7 @@ const BotStatusContext = createContext<BotStatus | null | undefined>(undefined);
 const SubbotEventContext = createContext<SubbotEvent | null | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { token } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -90,84 +85,62 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [lastSubbotEvent, setLastSubbotEvent] = useState<SubbotEvent | null>(null);
 
   useEffect(() => {
-    // En producción, usar el dominio configurado con HTTPS
-    // En desarrollo, usar localhost
     const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-    const serverUrl = process.env.NODE_ENV === 'production'
-      ? (typeof window !== 'undefined' ? window.location.origin : (envUrl || ''))
-      : (envUrl || 'http://localhost:8080');
+    let serverUrl = '';
+    
+    if (process.env.NODE_ENV === 'production') {
+      const origin = typeof window !== 'undefined' ? window.location.origin : envUrl;
+      serverUrl = origin.replace(':3000', ':3001');
+    } else {
+      serverUrl = envUrl || 'http://localhost:8080';
+    }
     
     const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'], // Priorizar websocket para menor latencia
+      transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 15,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
       autoConnect: true,
-      upgrade: true,
+      auth: { token },
     });
 
     newSocket.on('connect', () => {
       setIsConnected(true);
       setConnectionError(null);
-      newSocket.emit('request:botStatus');
-      newSocket.emit('request:subbotStatus');
-      newSocket.emit('request:stats');
+      
+      const requestData = () => {
+        newSocket.emit('request:botStatus');
+        newSocket.emit('request:subbotStatus');
+        newSocket.emit('request:stats');
+        newSocket.emit('request:resourceMetrics');
+      };
+      
+      requestData();
+      setTimeout(requestData, 1500);
     });
 
     newSocket.on('disconnect', () => setIsConnected(false));
 
     newSocket.on('connect_error', (error) => {
-      setConnectionError(`No se puede conectar: ${error.message}`);
+      setConnectionError(`Error de conexión: ${error.message}`);
       setIsConnected(false);
     });
 
     newSocket.on(SOCKET_EVENTS.BOT_STATUS, (data: BotStatus) => setBotStatus(data));
-
-    newSocket.on(SOCKET_EVENTS.BOT_QR, (data) => {
-      setBotStatus(prev => {
-        if (!prev) {
-          return {
-            connected: false,
-            isConnected: false,
-            connecting: true,
-            status: 'connecting',
-            connectionStatus: 'connecting',
-            phone: null,
-            qrCode: data.qr,
-            pairingCode: null,
-            pairingPhone: null,
-            uptime: '0m',
-            lastSeen: null,
-            timestamp: new Date().toISOString(),
-          }
-        }
-        return { ...prev, qrCode: data.qr }
-      });
-    });
-
-    newSocket.on(SOCKET_EVENTS.BOT_PAIRING_CODE, (data: BotPairingCodeEvent) => {
-      setBotStatus(prev => prev ? {
-        ...prev,
-        pairingCode: data?.pairingCode ?? null,
-        pairingPhone: data?.phoneNumber ?? prev.pairingPhone ?? null,
-      } : prev);
-      newSocket.emit('request:botStatus');
-    });
-
+    newSocket.on(SOCKET_EVENTS.BOT_QR, (data) => setBotStatus(prev => prev ? { ...prev, qrCode: data.qr } : null));
     newSocket.on(SOCKET_EVENTS.BOT_CONNECTED, (data) => {
       setBotStatus(prev => prev ? { 
         ...prev, connected: true, isConnected: true, connecting: false, phone: data.phone, qrCode: null 
       } : null);
     });
-
     newSocket.on(SOCKET_EVENTS.BOT_DISCONNECTED, () => {
       setBotStatus(prev => prev ? { ...prev, connected: false, isConnected: false, connecting: false } : null);
     });
 
+    newSocket.on(SOCKET_EVENTS.SUBBOT_STATUS, (data: any) => setLastSubbotEvent(data));
     newSocket.on(SOCKET_EVENTS.SUBBOT_QR, (data: SubbotEvent) => setLastSubbotEvent(data));
-    newSocket.on(SOCKET_EVENTS.SUBBOT_PAIRING_CODE, (data: SubbotEvent) => setLastSubbotEvent(data));
     newSocket.on(SOCKET_EVENTS.SUBBOT_CONNECTED, (data: SubbotEvent) => setLastSubbotEvent(data));
     newSocket.on(SOCKET_EVENTS.SUBBOT_DISCONNECTED, (data: SubbotEvent) => setLastSubbotEvent(data));
 
@@ -176,7 +149,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return () => {
       newSocket.disconnect();
     };
-  }, []);
+  }, [token]);
 
   const subscribe = useCallback((channels: string[]) => {
     socket?.emit('subscribe', channels);
@@ -248,7 +221,6 @@ export function useLastSubbotEvent() {
   return context;
 }
 
-// Backwards-compatible aggregate hook (avoid in hot paths: subscribe to granular hooks instead).
 export function useSocket() {
   const conn = useSocketConnection();
   const botStatus = useSocketBotStatus();

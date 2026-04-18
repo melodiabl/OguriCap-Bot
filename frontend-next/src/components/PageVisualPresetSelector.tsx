@@ -240,109 +240,113 @@ export function PageVisualPresetSelector() {
                 />
 
                 <motion.div
-                  ref={dropdownRef}
-                  initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.97 }}
-                  transition={{ duration: 0.2 }}
-                  className="fixed left-1/2 top-1/2 z-[120] flex w-[min(26rem,calc(100vw-1rem))] max-h-[calc(100vh-1rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border/15 bg-card/92 shadow-2xl backdrop-blur-2xl"
+                  className="fixed inset-0 z-[120] flex items-center justify-center p-3"
                 >
-                  <div className="border-b border-border/15 bg-gradient-to-r from-primary/10 to-secondary/10 p-4">
-                    <div className="flex items-center gap-2">
-                      <Layers3 className="h-5 w-5 text-primary-400" />
-                      <h3 className="font-semibold text-foreground">Preset por Página</h3>
-                    </div>
-                    <p className="mt-1 text-xs text-[rgb(var(--text-secondary))]">
-                      Ajusta el mood visual solo para {currentPageLabel} y, si quieres, cópialo a otras secciones.
-                    </p>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-3" style={{ scrollbarWidth: 'thin' }}>
-                    <div className="grid gap-2">
-                      {OPTIONS.map((option) => {
-                        const Icon = option.icon;
-                        const isActive = option.id === selectedPreset;
-
-                        return (
-                          <motion.button
-                            key={option.id}
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.985 }}
-                            onClick={() => handleSelectPreset(option.id)}
-                            className={cn(
-                              'grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200',
-                              isActive
-                                ? 'border-primary/25 bg-gradient-to-r from-primary/14 via-secondary/10 to-accent/10 text-foreground shadow-glow-oguri-purple'
-                                : 'border-border/10 bg-white/[0.03] text-[rgb(var(--text-secondary))] hover:border-border/20 hover:bg-white/[0.06] hover:text-foreground'
-                            )}
-                          >
-                            <PresetPreview preset={option.id} />
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/10 text-primary">
-                                  <Icon className="h-4 w-4" />
-                                </div>
-                                <span className="text-sm font-black text-foreground">{option.name}</span>
-                                <span className={cn('h-2 w-2 rounded-full', option.dot)} />
-                              </div>
-                              <p className="mt-2 text-xs text-[rgb(var(--text-secondary))]">{option.description}</p>
-                            </div>
-                            {isActive && <Check className="h-4 w-4 shrink-0 text-primary" />}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-4 rounded-2xl border border-border/15 bg-white/[0.03] p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-foreground">Copiar preset actual</p>
-                          <p className="text-xs text-[rgb(var(--text-secondary))]">Replica `{current.name}` en otras páginas sin tocar la paleta global.</p>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Copy className="h-3.5 w-3.5" />}
-                          onClick={() => handleCopyPreset(copyTargets.map((item) => item.pageKey))}
-                        >
-                          A Todas
-                        </Button>
+                  <motion.div
+                    ref={dropdownRef}
+                    initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex w-[min(26rem,calc(100vw-1rem))] max-h-[calc(100vh-1rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col overflow-hidden rounded-2xl border border-border/15 bg-card/92 shadow-2xl backdrop-blur-2xl"
+                  >
+                    <div className="border-b border-border/15 bg-gradient-to-r from-primary/10 to-secondary/10 p-4">
+                      <div className="flex items-center gap-2">
+                        <Layers3 className="h-5 w-5 text-primary-400" />
+                        <h3 className="font-semibold text-foreground">Preset por Página</h3>
                       </div>
+                      <p className="mt-1 text-xs text-[rgb(var(--text-secondary))]">
+                        Ajusta el mood visual solo para {currentPageLabel} y, si quieres, cópialo a otras secciones.
+                      </p>
+                    </div>
 
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {copyTargets.map((item) => {
-                          const Icon = item.icon;
-                          const alreadyApplied = presetByPage[item.pageKey] === selectedPreset;
+                    <div className="flex-1 overflow-y-auto p-3" style={{ scrollbarWidth: 'thin' }}>
+                      <div className="grid gap-2">
+                        {OPTIONS.map((option) => {
+                          const Icon = option.icon;
+                          const isActive = option.id === selectedPreset;
 
                           return (
                             <motion.button
-                              key={item.pageKey}
+                              key={option.id}
                               whileHover={{ scale: 1.01 }}
                               whileTap={{ scale: 0.985 }}
-                              onClick={() => handleCopyPreset([item.pageKey])}
+                              onClick={() => handleSelectPreset(option.id)}
                               className={cn(
-                                'flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200',
-                                alreadyApplied
-                                  ? 'border-primary/22 bg-primary/10 text-foreground'
-                                  : 'border-border/10 bg-black/10 text-[rgb(var(--text-secondary))] hover:border-border/20 hover:bg-white/[0.05] hover:text-foreground'
+                                'grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200',
+                                isActive
+                                  ? 'border-primary/25 bg-gradient-to-r from-primary/14 via-secondary/10 to-accent/10 text-foreground shadow-glow-oguri-purple'
+                                  : 'border-border/10 bg-white/[0.03] text-[rgb(var(--text-secondary))] hover:border-border/20 hover:bg-white/[0.06] hover:text-foreground'
                               )}
                             >
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/10 text-primary">
-                                <Icon className="h-4 w-4" />
+                              <PresetPreview preset={option.id} />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/10 text-primary">
+                                    <Icon className="h-4 w-4" />
+                                  </div>
+                                  <span className="text-sm font-black text-foreground">{option.name}</span>
+                                  <span className={cn('h-2 w-2 rounded-full', option.dot)} />
+                                </div>
+                                <p className="mt-2 text-xs text-[rgb(var(--text-secondary))]">{option.description}</p>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-foreground">{item.label}</p>
-                                <p className="text-xs text-[rgb(var(--text-secondary))]">
-                                  {alreadyApplied ? 'Ya usa este preset' : 'Aplicar aquí'}
-                                </p>
-                              </div>
-                              {alreadyApplied && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                              {isActive && <Check className="h-4 w-4 shrink-0 text-primary" />}
                             </motion.button>
                           );
                         })}
                       </div>
+
+                      <div className="mt-4 rounded-2xl border border-border/15 bg-white/[0.03] p-3">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-foreground">Copiar preset actual</p>
+                            <p className="text-xs text-[rgb(var(--text-secondary))]">Replica `{current.name}` en otras páginas sin tocar la paleta global.</p>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Copy className="h-3.5 w-3.5" />}
+                            onClick={() => handleCopyPreset(copyTargets.map((item) => item.pageKey))}
+                          >
+                            A Todas
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {copyTargets.map((item) => {
+                            const Icon = item.icon;
+                            const alreadyApplied = presetByPage[item.pageKey] === selectedPreset;
+
+                            return (
+                              <motion.button
+                                key={item.pageKey}
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.985 }}
+                                onClick={() => handleCopyPreset([item.pageKey])}
+                                className={cn(
+                                  'flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200',
+                                  alreadyApplied
+                                    ? 'border-primary/22 bg-primary/10 text-foreground'
+                                    : 'border-border/10 bg-black/10 text-[rgb(var(--text-secondary))] hover:border-border/20 hover:bg-white/[0.05] hover:text-foreground'
+                                )}
+                              >
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/10 text-primary">
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-foreground">{item.label}</p>
+                                  <p className="text-xs text-[rgb(var(--text-secondary))]">
+                                    {alreadyApplied ? 'Ya usa este preset' : 'Aplicar aquí'}
+                                  </p>
+                                </div>
+                                {alreadyApplied && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                              </motion.button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </motion.div>
               </>
             )}

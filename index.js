@@ -1,4 +1,5 @@
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1'
+process.env.TZ = process.env.TZ || 'America/Argentina/Buenos_Aires'
 import 'dotenv/config'
 import './settings.js'
 import './plugins/_allfake.js'

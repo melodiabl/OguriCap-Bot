@@ -1,6 +1,6 @@
 // Service Worker para Push Notifications de Oguri Bot Panel
-const CACHE_NAME = 'oguricap-panel-v3';
-const STATIC_CACHE = 'oguricap-static-v3';
+const CACHE_NAME = 'oguricap-panel-v4';
+const STATIC_CACHE = 'oguricap-static-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -25,47 +25,47 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-<<<<<<< HEAD
-  const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Oguri Bot';
-  const rawBody = data.body || data.message || 'Nueva notificación';
-  const body = String(rawBody || '').length > 180
-    ? `${String(rawBody).slice(0, 179).trimEnd()}…`
-    : String(rawBody || '');
-  const options = {
-    body,
-=======
   let data = {};
+
   try {
     data = event.data ? event.data.json() : {};
-  } catch (e) {
-    data = { title: 'Oguri Bot', body: event.data ? event.data.text() : 'Nueva notificación' };
+  } catch {
+    data = {
+      title: 'Oguri Bot',
+      body: event.data ? event.data.text() : 'Nueva notificación',
+    };
   }
 
   const title = data.title || data.titulo || 'Oguri Bot';
-  
+  const rawBody = data.body || data.message || data.mensaje || 'Nueva notificación';
+  const body = String(rawBody || '').length > 180
+    ? `${String(rawBody).slice(0, 179).trimEnd()}…`
+    : String(rawBody || '');
+
   const options = {
-    body: data.body || data.message || data.mensaje || 'Nueva notificación',
->>>>>>> 4f37e52130327d4550d0ae49bfd68dbd08db8a62
+    body,
     icon: data.icon || '/bot-icon.svg',
     badge: '/bot-icon.svg',
     tag: data.tag || `notification-${Date.now()}`,
-    renotify: true,
-    requireInteraction: data.type === 'error' || data.type === 'critical' || data.requireInteraction || false,
+    renotify: false,
+    requireInteraction: false,
     vibrate: data.vibrate || [100, 50, 100],
     timestamp: Date.now(),
     data: {
       ...data.data,
-      url: data.url || data.data?.url || '/'
+      url: data.url || data.data?.url || '/',
     },
     actions: data.actions || [
       { action: 'open', title: 'Ver ahora' },
-      { action: 'close', title: 'Cerrar' }
+      { action: 'close', title: 'Cerrar' },
     ],
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.registration.getNotifications({ tag: options.tag }).then((existing) => {
+      existing.forEach((notification) => notification.close());
+      return self.registration.showNotification(title, options);
+    })
   );
 });
 

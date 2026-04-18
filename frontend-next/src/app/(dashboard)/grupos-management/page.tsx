@@ -18,7 +18,7 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useLoadingOverlay } from '@/contexts/LoadingOverlayContext';
 import { notify } from '@/lib/notify';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 import api from '@/services/api';
 import { useGroups } from '@/contexts/GroupsContext';
 
@@ -188,9 +188,7 @@ export default function GruposManagementPage() {
   const inactiveGroups = globalBotState ? groups.length - activeGroups : groups.length;
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleString('es-ES', { 
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-    });
+    return formatDateTime(date);
   };
 
   return (
@@ -228,7 +226,7 @@ export default function GruposManagementPage() {
               Estado del bot por grupo y tablero de notificaciones con mejor jerarquía visual.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="panel-hero-meta-grid">
             <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Grupos</p>
               <p className="mt-2 text-lg font-black text-white">{groups.length}</p>

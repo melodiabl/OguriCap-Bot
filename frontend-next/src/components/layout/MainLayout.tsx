@@ -44,7 +44,7 @@ interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const { isConnected } = useBotStatus(5000);
+  const { isConnected } = useBotStatus();
   const { latency } = useConnectionHealth();
   const reduceMotion = useReducedMotion();
   const { performanceMode, viewport, visualIntensity } = useDevicePerformance();
@@ -73,7 +73,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   }, [pageKey]);
   const shellClassName =
-    'relative overflow-hidden rounded-[30px] border border-border/15 bg-card/40 shadow-[0_34px_120px_-60px_rgba(0,0,0,0.9)] backdrop-blur-2xl';
+    'relative min-h-full overflow-visible rounded-none border-0 bg-transparent shadow-none';
 
   const stagedChildren = React.useMemo(() => {
     if (!children) return children;
@@ -173,13 +173,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <motion.div
             key={`route-atmosphere-${pathname}`}
             aria-hidden="true"
-            className="absolute inset-[-10%] bg-[radial-gradient(circle_at_18%_24%,rgba(var(--page-a),0.28),transparent_30%),radial-gradient(circle_at_82%_20%,rgba(var(--page-b),0.22),transparent_30%),radial-gradient(circle_at_50%_85%,rgba(var(--page-c),0.18),transparent_34%),conic-gradient(from_120deg_at_50%_50%,rgba(var(--page-a),0.08),transparent,rgba(var(--page-b),0.08),transparent,rgba(var(--page-c),0.06))] mix-blend-screen"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92, rotate: -4 }}
-            animate={reduceMotion ? { opacity: 0.14 } : { opacity: [0, 0.28, 0.12], scale: [0.92, 1.03, 1.06], rotate: [-4, 1, 3] }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.1, rotate: 4 }}
-            transition={reduceMotion ? { duration: 0.18 } : { duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-[-15%] bg-[radial-gradient(circle_at_20%_30%,rgba(var(--page-a),0.32),transparent_35%),radial-gradient(circle_at_80%_25%,rgba(var(--page-b),0.26),transparent_35%),radial-gradient(circle_at_50%_90%,rgba(var(--page-c),0.22),transparent_38%),conic-gradient(from_120deg_at_50%_50%,rgba(var(--page-a),0.1),transparent,rgba(var(--page-b),0.1),transparent,rgba(var(--page-c),0.08))] mix-blend-screen blur-[2px]"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9, rotate: -6 }}
+            animate={reduceMotion ? { opacity: 0.18 } : { opacity: [0, 0.35, 0.16], scale: [0.9, 1.05, 1], rotate: [-6, 0.5, 4] }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.15, rotate: 6 }}
+            transition={reduceMotion ? { duration: 0.2 } : { duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
           />
         </AnimatePresence>
+        
+        {/* Texture Overlays */}
+        <div className="absolute inset-0 z-[1] opacity-[0.035] pointer-events-none mix-blend-overlay bg-[url('/noise.png')]" />
+        <div className="absolute inset-0 z-[2] opacity-[0.015] pointer-events-none mix-blend-overlay bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.08)_0_1px,transparent_1px_4px)]" />
       </div>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -188,8 +192,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <div className="lg:pl-72 h-screen flex flex-col relative z-10 overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
-        <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-5">
-          <div className="max-w-7xl mx-auto w-full">
+        <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-3 pb-24 sm:px-4 sm:pt-4 sm:pb-28 lg:px-6 lg:pt-5 lg:pb-28">
+          <div className="mx-auto w-full max-w-[1500px]">
             {isLiteMode ? (
               <div className={shellClassName}>
                 <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-white/[0.05] via-transparent to-primary/10" />
@@ -201,15 +205,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <motion.div
                   key={pathname}
                   className={cn(shellClassName, 'page-perspective')}
-                  initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.99, rotateX: -2 }}
+                  initial={reduceMotion ? false : { opacity: 0, y: 22, scale: 0.985, rotateX: -3 }}
                   animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, rotateX: 0 }}
-                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.99, rotateX: 1.5 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -16, scale: 0.985, rotateX: 2.5 }}
                   transition={
                     reduceMotion
-                      ? { duration: 0.12 }
+                      ? { duration: 0.14 }
                       : {
-                          duration: 0.42,
-                          ease: [0.16, 1, 0.3, 1],
+                          duration: 0.48,
+                          ease: [0.22, 1, 0.36, 1],
                         }
                   }
                 >
@@ -246,13 +250,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <FloatingSupportButton />
 
         <footer className="border-t border-border/15 bg-background/35 px-4 py-4 backdrop-blur-xl lg:px-8">
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 text-sm text-[rgb(var(--text-secondary))]">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-oguri-lavender animate-pulse" />
-              <span className="font-medium">© 2026 OguriCap Bot Panel</span>
+          <div className="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-center gap-3 text-center text-sm text-[rgb(var(--text-secondary))] sm:justify-between sm:text-left">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="h-2 w-2 shrink-0 rounded-full bg-oguri-lavender animate-pulse" />
+              <span className="min-w-0 font-medium">© 2026 OguriCap Bot Panel</span>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="hidden text-xs font-mono text-[rgb(var(--text-secondary))] sm:inline">CINDERELLA GRAY v1.0.0</span>
+            <div className="flex min-w-0 flex-wrap items-center justify-center gap-3 sm:justify-end">
+              <span className="hidden text-xs font-mono text-[rgb(var(--text-secondary))] sm:inline">OGURICAP LIVE v1.0.0</span>
               <RealTimeBadge isActive={isConnected} latency={latency} />
             </div>
           </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const isPublicPath = (pathname: string) => {
+  if (pathname === '/') return true;
   if (pathname === '/login') return true;
   if (pathname === '/register') return true;
   if (pathname === '/reset-password') return true;

@@ -47,7 +47,11 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refreshDashboard = React.useCallback(async () => {
     try {
       const stats = await api.getStats();
-      setDashboardStats(stats);
+      setDashboardStats(prev => {
+        // Only update if data changed
+        if (JSON.stringify(prev) === JSON.stringify(stats)) return prev;
+        return stats;
+      });
       return stats;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
@@ -60,7 +64,11 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refreshBotStatus = React.useCallback(async () => {
     try {
       const status = await api.getMainBotStatus();
-      setBotStatus(status);
+      setBotStatus(prev => {
+        // Only update if status changed
+        if (JSON.stringify(prev) === JSON.stringify(status)) return prev;
+        return status;
+      });
       return status;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
@@ -73,7 +81,11 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refreshSystemStats = React.useCallback(async () => {
     try {
       const stats = await api.getSystemStats();
-      setSystemStats(stats);
+      setSystemStats(prev => {
+        // Only update if stats changed
+        if (JSON.stringify(prev) === JSON.stringify(stats)) return prev;
+        return stats;
+      });
       return stats;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
@@ -86,7 +98,12 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refreshNotifications = React.useCallback(async () => {
     try {
       const response = await api.getNotificaciones(1, 10);
-      setNotifications(response?.notificaciones || []);
+      const newNotifications = response?.notificaciones || [];
+      setNotifications(prev => {
+        // Only update if notifications changed
+        if (JSON.stringify(prev) === JSON.stringify(newNotifications)) return prev;
+        return newNotifications;
+      });
       return response;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
@@ -185,7 +202,10 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const handleStatsUpdate = (data: any) => {
       if (!data || typeof data !== 'object') return;
-      pendingStats = { ...(pendingStats || {}), ...(data as any) };
+      const newData = { ...(pendingStats || {}), ...(data as any) };
+      // Skip if no actual change
+      if (JSON.stringify(pendingStats) === JSON.stringify(newData)) return;
+      pendingStats = newData;
       if (!raf) {
         raf = window.requestAnimationFrame(() => {
           raf = 0;
@@ -210,7 +230,12 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (!hasChanges) return;
 
       lastBotRef.v = { ...(data as any) };
-      setBotStatus((p: any) => ({ ...(p || {}), ...(data as any) }));
+      setBotStatus((p: any) => {
+        const next = { ...(p || {}), ...(data as any) };
+        // Only update if actually changed
+        if (JSON.stringify(p) === JSON.stringify(next)) return p;
+        return next;
+      });
       setLastUpdate(new Date());
       emitGlobalDataUpdated();
     };

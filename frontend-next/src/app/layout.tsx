@@ -7,8 +7,8 @@ import { Providers } from './providers';
 import { RouteProgress } from '@/components/ui/RouteProgress';
 
 export const metadata: Metadata = {
-  title: 'OguriCap Bot Panel',
-  description: 'Panel de administración del bot inspirado en Oguri Cap',
+  title: 'OguriCap-Bot',
+  description: 'Bot de WhatsApp para comunidad, comandos, subbots, aportes, herramientas y panel en tiempo real.',
   icons: {
     icon: '/bot-icon.svg',
     apple: '/apple-touch-icon.png',
@@ -39,9 +39,10 @@ export default function RootLayout({
                 const theme = localStorage.getItem('theme') || 'dark';
                 const intensity = localStorage.getItem('oguricap:visual-intensity') || 'vivid';
                 const path = (location.pathname || '/').split('?')[0].split('#')[0] || '/';
-                let page = 'dashboard';
+                let page = 'home';
                 if (path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/reset-password')) page = 'auth';
                 else if (path.startsWith('/maintenance')) page = 'maintenance';
+                else if (path === '/dashboard') page = 'dashboard';
                 else {
                   const seg = path.split('/').filter(Boolean)[0] || '';
                   switch (seg) {
@@ -63,7 +64,7 @@ export default function RootLayout({
                     case 'analytics': page = 'analytics'; break;
                     case 'multimedia': page = 'multimedia'; break;
                     case 'maintenance': page = 'maintenance'; break;
-                    default: page = path === '/' ? 'dashboard' : 'unknown';
+                    default: page = path === '/' ? 'home' : 'unknown';
                   }
                 }
                 const pagePreset = localStorage.getItem('oguricap:page-visual-preset:' + page) || 'default';

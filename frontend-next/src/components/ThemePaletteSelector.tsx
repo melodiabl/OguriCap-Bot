@@ -198,79 +198,83 @@ export function ThemePaletteSelector() {
                 />
 
                 <motion.div
-                  ref={dropdownRef}
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="fixed left-1/2 top-1/2 z-[120] flex w-[min(22rem,calc(100vw-1rem))] max-h-[calc(100vh-1rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border/15 bg-card/92 shadow-2xl backdrop-blur-2xl"
+                  className="fixed inset-0 z-[120] flex items-center justify-center p-3"
                 >
-                  <div className="border-b border-border/15 bg-gradient-to-r from-primary/10 to-secondary/10 p-4">
-                    <div className="flex items-center gap-2">
-                      <Palette className="w-5 h-5 text-primary-400" />
-                      <h3 className="font-semibold text-foreground">Paletas Aura</h3>
+                  <motion.div
+                    ref={dropdownRef}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex w-[min(22rem,calc(100vw-1rem))] max-h-[calc(100vh-1rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col overflow-hidden rounded-2xl border border-border/15 bg-card/92 shadow-2xl backdrop-blur-2xl"
+                  >
+                    <div className="border-b border-border/15 bg-gradient-to-r from-primary/10 to-secondary/10 p-4">
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-5 h-5 text-primary-400" />
+                        <h3 className="font-semibold text-foreground">Paletas Aura</h3>
+                      </div>
+                      <p className="mt-1 text-xs text-[rgb(var(--text-secondary))]">
+                        Personalizá los colores del panel
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs text-[rgb(var(--text-secondary))]">
-                      Personalizá los colores del panel
-                    </p>
-                  </div>
 
-                  <div className="flex-1 overflow-y-auto p-3" style={{ scrollbarWidth: 'thin' }}>
-                    <div className="grid grid-cols-1 gap-2">
-                      {AURA_PALETTES.map((palette) => (
-                        <motion.button
-                          key={palette.id}
-                          onClick={() => handleSelectPalette(palette.id)}
-                          className={cn(
-                            'relative p-3 rounded-xl border transition-all text-left',
-                            'hover:bg-white/5 hover:border-border/20',
-                            selectedPalette === palette.id
-                              ? 'bg-primary/10 border-primary/20'
-                              : 'bg-card/55 border-border/15'
-                          )}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex gap-1 flex-shrink-0">
-                              <div
-                                className="h-6 w-6 rounded-lg border border-border/20 shadow-lg"
-                                style={{ backgroundColor: palette.primary }}
-                              />
-                              <div
-                                className="h-6 w-6 rounded-lg border border-border/20 shadow-lg"
-                                style={{ backgroundColor: palette.secondary }}
-                              />
-                              <div
-                                className="h-6 w-6 rounded-lg border border-border/20 shadow-lg"
-                                style={{ backgroundColor: palette.accent }}
-                              />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <h4 className="text-sm font-semibold text-foreground">
-                                  {palette.name}
-                                </h4>
-                                {selectedPalette === palette.id && (
-                                  <Check className="w-4 h-4 text-primary-400 flex-shrink-0" />
-                                )}
+                    <div className="flex-1 overflow-y-auto p-3" style={{ scrollbarWidth: 'thin' }}>
+                      <div className="grid grid-cols-1 gap-2">
+                        {AURA_PALETTES.map((palette) => (
+                          <motion.button
+                            key={palette.id}
+                            onClick={() => handleSelectPalette(palette.id)}
+                            className={cn(
+                              'relative p-3 rounded-xl border transition-all text-left',
+                              'hover:bg-white/5 hover:border-border/20',
+                              selectedPalette === palette.id
+                                ? 'bg-primary/10 border-primary/20'
+                                : 'bg-card/55 border-border/15'
+                            )}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-1 flex-shrink-0">
+                                <div
+                                  className="h-6 w-6 rounded-lg border border-border/20 shadow-lg"
+                                  style={{ backgroundColor: palette.primary }}
+                                />
+                                <div
+                                  className="h-6 w-6 rounded-lg border border-border/20 shadow-lg"
+                                  style={{ backgroundColor: palette.secondary }}
+                                />
+                                <div
+                                  className="h-6 w-6 rounded-lg border border-border/20 shadow-lg"
+                                  style={{ backgroundColor: palette.accent }}
+                                />
                               </div>
-                              <p className="mt-0.5 text-xs text-[rgb(var(--text-secondary))]">
-                                {palette.description}
-                              </p>
-                            </div>
-                          </div>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div className="border-t border-border/15 bg-card/60 p-3">
-                    <p className="text-center text-xs text-[rgb(var(--text-secondary))]">
-                      Los cambios se aplican inmediatamente
-                    </p>
-                  </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h4 className="text-sm font-semibold text-foreground">
+                                    {palette.name}
+                                  </h4>
+                                  {selectedPalette === palette.id && (
+                                    <Check className="w-4 h-4 text-primary-400 flex-shrink-0" />
+                                  )}
+                                </div>
+                                <p className="mt-0.5 text-xs text-[rgb(var(--text-secondary))]">
+                                  {palette.description}
+                                </p>
+                              </div>
+                            </div>
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border/15 bg-card/60 p-3">
+                      <p className="text-center text-xs text-[rgb(var(--text-secondary))]">
+                        Los cambios se aplican inmediatamente
+                      </p>
+                    </div>
+                  </motion.div>
                 </motion.div>
               </>
             )}

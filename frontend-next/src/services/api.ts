@@ -7,6 +7,33 @@ const API_URL =
     // Default: same-origin in production
     (process.env.NODE_ENV === 'production' ? '' : ''))
 
+const IDEMPOTENT_METHODS = new Set(['get', 'head', 'options'])
+const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
+
+function parseRetryAfterMs(rawHeader: unknown) {
+  const raw = String(rawHeader || '').trim()
+  if (!raw) return 0
+
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(seconds * 1000, 10_000)
+  }
+
+  const retryAt = Date.parse(raw)
+  if (!Number.isFinite(retryAt)) return 0
+
+  return Math.max(0, Math.min(retryAt - Date.now(), 10_000))
+}
+
+function getRetryDelayMs(retryCount: number, retryAfterMs = 0) {
+  if (retryAfterMs > 0) return retryAfterMs
+
+  const baseDelay = 550
+  const backoff = baseDelay * Math.pow(2, retryCount)
+  const jitter = Math.floor(Math.random() * 220)
+  return Math.min(backoff + jitter, 5_000)
+}
+
 class ApiService {
   private api: AxiosInstance
 
@@ -14,7 +41,7 @@ class ApiService {
     this.api = axios.create({
       baseURL: API_URL,
       headers: { 'Content-Type': 'application/json' },
-      timeout: 15000,
+      timeout: 20000,
       withCredentials: true,
     })
 
@@ -37,6 +64,7 @@ class ApiService {
       (response) => response,
       async (error) => {
         const status = error?.response?.status
+        const config = error?.config
 
         // Auth: hard fail -> logout
         if (status === 401 && typeof window !== 'undefined') {
@@ -49,21 +77,21 @@ class ApiService {
           return Promise.reject(error)
         }
 
-        // Retry transient gateway/network errors (helps with intermittent 502)
+        // Retry transient panel failures to avoid manual page reloads.
         try {
-          const config = error?.config
           const method = String(config?.method || 'get').toLowerCase()
-          const isIdempotent = method === 'get' || method === 'head' || method === 'options'
-          const isTransient = status === 502 || status === 503 || status === 504 || !error?.response
+          const isIdempotent = IDEMPOTENT_METHODS.has(method)
+          const retryAfterMs = parseRetryAfterMs(error?.response?.headers?.['retry-after'])
+          const isTimeout = error?.code === 'ECONNABORTED' || String(error?.message || '').toLowerCase().includes('timeout')
+          const isTransient = RETRYABLE_STATUSES.has(status) || isTimeout || !error?.response
 
           if (config && isIdempotent && isTransient) {
             ;(config as any).__retryCount = (config as any).__retryCount || 0
             const retryCount = (config as any).__retryCount
-            const maxRetries = 2
+            const maxRetries = status === 429 ? 3 : 2
             if (retryCount < maxRetries) {
               ;(config as any).__retryCount = retryCount + 1
-              const base = 450
-              const delay = base * Math.pow(2, retryCount) + Math.floor(Math.random() * 180)
+              const delay = getRetryDelayMs(retryCount, retryAfterMs)
               await new Promise((r) => setTimeout(r, delay))
               return this.api.request(config)
             }
@@ -74,6 +102,13 @@ class ApiService {
       },
     )
   }
+
+  // Generic proxies for flexible endpoint access
+  get(url: string, config?: any) { return this.api.get(url, config) }
+  post(url: string, data?: any, config?: any) { return this.api.post(url, data, config) }
+  put(url: string, data?: any, config?: any) { return this.api.put(url, data, config) }
+  patch(url: string, data?: any, config?: any) { return this.api.patch(url, data, config) }
+  delete(url: string, config?: any) { return this.api.delete(url, config) }
 
   // Auth
   async login(username: string, password: string, role?: string, turnstileToken?: string) {
@@ -183,6 +218,21 @@ class ApiService {
 
   async sendBroadcast(data: { message: string; targets: { groups: boolean; channels: boolean; communities: boolean; specific?: string[] } }) {
     const response = await this.api.post('/api/broadcast', data)
+    return response.data
+  }
+
+  async sendEmailBroadcast(data: { subject: string; preheader?: string; title?: string; message?: string }) {
+    const response = await this.api.post('/api/broadcast/email', data)
+    return response.data
+  }
+
+  async sendPushBroadcast(data: { title: string; body?: string; data?: Record<string, any>; tag?: string }) {
+    const response = await this.api.post('/api/broadcast/push', data)
+    return response.data
+  }
+
+  async sendFullBroadcast(data: { subject?: string; preheader?: string; title: string; message?: string }) {
+    const response = await this.api.post('/api/broadcast/full', data)
     return response.data
   }
 
@@ -781,6 +831,11 @@ class ApiService {
     return response.data;
   }
 
+  async getEmailTemplatePreview(template: string = 'test') {
+    const response = await this.api.get(`/api/email/preview?template=${encodeURIComponent(template)}`);
+    return response.data;
+  }
+
   async getBotConfig() {
     const response = await this.api.get('/api/bot/config');
     return response.data;
@@ -919,6 +974,11 @@ class ApiService {
 
   async suppressAlertRule(ruleId: string, duration: number) {
     const response = await this.api.post(`/api/alerts/rules/${encodeURIComponent(ruleId)}/suppress`, { duration });
+    return response.data;
+  }
+
+  async createAlertRule(rule: any) {
+    const response = await this.api.post('/api/alerts/rules', rule);
     return response.data;
   }
 

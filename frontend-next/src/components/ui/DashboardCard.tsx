@@ -58,7 +58,7 @@ export function DashboardCard({
             <div className="min-w-0">
               {title ? <h3 className="panel-card-title">{title}</h3> : null}
               {description ? (
-                <p className="panel-card-description truncate">{description}</p>
+                <p className="panel-card-description">{description}</p>
               ) : null}
             </div>
           </div>

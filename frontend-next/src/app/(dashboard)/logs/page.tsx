@@ -61,6 +61,7 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
 import { notify } from '@/lib/notify';
+import { formatDateTime, formatUptime as formatSecondsUptime } from '@/lib/utils';
 
 interface LogEntry {
   timestamp: string;
@@ -170,7 +171,7 @@ export default function LogsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
-  const { socket } = useSocketConnection();
+  const { socket, isConnected: isSocketConnected } = useSocketConnection();
   const { user } = useAuth();
   const canControl = !!user && ['owner', 'admin', 'administrador'].includes(String(user.rol || '').toLowerCase());
   const reduceMotion = useReducedMotion();
@@ -231,12 +232,13 @@ export default function LogsPage() {
     };
   };
 
-  // Initial load
+  // Initial load on mount
   useEffect(() => {
     loadLogs();
     loadStats();
     loadSystemData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- bootstrap on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load logs when filters change (with debouncing)
   useEffect(() => {
@@ -441,9 +443,7 @@ export default function LogsPage() {
   };
 
   const formatTimestamp = (timestamp: string) => {
-    const t = new Date(timestamp);
-    if (Number.isNaN(t.getTime())) return '-';
-    return t.toLocaleString();
+    return formatDateTime(timestamp, { second: '2-digit' });
   };
 
   const formatUptime = (ms: number) => {
@@ -577,6 +577,48 @@ export default function LogsPage() {
     return <IconComponent className={`w-5 h-5 ${isRunning ? 'text-emerald-400' : 'text-red-400'}`} />;
   };
 
+  const runningSystemsCount = systemStatus?.systems ? Object.values(systemStatus.systems).filter(Boolean).length : 0;
+  const totalSystemsCount = systemStatus?.systems ? Object.keys(systemStatus.systems).length : 0;
+  const openSystemAlertsCount = alerts.filter((alert) => !alert.resolved).length;
+  const logLanes = [
+    {
+      label: 'Canal de eventos',
+      value: isSocketConnected ? 'Stream en vivo' : 'Fallback local',
+      description: isSocketConnected ? 'Entradas nuevas y estado del sistema en tiempo real.' : 'El panel sigue disponible con recarga y polling puntual.',
+      icon: <Activity className="w-4 h-4" />,
+      badge: isSocketConnected ? 'live' : 'local',
+      badgeClassName: isSocketConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+    },
+    {
+      label: 'Alertas abiertas',
+      value: `${openSystemAlertsCount}`,
+      description: openSystemAlertsCount > 0 ? 'Incidentes del sistema todavia pendientes de resolucion.' : 'No hay alertas del host pendientes ahora mismo.',
+      icon: <Bell className="w-4 h-4" />,
+      badge: openSystemAlertsCount > 0 ? 'pendiente' : 'ok',
+      badgeClassName: openSystemAlertsCount > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]',
+      glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
+    },
+    {
+      label: 'Servicios del stack',
+      value: totalSystemsCount > 0 ? `${runningSystemsCount}/${totalSystemsCount}` : 'Sin datos',
+      description: totalSystemsCount > 0 ? 'Módulos internos activos del centro de observabilidad.' : 'Esperando el estado detallado del sistema.',
+      icon: <Server className="w-4 h-4" />,
+      badge: runningSystemsCount === totalSystemsCount && totalSystemsCount > 0 ? 'estable' : 'revisar',
+      badgeClassName: runningSystemsCount === totalSystemsCount && totalSystemsCount > 0 ? 'border-violet-400/20 bg-violet-500/10 text-violet-300' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+      glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
+    },
+    {
+      label: 'Reportes recientes',
+      value: `${reports.length}`,
+      description: reports.length > 0 ? 'Backups y reportes listos para auditoria o descarga.' : 'Todavia no hay reportes cargados en esta vista.',
+      icon: <Archive className="w-4 h-4" />,
+      badge: 'audit',
+      badgeClassName: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+      glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
+    },
+  ];
+
   return (
     <div className="panel-page relative overflow-hidden">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
@@ -612,7 +654,7 @@ export default function LogsPage() {
               Eventos, métricas y sistema en una cabina con lectura rápida, brillo técnico y textura tipo consola viva.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="panel-hero-meta-grid">
             <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Modo</p>
               <p className="mt-2 text-lg font-black text-white">{activeTab === 'logs' ? 'LOGS' : 'SYSTEM'}</p>
@@ -665,6 +707,36 @@ export default function LogsPage() {
           </>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {logLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       {stats && (
         <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.04} stagger={0.05}>
@@ -899,7 +971,7 @@ export default function LogsPage() {
                 </div>
                 <div>
                   <h4 className="mb-2 text-sm font-semibold text-foreground">Uptime</h4>
-                  <p className="text-sm text-foreground">{formatUptime(systemMetrics.uptime * 1000)}</p>
+                  <p className="text-sm text-foreground">{formatSecondsUptime(systemMetrics.uptime)}</p>
                 </div>
               </CardContent>
             </Card>

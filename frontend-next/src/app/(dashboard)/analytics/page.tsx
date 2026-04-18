@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { 
   Activity, 
+  Clock,
   Users, 
   MessageSquare, 
   Zap, 
@@ -73,7 +74,7 @@ export default function AnalyticsPage() {
   const [topCommands, setTopCommands] = useState<ChartData[]>([]);
   const [responseTimeData, setResponseTimeData] = useState<ChartData[]>([]);
 
-  const { socket } = useSocketConnection();
+  const { socket, isConnected: isSocketConnected } = useSocketConnection();
   const { isInZone } = useOguriTheme();
 
   // Colores para gráficos
@@ -375,6 +376,46 @@ export default function AnalyticsPage() {
     );
   };
 
+  const primaryMetric = metrics[0]?.value || 0;
+  const analyticsLanes = [
+    {
+      label: 'Canal de datos',
+      value: isSocketConnected ? 'Tiempo real activo' : 'Fallback HTTP',
+      description: isSocketConnected ? 'Las métricas se refrescan desde eventos vivos del panel.' : 'Sigue operativo, pero depende de recargas y consultas directas.',
+      icon: <Activity className="w-4 h-4" />,
+      badge: isSocketConnected ? 'live' : 'http',
+      badgeClassName: isSocketConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+    },
+    {
+      label: 'Ventana analizada',
+      value: timeRange.toUpperCase(),
+      description: 'Escala temporal aplicada a gráficas, actividad y lectura comparativa.',
+      icon: <Clock className="w-4 h-4" />,
+      badge: 'range',
+      badgeClassName: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
+    },
+    {
+      label: 'Pulso principal',
+      value: `${primaryMetric}`,
+      description: metrics[0]?.title ? `${metrics[0].title} marca la referencia principal ahora mismo.` : 'Esperando datos base del panel.',
+      icon: <Zap className="w-4 h-4" />,
+      badge: autoRefresh ? 'auto' : 'manual',
+      badgeClassName: autoRefresh ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'Ultima lectura',
+      value: lastUpdate ? lastUpdate.toLocaleTimeString('es-ES') : 'Sin datos',
+      description: lastUpdate ? 'Marca temporal del ultimo barrido de analytics.' : 'Todavia no hay un ciclo completo de carga.',
+      icon: <TrendingUp className="w-4 h-4" />,
+      badge: lastUpdate ? 'sync' : 'wait',
+      badgeClassName: lastUpdate ? 'border-oguri-gold/20 bg-oguri-gold/10 text-oguri-gold' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+      glowClassName: 'from-oguri-gold/18 via-oguri-purple/10 to-transparent',
+    },
+  ];
+
   return (
     <div className={cn("panel-page relative overflow-hidden transition-all duration-500", isInZone && "is-in-zone")}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
@@ -410,7 +451,7 @@ export default function AnalyticsPage() {
               Métricas con una atmósfera propia, glow de gráficos y sensación de panel táctico en tiempo real.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="panel-hero-meta-grid">
             <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Refresh</p>
               <p className="mt-2 text-lg font-black text-white">{autoRefresh ? 'AUTO' : 'PAUSA'}</p>
@@ -438,10 +479,10 @@ export default function AnalyticsPage() {
         icon={<Trophy className="w-6 h-6 text-oguri-gold animate-bounce" />}
         actions={
           <>
-            <div className="flex items-center gap-2 rounded-2xl border border-border/15 bg-card/60 px-3 py-2">
+            <div className="flex w-full min-w-0 items-center gap-2 rounded-2xl border border-border/15 bg-card/60 px-3 py-2 sm:w-auto">
               <Filter className="w-4 h-4 text-muted" />
               <Select value={timeRange} onValueChange={(value) => setTimeRange(value as any)}>
-                <SelectTrigger className="min-w-[130px] border-0 bg-transparent px-0 shadow-none focus:ring-0">
+                <SelectTrigger className="w-full min-w-0 border-0 bg-transparent px-0 shadow-none focus:ring-0 sm:min-w-[130px]">
                   <SelectValue placeholder="Rango" />
                 </SelectTrigger>
                 <SelectContent>
@@ -475,6 +516,36 @@ export default function AnalyticsPage() {
           </>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {analyticsLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       {/* Métricas principales */}
       <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.06} stagger={0.06}>

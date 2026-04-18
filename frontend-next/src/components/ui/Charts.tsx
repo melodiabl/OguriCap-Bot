@@ -42,11 +42,13 @@ type ProgressRingBaseProps = {
   label?: string;
   color?: string;
   className?: string;
+  children?: React.ReactNode;
+  glow?: boolean;
 };
 
 type ProgressRingProps =
   | (ProgressRingBaseProps & { progress: number })
-  | (ProgressRingBaseProps & { value: number; total: number });
+  | (ProgressRingBaseProps & { value: number; total?: number });
 
 export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
   const reduceMotion = useReducedMotion();
@@ -54,7 +56,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
 
   const ratio = 'progress' in props
     ? clamp01(finiteNumber(props.progress) / 100)
-    : clamp01(finiteNumber(props.value) / Math.max(1, finiteNumber(props.total, 1)));
+    : clamp01(finiteNumber(props.value) / Math.max(1, finiteNumber('total' in props ? props.total : 100, 100)));
   const percent = Math.round(ratio * 100);
 
   const size = props.size ?? 120;
@@ -62,6 +64,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
   const label = props.label;
   const stroke = props.color ?? 'rgb(var(--primary))';
   const tone = toneFromColor(stroke);
+  const glow = props.glow ?? false;
 
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -74,9 +77,8 @@ export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
 
   return (
     <div className={cn("relative grid place-items-center progress-ring", `progress-ring--${tone}`, props.className)}>
-      {!performanceMode && <div aria-hidden="true" className="progress-ring__glow" />}
+      {glow && !performanceMode && <div aria-hidden="true" className="progress-ring__glow" />}
       <svg width={size} height={size} className="-rotate-90">
-        {/* background */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -85,7 +87,6 @@ export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
           stroke="rgb(var(--border) / 0.18)"
           strokeWidth={strokeWidth}
         />
-        {/* progress */}
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -104,8 +105,14 @@ export const ProgressRing: React.FC<ProgressRingProps> = (props) => {
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-foreground">{percent}%</span>
-        {label && <span className="text-xs text-muted mt-1">{label}</span>}
+        {props.children ? (
+          props.children
+        ) : (
+          <>
+            <span className="text-2xl font-bold text-foreground">{percent}%</span>
+            {label && <span className="text-xs text-muted mt-1">{label}</span>}
+          </>
+        )}
       </div>
     </div>
   );

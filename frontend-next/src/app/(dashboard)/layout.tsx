@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { GroupsProvider } from '@/contexts/GroupsContext';
@@ -9,6 +9,19 @@ import { BotGlobalStateProvider } from '@/contexts/BotGlobalStateContext';
 import { GlobalUpdateProvider } from '@/contexts/GlobalUpdateContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MaintenanceBanner } from '@/components/ui/MaintenanceBanner';
+
+function DataRefreshTrigger() {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Force refresh on every route change
+  useEffect(() => {
+    // Trigger manual refresh of window data
+    window.dispatchEvent(new CustomEvent('oguri:routeChanged', { detail: { pathname } }));
+  }, [pathname]);
+
+  return null;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -67,6 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <GlobalUpdateProvider>
         <GroupsProvider>
           <div className="min-h-screen">
+            <DataRefreshTrigger />
             <MaintenanceBanner />
             <MainLayout>{children}</MainLayout>
           </div>
