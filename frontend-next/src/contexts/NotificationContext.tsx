@@ -287,7 +287,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           icon: '/bot-icon.svg',
           badge: '/bot-icon.svg',
           tag,
-          renotify: false,
           requireInteraction: false,
           silent: !preferences.soundEnabled,
           data: { url: notification?.data?.url || '/' },
