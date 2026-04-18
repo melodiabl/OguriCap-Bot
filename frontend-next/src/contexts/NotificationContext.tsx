@@ -266,33 +266,50 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     await closeBrowserPush(tag);
 
     try {
-      const push = new window.Notification(title, {
-        body,
-        icon: '/bot-icon.svg',
-        badge: '/bot-icon.svg',
-        tag,
-        renotify: false,
-        requireInteraction: false,
-        silent: !preferences.soundEnabled,
-        data: { url: notification?.data?.url || '/' },
-      });
+      const registration = serviceWorkerRegistrationRef.current;
+      
+      // Siempre priorizar el Service Worker para notificaciones consistentes y background-ready
+      if (registration && 'showNotification' in registration) {
+        await registration.showNotification(title, {
+          body,
+          icon: '/bot-icon.svg',
+          badge: '/bot-icon.svg',
+          tag,
+          renotify: false,
+          requireInteraction: false,
+          silent: !preferences.soundEnabled,
+          data: { url: notification?.data?.url || '/' },
+        });
+      } else {
+        // Fallback seguro solo si no hay service worker
+        const push = new window.Notification(title, {
+          body,
+          icon: '/bot-icon.svg',
+          badge: '/bot-icon.svg',
+          tag,
+          renotify: false,
+          requireInteraction: false,
+          silent: !preferences.soundEnabled,
+          data: { url: notification?.data?.url || '/' },
+        });
 
-      browserPushesRef.current.set(tag, push);
+        browserPushesRef.current.set(tag, push);
 
-      push.onclick = () => {
-        try {
-          window.focus();
-        } catch {
-          // ignore
-        }
-        openNotificationTarget(notification);
-        void closeBrowserPush(tag);
-      };
+        push.onclick = () => {
+          try {
+            window.focus();
+          } catch {
+            // ignore
+          }
+          openNotificationTarget(notification);
+          void closeBrowserPush(tag);
+        };
 
-      push.onclose = () => {
-        clearBrowserPushTimeout(tag);
-        browserPushesRef.current.delete(tag);
-      };
+        push.onclose = () => {
+          clearBrowserPushTimeout(tag);
+          browserPushesRef.current.delete(tag);
+        };
+      }
 
       if (duration > 0) {
         const timeoutId = window.setTimeout(() => {
