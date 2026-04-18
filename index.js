@@ -1561,6 +1561,17 @@ global.reloadHandler = async function (restatConn) {
   global.conn.connectionUpdate = connectionUpdate.bind(global.conn)
   global.conn.credsUpdate = saveCreds.bind(global.conn, true)
   
+  // Sincronizar el nuevo handler.js con todos los SubBots activos
+  if (Array.isArray(global.conns)) {
+    for (const sock of global.conns) {
+      if (sock && sock.ev) {
+        sock.ev.off('messages.upsert', sock.handler)
+        sock.handler = handler.handler.bind(sock)
+        sock.ev.on('messages.upsert', sock.handler)
+      }
+    }
+  }
+  
   const currentDateTime = new Date()
   const messageDateTime = new Date(global.conn.ev)
   
