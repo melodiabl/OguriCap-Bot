@@ -59,14 +59,13 @@ termux-setup-storage
 
 # 2. Actualizar e instalar dependencias principales
 apt update && apt upgrade -y
-pkg install -y git nodejs ffmpeg imagemagick yarn
+pkg install -y git nodejs ffmpeg imagemagick
 
 # 3. Clonar el repositorio
 git clone https://github.com/melodiabl/OguriCap-Bot.git
 cd OguriCap-Bot
 
 # 4. Instalar dependencias del bot
-yarn install
 npm install
 
 # 5. Iniciar el bot
@@ -140,7 +139,7 @@ cd && cd OguriCap-Bot && nano settings.js
 | Comunidad | Enlace |
 |-----------|--------|
 | 📢 **Canal Oficial** | [Unirse al Canal](https://whatsapp.com/channel/0029VbBZ4YX4inoqvA74nA20) |
-| 💬 **Grupo Oficial** | [Unirse al Grupo](https://chat.whatsapp.com/HY3r3RwkOOKCs6OxCzsEFW) |
+| 💬 **Grupo Oficial** | [Unirse al Grupo](https://chat.whatsapp.com/FN0YVTZwLWM3lOqKPjTutR?mode=gi_t) |
 | 🌍 **Chat General** | [Unirse a la Comunidad](https://chat.whatsapp.com/EYi0JuSqDj3LYJ83ohRdMm) |
 | 📱 **Soporte (WhatsApp)**| [Hablar con Soporte](https://wa.me/595974154768) |
 | 📧 **Correo Electrónico**| melodiayaoivv@gmail.com |
