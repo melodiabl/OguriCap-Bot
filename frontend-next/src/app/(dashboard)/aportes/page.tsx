@@ -211,6 +211,45 @@ export default function AportesPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const aporteLanes = [
+    {
+      label: 'Moderacion',
+      value: canModerate ? 'Permisos activos' : 'Solo lectura',
+      description: canModerate ? 'Puedes aprobar, rechazar y limpiar aportes del flujo.' : 'Puedes revisar el estado, pero no moderar cambios.',
+      icon: <Eye className="w-4 h-4" />,
+      badge: canModerate ? 'mod' : 'view',
+      badgeClassName: canModerate ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'Canal de refresh',
+      value: smartRefreshConnected ? 'Tiempo real' : 'Fallback',
+      description: smartRefreshConnected ? 'Los cambios llegan por eventos sin esperar recarga manual.' : 'La vista sigue operativa con refresh manual.',
+      icon: <Radio className="w-4 h-4" />,
+      badge: smartRefreshConnected ? 'live' : 'manual',
+      badgeClassName: smartRefreshConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+    },
+    {
+      label: 'Bandeja actual',
+      value: `${stats?.pendientes || 0}`,
+      description: (stats?.pendientes || 0) > 0 ? 'Aportes pendientes esperando una decisión de moderación.' : 'No hay cola pendiente en este momento.',
+      icon: <Clock className="w-4 h-4" />,
+      badge: (stats?.pendientes || 0) > 0 ? 'queue' : 'clean',
+      badgeClassName: (stats?.pendientes || 0) > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
+    },
+    {
+      label: 'Carga nueva',
+      value: `${selectedFiles.length}`,
+      description: selectedFiles.length > 0 ? 'Archivos preparados para el próximo aporte.' : 'No hay archivos en cola para subir ahora mismo.',
+      icon: <Upload className="w-4 h-4" />,
+      badge: selectedFiles.length > 0 ? 'ready' : 'empty',
+      badgeClassName: selectedFiles.length > 0 ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
+    },
+  ];
+
   const createAporte = async () => {
     if (!newAporte.titulo.trim()) {
       toast.error('El título es requerido');
@@ -278,7 +317,7 @@ export default function AportesPage() {
               Archivos, validación y acciones rápidas en una vista con mejor contraste y atmósfera.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="panel-hero-meta-grid">
             <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Items</p>
               <p className="mt-2 text-lg font-black text-white">{aportes.length}</p>
@@ -328,6 +367,36 @@ export default function AportesPage() {
           </>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {aporteLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       {/* Stats */}
       <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-4" delay={0.02} stagger={0.07}>

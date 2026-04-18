@@ -431,6 +431,45 @@ export default function PedidosPage() {
     </div>
   );
 
+  const pedidoLanes = [
+    {
+      label: 'Refresh del flujo',
+      value: smartRefreshConnected ? 'Tiempo real activo' : 'Fallback',
+      description: smartRefreshConnected ? 'Los cambios de estado llegan al panel sin recargar manualmente.' : 'La vista sigue operativa, pero depende de refresh manual.',
+      icon: <Radio className="w-4 h-4" />,
+      badge: smartRefreshConnected ? 'live' : 'manual',
+      badgeClassName: smartRefreshConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+    },
+    {
+      label: 'Pendientes de biblioteca',
+      value: `${pendingLibraryProcessIds.size}`,
+      description: pendingLibraryProcessIds.size > 0 ? 'Pedidos en espera por grupo proveedor o reproceso.' : 'No hay procesos de biblioteca colgados ahora mismo.',
+      icon: <Bot className="w-4 h-4" />,
+      badge: pendingLibraryProcessIds.size > 0 ? 'queue' : 'ok',
+      badgeClassName: pendingLibraryProcessIds.size > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
+    },
+    {
+      label: 'Permisos de gestion',
+      value: isAdmin ? 'Admin total' : isModerator ? 'Moderacion' : 'Usuario',
+      description: isAdmin || isModerator ? 'Puedes intervenir estados y limpiar pedidos del flujo.' : 'Puedes crear, ver y votar pedidos de la comunidad.',
+      icon: <Sparkles className="w-4 h-4" />,
+      badge: isAdmin ? 'admin' : isModerator ? 'mod' : 'user',
+      badgeClassName: isAdmin || isModerator ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'Prioridad alta',
+      value: `${stats?.alta || pedidos.filter((pedido) => pedido.prioridad === 'alta').length || 0}`,
+      description: 'Pedidos urgentes que conviene mirar antes que el resto de la cola.',
+      icon: <ArrowUp className="w-4 h-4" />,
+      badge: 'urgent',
+      badgeClassName: 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+      glowClassName: 'from-rose-400/18 via-oguri-purple/10 to-transparent',
+    },
+  ];
+
   return (
     <div className="panel-page relative overflow-hidden">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
@@ -466,7 +505,7 @@ export default function PedidosPage() {
               Solicitudes, prioridad y seguimiento de la comunidad en una vista más intensa y fácil de escanear.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="panel-hero-meta-grid">
             <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Items</p>
               <p className="mt-2 text-lg font-black text-white">{pedidos.length}</p>
@@ -516,6 +555,36 @@ export default function PedidosPage() {
           </>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {pedidoLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       {/* Stats */}
       <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.06} stagger={0.06}>

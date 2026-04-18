@@ -24,43 +24,53 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     );
     const cardContent = (
       <>
+        {/* Main Background Layers */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.07] via-transparent to-primary/12 opacity-90"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(var(--primary),0.12),transparent_50%)]"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] [background-size:28px_28px]"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-primary/[0.05]"
         />
+        
+        {/* Grid & Noise */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px]"
         />
+        
+        {/* Border Beam / Sheen */}
         {!reduceMotion && (
           <motion.div
             aria-hidden="true"
             className={cn(
-              'pointer-events-none absolute left-[-24%] top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent blur-[1px]',
-              glow && 'via-oguri-cyan/45'
+              "pointer-events-none absolute inset-0 rounded-[inherit] border border-transparent [mask-image:linear-gradient(white,white)] [mask-clip:padding-box,border-box] [mask-composite:intersect]",
+              "before:absolute before:inset-[-100%] before:bg-[conic-gradient(from_0deg,transparent_0,transparent_25%,rgb(var(--primary))_50%,transparent_75%,transparent_100%)] before:animate-[spin_4s_linear_infinite]"
             )}
-            animate={{ x: ['0%', '260%'] }}
-            transition={{ repeat: Infinity, duration: glow ? 5.6 : 8.2, ease: 'easeInOut', delay }}
+            style={{ opacity: glow ? 0.6 : 0.2 }}
           />
         )}
+
+        {/* Top Shine */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-16 top-4 h-32 w-32 rounded-full bg-primary/10 blur-3xl opacity-60 transition-opacity duration-500 group-hover:opacity-100"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
         />
+
+        {/* Ambient Glows */}
         <div
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute -left-14 bottom-0 h-28 w-28 rounded-full bg-secondary/12 blur-3xl opacity-45 transition-opacity duration-500 group-hover:opacity-80',
-            glow && 'bg-accent/16 opacity-60'
+            "pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full blur-3xl opacity-20 transition-opacity duration-500 group-hover:opacity-40",
+            glow ? "bg-primary/30" : "bg-primary/10"
           )}
         />
-        <div className="relative z-10">{children as React.ReactNode}</div>
+        
+        <div className="relative z-10 h-full">{children as React.ReactNode}</div>
       </>
     );
+
 
     if (animated) {
       return (

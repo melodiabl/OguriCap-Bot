@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 
 function cleanPhoneNumber(input: string) {
   return String(input || '').replace(/[^0-9]/g, '');
@@ -54,7 +54,7 @@ interface SupportChatListItem {
 function formatTime(ts?: string) {
   if (!ts) return '';
   try {
-    return new Date(ts).toLocaleString('es-ES');
+    return formatDateTime(ts);
   } catch {
     return ts;
   }

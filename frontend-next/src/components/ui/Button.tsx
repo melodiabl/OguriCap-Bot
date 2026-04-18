@@ -8,25 +8,27 @@ import { cn } from '@/lib/utils';
 import { NavParticlesHost } from '@/components/ui/NavParticles';
 
 const buttonVariants = cva(
-  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold tracking-[0.01em] transition-all duration-300 ease-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ring-1 ring-border/15 hover:ring-border/25 hover:-translate-y-[1px] active:translate-y-0',
+  'btn-sheen relative overflow-hidden press-scale focus-ring-animated inline-flex max-w-full items-center justify-center gap-2 break-words text-center whitespace-normal rounded-2xl text-sm font-semibold tracking-[0.01em] transition-all duration-300 ease-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ring-1 ring-border/15 hover:ring-border/25 hover:-translate-y-[1px] active:translate-y-0',
   {
     variants: {
       variant: {
-        primary: 'btn-oguri bg-gradient-oguri-primary text-white shadow-glow-oguri-purple',
-        secondary: 'border border-border/15 bg-card/72 text-foreground hover:bg-card/88 hover:border-border/25',
-        danger: 'border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/16',
-        success: 'border border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan hover:bg-oguri-cyan/16 shadow-glow-oguri-cyan',
+        primary: 'btn-oguri bg-gradient-oguri-primary text-white shadow-glow-oguri-purple hover:shadow-glow-oguri-mixed',
+        secondary: 'border border-border/20 bg-card/72 text-foreground hover:bg-card/88 hover:border-border/40 hover:shadow-glow',
+        danger: 'border border-red-500/25 bg-red-500/12 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 hover:shadow-glow-red',
+        success: 'border border-oguri-cyan/25 bg-oguri-cyan/12 text-oguri-cyan hover:bg-oguri-cyan/20 hover:border-oguri-cyan/40 shadow-glow-oguri-cyan',
         glow: 'btn-oguri bg-gradient-oguri-power text-white shadow-glow-oguri-mixed animate-oguri-aura',
         ghost: [
           'px-4 py-2',
           'text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] hover:bg-white/10',
         ],
+        accent: 'btn-oguri bg-gradient-oguri-accent text-white shadow-glow-oguri-accent',
       },
       size: {
-        default: '',
+        default: '!px-5 !py-2.5 text-sm',
         sm: '!px-4 !py-2 text-xs',
         lg: '!px-8 !py-4 text-base',
-        icon: '!p-2.5 h-11 w-11',
+        xl: '!px-10 !py-5 text-lg font-bold',
+        icon: '!p-3 h-12 w-12',
       },
     },
     defaultVariants: {

@@ -93,15 +93,104 @@ export default function AiChatPage() {
     }
   };
 
+  const aiLanes = [
+    {
+      label: 'Modelo activo',
+      value: MODEL_OPTIONS.find((option) => option.value === model)?.label || model,
+      description: 'Motor seleccionado para la conversación actual.',
+      icon: <Sparkles className="w-4 h-4" />,
+      badge: 'model',
+      badgeClassName: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
+    },
+    {
+      label: 'Mensajes',
+      value: `${messages.length}`,
+      description: messages.length > 0 ? 'Cantidad acumulada en la sesión actual.' : 'Todavía no comenzó la conversación.',
+      icon: <Bot className="w-4 h-4" />,
+      badge: messages.length > 0 ? 'active' : 'idle',
+      badgeClassName: messages.length > 0 ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+    },
+    {
+      label: 'Estado',
+      value: isLoading ? 'Pensando...' : 'Listo para responder',
+      description: isLoading ? 'La IA está procesando el último mensaje.' : 'Puedes seguir escribiendo en la misma sesión.',
+      icon: <RefreshCw className="w-4 h-4" />,
+      badge: isLoading ? 'busy' : 'ready',
+      badgeClassName: isLoading ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]',
+      glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
+    },
+    {
+      label: 'Sesión',
+      value: sessionId.slice(-8),
+      description: 'Identificador corto para mantener continuidad del chat.',
+      icon: <User className="w-4 h-4" />,
+      badge: 'session',
+      badgeClassName: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+      glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
+    },
+  ];
+
   return (
-    <div className="min-h-full flex flex-col min-h-0">
+    <div className="panel-page relative flex min-h-0 min-h-full flex-col overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        <motion.div
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-lavender/18 blur-3xl"
+          animate={reduceMotion ? { opacity: 0.28 } : { x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
+          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 10.8, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/18 blur-3xl"
+          animate={reduceMotion ? { opacity: 0.24 } : { x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
+          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 11.2, ease: 'easeInOut', delay: 0.5 }}
+        />
+      </div>
+
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Sparkles className="h-3.5 w-3.5 text-oguri-cyan" />
+              Copiloto conversacional
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Chat AI con más presencia de cabina</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Conversa, cambia de modelo y mantén continuidad del contexto desde una vista más viva que el chat plano original.
+            </p>
+          </div>
+          <div className="panel-hero-meta-grid">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Modelo</p>
+              <p className="mt-2 text-lg font-black text-white">{MODEL_OPTIONS.find((option) => option.value === model)?.label || model}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Mensajes</p>
+              <p className="mt-2 text-lg font-black text-white">{messages.length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Estado</p>
+              <p className="mt-2 text-lg font-black text-white">{isLoading ? 'BUSY' : 'READY'}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       <PageHeader
         title="AI Chat"
         description="Conversa con la inteligencia artificial"
         icon={<Sparkles className="w-5 h-5 text-primary" />}
         actions={
           <>
-            <div className="w-52">
+            <div className="w-full sm:w-52">
               <SimpleSelect
                 value={model}
                 onChange={setModel}
@@ -125,6 +214,36 @@ export default function AiChatPage() {
         }
         className="mb-6"
       />
+
+      <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {aiLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       <Reveal className="flex-1 min-h-0">
         <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -154,7 +273,7 @@ export default function AiChatPage() {
                     <Bot className="w-4 h-4 text-primary" />
                   </div>
                 )}
-                <div className={`max-w-[70%] p-4 rounded-2xl ${
+                <div className={`max-w-[88%] break-words p-4 [overflow-wrap:anywhere] sm:max-w-[72%] ${
                   message.role === 'user'
                     ? 'bg-primary/85 text-[rgb(var(--text-on-accent)/1)] rounded-br-sm'
                     : 'bg-card/20 border border-border/20 text-foreground/90 rounded-bl-sm'

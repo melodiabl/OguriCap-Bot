@@ -733,10 +733,11 @@ export async function yukiJadiBot(options) {
 
               emitSubbotDisconnected(subbotCode, reason)
 
-              // Notificación persistente
+              // Notificación persistente - solo email si fue creado desde panel
               sendTemplateNotification('subbot_disconnected', { 
                 subbotCode: stableKey,
-                reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`
+                reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`,
+                createdFrom: 'whatsapp' // No email para subbots de WhatsApp
               });
             } catch { }
           }

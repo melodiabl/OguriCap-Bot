@@ -1,6 +1,8 @@
 export type PageKey =
+  | 'home'
   | 'dashboard'
   | 'bot'
+  | 'broadcast'
   | 'usuarios'
   | 'community-users'
   | 'subbots'
@@ -23,7 +25,8 @@ export type PageKey =
 
 export function getPageKeyFromPathname(pathname?: string | null): PageKey {
   const path = (pathname || '/').split('?')[0].split('#')[0] || '/';
-  if (path === '/') return 'dashboard';
+  if (path === '/') return 'home';
+  if (path === '/dashboard') return 'dashboard';
 
   if (path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/reset-password')) return 'auth';
   if (path.startsWith('/maintenance')) return 'maintenance';
@@ -32,6 +35,8 @@ export function getPageKeyFromPathname(pathname?: string | null): PageKey {
   switch (seg) {
     case 'bot':
       return 'bot';
+    case 'broadcast':
+      return 'broadcast';
     case 'usuarios':
       return 'usuarios';
     case 'community-users':
@@ -68,4 +73,3 @@ export function getPageKeyFromPathname(pathname?: string | null): PageKey {
       return 'unknown';
   }
 }
-

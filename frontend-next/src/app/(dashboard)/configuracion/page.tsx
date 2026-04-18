@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -39,6 +39,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
 import { Card, StatCard } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { SimpleSelect as Select } from '@/components/ui/Select';
@@ -47,16 +48,17 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { useSystemStats, useBotStatus } from '@/hooks/useRealTime';
 import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useNotifications } from '@/contexts/NotificationContext';
 import api from '@/services/api';
 import { notify } from '@/lib/notify';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/Badge';
 
 interface ConfigSection {
   key: string;
   name: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: any;
   color: string;
   data: any;
 }
@@ -77,18 +79,38 @@ interface ConfigStats {
   lastUpdate: string;
 }
 
+const EMAIL_PREVIEW_TEMPLATES = [
+  { id: 'test', label: 'Prueba' },
+  { id: 'registration', label: 'Registro' },
+  { id: 'welcome', label: 'Bienvenida' },
+  { id: 'password-reset', label: 'Reset' },
+  { id: 'security-alert', label: 'Seguridad' },
+  { id: 'notification', label: 'Notificación' },
+  { id: 'role_updated', label: 'Promoción' },
+  { id: 'subbot_disconnected', label: 'Subbot Offline' },
+  { id: 'broadcast_announcement', label: 'Anuncio' },
+  { id: 'broadcast_update', label: 'Novedades' },
+  { id: 'broadcast_alert', label: 'Alerta' },
+] as const;
+
+const EMAIL_PROVIDER_PRESETS = [
+  { id: 'gmail-starttls', label: 'Gmail 587', host: 'smtp.gmail.com', port: 587, secure: true, hint: 'App Password + STARTTLS' },
+  { id: 'gmail-ssl', label: 'Gmail 465', host: 'smtp.gmail.com', port: 465, secure: true, hint: 'TLS implícito' },
+  { id: 'outlook', label: 'Outlook', host: 'smtp.office365.com', port: 587, secure: true, hint: 'STARTTLS' },
+  { id: 'zoho', label: 'Zoho', host: 'smtp.zoho.com', port: 587, secure: true, hint: 'STARTTLS' },
+  { id: 'brevo', label: 'Brevo', host: 'smtp-relay.brevo.com', port: 587, secure: true, hint: 'SMTP relay' },
+] as const;
+
 export default function ConfiguracionPage() {
   const searchParams = useSearchParams();
-  const { memoryUsage, uptime } = useSystemStats(5000);
-  const { isConnected } = useBotStatus(5000);
+  // System stats removed as they are not currently used in the summary lanes
+  // const { memoryUsage, uptime } = useSystemStats();
+  const { isConnected } = useBotStatus();
+  const { isConnected: isSocketConnected } = useSocketConnection();
   
-  // Bot Global State Context
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
-  const { systemStats, refreshAll } = useGlobalUpdate();
+  const { refreshAll } = useGlobalUpdate();
   const { settings: notificationSettings, updateSettings: updateNotificationSettings } = useNotifications();
-
-  // Auto-refresh - DISABLED to prevent resource exhaustion
-  // useAutoRefresh(refreshAll, { interval: 30000 });
 
   const [configurations, setConfigurations] = useState<ConfigSection[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<string>('main');
@@ -101,326 +123,254 @@ export default function ConfiguracionPage() {
   const [showVersions, setShowVersions] = useState(false);
   const [showJsonEditor, setShowJsonEditor] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
+  
   const [emailStatus, setEmailStatus] = useState<any>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
+  const [isLoadingEmailPreview, setIsLoadingEmailPreview] = useState(false);
+  const [emailPreviewType, setEmailPreviewType] = useState<string>('test');
+  const [emailPreviewMode, setEmailPreviewMode] = useState<'html' | 'text'>('html');
+  const [emailPreviewData, setEmailPreviewData] = useState<any>(null);
 
-  // Advanced configuration states
-  const [botConfig, setBotConfig] = useState({
-    autoReconnect: true,
-    maxReconnectAttempts: 5,
-    reconnectInterval: 30,
-    logLevel: 'info',
-  });
+  const [globalOffMessage, setGlobalOffMessage] = useState('');
+  const [botConfig, setBotConfig] = useState<any>({});
+  const [systemConfig, setSystemConfig] = useState<any>({});
 
-  const [systemConfig, setSystemConfig] = useState({
-    maintenanceMode: false,
-    debugMode: false,
-    apiRateLimit: 100,
-    fileUploadLimit: 10,
-    adminIPs: [],
-    myAdminIPs: [] as string[],
-    allowLocalhost: true,
-    currentIP: '',
-    currentIPAllowed: false,
-    adminIPsCount: 0,
-    autoAddAdminIPOnLogin: true,
-    supportNotifyEmailTo: '',
-    supportNotifyWhatsAppTo: '',
-    supportNotifyIncludeAdmins: true,
-  });
-
-  const [globalOffMessage, setGlobalOffMessage] = useState('El bot está desactivado globalmente por el administrador.');
-
-  const { socket } = useSocketConnection();
-
-  useEffect(() => {
-    loadConfigurations();
-    loadStats();
-    loadAdvancedConfigs();
-    
-    // Manejar parámetro de sección de URL
-    const section = searchParams.get('section');
-    if (section) {
-      setSelectedConfig(section);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- bootstrap on mount
-
-  useEffect(() => {
-    if (selectedConfig) {
-      loadConfiguration(selectedConfig);
-      loadVersionHistory(selectedConfig);
-    }
-  }, [selectedConfig]);
-
-  useEffect(() => {
-    // Detectar cambios
-    const hasChanges = JSON.stringify(configData) !== JSON.stringify(originalData);
-    setHasChanges(hasChanges);
+  const hasChanges = useMemo(() => {
+    return JSON.stringify(configData) !== JSON.stringify(originalData);
   }, [configData, originalData]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleConfigUpdate = (data: any) => {
-      if (data?.configKey === 'main') {
-        loadConfiguration(selectedConfig);
-        loadVersionHistory(selectedConfig);
-        notify.info('Configuración actualizada por otro usuario', { dedupeKey: 'config-updated-socket', dedupeMs: 8000 });
-      }
-    };
-
-    socket.on('config:updated', handleConfigUpdate);
-
-    return () => {
-      socket.off('config:updated', handleConfigUpdate);
-    };
-  }, [socket, selectedConfig]);
-
-  const loadConfigurations = async () => {
+  // Data Fetching
+  const fetchConfigurations = useCallback(async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const data = await api.getConfig('main');
+      const response = await api.get('/config');
+      const data = response.data;
       
-      const configSections: ConfigSection[] = [
-        {
-          key: 'main',
-          name: 'Configuración Principal',
-          description: 'Configuración general del sistema',
-          icon: Settings,
-          color: 'blue',
-          data: data || {}
-        },
-        {
-          key: 'system',
-          name: 'Sistema',
-          description: 'Configuración del sistema y recursos',
-          icon: Database,
-          color: 'green',
-          data: (data as any)?.system || {}
-        },
-        {
-          key: 'bot',
-          name: 'Bot',
-          description: 'Configuración del bot de WhatsApp',
-          icon: Bot,
-          color: 'purple',
-          data: (data as any)?.bot || {}
-        },
-        {
-          key: 'security',
-          name: 'Seguridad',
-          description: 'Configuración de seguridad y autenticación',
-          icon: Shield,
-          color: 'red',
-          data: (data as any)?.security || {}
-        },
-        {
-          key: 'notifications',
-          name: 'Notificaciones',
-          description: 'Configuración de notificaciones y alertas',
-          icon: Bell,
-          color: 'yellow',
-          data: (data as any)?.notifications || {}
-        }
+      const sections = [
+        { key: 'main', name: 'General', description: 'Ajustes globales', icon: Settings, color: 'blue' },
+        { key: 'system', name: 'Sistema', description: 'Núcleo y recursos', icon: Cpu, color: 'purple' },
+        { key: 'bot', name: 'Bot', description: 'Comportamiento WhatsApp', icon: Bot, color: 'cyan' },
+        { key: 'security', name: 'Seguridad', description: 'Protección y acceso', icon: Shield, color: 'red' },
+        { key: 'notifications', name: 'Notificaciones', description: 'Alertas y avisos', icon: Bell, color: 'yellow' },
       ];
       
-      setConfigurations(configSections);
+      setConfigurations(sections as any);
+      
+      const fullData: any = {};
+      sections.forEach(s => {
+        fullData[s.key] = data.config?.[s.key] || {};
+      });
+      
+      setConfigData(fullData);
+      setOriginalData(JSON.parse(JSON.stringify(fullData)));
+      
+      if (data.stats) setStats(data.stats);
+      if (data.versions) setVersions(data.versions);
+      
+      // Initialize specific states
+      setGlobalOffMessage(data.config?.main?.globalOffMessage || '');
+      setBotConfig(data.config?.bot || {});
+      setSystemConfig(data.config?.system || {});
+      
     } catch (error) {
-      console.error('Error loading configurations:', error);
-      notify.error('Error cargando configuraciones');
+      console.error(error);
+      notify.error('No se pudieron cargar las configuraciones');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const loadConfiguration = async (key: string) => {
+  useEffect(() => {
+    fetchConfigurations();
+  }, [fetchConfigurations]);
+
+  // Actions
+  const saveConfiguration = async () => {
+    setSaving(true);
     try {
-      const main = await api.getConfig('main');
-      const sectionData = key === 'main' ? (main || {}) : ((main as any)?.[key] || {});
-      setConfigData(sectionData || {});
-      setOriginalData(JSON.parse(JSON.stringify(sectionData || {})));
-      setValidationErrors([]);
-    } catch (error) {
-      console.error('Error loading configuration:', error);
-      notify.error('Error cargando configuración');
+      await api.put(`/config/${selectedConfig}`, configData[selectedConfig]);
+      setOriginalData(JSON.parse(JSON.stringify(configData)));
+      notify.success('Configuración guardada correctamente');
+      refreshAll();
+      fetchConfigurations();
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Error al guardar');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const loadVersionHistory = async (key: string) => {
+  const resetConfiguration = () => {
+    setConfigData(JSON.parse(JSON.stringify(originalData)));
+    notify.info('Cambios descartados');
+  };
+
+  const getConfigValue = (path: string) => {
+    const parts = path.split('.');
+    let current = configData[selectedConfig];
+    if (!current) return undefined;
+    for (const part of parts) {
+      if (current === undefined || current === null) return undefined;
+      current = current[part];
+    }
+    return current;
+  };
+
+  const updateConfigValue = (path: string, value: any) => {
+    setConfigData((prev: any) => {
+      const newData = JSON.parse(JSON.stringify(prev));
+      const parts = path.split('.');
+      let current = newData[selectedConfig];
+      if (!current) newData[selectedConfig] = {};
+      current = newData[selectedConfig];
+      
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) current[parts[i]] = {};
+        current = current[parts[i]];
+      }
+      current[parts[parts.length - 1]] = value;
+      return newData;
+    });
+  };
+
+  const exportConfiguration = async () => {
     try {
-      const res = await api.getConfigVersions('main', 50).catch(() => ({} as any));
-      const list = (res as any)?.versions || [];
-      setVersions(Array.isArray(list) ? list : []);
+      const res = await api.get('/config/export');
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oguricap-config-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
     } catch (error) {
-      console.error('Error loading version history:', error);
+      notify.error('Error al exportar configuración');
     }
   };
 
-  const loadStats = async () => {
+  const importConfiguration = async (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        await api.post('/config/import', json);
+        notify.success('Configuración importada. Reiniciando vista...');
+        fetchConfigurations();
+      } catch (error) {
+        notify.error('Archivo de configuración inválido');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const rollbackToVersion = async (versionId: string) => {
+    if (!confirm('¿Estás seguro de revertir a esta versión?')) return;
     try {
-      const [configStats, backupsRes] = await Promise.all([
-        api.getConfigStats().catch(() => ({} as any)),
-        api.getBackups().catch(() => ({} as any))
-      ]);
-
-      const backupsList =
-        (backupsRes as any)?.backups ||
-        (backupsRes as any)?.data?.backups ||
-        (backupsRes as any)?.reports ||
-        (backupsRes as any)?.items ||
-        [];
-
-      const totalBackups = Array.isArray(backupsList) ? backupsList.length : (Number((backupsRes as any)?.count) || 0);
-
-      setStats({
-        totalConfigurations: Number((configStats as any)?.totalConfigurations) || configurations.length,
-        currentEnvironment: (configStats as any)?.currentEnvironment || 'unknown',
-        totalVersions: Number((configStats as any)?.totalVersions) || 0,
-        totalBackups,
-        lastUpdate: (configStats as any)?.lastUpdate || ''
-      });
+      await api.post(`/config/rollback/${versionId}`);
+      notify.success('Sistema revertido correctamente');
+      fetchConfigurations();
     } catch (error) {
-      console.error('Error loading stats:', error);
+      notify.error('Error al realizar rollback');
     }
   };
 
-  const refreshEmailStatus = useCallback(async () => {
+  // Email specific actions
+  const refreshEmailStatus = async () => {
     setIsCheckingEmail(true);
     try {
-      const status = await api.getEmailStatus();
-      setEmailStatus(status || null);
-    } catch {
-      setEmailStatus(null);
+      const res = await api.get('/config/email/status');
+      setEmailStatus(res.data);
+    } catch (error) {
+      console.error(error);
     } finally {
       setIsCheckingEmail(false);
     }
-  }, []);
+  };
 
-  const verifyEmailSmtp = useCallback(async () => {
+  const openEmailPreview = async (type: string) => {
+    setEmailPreviewType(type);
+    setIsEmailPreviewOpen(true);
+    setIsLoadingEmailPreview(true);
+    try {
+      const res = await api.get(`/config/email/preview/${type}`);
+      setEmailPreviewData(res.data);
+    } catch (error) {
+      notify.error('Error al cargar preview');
+    } finally {
+      setIsLoadingEmailPreview(false);
+    }
+  };
+
+  const verifyEmailSmtp = async () => {
     setIsVerifyingEmail(true);
     try {
-      const res = await api.verifyEmailSmtp();
-      if (res?.ok) {
-        notify.success('SMTP verificado');
-      } else if (res?.skipped) {
-        notify.warning(res?.reason || 'SMTP no configurado');
-      } else {
-        notify.error(res?.reason || 'No se pudo verificar SMTP');
-      }
-    } catch {
-      notify.error('Error verificando SMTP');
+      await api.post('/config/email/verify', configData.notifications?.email?.smtp);
+      notify.success('Configuración SMTP válida');
+    } catch (error) {
+      notify.error('Fallo en la verificación SMTP');
     } finally {
       setIsVerifyingEmail(false);
-      refreshEmailStatus();
     }
-  }, [refreshEmailStatus]);
+  };
 
-  const sendTestEmail = useCallback(async () => {
+  const sendTestEmail = async () => {
+    if (!testEmailTo) return notify.warning('Ingresa un correo de destino');
     setIsTestingEmail(true);
     try {
-      const res = await api.sendTestEmail(testEmailTo);
-      if (res?.ok) {
-        notify.success('Email de prueba enviado');
-      } else if (res?.skipped) {
-        notify.warning(res?.reason || 'Email desactivado o SMTP no configurado');
-      } else {
-        notify.error(res?.reason || 'No se pudo enviar el email de prueba');
-      }
-    } catch {
-      notify.error('Error enviando email de prueba');
+      await api.post('/config/email/test', { to: testEmailTo });
+      notify.success('Email de prueba enviado');
+    } catch (error) {
+      notify.error('Error al enviar email de prueba');
     } finally {
       setIsTestingEmail(false);
-      refreshEmailStatus();
     }
-  }, [testEmailTo, refreshEmailStatus]);
+  };
 
-  useEffect(() => {
-    if (selectedConfig === 'notifications') {
-      refreshEmailStatus();
-    }
-  }, [selectedConfig, refreshEmailStatus]);
+  const applyEmailProviderPreset = (presetId: string) => {
+    const preset = EMAIL_PROVIDER_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    
+    updateConfigValue('email.smtp.host', preset.host);
+    updateConfigValue('email.smtp.port', preset.port);
+    updateConfigValue('email.smtp.secure', preset.secure);
+    notify.info(`Preset ${preset.label} aplicado`);
+  };
 
-  const loadAdvancedConfigs = async () => {
+  const copyEmailPreview = (mode: 'html' | 'text') => {
+    const content = mode === 'html' ? emailPreviewData?.html : extractPlainTextFromHtml(emailPreviewData?.html || '');
+    if (!content) return;
+    navigator.clipboard.writeText(content);
+    notify.success('Copiado al portapapeles');
+  };
+
+  const extractPlainTextFromHtml = (html: string) => {
+    const tmp = document.createElement('DIV');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  // Support / System actions
+  const toggleMaintenanceMode = async () => {
     try {
-      const [msgRes, botConfigRes, systemConfigRes] = await Promise.all([
-        api.getBotGlobalOffMessage().catch(() => ({ message: '' })),
-        api.getBotConfig().catch(() => ({})),
-        api.getSystemConfig().catch(() => ({}))
-      ]);
-      
-      if (msgRes?.message) setGlobalOffMessage(msgRes.message);
-      
-      if (systemConfigRes) {
-        setSystemConfig(prev => ({ 
-          ...prev, 
-          ...systemConfigRes,
-          adminIPs: Array.isArray((systemConfigRes as any)?.adminIPs) ? (systemConfigRes as any).adminIPs : prev.adminIPs,
-          myAdminIPs: Array.isArray((systemConfigRes as any)?.myAdminIPs) ? (systemConfigRes as any).myAdminIPs : [],
-        }));
-      }
-      
-      if (botConfigRes) {
-        setBotConfig(prev => ({ ...prev, ...botConfigRes }));
-      }
-    } catch (err) {
-      console.error('Error loading advanced configs');
+      const newState = !systemConfig.maintenanceMode;
+      await api.post('/config/system/maintenance', { enabled: newState });
+      setSystemConfig({ ...systemConfig, maintenanceMode: newState });
+      notify.success(`Mantenimiento ${newState ? 'activado' : 'desactivado'}`);
+    } catch (error) {
+      notify.error('Error al cambiar modo mantenimiento');
     }
   };
 
   const saveGlobalMessage = async () => {
     setSaving(true);
     try {
-      await api.setBotGlobalOffMessage(globalOffMessage);
+      await api.put('/config/main', { ...configData.main, globalOffMessage });
       notify.success('Mensaje guardado');
-    } catch (err) {
+    } catch (error) {
       notify.error('Error al guardar mensaje');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveSystemConfig = async () => {
-    setSaving(true);
-    try {
-      const { currentIP, currentIPAllowed, adminIPsCount, adminIPs, myAdminIPs, ...payload } = systemConfig as any;
-      await api.updateSystemConfig(payload);
-      notify.success('Configuración del sistema guardada');
-    } catch (err) {
-      notify.error('Error al guardar configuración');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleAutoAddAdminIPOnLogin = async () => {
-    const next = !systemConfig.autoAddAdminIPOnLogin;
-    setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: next }));
-    setSaving(true);
-    try {
-      await api.updateSystemConfig({ autoAddAdminIPOnLogin: next });
-      notify.success(next ? 'Auto-guardado de IP activado' : 'Auto-guardado de IP desactivado');
-    } catch (err) {
-      setSystemConfig(prev => ({ ...prev, autoAddAdminIPOnLogin: !next }));
-      notify.error('No se pudo actualizar auto-guardado de IP');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleMaintenanceMode = async () => {
-    const next = !systemConfig.maintenanceMode;
-    setSystemConfig(prev => ({ ...prev, maintenanceMode: next }));
-    setSaving(true);
-    try {
-      await api.updateSystemConfig({ maintenanceMode: next });
-      notify.success(next ? 'Modo mantenimiento activado' : 'Modo mantenimiento desactivado');
-    } catch (err) {
-      setSystemConfig(prev => ({ ...prev, maintenanceMode: !next }));
-      notify.error('No se pudo aplicar modo mantenimiento');
     } finally {
       setSaving(false);
     }
@@ -429,234 +379,78 @@ export default function ConfiguracionPage() {
   const saveBotConfig = async () => {
     setSaving(true);
     try {
-      await api.updateBotConfig(botConfig);
+      await api.put('/config/bot', botConfig);
       notify.success('Configuración del bot guardada');
-    } catch (err) {
+    } catch (error) {
       notify.error('Error al guardar configuración del bot');
     } finally {
       setSaving(false);
     }
   };
 
-  const addCurrentIP = async () => {
+  const saveSystemConfig = async () => {
     setSaving(true);
     try {
-      const result = await api.addCurrentIPAsAdmin();
-      notify.success(`IP ${result.addedIP} agregada como administrador`);
-      loadAdvancedConfigs();
-    } catch (err) {
-      notify.error('Error al agregar IP');
+      await api.put('/config/system', systemConfig);
+      notify.success('Configuración del sistema guardada');
+    } catch (error) {
+      notify.error('Error al guardar configuración del sistema');
     } finally {
       setSaving(false);
     }
   };
 
+  const addCurrentIP = async () => {
+    try {
+      await api.post('/config/system/admin-ip', { ip: systemConfig.currentIP });
+      notify.success('IP agregada correctamente');
+      fetchConfigurations();
+    } catch (error) {
+      notify.error('Error al agregar IP');
+    }
+  };
+
+  const toggleAutoAddAdminIPOnLogin = async () => {
+    try {
+      const newState = !systemConfig.autoAddAdminIPOnLogin;
+      await api.put('/config/system', { ...systemConfig, autoAddAdminIPOnLogin: newState });
+      setSystemConfig({ ...systemConfig, autoAddAdminIPOnLogin: newState });
+      notify.success(`Auto-guardado de IP ${newState ? 'activado' : 'desactivado'}`);
+    } catch (error) {
+      notify.error('Error al cambiar configuración de IP');
+    }
+  };
+
   const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    const d = Math.floor(seconds / (3600 * 24));
+    const h = Math.floor((seconds % (3600 * 24)) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${d}d ${h}h ${m}m`;
   };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const saveConfiguration = async () => {
-    try {
-      setSaving(true);
-      
-      const currentMain = await api.getConfig('main').catch(() => ({} as any));
-      const nextMain =
-        selectedConfig === 'main'
-          ? configData
-          : { ...(currentMain || {}), [selectedConfig]: configData };
-
-      await api.updateConfig('main', nextMain);
-      setOriginalData(JSON.parse(JSON.stringify(configData)));
-      setHasChanges(false);
-      notify.success('Configuración guardada exitosamente');
-      
-      // Recargar versiones
-      loadVersionHistory(selectedConfig);
-      loadStats();
-    } catch (error: any) {
-      console.error('Error saving configuration:', error);
-      const validation = error?.response?.data?.validationErrors;
-      if (Array.isArray(validation) && validation.length) {
-        setValidationErrors(validation);
-        notify.error('Validación fallida');
-      } else {
-        notify.error('Error guardando configuración');
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const rollbackToVersion = async (versionId: string) => {
-    if (!confirm('¿Estás seguro de que quieres hacer rollback a esta versión?')) return;
-
-    try {
-      await api.rollbackConfig('main', versionId);
-      notify.success('Rollback realizado exitosamente');
-      loadConfiguration(selectedConfig);
-      loadVersionHistory(selectedConfig);
-    } catch (error) {
-      notify.error('Error realizando rollback');
-    }
-  };
-
-  const exportConfiguration = async () => {
-    try {
-      const blob = new Blob([JSON.stringify(configData, null, 2)], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `config-${selectedConfig}-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      notify.success('Configuración exportada');
-    } catch (error) {
-      notify.error('Error exportando configuración');
-    }
-  };
-
-  const importConfiguration = async (file: File) => {
-    try {
-      const text = await file.text();
-      const importedConfig = JSON.parse(text);
-      
-      setConfigData(importedConfig);
-      notify.success('Configuración importada exitosamente');
-      loadVersionHistory(selectedConfig);
-    } catch (error) {
-      notify.error('Error procesando archivo de configuración');
-    }
-  };
-
-  const resetConfiguration = () => {
-    if (!confirm('¿Estás seguro de que quieres descartar todos los cambios?')) return;
-    
-    setConfigData(JSON.parse(JSON.stringify(originalData)));
-    setValidationErrors([]);
-    setHasChanges(false);
-    notify.success('Cambios descartados');
-  };
-
-  const updateConfigValue = (path: string, value: any) => {
-    const newConfig = { ...configData };
-    const keys = path.split('.');
-    let current = newConfig;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current = current[keys[i]];
-    }
-    
-    current[keys[keys.length - 1]] = value;
-    setConfigData(newConfig);
-  };
-
-  const getConfigValue = (path: string) => {
-    const keys = path.split('.');
-    let current = configData;
-    
-    for (const key of keys) {
-      if (current && typeof current === 'object') {
-        current = current[key];
-      } else {
-        return undefined;
-      }
-    }
-    
-    return current;
-  };
-
-  const renderConfigEditor = () => {
-    if (showJsonEditor) {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Editor JSON</h3>
-            <Button
-              onClick={() => setShowJsonEditor(false)}
-              variant="secondary"
-              size="sm"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              Vista Normal
-            </Button>
-          </div>
-          
-          <textarea
-            value={JSON.stringify(configData, null, 2)}
-            onChange={(e) => {
-              try {
-                const parsed = JSON.parse(e.target.value);
-                setConfigData(parsed);
-                setValidationErrors([]);
-              } catch (error) {
-                setValidationErrors(['JSON inválido']);
-              }
-            }}
-            className="w-full h-96 p-4 bg-gray-900 border border-gray-700 rounded-lg text-white font-mono text-sm"
-            placeholder="Configuración en formato JSON..."
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div className="panel-page">
-        {selectedConfig === 'main' && renderMainConfigEditor()}
-        {selectedConfig === 'system' && renderSystemConfigEditor()}
-        {selectedConfig === 'bot' && renderBotConfigEditor()}
-        {selectedConfig === 'security' && renderSecurityConfigEditor()}
-        {selectedConfig === 'notifications' && renderNotificationsConfigEditor()}
-      </div>
-    );
-  };
-
+  // Helper render functions
   const renderMainConfigEditor = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Información General</h3>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Versión
-          </label>
-          <input
-            type="text"
-            value={getConfigValue('version') || ''}
-            onChange={(e) => updateConfigValue('version', e.target.value)}
-            className="input-glass"
-            placeholder="1.0.0"
-          />
+          <label className="block text-sm font-medium text-gray-300 mb-2">Versión</label>
+          <input type="text" value={getConfigValue('version') || ''} onChange={(e) => updateConfigValue('version', e.target.value)} className="input-glass" placeholder="1.0.0" />
         </div>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Ambiente
-          </label>
-          <select
-            value={getConfigValue('environment') || ''}
-            onChange={(e) => updateConfigValue('environment', e.target.value)}
-            className="input-glass"
-          >
+          <label className="block text-sm font-medium text-gray-300 mb-2">Ambiente</label>
+          <select value={getConfigValue('environment') || ''} onChange={(e) => updateConfigValue('environment', e.target.value)} className="input-glass">
             <option value="development">Desarrollo</option>
             <option value="staging">Staging</option>
             <option value="production">Producción</option>
-            <option value="testing">Testing</option>
           </select>
         </div>
       </div>
@@ -667,60 +461,13 @@ export default function ConfiguracionPage() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Configuración del Sistema</h3>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Nombre del Sistema
-          </label>
-          <input
-            type="text"
-            value={getConfigValue('name') || ''}
-            onChange={(e) => updateConfigValue('name', e.target.value)}
-            className="input-glass"
-            placeholder="WhatsApp Bot Panel"
-          />
+          <label className="block text-sm font-medium text-gray-300 mb-2">Nombre del Sistema</label>
+          <input type="text" value={getConfigValue('name') || ''} onChange={(e) => updateConfigValue('name', e.target.value)} className="input-glass" placeholder="WhatsApp Bot Panel" />
         </div>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Memoria Máxima
-          </label>
-          <input
-            type="text"
-            value={getConfigValue('maxMemory') || ''}
-            onChange={(e) => updateConfigValue('maxMemory', e.target.value)}
-            className="input-glass"
-            placeholder="512MB"
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Nivel de Log
-          </label>
-          <select
-            value={getConfigValue('logLevel') || ''}
-            onChange={(e) => updateConfigValue('logLevel', e.target.value)}
-            className="input-glass"
-          >
-            <option value="debug">Debug</option>
-            <option value="info">Info</option>
-            <option value="warn">Warning</option>
-            <option value="error">Error</option>
-          </select>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="debug"
-            checked={getConfigValue('debug') || false}
-            onChange={(e) => updateConfigValue('debug', e.target.checked)}
-            className="rounded border-gray-600 bg-gray-700 text-primary-500"
-          />
-          <label htmlFor="debug" className="text-sm text-gray-300">
-            Modo Debug
-          </label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Memoria Máxima</label>
+          <input type="text" value={getConfigValue('maxMemory') || ''} onChange={(e) => updateConfigValue('maxMemory', e.target.value)} className="input-glass" placeholder="512MB" />
         </div>
       </div>
     </div>
@@ -730,85 +477,13 @@ export default function ConfiguracionPage() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Configuración del Bot</h3>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Nombre del Bot
-          </label>
-          <input
-            type="text"
-            value={getConfigValue('name') || ''}
-            onChange={(e) => updateConfigValue('name', e.target.value)}
-            className="input-glass"
-            placeholder="Oguri Bot"
-          />
+          <label className="block text-sm font-medium text-gray-300 mb-2">Nombre del Bot</label>
+          <input type="text" value={getConfigValue('name') || ''} onChange={(e) => updateConfigValue('name', e.target.value)} className="input-glass" placeholder="Oguri Bot" />
         </div>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Prefijo de Comandos
-          </label>
-          <input
-            type="text"
-            value={getConfigValue('prefix') || ''}
-            onChange={(e) => updateConfigValue('prefix', e.target.value)}
-            className="input-glass"
-            placeholder="#"
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Cooldown de Comandos (ms)
-          </label>
-          <input
-            type="number"
-            value={getConfigValue('commandCooldown') || ''}
-            onChange={(e) => updateConfigValue('commandCooldown', parseInt(e.target.value))}
-            className="input-glass"
-            placeholder="3000"
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Máximo de Reintentos
-          </label>
-          <input
-            type="number"
-            value={getConfigValue('maxRetries') || ''}
-            onChange={(e) => updateConfigValue('maxRetries', parseInt(e.target.value))}
-            className="input-glass"
-            placeholder="5"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="autoReconnect"
-              checked={getConfigValue('autoReconnect') || false}
-              onChange={(e) => updateConfigValue('autoReconnect', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="autoReconnect" className="text-sm text-gray-300">
-              Reconexión Automática
-            </label>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="globallyEnabled"
-              checked={getConfigValue('globallyEnabled') || false}
-              onChange={(e) => updateConfigValue('globallyEnabled', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="globallyEnabled" className="text-sm text-gray-300">
-              Habilitado Globalmente
-            </label>
-          </div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Prefijo</label>
+          <input type="text" value={getConfigValue('prefix') || ''} onChange={(e) => updateConfigValue('prefix', e.target.value)} className="input-glass" placeholder="#" />
         </div>
       </div>
     </div>
@@ -818,72 +493,9 @@ export default function ConfiguracionPage() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Configuración de Seguridad</h3>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Requests por Minuto
-          </label>
-          <input
-            type="number"
-            value={getConfigValue('maxRequestsPerMinute') || ''}
-            onChange={(e) => updateConfigValue('maxRequestsPerMinute', parseInt(e.target.value))}
-            className="input-glass"
-            placeholder="100"
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Timeout de Sesión (ms)
-          </label>
-          <input
-            type="number"
-            value={getConfigValue('sessionTimeout') || ''}
-            onChange={(e) => updateConfigValue('sessionTimeout', parseInt(e.target.value))}
-            className="input-glass"
-            placeholder="86400000"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="enableRateLimit"
-              checked={getConfigValue('enableRateLimit') || false}
-              onChange={(e) => updateConfigValue('enableRateLimit', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="enableRateLimit" className="text-sm text-gray-300">
-              Habilitar Rate Limiting
-            </label>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="enableIPBlocking"
-              checked={getConfigValue('enableIPBlocking') || false}
-              onChange={(e) => updateConfigValue('enableIPBlocking', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="enableIPBlocking" className="text-sm text-gray-300">
-              Habilitar Bloqueo de IPs
-            </label>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="enableAuditLog"
-              checked={getConfigValue('enableAuditLog') || false}
-              onChange={(e) => updateConfigValue('enableAuditLog', e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500"
-            />
-            <label htmlFor="enableAuditLog" className="text-sm text-gray-300">
-              Habilitar Log de Auditoría
-            </label>
-          </div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Requests por Minuto</label>
+          <input type="number" value={getConfigValue('maxRequestsPerMinute') || ''} onChange={(e) => updateConfigValue('maxRequestsPerMinute', parseInt(e.target.value))} className="input-glass" />
         </div>
       </div>
     </div>
@@ -892,1114 +504,425 @@ export default function ConfiguracionPage() {
   const renderNotificationsConfigEditor = () => {
     const emailEnabled = Boolean(getConfigValue('email.enabled'));
     const smtpHost = String(getConfigValue('email.smtp.host') || '').trim();
-    const smtpPortValue = getConfigValue('email.smtp.port');
-    const smtpPort = typeof smtpPortValue === 'number' ? String(smtpPortValue) : String(smtpPortValue || '');
+    const smtpPort = String(getConfigValue('email.smtp.port') || '');
     const smtpSecure = Boolean(getConfigValue('email.smtp.secure'));
     const smtpUser = String(getConfigValue('email.smtp.user') || '').trim();
     const smtpPass = String(getConfigValue('email.smtp.pass') || '').trim();
-
+    const smtpFrom = String(getConfigValue('email.smtp.from') || '').trim();
+    const smtpReplyTo = String(getConfigValue('email.smtp.replyTo') || '').trim();
     const whatsappEnabled = Boolean(getConfigValue('whatsapp.enabled'));
     const adminNumbers = (getConfigValue('whatsapp.adminNumbers') || []) as string[];
 
-    const emailBadge =
-      !emailEnabled
-        ? 'badge bg-white/5 text-gray-200 border-white/10'
-        : smtpHost
-          ? 'badge-success'
-          : 'badge-warning';
+    const emailBadge = !emailEnabled ? 'badge bg-white/5 text-gray-200 border-white/10' : smtpHost ? 'badge-success' : 'badge-warning';
+    const emailBadgeText = !emailEnabled ? 'Desactivado' : smtpHost ? 'SMTP listo' : 'Falta host';
 
-    const emailBadgeText =
-      !emailEnabled ? 'Desactivado' : smtpHost ? 'SMTP listo' : 'Falta host';
+    const browserPushPermission = typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported';
 
     return (
-      <div className="panel-page">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-semibold text-white">Configuración de Notificaciones</h3>
-            <p className="text-sm text-gray-400 mt-1">Canales de alerta para admins y eventos críticos.</p>
-          </div>
-        </div>
-
+      <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {/* Email Service */}
-          <Card animated delay={0.1} className="p-5 sm:p-6">
-            <div className="panel-card-header">
-              <div className="panel-card-heading">
-                <div className="panel-card-icon bg-gradient-to-br from-cyan-500/20 to-primary-500/20 text-cyan-200">
-                  <Mail className="w-5 h-5 text-cyan-200" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="panel-card-title">Email Service</h4>
-                  <p className="panel-card-description">SMTP para seguridad, sistema y alertas.</p>
+          {/* Email Card */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-200"><Mail className="w-5 h-5" /></div>
+                <div>
+                  <h4 className="font-bold text-white">Email Service</h4>
+                  <p className="text-xs text-gray-400">SMTP para alertas críticas</p>
                 </div>
               </div>
-
-              <span className={emailBadge}>
-                <span className={emailEnabled ? 'status-online' : 'status-offline'} />
-                {emailBadgeText}
-              </span>
+              <span className={emailBadge}>{emailBadgeText}</span>
             </div>
 
             <div className="space-y-4">
-              <div className="panel-setting-row">
-                <div className="min-w-0">
-                  <p className="font-semibold text-white">Estado</p>
-                  <p className="text-sm text-gray-400">Activa/desactiva envíos por email.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateConfigValue('email.enabled', !emailEnabled)}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${emailEnabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  aria-pressed={emailEnabled}
-                  aria-label={emailEnabled ? 'Desactivar email' : 'Activar email'}
-                >
-                  <motion.div
-                    animate={{ x: emailEnabled ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                <p className="text-sm font-medium text-white">Activar Servicio</p>
+                <Switch checked={emailEnabled} onCheckedChange={(val) => updateConfigValue('email.enabled', val)} />
               </div>
 
-              <div className={`panel-form-grid ${!emailEnabled ? 'opacity-60' : ''}`}>
-                <div className="panel-field">
-                  <label className="panel-field-label">Host SMTP</label>
-                  <div className="relative">
-                    <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <input
-                      type="text"
-                      value={smtpHost}
-                      onChange={(e) => updateConfigValue('email.smtp.host', e.target.value)}
-                      className="input-glass pl-10"
-                      placeholder="smtp.gmail.com"
-                      disabled={!emailEnabled}
-                    />
-                  </div>
+              <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", !emailEnabled && "opacity-50 pointer-events-none")}>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Host SMTP</label>
+                  <input type="text" value={smtpHost} onChange={(e) => updateConfigValue('email.smtp.host', e.target.value)} className="input-glass" placeholder="smtp.gmail.com" />
                 </div>
-
-                <div className="panel-field">
-                  <label className="panel-field-label">Puerto</label>
-                  <div className="relative">
-                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <input
-                      type="number"
-                      value={smtpPort}
-                      onChange={(e) =>
-                        updateConfigValue('email.smtp.port', e.target.value === '' ? null : parseInt(e.target.value, 10))
-                      }
-                      className="input-glass pl-10"
-                      placeholder="587"
-                      disabled={!emailEnabled}
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Puerto</label>
+                  <input type="number" value={smtpPort} onChange={(e) => updateConfigValue('email.smtp.port', parseInt(e.target.value))} className="input-glass" placeholder="587" />
                 </div>
-
-                <div className="panel-field">
-                  <label className="panel-field-label">Usuario / Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <input
-                      type="text"
-                      value={smtpUser}
-                      onChange={(e) => updateConfigValue('email.smtp.user', e.target.value)}
-                      className="input-glass pl-10"
-                      placeholder="usuario@gmail.com"
-                      disabled={!emailEnabled}
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Usuario</label>
+                  <input type="text" value={smtpUser} onChange={(e) => updateConfigValue('email.smtp.user', e.target.value)} className="input-glass" />
                 </div>
-
-                <div className="panel-field">
-                  <label className="panel-field-label">Contraseña / App Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <input
-                      type="password"
-                      value={smtpPass}
-                      onChange={(e) => updateConfigValue('email.smtp.pass', e.target.value)}
-                      className="input-glass pl-10"
-                      placeholder="••••••••••••••••"
-                      disabled={!emailEnabled}
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Contraseña</label>
+                  <input type="password" value={smtpPass} onChange={(e) => updateConfigValue('email.smtp.pass', e.target.value)} className="input-glass" />
                 </div>
               </div>
 
-              <div className={`panel-setting-row ${!emailEnabled ? 'opacity-60' : ''}`}>
-                <div className="min-w-0">
-                  <p className="font-semibold text-white flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-gray-400" /> Conexión segura (TLS)
-                  </p>
-                  <p className="text-sm text-gray-400">Recomendado para proveedores SMTP modernos.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateConfigValue('email.smtp.secure', !smtpSecure)}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${smtpSecure ? 'bg-primary-500' : 'bg-gray-600'}`}
-                  aria-pressed={smtpSecure}
-                  aria-label={smtpSecure ? 'Desactivar TLS' : 'Activar TLS'}
-                  disabled={!emailEnabled}
-                >
-                  <motion.div
-                    animate={{ x: smtpSecure ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
-              </div>
+              <div className={cn("space-y-4 pt-2", !emailEnabled && "opacity-50 pointer-events-none")}>
+                 <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-300">Conexión Segura (TLS)</p>
+                    <Switch checked={smtpSecure} onCheckedChange={(val) => updateConfigValue('email.smtp.secure', val)} />
+                 </div>
+                 
+                 <div className="flex flex-wrap gap-2">
+                    {EMAIL_PROVIDER_PRESETS.map(preset => (
+                      <Button key={preset.id} variant="secondary" size="sm" onClick={() => applyEmailProviderPreset(preset.id)} className="text-[10px]">
+                        {preset.label}
+                      </Button>
+                    ))}
+                 </div>
 
-              <div className="panel-note-card">
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  Tip: para Gmail usá “App Password” y el host `smtp.gmail.com` (puerto `587` con TLS o `465` seguro).
-                </p>
-              </div>
-
-              <div className={`panel-note-card space-y-3 ${!emailEnabled ? 'opacity-60' : ''}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-white">Diagnóstico</p>
-                  <Button
-                    onClick={refreshEmailStatus}
-                    loading={isCheckingEmail}
-                    disabled={!emailEnabled}
-                    variant="secondary"
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    Actualizar
-                  </Button>
-                </div>
-
-                {emailStatus ? (
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <p className="text-gray-400">
-                      Estado:{' '}
-                      <span className={emailStatus.configured ? 'text-emerald-300' : 'text-amber-300'}>
-                        {emailStatus.configured ? 'Listo' : 'Incompleto'}
-                      </span>
-                    </p>
-                    <p className="text-gray-400">
-                      Auth:{' '}
-                      <span className={emailStatus.hasAuth ? 'text-emerald-300' : 'text-amber-300'}>
-                        {emailStatus.hasAuth ? 'OK' : 'Falta'}
-                      </span>
-                    </p>
-                    <p className="text-gray-400 truncate" title={emailStatus.host || ''}>
-                      Host:{' '}
-                      <span className="text-gray-200">{emailStatus.host || '—'}</span>
-                    </p>
-                    <p className="text-gray-400">
-                      Puerto:{' '}
-                      <span className="text-gray-200">{emailStatus.port || '—'}</span>
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    No se pudo obtener el estado del servicio (requiere rol admin/owner).
-                  </p>
-                )}
-
-                <div className="panel-field">
-                  <label className="panel-field-label">Email para Alertas (Admin)</label>
-                  <input
-                    type="email"
-                    value={testEmailTo}
-                    onChange={(e) => setTestEmailTo(e.target.value)}
-                    className="input-glass"
-                    placeholder="tu-correo@ejemplo.com"
-                    disabled={!emailEnabled}
-                  />
-                  <p className="panel-field-hint">
-                    Este es el correo donde recibirás las alertas críticas del sistema. Si lo dejas vacío, se usarán los correos configurados en las variables de entorno.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={verifyEmailSmtp}
-                    loading={isVerifyingEmail}
-                    disabled={!emailEnabled}
-                    variant="secondary"
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    <Shield className="w-3 h-3" />
-                    Verificar SMTP
-                  </Button>
-                  <Button
-                    onClick={sendTestEmail}
-                    loading={isTestingEmail}
-                    disabled={!emailEnabled}
-                    variant="primary"
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    <Mail className="w-3 h-3" />
-                    Enviar prueba
-                  </Button>
-                </div>
+                 <div className="pt-4 border-t border-white/10 flex gap-2">
+                    <Button variant="secondary" size="sm" onClick={refreshEmailStatus} loading={isCheckingEmail} icon={<RefreshCw className="h-3 w-3" />}>Estado</Button>
+                    <Button variant="secondary" size="sm" onClick={verifyEmailSmtp} loading={isVerifyingEmail} icon={<Shield className="h-3 w-3" />}>Verificar</Button>
+                    <Button variant="primary" size="sm" onClick={sendTestEmail} loading={isTestingEmail} icon={<Mail className="h-3 w-3" />}>Test</Button>
+                 </div>
               </div>
             </div>
           </Card>
 
-          {/* WhatsApp */}
-          <Card animated delay={0.2} className="p-5 sm:p-6">
-            <div className="panel-card-header">
-              <div className="panel-card-heading">
-                <div className="panel-card-icon bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-emerald-200">
-                  <Bell className="w-5 h-5 text-emerald-200" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="panel-card-title">WhatsApp</h4>
-                  <p className="panel-card-description">Alertas directas a números administradores.</p>
+          {/* WhatsApp Card */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-200"><Bell className="w-5 h-5" /></div>
+                <div>
+                  <h4 className="font-bold text-white">WhatsApp Alertas</h4>
+                  <p className="text-xs text-gray-400">Notificaciones directas</p>
                 </div>
               </div>
-
-              <span className={whatsappEnabled ? 'badge-success' : 'badge bg-white/5 text-gray-200 border-white/10'}>
-                <span className={whatsappEnabled ? 'status-online' : 'status-offline'} />
-                {whatsappEnabled ? 'Activo' : 'Desactivado'}
+              <span className={cn("badge", whatsappEnabled ? "badge-success" : "bg-white/5 text-gray-400")}>
+                {whatsappEnabled ? "Activo" : "Off"}
               </span>
             </div>
 
             <div className="space-y-4">
-              <div className="panel-setting-row">
-                <div className="min-w-0">
-                  <p className="font-semibold text-white">Estado</p>
-                  <p className="text-sm text-gray-400">Activa/desactiva envíos por WhatsApp.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateConfigValue('whatsapp.enabled', !whatsappEnabled)}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${whatsappEnabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  aria-pressed={whatsappEnabled}
-                  aria-label={whatsappEnabled ? 'Desactivar WhatsApp' : 'Activar WhatsApp'}
-                >
-                  <motion.div
-                    animate={{ x: whatsappEnabled ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                <p className="text-sm font-medium text-white">Activar WhatsApp</p>
+                <Switch checked={whatsappEnabled} onCheckedChange={(val) => updateConfigValue('whatsapp.enabled', val)} />
               </div>
 
-              <div className={`panel-field ${whatsappEnabled ? '' : 'opacity-60'}`}>
-                <label className="panel-field-label">
-                  Números de admin (separados por coma)
-                </label>
-                <input
-                  type="text"
-                  value={adminNumbers.join(', ')}
-                  onChange={(e) =>
-                    updateConfigValue(
-                      'whatsapp.adminNumbers',
-                      e.target.value
-                        .split(',')
-                        .map((n) => n.trim())
-                        .filter(Boolean)
-                    )
-                  }
-                  className="input-glass"
-                  placeholder="1234567890, 0987654321"
-                  disabled={!whatsappEnabled}
+              <div className={cn("space-y-2", !whatsappEnabled && "opacity-50 pointer-events-none")}>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Números Administradores</label>
+                <textarea 
+                  value={adminNumbers.join(', ')} 
+                  onChange={(e) => updateConfigValue('whatsapp.adminNumbers', e.target.value.split(',').map(n => n.trim()).filter(Boolean))} 
+                  className="input-glass min-h-[100px] resize-none" 
+                  placeholder="Ej: 1234567890, 0987654321" 
                 />
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Panel Notifications Settings */}
-          <Card animated delay={0.3} className="mt-6 p-5 sm:p-6">
-            <div className="panel-card-heading mb-6">
-              <div className="panel-card-icon bg-gradient-to-br from-primary-500/20 to-violet-500/20 text-primary-200">
-                <Bell className="w-5 h-5 text-primary-200" />
+        {/* Panel Notifications */}
+        <Card className="p-6">
+           <div className="flex items-center gap-4 mb-8">
+              <div className="p-2 rounded-xl bg-primary/20 text-primary"><Bell className="h-5 w-5" /></div>
+              <div>
+                <h4 className="font-bold text-white">Preferencias del Panel</h4>
+                <p className="text-xs text-gray-400">Configuración de notificaciones en tiempo real</p>
               </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="panel-card-title">Notificaciones del Panel</h4>
-                <p className="panel-card-description">Configura qué tipos de notificaciones quieres recibir en el panel.</p>
-              </div>
-            </div>
+           </div>
 
-            <div className="space-y-4">
-              {/* Enabled Toggle */}
-              <div className="panel-setting-row">
-                <div className="min-w-0">
-                  <p className="font-semibold text-white">Notificaciones Generales</p>
-                  <p className="text-sm text-gray-400">Activa o desactiva todas las notificaciones del panel.</p>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              <div className="flex items-center justify-between">
+                 <div>
+                   <p className="text-sm font-medium text-white">Notificaciones de Escritorio</p>
+                   <p className="text-[10px] text-gray-500 uppercase tracking-tighter">Status: {browserPushPermission}</p>
+                 </div>
+                 <Switch checked={notificationSettings.push} onCheckedChange={(val) => updateNotificationSettings({ push: val })} />
               </div>
-              <button
-                type="button"
-                onClick={() => updateNotificationSettings({ enabled: !notificationSettings.enabled })}
-                className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                aria-pressed={notificationSettings.enabled}
-                aria-label={notificationSettings.enabled ? 'Desactivar notificaciones' : 'Activar notificaciones'}
-              >
-                <motion.div
-                  animate={{ x: notificationSettings.enabled ? 28 : 2 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                />
-              </button>
-            </div>
-
-            {/* Category Toggles */}
-              <div className={`space-y-3 ${!notificationSettings.enabled ? 'opacity-60 pointer-events-none' : ''}`}>
-                <div className="panel-setting-row">
-                  <div className="min-w-0">
-                    <p className="font-medium text-white flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-amber-400" />
-                    Eventos del Bot
-                  </p>
-                  <p className="text-sm text-gray-400">Notificaciones sobre cambios en el estado del bot.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateNotificationSettings({ botEvents: !notificationSettings.botEvents })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.botEvents ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!notificationSettings.enabled}
-                >
-                  <motion.div
-                    animate={{ x: notificationSettings.botEvents ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
+              <div className="flex items-center justify-between">
+                 <p className="text-sm font-medium text-white">Alertas de Bot</p>
+                 <Switch checked={notificationSettings.botEvents} onCheckedChange={(val) => updateNotificationSettings({ botEvents: val })} />
               </div>
-
-                <div className="panel-setting-row">
-                  <div className="min-w-0">
-                    <p className="font-medium text-white flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-cyan-400" />
-                    Usuarios / Comunidad
-                  </p>
-                  <p className="text-sm text-gray-400">Notificaciones relacionadas con usuarios y comunidad.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateNotificationSettings({ users: !notificationSettings.users })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.users ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!notificationSettings.enabled}
-                >
-                  <motion.div
-                    animate={{ x: notificationSettings.users ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
+              <div className="flex items-center justify-between">
+                 <p className="text-sm font-medium text-white">Eventos de Usuarios</p>
+                 <Switch checked={notificationSettings.users} onCheckedChange={(val) => updateNotificationSettings({ users: val })} />
               </div>
-
-                <div className="panel-setting-row">
-                  <div className="min-w-0">
-                    <p className="font-medium text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-violet-400" />
-                    Pedidos / Tareas
-                  </p>
-                  <p className="text-sm text-gray-400">Notificaciones sobre pedidos y tareas programadas.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateNotificationSettings({ tasks: !notificationSettings.tasks })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.tasks ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!notificationSettings.enabled}
-                >
-                  <motion.div
-                    animate={{ x: notificationSettings.tasks ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
+              <div className="flex items-center justify-between">
+                 <p className="text-sm font-medium text-white">Errores Críticos</p>
+                 <Switch checked={notificationSettings.critical} onCheckedChange={(val) => updateNotificationSettings({ critical: val })} />
               </div>
-
-                <div className="panel-setting-row">
-                  <div className="min-w-0">
-                    <p className="font-medium text-white flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-400" />
-                    Errores Críticos
-                  </p>
-                  <p className="text-sm text-gray-400">Alertas importantes sobre errores del sistema.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateNotificationSettings({ critical: !notificationSettings.critical })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.critical ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!notificationSettings.enabled}
-                >
-                  <motion.div
-                    animate={{ x: notificationSettings.critical ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
-              </div>
-
-                <div className="panel-setting-row">
-                  <div className="min-w-0">
-                    <p className="font-medium text-white flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-primary-400" />
-                    Push Notifications
-                  </p>
-                  <p className="text-sm text-gray-400">Recibe notificaciones incluso cuando el panel esté cerrado.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateNotificationSettings({ push: !notificationSettings.push })}
-                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${notificationSettings.push ? 'bg-emerald-500' : 'bg-gray-600'}`}
-                  disabled={!notificationSettings.enabled}
-                >
-                  <motion.div
-                    animate={{ x: notificationSettings.push ? 28 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
+           </div>
         </Card>
       </div>
     );
   };
 
-  return (
-    <div className="panel-page">
-      {/* Header */}
-      <PageHeader
-        title="Configuración"
-        description="Administra la configuración del sistema y el bot"
-        icon={<Settings className="w-5 h-5 text-primary-400" />}
-        actions={
-          <>
-            <Button
-              onClick={() => setShowVersions(!showVersions)}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <History className="w-4 h-4" />
-              {showVersions ? 'Ocultar' : 'Ver'} Historial
-            </Button>
-
-            <Button
-              onClick={exportConfiguration}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Exportar
-            </Button>
-
-            <label className="cursor-pointer">
-              <input
-                id="import-input"
-                type="file"
-                accept=".json"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) importConfiguration(file);
-                }}
-                className="hidden"
-              />
-              <Button
-                variant="secondary"
-                className="flex items-center gap-2"
-                onClick={() => document.getElementById('import-input')?.click()}
-              >
-                <Upload className="w-4 h-4" />
-                Importar
-              </Button>
-            </label>
-          </>
-        }
-      />
-
-      {/* System Stats */}
-      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.02} stagger={0.07}>
-        <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-          <StatCard title="Uptime" value={formatUptime(uptime)} icon={<Clock className="w-6 h-6" />} color="primary" delay={0} animated={false} />
-        </StaggerItem>
-        <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-          <StatCard
-            title="Memoria"
-            value={`${memoryUsage?.systemPercentage || 0}%`}
-            icon={<Cpu className="w-6 h-6" />}
-            color="info"
-            delay={0}
-            animated={false}
-          />
-        </StaggerItem>
-        <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-          <StatCard
-            title="Plataforma"
-            value={systemStats?.platform || 'N/A'}
-            icon={<HardDrive className="w-6 h-6" />}
-            color="violet"
-            delay={0}
-            animated={false}
-          />
-        </StaggerItem>
-        <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-          <StatCard
-            title="Node.js"
-            value={systemStats?.node || 'N/A'}
-            icon={<Database className="w-6 h-6" />}
-            color="success"
-            delay={0}
-            animated={false}
-          />
-        </StaggerItem>
-      </Stagger>
-
-      {/* Advanced Configuration Sections */}
-      {selectedConfig === 'main' && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {/* Bot Global Control */}
-          <Card animated delay={0.2} className="p-5 sm:p-6">
-            <div className="panel-card-heading mb-6">
-              <div className="panel-card-icon"><Bot className="w-5 h-5" /></div>
-              <h2 className="panel-card-title">Control Global del Bot</h2>
-            </div>
-            <div className="flex items-center justify-center mb-6">
-              <motion.div animate={contextGlobalState ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
-                <ProgressRing
-                  progress={contextGlobalState ? 100 : 0}
-                  size={140}
-                  color={contextGlobalState ? 'rgb(var(--success))' : 'rgb(var(--danger))'}
-                  label={contextGlobalState ? 'Activo' : 'Inactivo'}
-                />
-              </motion.div>
-            </div>
-            <div className="space-y-4">
-              <div className="panel-setting-row">
-                <div>
-                  <p className="font-medium text-white">Estado Global</p>
-                  <p className="text-sm text-gray-400">Activa o desactiva el bot en todos los grupos</p>
-                </div>
-                <button onClick={() => contextSetGlobalState(!contextGlobalState)}
-                  className={`relative w-14 h-7 rounded-full transition-colors ${contextGlobalState ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-                  <motion.div animate={{ x: contextGlobalState ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
-                </button>
-              </div>
-              <div className="panel-setting-row">
-                <div>
-                  <p className="font-medium text-white">Conexión</p>
-                  <p className="text-sm text-gray-400">Estado de conexión con WhatsApp</p>
-                </div>
-                <span className={`badge ${isConnected ? 'badge-success' : 'badge-danger'}`}>
-                  {isConnected ? <CheckCircle className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
-                  {isConnected ? 'Conectado' : 'Desconectado'}
-                </span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Global Off Message */}
-          <Card animated delay={0.3} className="p-5 sm:p-6">
-            <div className="panel-card-heading mb-6">
-              <div className="panel-card-icon text-amber-300"><Bell className="w-5 h-5" /></div>
-              <h2 className="panel-card-title">Mensaje de Bot Desactivado</h2>
-            </div>
-            <p className="text-sm text-gray-400 mb-4">Este mensaje se enviará cuando el bot esté desactivado globalmente</p>
-            <textarea value={globalOffMessage} onChange={(e) => setGlobalOffMessage(e.target.value)}
-              className="input-glass w-full h-32 resize-none mb-4" placeholder="Mensaje cuando el bot está desactivado..." />
-            <Button variant="primary" className="w-full" icon={<Save className="w-4 h-4" />} onClick={saveGlobalMessage} loading={isSaving}>
-              Guardar Mensaje
-            </Button>
-          </Card>
-
-          {/* Bot Configuration */}
-          <Card animated delay={0.4} className="p-5 sm:p-6">
-            <div className="panel-card-heading mb-6">
-              <div className="panel-card-icon text-cyan-300"><Settings className="w-5 h-5" /></div>
-              <h2 className="panel-card-title">Configuración del Bot</h2>
-            </div>
-            <div className="space-y-4">
-              <div className="panel-setting-row">
-                <div>
-                  <p className="font-medium text-white">Auto Reconexión</p>
-                  <p className="text-xs text-gray-500">Reconectar automáticamente si se pierde la conexión</p>
-                </div>
-                <button onClick={() => setBotConfig({ ...botConfig, autoReconnect: !botConfig.autoReconnect })}
-                  className={`relative w-14 h-7 rounded-full transition-colors ${botConfig.autoReconnect ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-                  <motion.div animate={{ x: botConfig.autoReconnect ? 28 : 2 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md" />
-                </button>
-              </div>
-              <div className="panel-field">
-                <label className="panel-field-label">Intentos de Reconexión</label>
-                <input type="number" value={botConfig.maxReconnectAttempts}
-                  onChange={(e) => setBotConfig({ ...botConfig, maxReconnectAttempts: parseInt(e.target.value) })}
-                  className="input-glass w-full" min={1} max={20} />
-              </div>
-              <div className="panel-field">
-                <label className="panel-field-label">Intervalo de Reconexión (seg)</label>
-                <input type="number" value={botConfig.reconnectInterval}
-                  onChange={(e) => setBotConfig({ ...botConfig, reconnectInterval: parseInt(e.target.value) })}
-                  className="input-glass w-full" min={5} max={300} />
-              </div>
-              <div className="panel-field">
-                <label className="panel-field-label">Nivel de Log</label>
-                <Select value={botConfig.logLevel} onChange={(value) => setBotConfig({ ...botConfig, logLevel: value })} options={[
-                  { value: 'error', label: 'Error' },
-                  { value: 'warn', label: 'Warning' },
-                  { value: 'info', label: 'Info' },
-                  { value: 'debug', label: 'Debug' }
-                ]} />
-              </div>
-              <Button variant="primary" className="w-full" icon={<Save className="w-4 h-4" />} onClick={saveBotConfig} loading={isSaving}>
-                Guardar Configuración del Bot
-              </Button>
-            </div>
-          </Card>
-
-          {/* System Configuration */}
-          <Card animated delay={0.5} className="p-5 sm:p-6">
-            <div className="panel-card-heading mb-6">
-              <div className="panel-card-icon text-violet-300"><Shield className="w-5 h-5" /></div>
-              <h2 className="panel-card-title">Configuración del Sistema</h2>
-            </div>
-            <div className="space-y-4">
-              <div className="panel-setting-row">
-                <div>
-                  <p className="font-medium text-white">Modo Mantenimiento</p>
-                  <p className="text-xs text-gray-500">Desactiva el acceso al panel temporalmente</p>
-                  {systemConfig.maintenanceMode && (
-                    <div className="flex items-center mt-1 text-orange-400 text-xs">
-                      <Wrench className="w-3 h-3 mr-1" />
-                      <span>Activo - Solo administradores pueden acceder</span>
-                    </div>
-                  )}
-                </div>
-                <Switch
-                  checked={Boolean(systemConfig.maintenanceMode)}
-                  onCheckedChange={() => { void toggleMaintenanceMode(); }}
-                  variant="warning"
-                  label="Modo mantenimiento"
-                  className="self-start sm:self-auto"
-                />
-              </div>
-              <div className="panel-setting-row">
-                <div>
-                  <p className="font-medium text-white">Modo Debug</p>
-                  <p className="text-xs text-gray-500">Habilita logs detallados para depuración</p>
-                </div>
-                <Switch
-                  checked={Boolean(systemConfig.debugMode)}
-                  onCheckedChange={(checked) => setSystemConfig({ ...systemConfig, debugMode: checked })}
-                  variant="primary"
-                  label="Modo debug"
-                  className="self-start sm:self-auto"
-                />
-              </div>
-              <div className="panel-field">
-                <label className="panel-field-label">Límite de API (req/min)</label>
-                <input type="number" value={systemConfig.apiRateLimit}
-                  onChange={(e) => setSystemConfig({ ...systemConfig, apiRateLimit: parseInt(e.target.value) })}
-                  className="input-glass w-full" min={10} max={1000} />
-              </div>
-
-              <div className="pt-4 border-t border-white/10 space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-white">Notificaciones de Soporte</p>
-                  <p className="text-xs text-gray-500">Define a quién avisar cuando un usuario abre un chat de soporte en el panel.</p>
-                </div>
-
-                <div className="panel-setting-row">
-                  <div>
-                    <p className="font-medium text-white">Incluir Admins/Owner</p>
-                    <p className="text-xs text-gray-500">Además de los destinatarios configurados abajo</p>
-                  </div>
-                  <Switch
-                    checked={Boolean(systemConfig.supportNotifyIncludeAdmins)}
-                    onCheckedChange={(checked) =>
-                      setSystemConfig({ ...systemConfig, supportNotifyIncludeAdmins: checked })
-                    }
-                    variant="primary"
-                    label="Incluir admins/owner"
-                    className="self-start sm:self-auto"
-                  />
-                </div>
-
-                <div className="panel-field">
-                  <label className="panel-field-label">Emails destino (separados por coma)</label>
-                  <input
-                    type="text"
-                    value={systemConfig.supportNotifyEmailTo}
-                    onChange={(e) => setSystemConfig({ ...systemConfig, supportNotifyEmailTo: e.target.value })}
-                    className="input-glass w-full"
-                    placeholder="melodiayaoivv@gmail.com, otro@correo.com"
-                  />
-                </div>
-
-                <div className="panel-field">
-                  <label className="panel-field-label">WhatsApp destino (números, separados por coma)</label>
-                  <input
-                    type="text"
-                    value={systemConfig.supportNotifyWhatsAppTo}
-                    onChange={(e) => setSystemConfig({ ...systemConfig, supportNotifyWhatsAppTo: e.target.value })}
-                    className="input-glass w-full"
-                    placeholder=""
-                  />
-                  <p className="panel-field-hint">Se ignoran símbolos; se usan solo números.</p>
-                </div>
-              </div>
-              <Button variant="primary" className="w-full" icon={<Save className="w-4 h-4" />} onClick={saveSystemConfig} loading={isSaving}>
-                Guardar Configuración
-              </Button>
-            </div>
-          </Card>
-
-          {/* Admin IPs Management */}
-          <Card animated delay={0.55} className="p-5 sm:p-6">
-            <div className="panel-card-heading mb-6">
-              <div className="panel-card-icon text-blue-300"><Shield className="w-5 h-5" /></div>
-              <h2 className="panel-card-title">IPs de Administradores</h2>
-            </div>
-            <div className="space-y-4">
-	              <div className="panel-readonly-block">
-	                <p className="text-sm text-gray-400 mb-2">Tu IP actual:</p>
-	                <p className="text-white font-mono text-lg">{systemConfig.currentIP || 'Cargando...'}</p>
-	                <p className="text-xs mt-2">
-	                  Estado:{' '}
-	                  <span className={systemConfig.currentIPAllowed ? 'text-green-400' : 'text-yellow-400'}>
-	                    {systemConfig.currentIPAllowed ? 'Permitida' : 'No permitida'}
-	                  </span>
-	                </p>
-	                <Button 
-	                  variant="secondary" 
-	                  size="sm" 
-	                  className="mt-2" 
-	                  onClick={addCurrentIP}
-                  loading={isSaving}
-                >
-                  Agregar como IP de administrador
-                </Button>
-              </div>
-              
-	              <div className="panel-setting-row">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-gray-300 font-medium">Auto-guardar IP al iniciar sesión</p>
-                    <p className="text-xs text-gray-500">Agrega automáticamente la IP de Owner/Admin tras un login exitoso.</p>
-                  </div>
-                  <Switch
-                    checked={Boolean(systemConfig.autoAddAdminIPOnLogin)}
-                    onCheckedChange={() => { void toggleAutoAddAdminIPOnLogin(); }}
-                    variant="primary"
-                    label="Auto-guardar IP"
-                  />
-                </div>
-              </div>
-
-              {systemConfig.myAdminIPs && systemConfig.myAdminIPs.length > 0 && (
-                <div>
-                  <p className="text-sm text-gray-400 mb-2">Mis IPs permitidas durante mantenimiento:</p>
-                  <div className="space-y-2">
-                    {systemConfig.myAdminIPs.map((ip, index) => (
-                      <div key={index} className="panel-data-row">
-                        <span className="text-white font-mono">{ip}</span>
-                        <span className="text-xs text-green-400">✓ Permitida</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <div className="panel-note-card">
-                <p className="text-xs text-gray-400">
-                  Total global de IPs permitidas:{' '}
-                  <span className="text-white font-mono">{Number(systemConfig.adminIPsCount || 0)}</span>
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-3">
-                <p className="text-xs text-yellow-400">
-                  💡 Las IPs agregadas aquí podrán acceder al panel incluso durante el modo mantenimiento.
-                  Localhost (127.0.0.1) está permitido por defecto.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* System Info */}
-          <Card animated delay={0.6} className="p-5 sm:p-6 lg:col-span-2">
-            <h2 className="panel-card-title mb-6">Información del Sistema</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="panel-mini-tile">
-                <p className="text-xs text-gray-500 mb-1">CPU</p>
-                <p className="text-white font-medium truncate">{systemStats?.cpu?.model || 'N/A'}</p>
-              </div>
-              <div className="panel-mini-tile">
-                <p className="text-xs text-gray-500 mb-1">Memoria Total</p>
-                <p className="text-white font-medium">{formatBytes(systemStats?.memory?.total || 0)}</p>
-              </div>
-              <div className="panel-mini-tile">
-                <p className="text-xs text-gray-500 mb-1">Memoria Libre</p>
-                <p className="text-white font-medium">{formatBytes(systemStats?.memory?.free || 0)}</p>
-              </div>
-              <div className="panel-mini-tile">
-                <p className="text-xs text-gray-500 mb-1">Heap Usado</p>
-                <p className="text-white font-medium">{formatBytes(systemStats?.memory?.heapUsed || 0)}</p>
-              </div>
-            </div>
-          </Card>
+  const renderConfigEditor = useMemo(() => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+          <p className="text-sm font-medium text-muted-foreground">Cargando datos del sistema...</p>
         </div>
-      )}
+      );
+    }
 
-      {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="panel-mini-tile"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/20">
-                <Settings className="w-5 h-5 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Configuraciones</p>
-                <p className="text-xl font-bold text-white">{stats.totalConfigurations}</p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="panel-mini-tile"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/20">
-                <Database className="w-5 h-5 text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Ambiente</p>
-                <p className="text-lg font-bold text-white capitalize">{stats.currentEnvironment}</p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="panel-mini-tile"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-500/20">
-                <History className="w-5 h-5 text-purple-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Versiones</p>
-                <p className="text-xl font-bold text-white">{stats.totalVersions}</p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="panel-mini-tile"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-yellow-500/20">
-                <FileText className="w-5 h-5 text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Backups</p>
-                <p className="text-xl font-bold text-white">{stats.totalBackups}</p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        {/* Sidebar de configuraciones */}
-        <div className="lg:col-span-1">
-          <div className="panel-side-shell">
-            <h2 className="text-lg font-semibold text-white mb-4">Secciones</h2>
-            <div className="space-y-2">
-              {configurations.map((config) => {
-                const Icon = config.icon;
-                return (
-                  <button
-                    key={config.key}
-                    onClick={() => setSelectedConfig(config.key)}
-                    className={`w-full flex items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
-                      selectedConfig === config.key
-                        ? 'border-primary/25 bg-primary/12 text-primary shadow-[0_16px_34px_-24px_rgba(var(--primary),0.45)]'
-                        : 'border-transparent text-gray-400 hover:border-white/10 hover:bg-white/[0.05] hover:text-white'
-                    }`}
-                  >
-                    <div className="panel-card-icon h-10 w-10 rounded-xl"><Icon className="w-5 h-5" /></div>
-                    <div className="text-left">
-                      <p className="font-medium">{config.name}</p>
-                      <p className="text-xs opacity-70">{config.description}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+    if (showJsonEditor) {
+      return (
+        <div className="space-y-4">
+          <textarea
+            value={JSON.stringify(configData[selectedConfig], null, 2)}
+            onChange={(e) => {
+              try {
+                const parsed = JSON.parse(e.target.value);
+                setConfigData((prev: any) => ({ ...prev, [selectedConfig]: parsed }));
+              } catch (err) {}
+            }}
+            className="input-glass w-full h-[500px] font-mono text-sm resize-none p-6"
+          />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white/5 p-3 rounded-lg">
+             <AlertTriangle className="h-3 w-3 text-amber-500" />
+             Asegúrate de mantener el esquema JSON válido para evitar errores.
           </div>
         </div>
+      );
+    }
 
-        {/* Editor principal */}
-        <div className="lg:col-span-3">
-          <div className="panel-editor-shell">
-            {/* Header del editor */}
-            <div className="border-b border-white/10 p-4 sm:p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-white">
-                    {configurations.find(c => c.key === selectedConfig)?.name || 'Configuración'}
-                  </h2>
-                  {hasChanges && (
-                    <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
-                      Cambios sin guardar
-                    </span>
-                  )}
+    switch (selectedConfig) {
+      case 'main': return renderMainConfigEditor();
+      case 'system': return renderSystemConfigEditor();
+      case 'bot': return renderBotConfigEditor();
+      case 'security': return renderSecurityConfigEditor();
+      case 'notifications': return renderNotificationsConfigEditor();
+      default: return null;
+    }
+  }, [selectedConfig, configData, showJsonEditor, isLoading, renderBotConfigEditor, renderMainConfigEditor, renderNotificationsConfigEditor, renderSecurityConfigEditor, renderSystemConfigEditor]);
+
+  const selectedConfigMeta = configurations.find((section) => section.key === selectedConfig);
+
+  const configLanes = [
+    {
+      label: 'Seccion activa',
+      value: selectedConfigMeta?.name || 'Cargando...',
+      description: selectedConfigMeta?.description || 'Gestionando el núcleo del bot.',
+      icon: <Settings className="w-4 h-4" />,
+      badge: selectedConfig.toUpperCase(),
+      badgeClassName: 'border-primary/20 bg-primary/10 text-primary',
+      glowClassName: 'from-primary/10 via-transparent to-transparent',
+    },
+    {
+      label: 'Cambios locales',
+      value: hasChanges ? 'Pendientes' : 'Al día',
+      description: hasChanges ? 'Hay ediciones sin persistir.' : 'Sincronizado con el servidor.',
+      icon: <Save className="w-4 h-4" />,
+      badge: hasChanges ? 'DIRTY' : 'OK',
+      badgeClassName: hasChanges ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+      glowClassName: hasChanges ? 'from-amber-500/10 via-transparent to-transparent' : 'from-emerald-500/10 via-transparent to-transparent',
+    },
+    {
+      label: 'Versiones',
+      value: stats?.totalVersions || versions.length,
+      description: 'Copias de seguridad activas.',
+      icon: <History className="w-4 h-4" />,
+      badge: 'BACKUP',
+      badgeClassName: 'border-purple-500/20 bg-purple-500/10 text-purple-300',
+      glowClassName: 'from-purple-500/10 via-transparent to-transparent',
+    },
+    {
+      label: 'Modo Bot',
+      value: contextGlobalState ? 'Encendido' : 'Apagado',
+      description: 'Estado operativo global.',
+      icon: <Zap className="w-4 h-4" />,
+      badge: contextGlobalState ? 'LIVE' : 'OFF',
+      badgeClassName: contextGlobalState ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border-red-500/20 bg-red-500/10 text-red-300',
+      glowClassName: contextGlobalState ? 'from-cyan-500/10 via-transparent to-transparent' : 'from-red-500/10 via-transparent to-transparent',
+    },
+  ];
+
+  return (
+    <div className="relative min-h-screen p-4 sm:p-8 lg:p-10 overflow-hidden">
+      {/* Premium Ambient Background */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(var(--page-a),0.05),transparent_40%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(var(--page-b),0.05),transparent_40%)]" />
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay" />
+      </div>
+
+      <div className="relative z-10 space-y-10">
+        <PageHeader 
+          title="Configuración"
+          description="Ajusta el núcleo del bot y gestiona servicios externos."
+          icon={<Settings className="h-6 w-6 text-primary" />}
+          actions={
+            <div className="flex items-center gap-3">
+              <Button variant="secondary" onClick={resetConfiguration} disabled={!hasChanges || isSaving} icon={<RotateCcw className="h-4 w-4" />}>
+                Descartar
+              </Button>
+              <Button variant="glow" onClick={saveConfiguration} loading={isSaving} disabled={!hasChanges} icon={<Save className="h-4 w-4" />}>
+                Guardar Cambios
+              </Button>
+            </div>
+          }
+        />
+
+        {/* Dynamic Meta Lanes */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {configLanes.map((lane, i) => (
+            <Card key={lane.label} delay={i * 0.05} animated className="p-4 bg-white/[0.02]">
+              <div className={cn("absolute inset-0 opacity-10 bg-gradient-to-br", lane.glowClassName)} />
+              <div className="relative z-10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="p-2 rounded-lg bg-white/5 text-primary">{lane.icon}</div>
+                  <Badge variant="outline" className={cn("text-[9px] font-black tracking-widest", lane.badgeClassName)}>{lane.badge}</Badge>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    onClick={() => setShowJsonEditor(!showJsonEditor)}
-                    variant="secondary"
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    {showJsonEditor ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                    JSON
-                  </Button>
-                  
-                  {hasChanges && (
-                    <Button
-                      onClick={resetConfiguration}
-                      variant="secondary"
-                      size="sm"
-                      className="flex items-center gap-1"
+                <div>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{lane.label}</p>
+                  <p className="text-lg font-black text-white leading-none mt-1">{lane.value}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Sidebar */}
+          <div className="lg:col-span-3 space-y-6">
+            <Card className="p-2 bg-white/5 backdrop-blur-xl border-white/10">
+              <div className="space-y-1">
+                {configurations.map((section) => {
+                  const Icon = section.icon;
+                  const isActive = selectedConfig === section.key;
+                  return (
+                    <button
+                      key={section.key}
+                      onClick={() => setSelectedConfig(section.key)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
+                        isActive ? "bg-primary text-primary-foreground shadow-glow-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                      )}
                     >
-                      <RotateCcw className="w-3 h-3" />
-                      Descartar
-                    </Button>
-                  )}
-                  
-                  <Button
-                    onClick={saveConfiguration}
-                    loading={isSaving}
-                    disabled={!hasChanges}
-                    variant="primary"
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    <Save className="w-3 h-3" />
-                    Guardar
-                  </Button>
-                </div>
+                      <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center", isActive ? "bg-white/20" : "bg-white/5")}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-black tracking-tight">{section.name}</p>
+                        <p className={cn("text-[9px] opacity-70", isActive ? "text-white" : "text-muted-foreground")}>{section.key.toUpperCase()}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            </Card>
 
-            {/* Errores de validación */}
-            {validationErrors.length > 0 && (
-              <div className="p-4 bg-red-500/10 border-b border-red-500/20">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5" />
-                  <div>
-                    <p className="text-red-400 font-medium">Errores de validación:</p>
-                    <ul className="mt-1 text-sm text-red-300">
-                      {validationErrors.map((error, index) => (
-                        <li key={index}>• {error}</li>
-                      ))}
-                    </ul>
+            <Card className="p-6 bg-primary/5 border-primary/20">
+               <div className="flex items-center gap-3 mb-6">
+                 <History className="h-4 w-4 text-primary" />
+                 <span className="text-xs font-black uppercase tracking-widest text-primary">Historial</span>
+               </div>
+               <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Entorno</span>
+                    <Badge variant="outline" className="text-[9px] tracking-tight">{stats?.currentEnvironment || 'PROD'}</Badge>
                   </div>
-                </div>
-              </div>
-            )}
+                  <Button variant="secondary" size="sm" className="w-full" onClick={() => setShowVersions(!showVersions)}>
+                    {showVersions ? 'Cerrar Registro' : 'Ver Registro'}
+                  </Button>
+               </div>
+            </Card>
+            
+            <Card className="p-6">
+               <div className="flex items-center gap-3 mb-4">
+                 <Download className="h-4 w-4 text-muted-foreground" />
+                 <span className="text-xs font-black uppercase tracking-widest">Utilidades</span>
+               </div>
+               <div className="grid grid-cols-1 gap-2">
+                  <Button variant="secondary" size="sm" className="justify-start" onClick={exportConfiguration} icon={<Download className="h-3 w-3" />}>Exportar</Button>
+                  <label className="w-full">
+                    <input type="file" accept=".json" onChange={(e) => e.target.files?.[0] && importConfiguration(e.target.files[0])} className="hidden" />
+                    <Button variant="secondary" size="sm" className="w-full justify-start" icon={<Upload className="h-3 w-3" />}>Importar</Button>
+                  </label>
+               </div>
+            </Card>
+          </div>
 
-            {/* Contenido del editor */}
-            <div className="p-5 sm:p-6">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
-                </div>
+          {/* Main Area */}
+          <div className="lg:col-span-9 space-y-8">
+            <AnimatePresence mode="wait">
+              {showVersions ? (
+                <motion.div key="versions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+                   <Card className="p-8">
+                      <div className="flex items-center justify-between mb-8">
+                         <h3 className="text-xl font-black text-white tracking-tight">Registro de Versiones</h3>
+                         <Button variant="ghost" size="sm" onClick={() => setShowVersions(false)} icon={<XCircle className="h-4 w-4" />}>Cerrar</Button>
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {versions.length > 0 ? versions.map((v) => (
+                          <div key={v.id} className="py-4 flex items-center justify-between group">
+                            <div className="flex items-center gap-4">
+                              <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center font-mono text-[10px] text-primary">{v.id.substring(0, 8)}</div>
+                              <div>
+                                <p className="text-sm font-bold text-white">{new Date(v.timestamp).toLocaleString()}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase">{v.userId} • {v.state}</p>
+                              </div>
+                            </div>
+                            <Button variant="secondary" size="sm" onClick={() => rollbackToVersion(v.id)} icon={<RotateCcw className="h-3 w-3" />}>Rollback</Button>
+                          </div>
+                        )) : (
+                          <div className="py-20 text-center text-muted-foreground">No hay versiones registradas</div>
+                        )}
+                      </div>
+                   </Card>
+                </motion.div>
               ) : (
-                renderConfigEditor()
+                <motion.div key="editor" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+                  <Card glow className="p-0 overflow-hidden min-h-[600px] flex flex-col">
+                    <div className="p-6 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">
+                       <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                             {selectedConfigMeta && React.createElement(selectedConfigMeta.icon, { className: "h-5 w-5" })}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-black text-white tracking-tight">{selectedConfigMeta?.name}</h3>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{selectedConfigMeta?.description}</p>
+                          </div>
+                       </div>
+                       <Button variant="ghost" size="sm" onClick={() => setShowJsonEditor(!showJsonEditor)} icon={showJsonEditor ? <Eye className="h-4 w-4" /> : <FileText className="h-4 w-4" />}>
+                         {showJsonEditor ? 'Vista Visual' : 'Editor JSON'}
+                       </Button>
+                    </div>
+                    <div className="flex-1 p-8">
+                       {renderConfigEditor}
+                    </div>
+                  </Card>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* Historial de versiones */}
-      <AnimatePresence>
-        {showVersions && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="panel-editor-shell"
-          >
-            <div className="p-4 border-b border-white/10">
-              <h2 className="text-lg font-semibold text-white">
-                Historial de Versiones - {selectedConfig}
-              </h2>
-            </div>
-            
-            <div className="divide-y divide-white/5">
-              {versions.length === 0 ? (
-                <div className="panel-empty-state">
-                  <History className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No hay versiones registradas</p>
-                </div>
+      {/* Modals */}
+      <Modal
+        isOpen={isEmailPreviewOpen}
+        onClose={() => setIsEmailPreviewOpen(false)}
+        title={`Preview Email: ${EMAIL_PREVIEW_TEMPLATES.find(t => t.id === emailPreviewType)?.label}`}
+        className="max-w-5xl"
+      >
+        <div className="space-y-6">
+           <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                 <Button variant={emailPreviewMode === 'html' ? 'primary' : 'secondary'} size="sm" onClick={() => setEmailPreviewMode('html')}>HTML</Button>
+                 <Button variant={emailPreviewMode === 'text' ? 'primary' : 'secondary'} size="sm" onClick={() => setEmailPreviewMode('text')}>TEXTO</Button>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => copyEmailPreview(emailPreviewMode)} icon={<Copy className="h-3.5 w-3.5" />}>Copiar</Button>
+           </div>
+
+           <div className="rounded-2xl border border-white/10 bg-black/20 overflow-hidden min-h-[500px]">
+              {isLoadingEmailPreview ? (
+                <div className="flex items-center justify-center h-[500px] text-muted-foreground animate-pulse">Generando vista previa...</div>
+              ) : emailPreviewMode === 'html' ? (
+                <iframe srcDoc={emailPreviewData?.html} className="w-full h-[500px] bg-white" title="Email Preview" />
               ) : (
-                versions.map((version) => (
-                  <div key={version.id} className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          version.state === 'active' ? 'bg-green-400' :
-                          version.state === 'rollback' ? 'bg-yellow-400' :
-                          'bg-gray-400'
-                        }`} />
-                        <div>
-                          <p className="font-medium text-white">
-                            Versión {version.id.substring(0, 8)}
-                          </p>
-                          <p className="text-sm text-gray-400">
-                            {new Date(version.timestamp).toLocaleString()} por {version.userId}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          version.state === 'active' ? 'bg-green-500/20 text-green-400' :
-                          version.state === 'rollback' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-gray-500/20 text-gray-400'
-                        }`}>
-                          {version.state}
-                        </span>
-                        
-                        <Button
-                          onClick={() => rollbackToVersion(version.id)}
-                          variant="secondary"
-                          size="sm"
-                          className="flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          Rollback
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                <pre className="p-6 text-sm text-gray-300 whitespace-pre-wrap">{extractPlainTextFromHtml(emailPreviewData?.html || '')}</pre>
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+           </div>
+        </div>
+      </Modal>
     </div>
   );
 }

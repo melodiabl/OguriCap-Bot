@@ -43,6 +43,7 @@ services:
     environment:
       - PANEL_URL=https://melodiaauris.qzz.io
       - NO_PROMPT=1
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
     volumes:
       - ./Sessions:/app/Sessions
       - ./storage:/app/storage
@@ -75,6 +76,7 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
       interval: 30s

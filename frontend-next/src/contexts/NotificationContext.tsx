@@ -148,11 +148,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   
   const { socket } = useSocketConnection();
   const { preferences } = usePreferences();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const router = useRouter();
   const loadingRef = useRef(false);
   const seenNotificationsRef = useRef<Set<number>>(new Set());
   const recentContentHashesRef = useRef<Map<string, number>>(new Map());
+  const browserPushesRef = useRef<Map<string, globalThis.Notification>>(new Map());
+  const browserPushTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const serviceWorkerRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
   const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
 
@@ -192,6 +195,146 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  const clearBrowserPushTimeout = useCallback((tag: string) => {
+    if (typeof window === 'undefined') return;
+    const timeoutId = browserPushTimeoutsRef.current.get(tag);
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      browserPushTimeoutsRef.current.delete(tag);
+    }
+  }, []);
+
+  const closeBrowserPush = useCallback(async (tag: string) => {
+    clearBrowserPushTimeout(tag);
+
+    const active = browserPushesRef.current.get(tag);
+    if (active) {
+      try {
+        active.close();
+      } catch {
+        // ignore
+      }
+      browserPushesRef.current.delete(tag);
+    }
+
+    const registration = serviceWorkerRegistrationRef.current;
+    if (registration) {
+      try {
+        const notifications = await registration.getNotifications({ tag });
+        notifications.forEach((notification) => notification.close());
+      } catch {
+        // ignore
+      }
+    }
+  }, [clearBrowserPushTimeout]);
+
+  const closeAllBrowserPushes = useCallback(() => {
+    const tags = new Set<string>([
+      ...browserPushesRef.current.keys(),
+      ...browserPushTimeoutsRef.current.keys(),
+    ]);
+
+    tags.forEach((tag) => {
+      void closeBrowserPush(tag);
+    });
+  }, [closeBrowserPush]);
+
+  const getBrowserPushDuration = useCallback((tipo: Notification['tipo']) => {
+    if (tipo === 'error') return 12000;
+    if (tipo === 'warning') return 9000;
+    if (tipo === 'success') return 6500;
+    return 5500;
+  }, []);
+
+  const openNotificationTarget = useCallback((notification: Notification) => {
+    const url = notification?.data?.url;
+    if (typeof url === 'string' && url.startsWith('/')) {
+      router.push(url);
+      return;
+    }
+    toggleOpen();
+  }, [router, toggleOpen]);
+
+  const showBrowserPushNotification = useCallback(async (notification: Notification, contentHash: string) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const title = formatNotificationTitle(notification);
+    const body = formatNotificationBody(notification);
+    const tag = `oguri-notif-${contentHash.substring(0, 16)}`;
+    const duration = getBrowserPushDuration(notification.tipo);
+
+    await closeBrowserPush(tag);
+
+    try {
+      const push = new window.Notification(title, {
+        body,
+        icon: '/bot-icon.svg',
+        badge: '/bot-icon.svg',
+        tag,
+        renotify: false,
+        requireInteraction: false,
+        silent: !preferences.soundEnabled,
+        data: { url: notification?.data?.url || '/' },
+      });
+
+      browserPushesRef.current.set(tag, push);
+
+      push.onclick = () => {
+        try {
+          window.focus();
+        } catch {
+          // ignore
+        }
+        openNotificationTarget(notification);
+        void closeBrowserPush(tag);
+      };
+
+      push.onclose = () => {
+        clearBrowserPushTimeout(tag);
+        browserPushesRef.current.delete(tag);
+      };
+
+      if (duration > 0) {
+        const timeoutId = window.setTimeout(() => {
+          void closeBrowserPush(tag);
+        }, duration);
+        browserPushTimeoutsRef.current.set(tag, timeoutId);
+      }
+    } catch (err) {
+      console.error('Error showing push notification:', err);
+    }
+  }, [clearBrowserPushTimeout, closeBrowserPush, getBrowserPushDuration, openNotificationTarget, preferences.soundEnabled]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        serviceWorkerRegistrationRef.current = registration;
+      })
+      .catch(() => {
+        serviceWorkerRegistrationRef.current = null;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') closeAllBrowserPushes();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [closeAllBrowserPushes]);
+
+  useEffect(() => {
+    if (settings.push) return;
+    closeAllBrowserPushes();
+  }, [closeAllBrowserPushes, settings.push]);
+
+  useEffect(() => () => closeAllBrowserPushes(), [closeAllBrowserPushes]);
+
   // Load settings from localStorage
   useEffect(() => {
     try {
@@ -224,7 +367,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [settings]);
 
   const loadNotifications = useCallback(async (pageNum = 1, append = false) => {
-    if (authLoading || !isAuthenticated) return;
+    if (authLoading || !isAuthenticated) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
     if (loadingRef.current) return;
     loadingRef.current = true;
     setIsLoading(true);
@@ -289,6 +436,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const handleNotification = (notification: Notification) => {
       if (!notification || seenNotificationsRef.current.has(notification.id)) return;
       
+      // Filtrar por roles objetivo: verificar targetRoles y para
+      const notificationTargetRoles = (notification as any).targetRoles as string[] | null;
+      const notificationPara = (notification as any).para as string | null;
+      
+      // Si la notificación tiene targetRoles específicos, verificar el rol del usuario
+      if (notificationTargetRoles && notificationTargetRoles.length > 0) {
+        const userRole = user?.rol?.toLowerCase() || '';
+        const matchesRole = notificationTargetRoles.some(r => r.toLowerCase() === userRole);
+        if (!matchesRole) {
+          console.log(`🔒 Notificación filtrada por rol: requiere [${notificationTargetRoles.join(', ')}], usuario es [${userRole}]`);
+          return;
+        }
+      }
+      
+      // Si la notificación tiene "para" específico, verificar
+      if (notificationPara) {
+        const userRole = user?.rol?.toLowerCase() || '';
+        const paraLower = notificationPara.toLowerCase();
+        const matchesPara = 
+          paraLower === 'all' || 
+          paraLower === 'todos' ||
+          paraLower === userRole ||
+          paraLower === user?.username?.toLowerCase();
+        if (!matchesPara) {
+          console.log(`🔒 Notificación filtrada: para [${notificationPara}], usuario es [${user?.username}](${userRole})`);
+          return;
+        }
+      }
+      
       // Deduplicación por contenido en el frontend (evita spam visual idéntico)
       const contentHash = generateContentHash(notification);
       const now = Date.now();
@@ -328,12 +504,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         };
 
         const onClick = () => {
-          const url = notification?.data?.url;
-          if (typeof url === 'string' && url.startsWith('/')) {
-            router.push(url);
-            return;
-          }
-          toggleOpen();
+          openNotificationTarget(notification);
         };
 
         const content = <NotificationToastContent notification={notification} onClick={onClick} />;
@@ -368,23 +539,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         Notification.permission === 'granted' &&
         shouldShowBrowserPush(contentHash)
       ) {
-        try {
-          const title = formatNotificationTitle(notification);
-          const body = formatNotificationBody(notification);
-          
-          // Usamos el tag para que el sistema operativo agrupe o reemplace duplicados si llegaran a pasar el filtro
-          const notificationTag = `oguri-notif-${contentHash.substring(0, 16)}`;
-          
-          new Notification(title, {
-            body,
-            icon: '/bot-icon.svg',
-            tag: notificationTag,
-            requireInteraction: notification.tipo === 'error',
-            data: { url: notification?.data?.url || '/' },
-          });
-        } catch (err) {
-          console.error('Error showing push notification:', err);
-        }
+        void showBrowserPushNotification(notification, contentHash);
       }
     };
 
@@ -393,7 +548,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       socket.off(SOCKET_EVENTS.NOTIFICATION, handleNotification);
     };
-  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, router, toggleOpen, cleanupRecentHashes, generateContentHash, shouldShowBrowserPush]);
+  }, [socket, authLoading, isAuthenticated, shouldShowNotification, settings, preferences, cleanupRecentHashes, generateContentHash, shouldShowBrowserPush, openNotificationTarget, showBrowserPushNotification]);
 
   const markAsRead = useCallback(async (id: number) => {
     try {
@@ -463,8 +618,47 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [loadNotifications]);
 
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
+    let nextSettings = { ...newSettings };
+
+    if (Object.prototype.hasOwnProperty.call(newSettings, 'push')) {
+      const wantsPush = Boolean(newSettings.push);
+
+      if (wantsPush) {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+          nextSettings.push = false;
+          notify.warning('Tu navegador no soporta notificaciones push');
+        } else {
+          if ('serviceWorker' in navigator) {
+            try {
+              serviceWorkerRegistrationRef.current = await navigator.serviceWorker.register('/sw.js');
+            } catch {
+              serviceWorkerRegistrationRef.current = null;
+            }
+          }
+
+          if (Notification.permission === 'default') {
+            try {
+              const permission = await Notification.requestPermission();
+              if (permission !== 'granted') {
+                nextSettings.push = false;
+                notify.warning(permission === 'denied' ? 'Permiso de notificaciones bloqueado' : 'Permiso de notificaciones no concedido');
+              }
+            } catch {
+              nextSettings.push = false;
+              notify.error('No se pudo solicitar permiso para las notificaciones');
+            }
+          } else if (Notification.permission !== 'granted') {
+            nextSettings.push = false;
+            notify.warning('Activa las notificaciones del navegador para usar Push');
+          }
+        }
+      } else {
+        closeAllBrowserPushes();
+      }
+    }
+
+    setSettings(prev => ({ ...prev, ...nextSettings }));
+  }, [closeAllBrowserPushes]);
 
   const value = useMemo(() => ({
     notifications,

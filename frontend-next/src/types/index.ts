@@ -21,6 +21,9 @@ export interface User {
   grupo_registro?: string;
   fecha_registro: string;
   created_at: string;
+  last_login?: string | null;
+  login_ip?: string | null;
+  activo?: boolean;
 }
 
 export interface Group {
