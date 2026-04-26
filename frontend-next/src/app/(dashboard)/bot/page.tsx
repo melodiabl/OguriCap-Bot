@@ -402,7 +402,7 @@ export default function BotStatusPage() {
                            <span className="text-sm">Ingresa este código en WhatsApp &gt; Vincular dispositivo</span>
                          </div>
                          <Button 
-                           variant="outline" 
+                           variant="ghost" 
                            onClick={() => { setPairingCode(null); setPhoneNumber(''); }} 
                            size="sm"
                          >
