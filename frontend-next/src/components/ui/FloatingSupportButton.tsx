@@ -169,7 +169,7 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
   };
 
   const header = (
-    <div className="panel-surface-soft flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="panel-surface-soft flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between flex-none rounded-none sm:rounded-2xl border-x-0 sm:border-x border-t-0 sm:border-t border-b sm:border-b">
       <div className="flex items-center gap-3">
         <div className="panel-card-icon h-10 w-10 rounded-xl">
           <MessageCircle className="w-5 h-5" />
@@ -179,6 +179,11 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
             <Button variant="secondary" size="sm" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>
               Volver
             </Button>
+            {canManage && selectedChatId && (
+              <Button variant="secondary" size="sm" onClick={() => setSelectedChatId(null)} className="xl:hidden" icon={<ArrowLeft className="w-4 h-4" />}>
+                Chats
+              </Button>
+            )}
             <span className="badge badge-info">{canManage ? 'Inbox de Soporte' : 'Chat de Soporte'}</span>
           </div>
           <p className="mt-2 text-sm text-[rgb(var(--text-secondary))]">
@@ -204,9 +209,9 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col h-full w-full">
         {header}
-        <div className="panel-empty-state min-h-[220px]">
+        <div className="panel-empty-state flex-1 min-h-[220px]">
           <RefreshCw className="w-8 h-8 text-primary animate-spin" />
           <p className="text-sm text-[rgb(var(--text-secondary))]">Cargando soporte...</p>
         </div>
@@ -215,23 +220,29 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full w-full bg-background sm:bg-transparent rounded-none sm:rounded-[28px] overflow-hidden">
       {header}
 
-      <div className={canManage ? 'grid grid-cols-1 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]' : 'grid grid-cols-1 gap-4'}>
+      <div className={cn(
+        "flex-1 min-h-0 p-3 sm:p-0 sm:mt-4",
+        canManage ? 'flex flex-col xl:grid xl:grid-cols-[18rem_minmax(0,1fr)] gap-4 overflow-hidden' : 'flex flex-col'
+      )}>
         {canManage && (
-          <div className="panel-side-shell max-h-[60vh] overflow-y-auto">
-            <div className="mb-3 flex items-center gap-2">
+          <div className={cn(
+            "panel-side-shell flex flex-col flex-none max-h-[35vh] xl:max-h-none xl:h-full overflow-hidden",
+            selectedChatId ? "hidden xl:flex" : "flex flex-1 max-h-none"
+          )}>
+            <div className="mb-3 flex items-center gap-2 flex-none">
               <Users className="w-4 h-4 text-muted" />
               <p className="text-sm font-semibold text-foreground">Chats</p>
             </div>
             {chats.length === 0 ? (
-              <div className="panel-empty-state min-h-[180px] p-6">
+              <div className="panel-empty-state flex-1 p-6">
                 <Users className="h-10 w-10 text-muted" />
                 <p className="text-sm text-[rgb(var(--text-secondary))]">No hay chats</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                 {chats.map((c) => {
                   const active = selectedChatId === c.id;
                   const status = String(c.status || 'open');
@@ -266,8 +277,8 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
           </div>
         )}
 
-          <div className={canManage ? 'min-w-0' : ''}>
-            <div className="panel-setting-row mb-3">
+        <div className={cn("flex flex-col flex-1 min-h-0", canManage && !selectedChatId ? "hidden xl:flex" : "flex")}>
+          <div className="panel-setting-row mb-3 flex-none">
               <div className="flex items-center gap-2">
                 {chat?.status === 'closed' ? (
                   <Lock className="w-4 h-4 text-muted" />
@@ -291,7 +302,7 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
 
           <div
             ref={scrollRef}
-            className="panel-editor-shell min-h-[240px] max-h-[60vh] overflow-y-auto p-3 sm:min-h-[320px] sm:p-4"
+            className="panel-editor-shell flex-1 min-h-[150px] overflow-y-auto p-3 sm:p-4"
           >
             {!chat ? (
               <div className="panel-empty-state min-h-[200px]">
@@ -338,7 +349,7 @@ const SupportChatPanel: React.FC<{ onBack: () => void; onClose: () => void }> = 
             )}
           </div>
 
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row flex-none">
             <input
               className="input-glass flex-1"
               placeholder={chat?.status === 'closed' ? 'Chat cerrado' : 'Escribe un mensaje…'}
@@ -426,7 +437,7 @@ export const FloatingSupportButton: React.FC = () => {
         // En vista "chat" evitamos el header del Modal porque ya renderizamos uno propio
         // (si no, queda doble header y en pantallas bajas se desajusta/recorta).
         title={view === 'chat' ? undefined : 'Soporte'}
-        className={view === 'chat' ? 'max-w-4xl p-4 md:p-6' : undefined}
+        className={view === 'chat' ? 'max-w-4xl p-0 h-[100dvh] w-[100dvw] sm:h-[85vh] sm:w-[95vw] sm:p-4 md:p-6 sm:rounded-[28px] rounded-none flex flex-col overflow-hidden border-0 sm:border' : undefined}
       >
         {view === 'chat' ? (
           <SupportChatPanel onBack={() => setView('menu')} onClose={closeModal} />

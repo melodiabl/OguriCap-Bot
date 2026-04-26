@@ -213,9 +213,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
       />
 
       {/* Centered content */}
-      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
         <div
-          className={cn('modal-content w-full', className)}
+          className={cn('modal-content w-full flex flex-col max-h-full pointer-events-auto', className)}
           onClick={(e) => e.stopPropagation()}
           ref={contentRef}
           tabIndex={-1}
