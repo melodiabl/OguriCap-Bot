@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot, Wifi, WifiOff, RefreshCw, Power, PowerOff, QrCode, Smartphone,
   Clock, Activity, AlertCircle, CheckCircle, Radio, Sparkles, ShieldCheck,
-  Zap, Gauge, HardDrive, ScanLine, Loader2, Activity as ActivityIcon
+  Zap, Gauge, HardDrive, ScanLine, Loader2, Activity as ActivityIcon, Key
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -63,6 +63,26 @@ export default function BotStatusPage() {
       setQrImage(null);
     }
   }, [socketBotStatus?.qrCode, status?.qrCode, connected]);
+
+  useEffect(() => {
+    if (authMethod === 'pairing') {
+      const handlePairingCode = (data: { pairingCode: string }) => {
+        setPairingCode(data.pairingCode);
+        setIsConnecting(false);
+      };
+      const socket = (window as any).socket;
+      if (socket) {
+        socket.on('bot:pairingCode', handlePairingCode);
+        return () => socket.off('bot:pairingCode', handlePairingCode);
+      }
+    }
+  }, [authMethod]);
+
+  useEffect(() => {
+    if (socketBotStatus?.pairingCode) {
+      setPairingCode(socketBotStatus.pairingCode);
+    }
+  }, [socketBotStatus?.pairingCode]);
 
   const handleConnect = async () => {
     if (!canControl) return notify.error('Permisos insuficientes');
@@ -325,7 +345,7 @@ export default function BotStatusPage() {
                </Card>
             </div>
 
-            {(qrImage || pairingCode || connecting) && (
+            {(qrImage || connecting || (authMethod === 'pairing')) && (
               <Card className="mt-8 p-10 text-center flex flex-col items-center gap-8 shadow-glow-primary">
                  {authMethod === 'qr' ? (
                    <div className="space-y-6">
@@ -340,16 +360,57 @@ export default function BotStatusPage() {
                         )}
                      </div>
                    </div>
-                 ) : (
-                   <div className="space-y-6">
-                     <h3 className="text-2xl font-black text-foreground">Ingresa el Código</h3>
-                     <div className="p-10 rounded-[40px] bg-primary/10 border-2 border-primary/20 shadow-glow-primary inline-block">
-                        <span className="text-6xl font-black font-mono tracking-[0.2em] text-primary">
-                          {pairingCode || '--------'}
-                        </span>
+                 ) : authMethod === 'pairing' && !pairingCode ? (
+                    <div className="space-y-6 w-full">
+                      <h3 className="text-2xl font-black text-foreground">Ingresa tu Número</h3>
+                      <div className="relative">
+                        <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          placeholder="54911XXXXXXXX"
+                          className="w-full pl-12 pr-4 py-4 rounded-2xl bg-background/80 border-2 border-border/20 text-xl font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:border-opacity-50 transition-all"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleConnect}
+                        disabled={!phoneNumber || isConnecting}
+                        className="w-full h-14 text-lg font-bold"
+                        size="lg"
+                      >
+                        {isConnecting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Key className="h-5 w-5 mr-2" />}
+                        {isConnecting ? 'Generando...' : 'Generar Código'}
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        Ejemplo: 54911XXXXXXXX (incluye código de país)
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6 w-full">
+                       <h3 className="text-2xl font-black text-foreground">Código de Vinculación</h3>
+                       <div className="flex justify-center">
+                         <div className="p-8 rounded-[32px] bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30 shadow-glow-primary">
+                            <span className="text-5xl font-black font-mono tracking-[0.15em] text-primary">
+                              {pairingCode || '--------'}
+                            </span>
+                         </div>
+                       </div>
+                       <div className="flex flex-col items-center gap-4">
+                         <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                           <AlertCircle className="h-4 w-4" />
+                           <span className="text-sm">Ingresa este código en WhatsApp &gt; Vincular dispositivo</span>
+                         </div>
+                         <Button 
+                           variant="outline" 
+                           onClick={() => { setPairingCode(null); setPhoneNumber(''); }} 
+                           size="sm"
+                         >
+                           Cambiar Número / Regenerar
+                         </Button>
+                       </div>
                      </div>
-                   </div>
-                 )}
+                  )}
                  <p className="text-sm text-muted-foreground max-w-md">
                     Mantén esta ventana abierta. La sesión se activará automáticamente al detectar la vinculación.
                  </p>
