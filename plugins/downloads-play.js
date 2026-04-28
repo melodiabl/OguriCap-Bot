@@ -221,6 +221,28 @@ async function downloadToFile(url, filePath, timeoutMs = 60000) {
  return buf.length
 }
 
+async function ffmpegToOpus(inputPath, outputPath, timeoutMs = 120000) {
+ return await new Promise((resolve, reject) => {
+   const args = ['-y', '-i', inputPath, '-vn', '-acodec', 'libopus', '-b:a', '128k', outputPath]
+   const p = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
+   let stderr = ''
+   const t = setTimeout(() => {
+    try { p.kill('SIGKILL') } catch { }
+    reject(new Error('ffmpeg timeout'))
+   }, timeoutMs)
+   p.stderr.on('data', (d) => { stderr += d.toString() })
+   p.on('error', (e) => {
+    clearTimeout(t)
+    reject(e)
+   })
+   p.on('close', (code) => {
+    clearTimeout(t)
+    if (code === 0) return resolve(true)
+    reject(new Error(stderr || `ffmpeg failed with code ${code}`))
+   })
+  })
+}
+
 async function ffmpegToMp3(inputPath, outputPath, timeoutMs = 120000) {
  return await new Promise((resolve, reject) => {
   const args = ['-y', '-i', inputPath, '-vn', '-acodec', 'libmp3lame', '-b:a', '128k', outputPath]
@@ -322,8 +344,8 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 			} catch {
 				await edit(`❀ Enviando audio...`)
 			}
-			const fileName = `${title}.mp3`
-			await conn.sendMessage(m.chat, { audio: { url: outPath }, fileName, mimetype: 'audio/mpeg' }, { quoted: m })
+			const fileName = `${title}.opus`
+			await conn.sendMessage(m.chat, { audio: { url: outPath }, mimetype: 'audio/opus', ptt: true }, { quoted: m })
 		await safeReact('✔️')
      try { await fs.promises.unlink(outPath) } catch { }
      return
@@ -359,29 +381,29 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 		const fileName = `${title}.${ext}`
 		try { await conn.reply(m.chat, `> ❀ *Audio procesado. Servidor:* \`${candidate.api}\``, m) } catch {}
    try {
-    // If audio/mp4 is frequently not playable, convert to mp3 before sending.
-    if (mimetype === 'audio/mp4' && typeof candidate.url === 'string') {
+     // If audio/mp4 or other formats, convert to opus before sending for ptt.
+    if ((mimetype === 'audio/mp4' || mimetype === 'audio/mpeg') && typeof candidate.url === 'string') {
      const maxBytesForConvert = 60 * 1024 * 1024
      const total = sniff && sniff.totalBytes ? sniff.totalBytes : null
      if (!total || total <= maxBytesForConvert) {
       const tmpDir = path.join(os.tmpdir(), 'oguricap')
       await fs.promises.mkdir(tmpDir, { recursive: true })
-      const inPath = path.join(tmpDir, `in_${Date.now()}_${Math.random().toString(16).slice(2)}.m4a`)
-      const outPath = path.join(tmpDir, `out_${Date.now()}_${Math.random().toString(16).slice(2)}.mp3`)
+      const inPath = path.join(tmpDir, `in_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`)
+      const outPath = path.join(tmpDir, `out_${Date.now()}_${Math.random().toString(16).slice(2)}.opus`)
       try {
        await downloadToFile(candidate.url, inPath, 90000)
-       await ffmpegToMp3(inPath, outPath, 180000)
-       const mp3 = await fs.promises.readFile(outPath)
-       await conn.sendMessage(m.chat, { audio: mp3, fileName: `${title}.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
+       await ffmpegToOpus(inPath, outPath, 180000)
+       const opus = await fs.promises.readFile(outPath)
+       await conn.sendMessage(m.chat, { audio: opus, mimetype: 'audio/opus', ptt: true }, { quoted: m })
       } finally {
        try { await fs.promises.unlink(inPath) } catch { }
        try { await fs.promises.unlink(outPath) } catch { }
       }
      } else {
-      await conn.sendMessage(m.chat, { audio: { url: candidate.url }, fileName, mimetype }, { quoted: m })
+      await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/opus' }, { quoted: m })
      }
     } else {
-     await conn.sendMessage(m.chat, { audio: { url: candidate.url }, fileName, mimetype }, { quoted: m })
+     await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/opus' }, { quoted: m })
     }
 		await safeReact('✔️')
      break
