@@ -331,11 +331,11 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
      // If server returned JSON/text, continue to fallback APIs.
 			if (dl?.contentType && (/application\/json/i.test(dl.contentType) || /^text\//i.test(dl.contentType))) {
 				throw new Error(`Unexpected content-type: ${dl.contentType}`)
-			}
-			try {
+		}
+ 		try {
 				if (dl && dl.totalBytes) {
 					const bar = renderProgressBar(100, pCfg.style, pCfg.width)
-					const t = `❀ Audio listo (MelodyApi)\n${bar} 100.0% | ${formatBytes(dl.totalBytes)}/${formatBytes(dl.totalBytes)}\n❀ Enviando audio...`
+					const t = `❀ Audio listo (MelodyApi)\n${bar} 100.0% | ${formatBytes(dl.totalBytes)}\n❀ Enviando audio...`
 					await edit(t)
 				} else {
 					const rb = dl && Number.isFinite(Number(dl.receivedBytes)) ? Number(dl.receivedBytes) : 0
@@ -344,9 +344,20 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 			} catch {
 				await edit(`❀ Enviando audio...`)
 			}
-			const fileName = `${title}.ogg`
-			await conn.sendMessage(m.chat, { audio: { url: outPath }, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m })
-		await safeReact('✔️')
+      // Convert to ogg/opus for voice note
+      const tmpDir = path.join(os.tmpdir(), 'oguricap')
+      await fs.promises.mkdir(tmpDir, { recursive: true })
+      const oggPath = path.join(tmpDir, `voice_${Date.now()}_${Math.random().toString(16).slice(2)}.ogg`)
+      try {
+        await ffmpegToOggOpus(outPath, oggPath, 180000)
+        const voiceNote = await fs.promises.readFile(oggPath)
+        await conn.sendMessage(m.chat, { audio: voiceNote, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m })
+      } finally {
+        try { await fs.promises.unlink(oggPath) } catch { }
+      }
+			await safeReact('✔️')
+      try { await fs.promises.unlink(outPath) } catch { }
+      return
      try { await fs.promises.unlink(outPath) } catch { }
      return
 		} catch (e) {
