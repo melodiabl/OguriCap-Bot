@@ -221,9 +221,9 @@ async function downloadToFile(url, filePath, timeoutMs = 60000) {
  return buf.length
 }
 
-async function ffmpegToOpus(inputPath, outputPath, timeoutMs = 120000) {
+async function ffmpegToOggOpus(inputPath, outputPath, timeoutMs = 120000) {
  return await new Promise((resolve, reject) => {
-   const args = ['-y', '-i', inputPath, '-vn', '-acodec', 'libopus', '-b:a', '128k', outputPath]
+   const args = ['-y', '-i', inputPath, '-vn', '-c:a', 'libopus', '-b:a', '128k', '-application', 'voip', outputPath]
    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
    let stderr = ''
    const t = setTimeout(() => {
@@ -344,8 +344,8 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 			} catch {
 				await edit(`❀ Enviando audio...`)
 			}
-			const fileName = `${title}.opus`
-			await conn.sendMessage(m.chat, { audio: { url: outPath }, mimetype: 'audio/opus', ptt: true }, { quoted: m })
+			const fileName = `${title}.ogg`
+			await conn.sendMessage(m.chat, { audio: { url: outPath }, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m })
 		await safeReact('✔️')
      try { await fs.promises.unlink(outPath) } catch { }
      return
@@ -389,18 +389,18 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
       const tmpDir = path.join(os.tmpdir(), 'oguricap')
       await fs.promises.mkdir(tmpDir, { recursive: true })
       const inPath = path.join(tmpDir, `in_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`)
-      const outPath = path.join(tmpDir, `out_${Date.now()}_${Math.random().toString(16).slice(2)}.opus`)
+      const outPath = path.join(tmpDir, `out_${Date.now()}_${Math.random().toString(16).slice(2)}.ogg`)
       try {
        await downloadToFile(candidate.url, inPath, 90000)
-       await ffmpegToOpus(inPath, outPath, 180000)
-       const opus = await fs.promises.readFile(outPath)
-       await conn.sendMessage(m.chat, { audio: opus, mimetype: 'audio/opus', ptt: true }, { quoted: m })
+       await ffmpegToOggOpus(inPath, outPath, 180000)
+       const oggOpus = await fs.promises.readFile(outPath)
+       await conn.sendMessage(m.chat, { audio: oggOpus, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m })
       } finally {
        try { await fs.promises.unlink(inPath) } catch { }
        try { await fs.promises.unlink(outPath) } catch { }
       }
      } else {
-      await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/opus' }, { quoted: m })
+      await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/ogg; codecs=opus' }, { quoted: m })
      }
     } else {
      await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/opus' }, { quoted: m })
