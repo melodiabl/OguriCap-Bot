@@ -62,6 +62,22 @@ async function initSystems() {
 function ensurePanelDb() {
   if (!global.db?.data) return null
   const d = global.db.data
+
+  // Migrar datos legacy de db.data.panel.* → db.data.*
+  if (d.panel && typeof d.panel === 'object') {
+    const p = d.panel
+    if (p.subbots && !Object.keys(d.subbots || {}).length)        d.subbots        = p.subbots
+    if (p.groups  && !Object.keys(d.groups  || {}).length)        d.groups         = p.groups
+    if (p.aportes && !Object.keys(d.aportes || {}).length)        d.aportes        = p.aportes
+    if (p.pedidos && !Object.keys(d.pedidos || {}).length)        d.pedidos        = p.pedidos
+    if (p.multimedia && !Object.keys(d.multimedia || {}).length)  d.multimedia     = p.multimedia
+    if (p.systemConfig && !Object.keys(d.systemConfig || {}).length) d.systemConfig = p.systemConfig
+    if (p.botGlobalState && !d.botGlobalState?.lastUpdated)       d.botGlobalState = p.botGlobalState
+    if (p.botGlobalOffMessage && !d.botGlobalOffMessage)          d.botGlobalOffMessage = p.botGlobalOffMessage
+    if (p.notifications?.length && !d.notifications?.length)      d.notifications  = p.notifications
+    if (p.subbotsCounter && !d.subbotsCounter)                    d.subbotsCounter = p.subbotsCounter
+  }
+
   d.panelConfig    ??= {}
   d.subbots        ??= {}
   d.groups         ??= {}
