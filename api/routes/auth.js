@@ -5,7 +5,7 @@
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
-import { json, readJson, getJwtAuth, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt } from '../middleware/core.js'
+import { json, readJson, getJwtAuth, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
 import { authLimiter } from '../middleware/rate-limit.js'
 import { encryptPassword } from '../../lib/password-crypto.js'
 
@@ -41,7 +41,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
 
     // Turnstile
     const turnstileEnabled = process.env.TURNSTILE_DISABLED !== '1'
-    const bypass = !turnstileEnabled || (process.env.TURNSTILE_BYPASS_ALLOWED_IPS === '1' && panelDb?.systemConfig?.adminIPs?.includes(clientIp))
+    const bypass = !turnstileEnabled || (process.env.TURNSTILE_BYPASS_ALLOWED_IPS === '1' && isAllowedIP(clientIp, panelDb))
     if (turnstileEnabled && !bypass) {
       if (!turnstileToken) return json(res, 400, { error: 'Token de verificación Turnstile requerido' })
       const secret = safeString(process.env.TURNSTILE_SECRET_KEY).trim()
