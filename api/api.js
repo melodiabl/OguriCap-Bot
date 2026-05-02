@@ -18,6 +18,7 @@ import { handleUsuarios }      from './routes/usuarios.js'
 import { handleAportes }       from './routes/aportes.js'
 import { handleSystem }        from './routes/system.js'
 import { handleNotifications } from './routes/notifications.js'
+import { handleConfig }        from './routes/config.js'
 import { handleMisc }          from './routes/misc.js'
 
 // Re-exportar emitters de Socket.IO para compatibilidad con index.js
@@ -149,6 +150,11 @@ export async function startPanelApi({ port, host } = {}) {
       if (pathname.startsWith('/api/aportes') || pathname.startsWith('/api/pedidos')) return await handleAportes(ctx)
       if (pathname.startsWith('/api/system') || pathname.startsWith('/api/dashboard') || pathname === '/api/health') return await handleSystem(ctx)
       if (pathname.startsWith('/api/notificaciones'))                                 return await handleNotifications(ctx)
+      // /api/config tiene su propio router — intentar antes de misc
+      if (pathname.startsWith('/api/config')) {
+        const handled = await handleConfig(ctx)
+        if (handled !== null) return handled
+      }
       return await handleMisc(ctx)
 
     } catch (err) {

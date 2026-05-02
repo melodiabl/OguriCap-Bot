@@ -246,17 +246,6 @@ export async function handleMisc({ req, res, url, panelDb, taskScheduler, backup
     return json(res, 200, { total: items.length })
   }
 
-  // ── /api/config ───────────────────────────────────────────────────────────
-  if (pathname === '/api/config' && method === 'GET') {
-    const auth = await getJwtAuth(req)
-    if (!auth.ok) return json(res, auth.status, { error: auth.error })
-    return json(res, 200, panelDb?.panelConfig || {})
-  }
-
-  if (pathname === '/api/config/stats' && method === 'GET') {
-    return json(res, 200, { total: Object.keys(panelDb?.panelConfig || {}).length })
-  }
-
   // ── /api/email ────────────────────────────────────────────────────────────
   if (pathname === '/api/email/status' && method === 'GET') {
     try {
