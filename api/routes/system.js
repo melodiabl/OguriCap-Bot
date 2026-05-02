@@ -14,12 +14,23 @@ export async function handleSystem({ req, res, url, panelDb }) {
 
   // ── GET /api/health ───────────────────────────────────────────────────────
   if (pathname === '/api/health' && method === 'GET') {
+    const clientIP = getClientIP(req)
+    const turnstileDisabled = process.env.TURNSTILE_DISABLED === '1'
+    const siteKey = safeString(process.env.TURNSTILE_SITE_KEY || '').trim()
     return json(res, 200, {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       bot: global.stopped === 'open' ? 'connected' : 'disconnected',
       version: process.env.npm_package_version || '1.0.0',
+      // Campos que el frontend login necesita
+      turnstileSiteKey: (!turnstileDisabled && siteKey) ? siteKey : null,
+      turnstileRequired: !turnstileDisabled && Boolean(siteKey),
+      maintenanceMode: panelDb?.systemConfig?.maintenanceMode || false,
+      maintenanceMessage: panelDb?.systemConfig?.maintenanceMessage || null,
+      clientIP,
+      ipAllowed: isAllowedIP(clientIP, panelDb),
+      canAccessDuringMaintenance: isAllowedIP(clientIP, panelDb),
     })
   }
 
