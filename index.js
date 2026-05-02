@@ -300,7 +300,7 @@ global.conn.ev.on("creds.update", saveCreds)
 // ============================================
 if (process.env.PANEL_API !== '0') {
   try {
-    const { startPanelApi } = await import('./lib/panel-api.js')
+    const { startPanelApi } = await import('./api/api.js')
     const apiPort = PORT
     await startPanelApi({ port: apiPort })
     
