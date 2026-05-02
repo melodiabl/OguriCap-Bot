@@ -129,8 +129,17 @@ export async function startPanelApi({ port, host } = {}) {
         return serveStatic(req, res, pathname)
       }
 
-      // Rate limiting global
-      if (pathname !== '/api/health' && !apiLimiter(req, res)) {
+      // Rate limiting global — excluir socket.io y endpoints de polling frecuente
+      const skipRateLimit = pathname === '/api/health' ||
+        pathname.startsWith('/socket.io') ||
+        pathname === '/api/bot/status' ||
+        pathname === '/api/subbot/status' ||
+        pathname === '/api/subbots/status' ||
+        pathname === '/api/bot/global-state' ||
+        pathname === '/api/system/stats' ||
+        pathname === '/api/dashboard/stats'
+
+      if (!skipRateLimit && !apiLimiter(req, res)) {
         return json(res, 429, { error: 'Demasiadas solicitudes. Intenta más tarde.' })
       }
 

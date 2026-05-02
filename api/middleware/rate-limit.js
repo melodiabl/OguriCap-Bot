@@ -42,5 +42,5 @@ function defaultKey(req) {
 
 // Limiters preconfigurados
 export const authLimiter  = rateLimit({ windowMs: 15 * 60_000, max: 20  })  // 20/15min — login
-export const apiLimiter   = rateLimit({ windowMs: 60_000,       max: 120 })  // 120/min  — general
+export const apiLimiter   = rateLimit({ windowMs: 60_000,       max: 600 })  // 600/min  — general (10 req/s)
 export const heavyLimiter = rateLimit({ windowMs: 60_000,       max: 10  })  // 10/min   — broadcast, backups

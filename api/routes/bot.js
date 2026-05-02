@@ -17,6 +17,24 @@ export async function handleBot({ req, res, url, panelDb }) {
     return json(res, 200, panelDb?.botConfig || {})
   }
 
+  // ── GET /api/bot/status ───────────────────────────────────────────────────
+  if (pathname === '/api/bot/status' && method === 'GET') {
+    return json(res, 200, {
+      connected: global.stopped === 'open',
+      status: global.stopped === 'open' ? 'connected' : 'disconnected',
+      isOn: panelDb?.botGlobalState?.isOn !== false,
+      uptime: process.uptime(),
+    })
+  }
+
+  // ── GET /api/bot/auth/status ──────────────────────────────────────────────
+  if (pathname === '/api/bot/auth/status' && method === 'GET') {
+    return json(res, 200, {
+      authenticated: global.stopped === 'open',
+      status: global.stopped === 'open' ? 'authenticated' : 'unauthenticated',
+    })
+  }
+
   // ── PATCH|POST /api/bot/config ────────────────────────────────────────────
   if (pathname === '/api/bot/config' && (method === 'PATCH' || method === 'POST')) {
     const auth = await getJwtAuth(req)
