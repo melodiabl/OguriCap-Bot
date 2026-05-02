@@ -21,10 +21,10 @@ export async function handleMisc({ req, res, url, panelDb, taskScheduler, backup
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     try {
-      const { searchLogs } = await import('../../lib/log-manager.js')
+      const logManager = (await import('../../lib/log-manager.js')).default
       const q = url.searchParams.get('q') || ''
       const limit = clampInt(url.searchParams.get('limit'), { min: 1, max: 500, fallback: 50 })
-      const logs = await searchLogs?.({ q, limit }) || []
+      const logs = await logManager.searchLogs?.({ q, limit }) || []
       return json(res, 200, { logs, total: logs.length })
     } catch { return json(res, 200, { logs: [], total: 0 }) }
   }
@@ -130,8 +130,9 @@ export async function handleMisc({ req, res, url, panelDb, taskScheduler, backup
   // ── /api/resources ────────────────────────────────────────────────────────
   if (pathname === '/api/resources/stats' && method === 'GET') {
     try {
-      const { getResourceStats } = await import('../../lib/resource-monitor.js')
-      return json(res, 200, await getResourceStats?.() || {})
+      const resourceMonitor = (await import('../../lib/resource-monitor.js')).default
+      const stats = await resourceMonitor.getStats?.() || resourceMonitor.getCurrentStats?.() || {}
+      return json(res, 200, stats)
     } catch { return json(res, 200, { cpu: 0, memory: 0, disk: 0 }) }
   }
 
@@ -306,8 +307,9 @@ export async function handleMisc({ req, res, url, panelDb, taskScheduler, backup
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     try {
-      const { getTerminalMirror } = await import('../../lib/terminal-mirror.js')
-      return json(res, 200, { output: getTerminalMirror?.() || [] })
+      const { getTerminalLines } = await import('../../lib/terminal-mirror.js')
+      const limit = clampInt(url.searchParams.get('limit'), { min: 1, max: 1000, fallback: 200 })
+      return json(res, 200, { output: getTerminalLines(limit) })
     } catch { return json(res, 200, { output: [] }) }
   }
 

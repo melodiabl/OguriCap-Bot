@@ -7,6 +7,7 @@ import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import { json, readJson, getJwtAuth, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt } from '../middleware/core.js'
 import { authLimiter } from '../middleware/rate-limit.js'
+import { encryptPassword } from '../../lib/password-crypto.js'
 
 function getConfig() { return global.db?.data?.config || {} }
 function getPasswordEncryptionSecret() {
@@ -14,7 +15,6 @@ function getPasswordEncryptionSecret() {
 }
 function setEncryptedPassword(user, plain) {
   try {
-    const { encryptPassword } = await import('../../lib/password-crypto.js')
     const enc = encryptPassword(plain, getPasswordEncryptionSecret())
     if (enc) user.password_enc = enc
   } catch {}

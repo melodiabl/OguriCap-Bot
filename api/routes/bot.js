@@ -4,13 +4,8 @@
  */
 import { json, readJson, getJwtAuth, safeString, clampInt } from '../middleware/core.js'
 
-function isOwnerOrAdmin(req, url, panelDb) {
-  try {
-    const { getUserFromToken, getTokenFromRequest } = require('../middleware/core.js')
-    const token = getTokenFromRequest(req, url)
-    const user = getUserFromToken(token)
-    return user && ['owner', 'admin', 'administrador'].includes(safeString(user.rol).toLowerCase())
-  } catch { return false }
+function isAdmin(user) {
+  return ['owner', 'admin', 'administrador'].includes(safeString(user?.rol || '').toLowerCase())
 }
 
 export async function handleBot({ req, res, url, panelDb }) {
