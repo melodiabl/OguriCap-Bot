@@ -8,7 +8,7 @@ import path from 'path'
 import mime from 'mime-types'
 
 import { withCors, getClientIP, getTokenFromRequest, isAllowedIP, getUserFromToken, json } from './middleware/core.js'
-import { apiLimiter } from './middleware/rate-limit.js'
+import { apiLimiter, jwtLimiter } from './middleware/rate-limit.js'
 
 import { handleAuth }          from './routes/auth.js'
 import { handleBot }           from './routes/bot.js'
@@ -56,6 +56,18 @@ async function initSystems() {
   taskScheduler = await tryLoad('../lib/task-scheduler.js', { getAllTasks: () => [], isRunning: false, createTask: () => Promise.resolve(), executeTask: () => Promise.resolve() })
   backupSystem   = await tryLoad('../lib/backup-system.js',  { isRunning: false, createBackup: () => Promise.resolve(), getBackups: () => [] })
   alertSystem    = await tryLoad('../lib/alert-system.js',   { getAllAlerts: () => [], collectMetrics: () => Promise.resolve({}), isRunning: false })
+
+  // Log rotation: keep max 5000 entries, drop entries older than 7 days
+  const rotateLogs = () => {
+    if (!global.db?.data?.logs) return
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    let logs = global.db.data.logs.filter(l => new Date(l?.timestamp).getTime() > cutoff)
+    if (logs.length > 5000) logs = logs.slice(logs.length - 5000)
+    global.db.data.logs = logs
+    global.db.write?.().catch(() => {})
+  }
+  setInterval(rotateLogs, 60 * 60 * 1000).unref?.() // every hour
+  rotateLogs()
 }
 
 // ─── ensurePanelDb ────────────────────────────────────────────────────────────
@@ -88,6 +100,20 @@ function ensurePanelDb() {
   d.multimedia     ??= {}
   d.systemConfig   ??= {}
   d.botGlobalState ??= { isOn: true }
+
+  // Keep panel.subbots as a live alias so sockets-serbot.js writes are visible here
+  if (d.panel && typeof d.panel === 'object') {
+    if (d.panel.subbots !== d.subbots) {
+      // Merge any entries that exist only in panel.subbots
+      if (d.panel.subbots && typeof d.panel.subbots === 'object') {
+        for (const [k, v] of Object.entries(d.panel.subbots)) {
+          if (!d.subbots[k]) d.subbots[k] = v
+        }
+      }
+      d.panel.subbots = d.subbots
+    }
+  }
+
   return d
 }
 
@@ -139,7 +165,7 @@ export async function startPanelApi({ port, host } = {}) {
         pathname === '/api/system/stats' ||
         pathname === '/api/dashboard/stats'
 
-      if (!skipRateLimit && !apiLimiter(req, res)) {
+      if (!skipRateLimit && (!apiLimiter(req, res) || !jwtLimiter(req, res))) {
         return json(res, 429, { error: 'Demasiadas solicitudes. Intenta más tarde.' })
       }
 
@@ -189,9 +215,12 @@ export async function startPanelApi({ port, host } = {}) {
   })
 
   // Socket.IO
-  const { initSocketIO } = await import('../lib/socket-io.js')
+  const { initSocketIO, connectEventBusToSocket } = await import('../lib/socket-io.js')
   const io = initSocketIO(panelServer)
   global.io = io
+  
+  // Conectar Event Bus con Socket.IO para eventos en tiempo real
+  await connectEventBusToSocket()
 
   await new Promise((resolve, reject) => panelServer.listen(PORT, HOST, err => err ? reject(err) : resolve()))
   console.log(`🌐 Panel API en http://${HOST}:${PORT}`)

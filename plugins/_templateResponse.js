@@ -1,4 +1,4 @@
-import baileys from '@whiskeysockets/baileys'
+import baileys from 'baileys'
 
 const { proto, generateWAMessage, areJidsSameUser } = baileys.default || baileys
 const BRIDGE_ENABLED = process.env.INTERACTIVE_BRIDGE === '1'

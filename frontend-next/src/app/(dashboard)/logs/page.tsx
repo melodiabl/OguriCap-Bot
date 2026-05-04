@@ -60,8 +60,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
-import { formatDateTime, formatUptime as formatSecondsUptime } from '@/lib/utils';
+import { notify } from '@/lib/notif';
+import { formatDateTime, formatUptime as formatSecondsUptime, getErrorMessage } from '@/lib/utils';
 
 interface LogEntry {
   timestamp: string;
@@ -136,10 +136,10 @@ interface Report {
 }
 
 const LOG_LEVELS = {
-  error: { color: 'text-red-400 bg-red-500/20', icon: XCircle },
-  warn: { color: 'text-yellow-400 bg-yellow-500/20', icon: AlertTriangle },
-  info: { color: 'text-blue-400 bg-blue-500/20', icon: Info },
-  debug: { color: 'text-purple-400 bg-purple-500/20', icon: Bug },
+  error: { color: 'text-danger bg-danger/20', icon: XCircle },
+  warn: { color: 'text-warning bg-warning/20', icon: AlertTriangle },
+  info: { color: 'text-info bg-info/20', icon: Info },
+  debug: { color: 'text-accent bg-accent/20', icon: Bug },
   trace: { color: 'text-gray-400 bg-gray-500/20', icon: Eye }
 };
 
@@ -169,6 +169,7 @@ export default function LogsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [pageSize, setPageSize] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   const { socket, isConnected: isSocketConnected } = useSocketConnection();
@@ -268,7 +269,7 @@ export default function LogsPage() {
         const metrics = await api.getSystemStats();
         setSystemMetrics(metrics);
       } catch (err) {
-        console.error('Error loading system metrics:', err);
+        console.error('Error loading system metrics:', getErrorMessage(err));
       }
       
       // Cargar estado de sistemas
@@ -276,7 +277,7 @@ export default function LogsPage() {
         const status = await api.getSystemHealth();
         setSystemStatus(status);
       } catch (err) {
-        console.error('Error loading system status:', err);
+        console.error('Error loading system status:', getErrorMessage(err));
       }
       
       // Cargar alertas activas
@@ -284,7 +285,7 @@ export default function LogsPage() {
         const alertsData = await api.getSystemAlerts();
         setAlerts(alertsData.alerts || []);
       } catch (err) {
-        console.error('Error loading alerts:', err);
+        console.error('Error loading alerts:', getErrorMessage(err));
       }
       
       // Cargar reportes recientes
@@ -308,7 +309,7 @@ export default function LogsPage() {
         }).filter((r: Report) => Boolean(r.id));
         setReports(mapped);
       } catch (err) {
-        console.error('Error loading reports:', err);
+        console.error('Error loading reports:', getErrorMessage(err));
       }
       
       // Cargar historial de métricas (simular con datos actuales)
@@ -323,7 +324,7 @@ export default function LogsPage() {
           disk: Number(h?.disk) || 0
         })));
       } catch (err) {
-        console.error('Error loading metrics history:', err);
+        console.error('Error loading metrics history:', getErrorMessage(err));
       }
       
     } catch (error) {
@@ -381,6 +382,7 @@ export default function LogsPage() {
       });
       const list = Array.isArray(data?.logs) ? data.logs : [];
       setLogs(list.map(normalizeLogEntry));
+      if (data?.totalPages !== undefined) setTotalPages(data.totalPages);
     } catch (error) {
       console.error('Error loading logs:', error);
       notify.error('Error cargando logs');
@@ -458,15 +460,15 @@ export default function LogsPage() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'info': return 'bg-blue-500';
+      case 'critical': return 'bg-danger';
+      case 'warning': return 'bg-warning';
+      case 'info': return 'bg-info';
       default: return 'bg-gray-500';
     }
   };
 
   const getSystemStatusColor = (isRunning: boolean) => {
-    return isRunning ? 'text-green-500' : 'text-red-500';
+    return isRunning ? 'text-success' : 'text-danger';
   };
 
   const getAuthHeaders = () => {
@@ -544,10 +546,10 @@ export default function LogsPage() {
 
   const getCategoryColorClass = (category: string) => {
     switch (category) {
-      case 'error': return 'bg-red-500/20 text-red-400';
-      case 'security': return 'bg-purple-500/20 text-purple-400';
-      case 'bot': return 'bg-emerald-500/20 text-emerald-400';
-      case 'api': return 'bg-blue-500/20 text-blue-400';
+      case 'error': return 'bg-danger/20 text-danger';
+      case 'security': return 'bg-accent/20 text-accent';
+      case 'bot': return 'bg-success/20 text-success';
+      case 'api': return 'bg-info/20 text-info';
       case 'database': return 'bg-indigo-500/20 text-indigo-400';
       default: return 'bg-gray-500/20 text-gray-400';
     }
@@ -565,7 +567,7 @@ export default function LogsPage() {
     };
     const IconComponent = systemIcons[systemName] || Info;
 
-    return <IconComponent className={`w-5 h-5 ${isRunning ? 'text-emerald-400' : 'text-red-400'}`} />;
+    return <IconComponent className={`w-5 h-5 ${isRunning ? 'text-success' : 'text-danger'}`} />;
   };
 
   const runningSystemsCount = systemStatus?.systems ? Object.values(systemStatus.systems).filter(Boolean).length : 0;
@@ -587,7 +589,7 @@ export default function LogsPage() {
       description: openSystemAlertsCount > 0 ? 'Incidentes del sistema todavia pendientes de resolucion.' : 'No hay alertas del host pendientes ahora mismo.',
       icon: <Bell className="w-4 h-4" />,
       badge: openSystemAlertsCount > 0 ? 'pendiente' : 'ok',
-      badgeClassName: openSystemAlertsCount > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]',
+      badgeClassName: openSystemAlertsCount > 0 ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]',
       glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
     },
     {
@@ -596,7 +598,7 @@ export default function LogsPage() {
       description: totalSystemsCount > 0 ? 'Módulos internos activos del centro de observabilidad.' : 'Esperando el estado detallado del sistema.',
       icon: <Server className="w-4 h-4" />,
       badge: runningSystemsCount === totalSystemsCount && totalSystemsCount > 0 ? 'estable' : 'revisar',
-      badgeClassName: runningSystemsCount === totalSystemsCount && totalSystemsCount > 0 ? 'border-violet-400/20 bg-violet-500/10 text-violet-300' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+      badgeClassName: runningSystemsCount === totalSystemsCount && totalSystemsCount > 0 ? 'border-accent/20 bg-accent/10 text-accent' : 'border-danger/20 bg-danger/10 text-danger/80',
       glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
     },
     {
@@ -605,7 +607,7 @@ export default function LogsPage() {
       description: reports.length > 0 ? 'Backups y reportes listos para auditoria o descarga.' : 'Todavia no hay reportes cargados en esta vista.',
       icon: <Archive className="w-4 h-4" />,
       badge: 'audit',
-      badgeClassName: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+      badgeClassName: 'border-success/20 bg-success/10 text-success/80',
       glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
     },
   ];
@@ -615,7 +617,7 @@ export default function LogsPage() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
         <div className="module-atmosphere" />
         <motion.div
-          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-emerald-400/16 blur-3xl"
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-success/16 blur-3xl"
           animate={reduceMotion ? { opacity: 0.28 } : { x: [0, 18, 0], y: [0, 16, 0], opacity: [0.18, 0.36, 0.18] }}
           transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 11.4, ease: 'easeInOut' }}
         />
@@ -637,7 +639,7 @@ export default function LogsPage() {
         <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <div className="panel-live-pill mb-3 w-fit">
-              <Shield className="h-3.5 w-3.5 text-emerald-300" />
+              <Shield className="h-3.5 w-3.5 text-success/80" />
               Observabilidad total
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Centro de logs con HUD táctico</h2>
@@ -665,7 +667,7 @@ export default function LogsPage() {
       <PageHeader
         title="Logs y Monitoreo"
         description="Visualiza logs del sistema, métricas y estado de servicios en tiempo real."
-        icon={<FileText className="w-6 h-6 text-blue-400" />}
+        icon={<FileText className="w-6 h-6 text-info" />}
         actions={
           <>
             <Button
@@ -735,13 +737,13 @@ export default function LogsPage() {
             <StatCard title="Logs Totales" value={stats.totalLogs || 0} subtitle={`${stats.bufferSize || 0} en buffer`} icon={<FileText className="h-6 w-6 text-primary" />} color="primary" />
           </StaggerItem>
           <StaggerItem>
-            <StatCard title="Errores" value={stats.errorCount || 0} subtitle={`${stats.warnCount || 0} warnings`} icon={<AlertCircle className="h-6 w-6 text-red-400" />} color="danger" />
+            <StatCard title="Errores" value={stats.errorCount || 0} subtitle={`${stats.warnCount || 0} warnings`} icon={<AlertCircle className="h-6 w-6 text-danger" />} color="danger" />
           </StaggerItem>
           <StaggerItem>
-            <StatCard title="Archivos" value={stats.diskUsage?.fileCount || 0} subtitle={stats.diskUsage?.formattedSize || '0 B'} icon={<HardDrive className="h-6 w-6 text-cyan-300" />} color="info" />
+            <StatCard title="Archivos" value={stats.diskUsage?.fileCount || 0} subtitle={stats.diskUsage?.formattedSize || '0 B'} icon={<HardDrive className="h-6 w-6 text-info" />} color="info" />
           </StaggerItem>
           <StaggerItem>
-            <StatCard title="Uptime" value={formatSecondsUptime(stats.uptime || 0)} subtitle={`${stats.activeStreams || 0} streams`} icon={<Clock className="h-6 w-6 text-emerald-300" />} color="success" />
+            <StatCard title="Uptime" value={formatSecondsUptime(stats.uptime || 0)} subtitle={`${stats.activeStreams || 0} streams`} icon={<Clock className="h-6 w-6 text-success/80" />} color="success" />
           </StaggerItem>
         </Stagger>
       )}
@@ -902,7 +904,7 @@ export default function LogsPage() {
                                   {log.stack && log.stack.length > 0 && (
                                     <>
                                       <h4 className="font-bold mt-3 mb-1">Stack Trace:</h4>
-                                      <pre className="whitespace-pre-wrap break-all text-red-400">{log.stack.join('\n')}</pre>
+                                      <pre className="whitespace-pre-wrap break-all text-danger">{log.stack.join('\n')}</pre>
                                     </>
                                   )}
                                 </motion.div>
@@ -979,7 +981,7 @@ export default function LogsPage() {
                       {getSystemStatusIcon(key, isRunning)}
                       <span className="text-sm font-medium capitalize text-foreground">{key.replace(/([A-Z])/g, ' $1')}</span>
                     </div>
-                    <Badge className={isRunning ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}>
+                    <Badge className={isRunning ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}>
                       {isRunning ? 'Activo' : 'Inactivo'}
                     </Badge>
                   </div>
@@ -1092,7 +1094,7 @@ export default function LogsPage() {
                             <p className="text-xs text-muted">{report.type} - {formatTimestamp(report.generatedAt)}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge className={report.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : report.status === 'failed' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}>
+                            <Badge className={report.status === 'completed' ? 'bg-success/20 text-success' : report.status === 'failed' ? 'bg-danger/20 text-danger' : 'bg-warning/20 text-warning'}>
                               {report.status === 'completed' ? 'Completado' : report.status === 'failed' ? 'Fallido' : 'Generando'}
                             </Badge>
                             {report.status === 'completed' && (
@@ -1101,7 +1103,7 @@ export default function LogsPage() {
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => deleteReport(report.id)} title="Eliminar Reporte">
-                              <Trash2 className="w-4 h-4 text-muted hover:text-red-400" />
+                              <Trash2 className="w-4 h-4 text-muted hover:text-danger" />
                             </Button>
                           </div>
                         </div>

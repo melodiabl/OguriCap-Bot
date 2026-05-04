@@ -1,11 +1,12 @@
 'use client';
+import { notify } from '@/lib/notif';
 
 import React, { useState, useEffect } from 'react';
 import { Send, Users, MessageSquare, Globe, AlertCircle, CheckCircle2, Loader2, ChevronDown, ChevronUp, Sparkles, RefreshCcw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 
 interface Group {
   wa_jid: string;
@@ -48,7 +49,7 @@ export const BroadcastTool: React.FC = () => {
       }
     } catch (error) {
       console.error('Error cargando grupos:', error);
-      toast.error('Error al cargar los grupos');
+      notify.error('Error al cargar los grupos');
     } finally {
       setLoadingGroups(false);
     }
@@ -57,15 +58,15 @@ export const BroadcastTool: React.FC = () => {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      toast.loading('Sincronizando con WhatsApp...', { id: 'sync' });
+      notify.info('Sincronizando con WhatsApp...');
       const res = await api.syncWhatsAppGroups({ clearOld: false });
       if (res.success) {
-        toast.success(`Sincronización completa: ${res.totalGroups} destinos encontrados`, { id: 'sync' });
+        notify.success(`Sincronización completa: ${res.totalGroups} destinos encontrados`);
         await loadGroups();
       }
     } catch (error: any) {
       console.error('Error en sync:', error);
-      toast.error(error.response?.data?.error || 'Error al sincronizar con WhatsApp', { id: 'sync' });
+      notify.error(error.response?.data?.error || 'Error al sincronizar con WhatsApp');
     } finally {
       setIsSyncing(false);
     }
@@ -143,12 +144,12 @@ export const BroadcastTool: React.FC = () => {
 
   const handleSend = async () => {
     if (!message.trim()) {
-      toast.error('Por favor, escribe un mensaje');
+      notify.error('Por favor, escribe un mensaje');
       return;
     }
 
     if (selectedJids.size === 0 && !targets.groups && !targets.channels && !targets.communities) {
-      toast.error('Selecciona al menos un grupo, canal o comunidad');
+      notify.error('Selecciona al menos un grupo, canal o comunidad');
       return;
     }
 
@@ -168,12 +169,12 @@ export const BroadcastTool: React.FC = () => {
         const targetInfo = res.stats 
           ? `Grupos: ${res.stats.groups}, Canales: ${res.stats.channels}, Comunidades: ${res.stats.communities}`
           : `aprox. ${res.estimatedTargets} destinatarios`;
-        toast.success(`Envío masivo iniciado para ${targetInfo}`);
+        notify.success(`Envío masivo iniciado para ${targetInfo}`);
         setMessage('');
       }
     } catch (error: any) {
       console.error('Error en broadcast:', error);
-      toast.error(error.response?.data?.error || 'Error al iniciar el envío masivo');
+      notify.error(error.response?.data?.error || 'Error al iniciar el envío masivo');
     } finally {
       setIsSending(false);
     }

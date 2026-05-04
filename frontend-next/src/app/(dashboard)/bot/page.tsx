@@ -21,10 +21,10 @@ import { useBotStatus, useBotGlobalState, useSystemStats } from '@/hooks/useReal
 import { useSocketBotStatus, useSocketConnection } from '@/contexts/SocketContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoadingOverlay } from '@/contexts/LoadingOverlayContext';
-import { cn, formatDateTime, formatUptime } from '@/lib/utils';
+import { cn, formatDateTime, formatUptime , getErrorMessage } from '@/lib/utils';
 import api from '@/services/api';
 import QRCode from 'qrcode';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 export default function BotStatusPage() {
   const [authMethod, setAuthMethod] = useState<'qr' | 'pairing'>('qr');
@@ -278,11 +278,11 @@ export default function BotStatusPage() {
                 className={cn(
                   "relative h-24 w-24 rounded-full border-4 flex items-center justify-center transition-all duration-500",
                   isOn 
-                    ? "border-emerald-500/30 bg-emerald-500/10 shadow-glow-emerald" 
-                    : "border-rose-500/30 bg-rose-500/10 shadow-glow-danger"
+                    ? "border-success/30 bg-success/10 shadow-glow-emerald" 
+                    : "border-danger/30 bg-danger/10 shadow-glow-danger"
                 )}
               >
-                <Power className={cn("h-10 w-10 transition-colors duration-500", isOn ? "text-emerald-400" : "text-rose-400")} />
+                <Power className={cn("h-10 w-10 transition-colors duration-500", isOn ? "text-success" : "text-danger")} />
               </motion.button>
               <div className="mt-4">
                 <Badge variant={isOn ? 'success' : 'danger'} className="text-[10px] font-black uppercase tracking-widest">

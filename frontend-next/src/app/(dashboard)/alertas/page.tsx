@@ -34,8 +34,8 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
-import { formatDateTime } from '@/lib/utils';
+import { notify } from '@/lib/notif';
+import { formatDateTime , getErrorMessage } from '@/lib/utils';
 
 interface Alert {
   id: string;
@@ -141,12 +141,10 @@ export default function AlertasPage() {
       if (data.severity >= 4) {
         notify.error(`Alerta Crítica: ${data.ruleName}`, {
           dedupeKey: `critical-alert-${data.id}`,
-          dedupeMs: 10000,
         });
       } else if (data.severity >= 3) {
         notify.warning(`Alerta: ${data.ruleName}`, {
           dedupeKey: `alert-${data.id}`,
-          dedupeMs: 5000,
         });
       }
     };
@@ -181,7 +179,7 @@ export default function AlertasPage() {
 
       setAlerts([]);
     } catch (error) {
-      console.error('Error loading alerts:', error);
+      console.error('Error loading alerts:', getErrorMessage(error));
       notify.error('Error cargando alertas');
     } finally {
       setIsLoading(false);
@@ -200,7 +198,7 @@ export default function AlertasPage() {
 
       setRules([]);
     } catch (error) {
-      console.error('Error loading alert rules:', error);
+      console.error('Error loading alert rules:', getErrorMessage(error));
     }
   };
 
@@ -401,7 +399,7 @@ export default function AlertasPage() {
       description: criticalCount > 0 ? 'Eventos altos que conviene revisar primero.' : 'No hay incidentes criticos activos.',
       icon: <AlertTriangle className="w-4 h-4" />,
       badge: criticalCount > 0 ? 'urgente' : 'estable',
-      badgeClassName: criticalCount > 0 ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]',
+      badgeClassName: criticalCount > 0 ? 'border-danger/20 bg-danger/10 text-danger/80' : 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]',
       glowClassName: 'from-red-500/18 via-amber-500/10 to-transparent',
     },
     {
@@ -410,7 +408,7 @@ export default function AlertasPage() {
       description: 'Suma de alertas activas y reconocidas aun no resueltas.',
       icon: <Bell className="w-4 h-4" />,
       badge: 'seguimiento',
-      badgeClassName: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      badgeClassName: 'border-warning/20 bg-warning/10 text-warning/80',
       glowClassName: 'from-amber-400/18 via-yellow-400/10 to-transparent',
     },
     {
@@ -419,7 +417,7 @@ export default function AlertasPage() {
       description: 'Cobertura activa del motor de monitoreo y disparo.',
       icon: <Settings className="w-4 h-4" />,
       badge: 'motor',
-      badgeClassName: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      badgeClassName: 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
     },
   ];
@@ -429,12 +427,12 @@ export default function AlertasPage() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[440px] overflow-hidden">
         <div className="module-atmosphere" />
         <motion.div
-          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-red-500/14 blur-3xl"
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-danger/14 blur-3xl"
           animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
           transition={{ repeat: Infinity, duration: 11.2, ease: 'easeInOut' }}
         />
         <motion.div
-          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-amber-500/14 blur-3xl"
+          className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-warning/14 blur-3xl"
           animate={{ x: [0, -18, 0], y: [0, 18, 0], opacity: [0.18, 0.4, 0.18] }}
           transition={{ repeat: Infinity, duration: 10.6, ease: 'easeInOut', delay: 0.6 }}
         />
@@ -451,7 +449,7 @@ export default function AlertasPage() {
         <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <div className="panel-live-pill mb-3 w-fit">
-              <Bell className="h-3.5 w-3.5 text-amber-300" />
+              <Bell className="h-3.5 w-3.5 text-warning/80" />
               Vigilancia continua
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Radar operativo de alertas</h2>
@@ -533,16 +531,16 @@ export default function AlertasPage() {
       {/* Stats Cards */}
       <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" delay={0.02} stagger={0.06}>
         <StaggerItem>
-          <StatCard title="Activas" value={activeCount} icon={<Bell className="w-6 h-6 text-red-400" />} color="danger" delay={0} animated={false} />
+          <StatCard title="Activas" value={activeCount} icon={<Bell className="w-6 h-6 text-danger" />} color="danger" delay={0} animated={false} />
         </StaggerItem>
         <StaggerItem>
-          <StatCard title="Reconocidas" value={acknowledgedCount} icon={<Eye className="w-6 h-6 text-yellow-400" />} color="warning" delay={0} animated={false} />
+          <StatCard title="Reconocidas" value={acknowledgedCount} icon={<Eye className="w-6 h-6 text-warning" />} color="warning" delay={0} animated={false} />
         </StaggerItem>
         <StaggerItem>
-          <StatCard title="Resueltas" value={resolvedCount} icon={<CheckCircle className="w-6 h-6 text-green-400" />} color="success" delay={0} animated={false} />
+          <StatCard title="Resueltas" value={resolvedCount} icon={<CheckCircle className="w-6 h-6 text-success" />} color="success" delay={0} animated={false} />
         </StaggerItem>
         <StaggerItem>
-          <StatCard title="Reglas" value={enabledRulesCount} subtitle={`${rules.length} totales`} icon={<Settings className="w-6 h-6 text-blue-400" />} color="info" delay={0} animated={false} />
+          <StatCard title="Reglas" value={enabledRulesCount} subtitle={`${rules.length} totales`} icon={<Settings className="w-6 h-6 text-info" />} color="info" delay={0} animated={false} />
         </StaggerItem>
       </Stagger>
 
@@ -632,9 +630,9 @@ export default function AlertasPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   className={`p-4 transition-colors hover:bg-card/55 border-l-4 ${
-                    alert.state === 'active' ? 'border-red-500' :
-                    alert.state === 'acknowledged' ? 'border-yellow-500' :
-                    alert.state === 'resolved' ? 'border-green-500' :
+                    alert.state === 'active' ? 'border-danger' :
+                    alert.state === 'acknowledged' ? 'border-warning' :
+                    alert.state === 'resolved' ? 'border-success' :
                     'border-gray-500'
                   }`}
                 >
@@ -703,7 +701,7 @@ export default function AlertasPage() {
                             onClick={() => resolveAlert(alert.id)}
                             variant="secondary"
                             size="sm"
-                            className="flex items-center gap-1 text-green-400 hover:text-green-300"
+                            className="flex items-center gap-1 text-success hover:text-success/80"
                           >
                             <CheckCircle className="w-3 h-3" />
                             Resolver
@@ -763,7 +761,7 @@ export default function AlertasPage() {
                             {getSeverityLabel(rule.severity)}
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            rule.enabled ? 'text-green-400 bg-green-500/20' : 'text-gray-400 bg-gray-500/20'
+                            rule.enabled ? 'text-success bg-success/20' : 'text-gray-400 bg-gray-500/20'
                           }`}>
                             {rule.enabled ? 'Habilitada' : 'Deshabilitada'}
                           </span>

@@ -38,9 +38,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { cn } from '@/lib/utils';
+import { cn , getErrorMessage } from '@/lib/utils';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 interface MetricCard {
   title: string;
@@ -194,7 +194,7 @@ export default function AnalyticsPage() {
 
       setLastUpdate(new Date());
     } catch (error) {
-      console.error('Error loading analytics:', error);
+      console.error('Error loading analytics:', getErrorMessage(error));
       notify.error('Error cargando analytics');
     } finally {
       setIsLoading(false);
@@ -315,11 +315,11 @@ export default function AnalyticsPage() {
 
     const toneStyles: Record<typeof tone, { chip: string; icon: string }> = {
       primary: { chip: 'bg-primary-500/16 border-primary-500/30', icon: 'text-primary-200' },
-      success: { chip: 'bg-emerald-500/14 border-emerald-500/30', icon: 'text-emerald-200' },
-      warning: { chip: 'bg-amber-500/14 border-amber-500/30', icon: 'text-amber-200' },
-      danger: { chip: 'bg-red-500/14 border-red-500/30', icon: 'text-red-200' },
-      info: { chip: 'bg-cyan-500/14 border-cyan-500/30', icon: 'text-cyan-200' },
-      violet: { chip: 'bg-violet-500/14 border-violet-500/30', icon: 'text-violet-200' },
+      success: { chip: 'bg-success/14 border-success/30', icon: 'text-success' },
+      warning: { chip: 'bg-warning/14 border-warning/30', icon: 'text-warning' },
+      danger: { chip: 'bg-danger/14 border-danger/30', icon: 'text-danger' },
+      info: { chip: 'bg-info/14 border-info/30', icon: 'text-info' },
+      violet: { chip: 'bg-accent/14 border-accent/30', icon: 'text-accent' },
     };
     
     return (
@@ -332,13 +332,13 @@ export default function AnalyticsPage() {
             </p>
             <div className="flex items-center mt-2">
               {metric.changeType === 'increase' ? (
-                <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+                <TrendingUp className="w-4 h-4 text-success mr-1" />
               ) : metric.changeType === 'decrease' ? (
-                <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+                <TrendingDown className="w-4 h-4 text-danger mr-1" />
               ) : null}
               <span className={`text-sm ${
-                metric.changeType === 'increase' ? 'text-green-400' : 
-                metric.changeType === 'decrease' ? 'text-red-400' : 'text-muted'
+                metric.changeType === 'increase' ? 'text-success' : 
+                metric.changeType === 'decrease' ? 'text-danger' : 'text-muted'
               }`}>
                 {metric.change > 0 ? '+' : ''}<AnimatedNumber value={metric.change} duration={0.6} />%
               </span>
@@ -393,7 +393,7 @@ export default function AnalyticsPage() {
       description: 'Escala temporal aplicada a gráficas, actividad y lectura comparativa.',
       icon: <Clock className="w-4 h-4" />,
       badge: 'range',
-      badgeClassName: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      badgeClassName: 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
     },
     {
@@ -402,8 +402,8 @@ export default function AnalyticsPage() {
       description: metrics[0]?.title ? `${metrics[0].title} marca la referencia principal ahora mismo.` : 'Esperando datos base del panel.',
       icon: <Zap className="w-4 h-4" />,
       badge: autoRefresh ? 'auto' : 'manual',
-      badgeClassName: autoRefresh ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
-      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+      badgeClassName: autoRefresh ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-warning/20 bg-warning/10 text-warning/80',
+      glowClassName: 'from-[rgb(var(--success))]/18 via-oguri-cyan/10 to-transparent',
     },
     {
       label: 'Ultima lectura',
@@ -411,7 +411,7 @@ export default function AnalyticsPage() {
       description: lastUpdate ? 'Marca temporal del ultimo barrido de analytics.' : 'Todavia no hay un ciclo completo de carga.',
       icon: <TrendingUp className="w-4 h-4" />,
       badge: lastUpdate ? 'sync' : 'wait',
-      badgeClassName: lastUpdate ? 'border-oguri-gold/20 bg-oguri-gold/10 text-oguri-gold' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+      badgeClassName: lastUpdate ? 'border-oguri-gold/20 bg-oguri-gold/10 text-oguri-gold' : 'border-danger/20 bg-danger/10 text-danger/80',
       glowClassName: 'from-oguri-gold/18 via-oguri-purple/10 to-transparent',
     },
   ];

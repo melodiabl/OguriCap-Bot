@@ -1,4 +1,5 @@
 'use client';
+import { notify } from '@/lib/notif';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -9,7 +10,7 @@ import { SimpleSelect } from '@/components/ui/Select';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 
 interface Message {
   id: number;
@@ -62,7 +63,7 @@ export default function AiChatPage() {
         sessionId,
       });
 
-      if (response?.error) toast.error(`El modelo respondió con error: ${response.error}`);
+      if (response?.error) notify.error(`El modelo respondió con error: ${response.error}`);
 
       const assistantMessage: Message = {
         id: Date.now() + 1,
@@ -73,7 +74,7 @@ export default function AiChatPage() {
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      toast.error('Error al enviar mensaje');
+      notify.error('Error al enviar mensaje');
       const errorMessage: Message = {
         id: Date.now() + 1,
         role: 'assistant',
@@ -100,7 +101,7 @@ export default function AiChatPage() {
       description: 'Motor seleccionado para la conversación actual.',
       icon: <Sparkles className="w-4 h-4" />,
       badge: 'model',
-      badgeClassName: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      badgeClassName: 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
     },
     {
@@ -118,7 +119,7 @@ export default function AiChatPage() {
       description: isLoading ? 'La IA está procesando el último mensaje.' : 'Puedes seguir escribiendo en la misma sesión.',
       icon: <RefreshCw className="w-4 h-4" />,
       badge: isLoading ? 'busy' : 'ready',
-      badgeClassName: isLoading ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]',
+      badgeClassName: isLoading ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]',
       glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
     },
     {
@@ -127,7 +128,7 @@ export default function AiChatPage() {
       description: 'Identificador corto para mantener continuidad del chat.',
       icon: <User className="w-4 h-4" />,
       badge: 'session',
-      badgeClassName: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+      badgeClassName: 'border-success/20 bg-success/10 text-success/80',
       glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
     },
   ];

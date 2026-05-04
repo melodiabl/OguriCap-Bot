@@ -110,7 +110,7 @@ export default function DashboardPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(var(--primary),0.05),transparent_40%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(var(--page-c),0.05),transparent_40%)]" />
         {!isSocketConnected && (
-          <div className="absolute inset-0 bg-red-500/5 animate-pulse" />
+          <div className="absolute inset-0 bg-danger/5 animate-pulse" />
         )}
       </div>
 
@@ -128,7 +128,7 @@ export default function DashboardPage() {
               >
                 Sincronizar
               </ActionButton>
-              <Link href="/settings">
+              <Link href="/configuracion">
                 <ActionButton icon={<Settings className="h-4 w-4" />} variant="primary">
                   Configurar
                 </ActionButton>
@@ -219,7 +219,7 @@ export default function DashboardPage() {
                         <div className={cn(
                           "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-300 group-hover:scale-110 shadow-glow-sm",
                           activity.type === 'command' ? "bg-primary/10 text-primary" : 
-                          activity.type === 'system' ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"
+                          activity.type === 'system' ? "bg-warning/10 text-warning" : "bg-info/10 text-info"
                         )}>
                           {activity.type === 'command' ? <Zap className="h-5 w-5" /> : 
                            activity.type === 'system' ? <Settings className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}

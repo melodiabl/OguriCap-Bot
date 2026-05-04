@@ -1,5 +1,5 @@
 import db from '../lib/database.js'
-import MessageType from '@whiskeysockets/baileys'
+import MessageType from 'baileys'
 
 const handler = async (m, { conn, text, args, command, isROwner }) => {
 if (!isROwner) return

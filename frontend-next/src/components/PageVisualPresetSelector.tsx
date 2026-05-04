@@ -15,7 +15,7 @@ import {
   isPageVisualPreset,
   type PageVisualPreset,
 } from '@/lib/pageVisualPreset';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 import { cn } from '@/lib/utils';
 
 const OPTIONS: Array<{
@@ -202,7 +202,7 @@ export function PageVisualPresetSelector() {
       targetPageKeys.length === 1
         ? 'Preset copiado a la página seleccionada'
         : `Preset copiado a ${targetPageKeys.length} páginas`,
-      { dedupeKey: 'page-preset-copy', dedupeMs: 1200 }
+      { }
     );
   };
 

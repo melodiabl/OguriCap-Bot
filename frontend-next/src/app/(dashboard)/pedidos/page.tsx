@@ -1,4 +1,5 @@
 'use client';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { usePedidosSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 import { Pedido } from '@/types';
 
 const PENDING_LIBRARY_PROCESS_STORAGE_KEY = 'panel:pedidos:pending-library-process:v1';
@@ -68,7 +69,7 @@ export default function PedidosPage() {
       const response = await api.getPedidoStats();
       setStats(response);
     } catch (err) {
-      console.error('Error loading stats:', err);
+      console.error('Error loading stats:', getErrorMessage(err));
     }
   }, []);
 
@@ -380,9 +381,9 @@ export default function PedidosPage() {
 
   const getPrioridadBadge = (prioridad: string) => {
     const config: Record<string, { class: string; icon: React.ReactNode }> = {
-      alta: { class: 'bg-red-500/20 text-red-400 border-red-500/30', icon: <ArrowUp className="w-3 h-3" /> },
-      media: { class: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: <Minus className="w-3 h-3" /> },
-      baja: { class: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: <ArrowDown className="w-3 h-3" /> },
+      alta: { class: 'bg-danger/20 text-danger border-danger/30', icon: <ArrowUp className="w-3 h-3" /> },
+      media: { class: 'bg-warning/20 text-warning border-warning/30', icon: <Minus className="w-3 h-3" /> },
+      baja: { class: 'bg-success/20 text-success border-success/30', icon: <ArrowDown className="w-3 h-3" /> },
     };
     const c = config[prioridad] || config.media;
     return (
@@ -401,7 +402,7 @@ export default function PedidosPage() {
 
   const renderPedidoActions = (pedido: Pedido) => (
     <div className="flex flex-wrap items-center gap-2">
-      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedPedido(pedido)} className={`${actionButtonClass} text-cyan-400`} title="Ver detalles">
+      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedPedido(pedido)} className={`${actionButtonClass} text-info`} title="Ver detalles">
         <Eye className="w-4 h-4" />
       </motion.button>
       <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => voteForPedido(pedido.id)} className={`${actionButtonClass} text-pink-400`} title="Votar pedido">
@@ -412,19 +413,19 @@ export default function PedidosPage() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setDeleteTarget(pedido)}
-          className={`${actionButtonClass} text-red-400`}
+          className={`${actionButtonClass} text-danger`}
           title="Eliminar pedido"
         >
           <Trash2 className="w-4 h-4" />
         </motion.button>
       )}
       {(isAdmin || isModerator) && pedido.estado === 'pendiente' && (
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => updateEstado(pedido.id, 'en_proceso')} className={`${actionButtonClass} text-amber-400`} title="Marcar en proceso">
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => updateEstado(pedido.id, 'en_proceso')} className={`${actionButtonClass} text-warning`} title="Marcar en proceso">
           <Loader2 className="w-4 h-4" />
         </motion.button>
       )}
       {(isAdmin || isModerator) && pedido.estado === 'en_proceso' && (
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => updateEstado(pedido.id, 'completado')} className={`${actionButtonClass} text-emerald-400`} title="Marcar completado">
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => updateEstado(pedido.id, 'completado')} className={`${actionButtonClass} text-success`} title="Marcar completado">
           <CheckCircle className="w-4 h-4" />
         </motion.button>
       )}
@@ -438,7 +439,7 @@ export default function PedidosPage() {
       description: smartRefreshConnected ? 'Los cambios de estado llegan al panel sin recargar manualmente.' : 'La vista sigue operativa, pero depende de refresh manual.',
       icon: <Radio className="w-4 h-4" />,
       badge: smartRefreshConnected ? 'live' : 'manual',
-      badgeClassName: smartRefreshConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      badgeClassName: smartRefreshConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-warning/20 bg-warning/10 text-warning/80',
       glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
     },
     {
@@ -447,7 +448,7 @@ export default function PedidosPage() {
       description: pendingLibraryProcessIds.size > 0 ? 'Pedidos en espera por grupo proveedor o reproceso.' : 'No hay procesos de biblioteca colgados ahora mismo.',
       icon: <Bot className="w-4 h-4" />,
       badge: pendingLibraryProcessIds.size > 0 ? 'queue' : 'ok',
-      badgeClassName: pendingLibraryProcessIds.size > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      badgeClassName: pendingLibraryProcessIds.size > 0 ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
     },
     {
@@ -456,8 +457,8 @@ export default function PedidosPage() {
       description: isAdmin || isModerator ? 'Puedes intervenir estados y limpiar pedidos del flujo.' : 'Puedes crear, ver y votar pedidos de la comunidad.',
       icon: <Sparkles className="w-4 h-4" />,
       badge: isAdmin ? 'admin' : isModerator ? 'mod' : 'user',
-      badgeClassName: isAdmin || isModerator ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
-      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+      badgeClassName: isAdmin || isModerator ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[rgb(var(--success))]/18 via-oguri-cyan/10 to-transparent',
     },
     {
       label: 'Prioridad alta',
@@ -465,7 +466,7 @@ export default function PedidosPage() {
       description: 'Pedidos urgentes que conviene mirar antes que el resto de la cola.',
       icon: <ArrowUp className="w-4 h-4" />,
       badge: 'urgent',
-      badgeClassName: 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+      badgeClassName: 'border-danger/20 bg-danger/10 text-danger/80',
       glowClassName: 'from-rose-400/18 via-oguri-purple/10 to-transparent',
     },
   ];
@@ -532,8 +533,8 @@ export default function PedidosPage() {
             <div
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
                 smartRefreshConnected
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  ? 'bg-success/20 text-success border border-success/30'
+                  : 'bg-warning/20 text-warning border border-warning/30'
               }`}
             >
               <Radio className={`w-3 h-3 ${smartRefreshConnected ? 'animate-pulse' : ''}`} />
@@ -811,10 +812,10 @@ export default function PedidosPage() {
             </div>
           </div>
           {aiProcessing && (
-            <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+            <div className="rounded-2xl border border-info/20 bg-info/10 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Bot className="w-5 h-5 text-blue-400 animate-pulse" />
-                <span className="text-sm font-medium text-blue-400">IA Procesando</span>
+                <Bot className="w-5 h-5 text-info animate-pulse" />
+                <span className="text-sm font-medium text-info">IA Procesando</span>
               </div>
               <p className="text-xs text-muted">La IA está analizando tu pedido...</p>
             </div>
@@ -949,7 +950,7 @@ export default function PedidosPage() {
                           {(isAdmin || isModerator) && (
                             <button
                               onClick={() => sendItemToWhatsApp(Number(m.id))}
-                               className="rounded-lg p-2 text-muted transition-colors hover:bg-emerald-500/10 hover:text-emerald-300 disabled:opacity-60"
+                               className="rounded-lg p-2 text-muted transition-colors hover:bg-success/10 hover:text-success/80 disabled:opacity-60"
                               title="Enviar por WhatsApp"
                               disabled={sendingItemId === Number(m.id)}
                             >

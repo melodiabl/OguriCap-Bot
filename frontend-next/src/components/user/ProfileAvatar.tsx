@@ -1,11 +1,12 @@
 'use client';
+import { notify } from '@/lib/notif';
 
 /* eslint-disable @next/next/no-img-element */
 
 import * as React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Camera, Trash2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileAvatar } from '@/hooks/useProfileAvatar';
@@ -51,9 +52,9 @@ export function ProfileAvatar({ editable = false, size = 'md', className, showRe
     try {
       setIsSaving(true);
       await saveAvatarFromFile(file);
-      toast.success('Foto de perfil actualizada');
+      notify.success('Foto de perfil actualizada');
     } catch (error: any) {
-      toast.error(error?.message || 'No se pudo actualizar la foto');
+      notify.error(error?.message || 'No se pudo actualizar la foto');
     } finally {
       setIsSaving(false);
     }

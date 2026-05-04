@@ -50,8 +50,8 @@ import { useBotGlobalState as useBotGlobalStateContext } from '@/contexts/BotGlo
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
-import { cn } from '@/lib/utils';
+import { notify } from '@/lib/notif';
+import { cn , getErrorMessage } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
 
 interface ConfigSection {
@@ -147,7 +147,7 @@ export default function ConfiguracionPage() {
   const fetchConfigurations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/config');
+      const response = await api.get('/api/config');
       const data = response.data;
       
       const sections = [
@@ -525,7 +525,7 @@ export default function ConfiguracionPage() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-200"><Mail className="w-5 h-5" /></div>
+                <div className="p-2 rounded-xl bg-info/20 text-info"><Mail className="w-5 h-5" /></div>
                 <div>
                   <h4 className="font-bold text-white">Email Service</h4>
                   <p className="text-xs text-gray-400">SMTP para alertas críticas</p>
@@ -586,7 +586,7 @@ export default function ConfiguracionPage() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-200"><Bell className="w-5 h-5" /></div>
+                <div className="p-2 rounded-xl bg-success/20 text-success"><Bell className="w-5 h-5" /></div>
                 <div>
                   <h4 className="font-bold text-white">WhatsApp Alertas</h4>
                   <p className="text-xs text-gray-400">Notificaciones directas</p>
@@ -676,7 +676,7 @@ export default function ConfiguracionPage() {
             className="input-glass w-full h-[500px] font-mono text-sm resize-none p-6"
           />
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white/5 p-3 rounded-lg">
-             <AlertTriangle className="h-3 w-3 text-amber-500" />
+             <AlertTriangle className="h-3 w-3 text-warning" />
              Asegúrate de mantener el esquema JSON válido para evitar errores.
           </div>
         </div>
@@ -711,7 +711,7 @@ export default function ConfiguracionPage() {
       description: hasChanges ? 'Hay ediciones sin persistir.' : 'Sincronizado con el servidor.',
       icon: <Save className="w-4 h-4" />,
       badge: hasChanges ? 'DIRTY' : 'OK',
-      badgeClassName: hasChanges ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+      badgeClassName: hasChanges ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-success/20 bg-success/10 text-success/80',
       glowClassName: hasChanges ? 'from-amber-500/10 via-transparent to-transparent' : 'from-emerald-500/10 via-transparent to-transparent',
     },
     {
@@ -720,7 +720,7 @@ export default function ConfiguracionPage() {
       description: 'Copias de seguridad activas.',
       icon: <History className="w-4 h-4" />,
       badge: 'BACKUP',
-      badgeClassName: 'border-purple-500/20 bg-purple-500/10 text-purple-300',
+      badgeClassName: 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-purple-500/10 via-transparent to-transparent',
     },
     {
@@ -729,7 +729,7 @@ export default function ConfiguracionPage() {
       description: 'Estado operativo global.',
       icon: <Zap className="w-4 h-4" />,
       badge: contextGlobalState ? 'LIVE' : 'OFF',
-      badgeClassName: contextGlobalState ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border-red-500/20 bg-red-500/10 text-red-300',
+      badgeClassName: contextGlobalState ? 'border-info/20 bg-info/10 text-info' : 'border-danger/20 bg-danger/10 text-danger/80',
       glowClassName: contextGlobalState ? 'from-cyan-500/10 via-transparent to-transparent' : 'from-red-500/10 via-transparent to-transparent',
     },
   ];

@@ -23,11 +23,11 @@ import { makeWASocket, protoType, serialize } from './lib/simple.js'
 import store from './lib/store.js'
 import qrcode from 'qrcode'
 import { format } from 'util'
-const { proto } = (await import('@whiskeysockets/baileys')).default
+const { proto } = (await import('baileys')).default
 import pkg from 'google-libphonenumber'
 const { PhoneNumberUtil } = pkg
 const phoneUtil = PhoneNumberUtil.getInstance()
-const { DisconnectReason, useMultiFileAuthState, MessageRetryMap, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, jidNormalizedUser } = await import('@whiskeysockets/baileys')
+const { DisconnectReason, useMultiFileAuthState, MessageRetryMap, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, jidNormalizedUser } = await import('baileys')
 import readline, { createInterface } from 'readline'
 import NodeCache from 'node-cache'
 const { CONNECTING } = ws
@@ -265,7 +265,6 @@ const connectionOptions = {
   syncFullHistory: false,
   connectTimeoutMs: 60000,
   defaultQueryTimeoutMs: 0,
-  keepAliveIntervalMs: 10000,
   getMessage: async (key) => {
     try {
       let jid = jidNormalizedUser(key.remoteJid)
@@ -279,8 +278,8 @@ const connectionOptions = {
   userDevicesCache: userDevicesCache || new Map(),
   cachedGroupMetadata: (jid) => global.conn.chats[jid] ?? {},
   version: version,
-  keepAliveIntervalMs: 55000,
-  maxIdleTimeMs: 60000,
+  keepAliveIntervalMs: 25000,
+  maxIdleTimeMs: 0,
 }
 
 global.conn = makeWASocket(connectionOptions)
@@ -388,7 +387,7 @@ if (!opts['test']) {
       const tmp = [os.tmpdir(), 'tmp', `${global.jadi}`]
       tmp.forEach((filename) => cp.spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))
     }
-  }, 30 * 1000)
+  }, 5 * 60 * 1000)
 }
 
 // ============================================
@@ -438,10 +437,9 @@ const setMainAuthSession = ({ state, method = null, phone = null, requestId = nu
 const sanitizeMainPhone = (value) => String(value || '').replace(/[^0-9]/g, '')
 
 const normalizeMainPairingCode = (raw) => {
-  const cleaned = String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
-  if (!cleaned || cleaned.length < 8) return null
-  if (cleaned.length === 8) return cleaned.match(/.{1,4}/g)?.join('-') || cleaned
-  return cleaned.match(/.{1,4}/g)?.slice(0, 3).join('-') || cleaned
+  const str = String(raw || '').trim().toUpperCase()
+  if (!str) return null
+  return str
 }
 
 const sanitizeMainPairKey = (value) => {
@@ -1412,7 +1410,7 @@ async function connectionUpdate(update) {
     } catch {}
   }
 
-  if (code && code !== DisconnectReason.loggedOut && conn?.ws.socket == null) {
+  if (code && code !== DisconnectReason.loggedOut && !conn?.isConnected) {
     await global.reloadHandler(true).catch(console.error)
     global.timestamp.connect = new Date()
   }

@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { WAMessageStubType } from '@whiskeysockets/baileys'
+import { WAMessageStubType } from 'baileys'
 
 async function generarBienvenida({ conn, userId, groupMetadata, chat }) {
 const username = `@${userId.split('@')[0]}`

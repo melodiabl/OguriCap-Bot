@@ -1,4 +1,6 @@
 'use client';
+import { notify } from '@/lib/notif';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
@@ -13,7 +15,7 @@ import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { Modal } from '@/components/ui/Modal';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 
 interface MultimediaItem {
   id: number;
@@ -121,8 +123,8 @@ export default function MultimediaPage() {
       setStats(statsData);
       setImageLoadErrors({});
     } catch (err) {
-      console.error('Error loading multimedia:', err);
-      toast.error('Error al cargar multimedia');
+      console.error('Error loading multimedia:', getErrorMessage(err));
+      notify.error('Error al cargar multimedia');
     } finally {
       setLoading(false);
     }
@@ -132,10 +134,10 @@ export default function MultimediaPage() {
     if (!confirm('¿Eliminar este archivo?')) return;
     try {
       await api.deleteMultimedia(id);
-      toast.success('Archivo eliminado');
+      notify.success('Archivo eliminado');
       loadData();
     } catch (err) {
-      toast.error('Error al eliminar');
+      notify.error('Error al eliminar');
     }
   };
 
@@ -161,7 +163,7 @@ export default function MultimediaPage() {
         })
         .catch(() => {});
       
-      toast.success(`${selectedFiles.length} archivo(s) subido(s) correctamente`);
+      notify.success(`${selectedFiles.length} archivo(s) subido(s) correctamente`);
       setShowUploadModal(false);
       setSelectedFiles([]);
       loadData();
@@ -175,7 +177,7 @@ export default function MultimediaPage() {
         })
         .catch(() => {});
       
-      toast.error(err?.response?.data?.error || 'Error al subir archivos');
+      notify.error(err?.response?.data?.error || 'Error al subir archivos');
     } finally {
       setUploading(false);
     }
@@ -204,10 +206,10 @@ export default function MultimediaPage() {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'image': return 'text-blue-400 bg-blue-500/20';
-      case 'video': return 'text-purple-400 bg-purple-500/20';
-      case 'audio': return 'text-emerald-400 bg-emerald-500/20';
-      default: return 'text-amber-400 bg-amber-500/20';
+      case 'image': return 'text-info bg-info/20';
+      case 'video': return 'text-accent bg-accent/20';
+      case 'audio': return 'text-success bg-success/20';
+      default: return 'text-warning bg-warning/20';
     }
   };
 
@@ -330,10 +332,10 @@ export default function MultimediaPage() {
                             {imageLoadErrors[item.id] || !item.url ? (
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center p-4">
-                                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-red-500/20 flex items-center justify-center">
-                                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-danger/20 flex items-center justify-center">
+                                    <AlertTriangle className="w-8 h-8 text-danger" />
                                   </div>
-                                  <p className="text-sm text-red-400 font-medium">Error al cargar</p>
+                                  <p className="text-sm text-danger font-medium">Error al cargar</p>
                                   <p className="text-xs text-gray-500 mt-1 break-all">{item.name}</p>
                                 </div>
                               </div>
@@ -404,7 +406,7 @@ export default function MultimediaPage() {
                               e.stopPropagation();
                               handleDelete(item.id);
                             }}
-                            className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            className="p-2 rounded-lg text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -465,9 +467,9 @@ export default function MultimediaPage() {
                       </div>
                     ) : (
                       <div className="h-20 flex items-center justify-center bg-white/5 rounded-lg mb-2">
-                        {file.type.startsWith('video/') ? <Video className="w-8 h-8 text-purple-400" /> :
-                         file.type.startsWith('audio/') ? <Music className="w-8 h-8 text-emerald-400" /> :
-                         <File className="w-8 h-8 text-amber-400" />}
+                        {file.type.startsWith('video/') ? <Video className="w-8 h-8 text-accent" /> :
+                         file.type.startsWith('audio/') ? <Music className="w-8 h-8 text-success" /> :
+                         <File className="w-8 h-8 text-warning" />}
                       </div>
                     )}
                     <p className="text-xs text-gray-300 truncate">{file.name}</p>
@@ -517,10 +519,10 @@ export default function MultimediaPage() {
               <div className="w-full overflow-hidden rounded-xl bg-white/5">
                 {modalImageError || !selectedItem.url ? (
                   <div className="text-center p-8">
-                    <div className="w-24 h-24 mx-auto mb-4 rounded-xl bg-red-500/20 flex items-center justify-center">
-                      <AlertTriangle className="w-12 h-12 text-red-400" />
+                    <div className="w-24 h-24 mx-auto mb-4 rounded-xl bg-danger/20 flex items-center justify-center">
+                      <AlertTriangle className="w-12 h-12 text-danger" />
                     </div>
-                    <p className="text-red-400 font-medium">No se pudo cargar la imagen</p>
+                    <p className="text-danger font-medium">No se pudo cargar la imagen</p>
                     <p className="text-gray-500 text-sm mt-2 break-all">{selectedItem.url}</p>
                   </div>
                 ) : (

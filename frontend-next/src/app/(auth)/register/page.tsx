@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useAuth } from '@/contexts/AuthContext';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {

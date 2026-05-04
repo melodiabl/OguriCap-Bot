@@ -8,7 +8,7 @@ import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
 import { usePreferences } from './PreferencesContext';
 import { useAuth } from './AuthContext';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 export interface Notification {
   id: number;

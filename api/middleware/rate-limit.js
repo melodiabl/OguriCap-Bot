@@ -44,3 +44,21 @@ function defaultKey(req) {
 export const authLimiter  = rateLimit({ windowMs: 15 * 60_000, max: 20  })  // 20/15min — login
 export const apiLimiter   = rateLimit({ windowMs: 60_000,       max: 600 })  // 600/min  — general (10 req/s)
 export const heavyLimiter = rateLimit({ windowMs: 60_000,       max: 10  })  // 10/min   — broadcast, backups
+
+// Rate limiter por JWT (user ID) — evita abuso aunque cambien de IP
+export const jwtLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  keyFn(req) {
+    try {
+      const auth = req.headers['authorization'] || ''
+      const token = auth.replace(/^Bearer\s+/i, '').trim()
+      if (!token) return defaultKey(req)
+      // Decode payload without verification (just for key extraction)
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+      return `jwt:${payload.id || payload.sub || payload.userId || token.slice(-16)}`
+    } catch {
+      return defaultKey(req)
+    }
+  }
+})

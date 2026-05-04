@@ -32,9 +32,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, StatCard } from '@/components/ui/Card';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useOguriTheme } from '@/contexts/OguriThemeContext';
-import { cn, formatUptime } from '@/lib/utils';
+import { cn, formatUptime , getErrorMessage } from '@/lib/utils';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 interface ResourceMetrics {
   timestamp: number;
@@ -154,7 +154,7 @@ export default function RecursosPage() {
         return;
       }
     } catch (error) {
-      console.error('Error loading resource stats:', error);
+      console.error('Error loading resource stats:', getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +166,7 @@ export default function RecursosPage() {
       const historyRaw = (historyRes as any)?.history;
       setHistoricalData(Array.isArray(historyRaw) ? historyRaw : []);
     } catch (error) {
-      console.error('Error loading historical data:', error);
+      console.error('Error loading historical data:', getErrorMessage(error));
     }
   }, []);
 
@@ -212,7 +212,6 @@ export default function RecursosPage() {
     const handleAlertStateChanged = (data: any) => {
       notify.warning(`Alerta: ${data.resource} en estado ${data.newState}`, {
         dedupeKey: `resource-alert-${data.resource}-${data.newState}`,
-        dedupeMs: 7000,
       });
       loadResourceStats();
     };
@@ -285,9 +284,9 @@ export default function RecursosPage() {
 
   const getAlertColor = (state: string) => {
     switch (state) {
-      case 'critical': return 'text-red-400 bg-red-500/20';
-      case 'warning': return 'text-yellow-400 bg-yellow-500/20';
-      case 'normal': return 'text-green-400 bg-green-500/20';
+      case 'critical': return 'text-danger bg-danger/20';
+      case 'warning': return 'text-warning bg-warning/20';
+      case 'normal': return 'text-success bg-success/20';
       default: return 'text-gray-400 bg-gray-500/20';
     }
   };
@@ -302,9 +301,9 @@ export default function RecursosPage() {
   };
 
   const getUsageColor = (usage: number, thresholds: any) => {
-    if (usage >= thresholds?.critical) return 'bg-red-500';
-    if (usage >= thresholds?.warning) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (usage >= thresholds?.critical) return 'bg-danger';
+    if (usage >= thresholds?.warning) return 'bg-warning';
+    return 'bg-success';
   };
 
   const resourceLanes = metrics
@@ -315,8 +314,8 @@ export default function RecursosPage() {
           description: isMonitoring ? 'Recibe eventos en tiempo real del sistema.' : 'Puedes iniciarlo para vigilar CPU, RAM y disco en vivo.',
           icon: <Activity className="w-4 h-4" />,
           badge: isMonitoring ? 'live' : 'idle',
-          badgeClassName: isMonitoring ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
-          glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+          badgeClassName: isMonitoring ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-danger/20 bg-danger/10 text-danger/80',
+          glowClassName: 'from-[rgb(var(--success))]/18 via-oguri-cyan/10 to-transparent',
         },
         {
           label: 'Presion del host',
@@ -326,7 +325,7 @@ export default function RecursosPage() {
           badge: alertStates?.cpu === 'critical' || alertStates?.memory === 'critical' || alertStates?.disk === 'critical' ? 'alto' : 'estable',
           badgeClassName:
             alertStates?.cpu === 'critical' || alertStates?.memory === 'critical' || alertStates?.disk === 'critical'
-              ? 'border-red-500/20 bg-red-500/10 text-red-300'
+              ? 'border-danger/20 bg-danger/10 text-danger/80'
               : 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan',
           glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
         },
@@ -336,7 +335,7 @@ export default function RecursosPage() {
           description: `${metrics.bot.subbots.connected}/${metrics.bot.subbots.total} subbots y ${metrics.bot.database.groups} grupos registrados.`,
           icon: <Zap className="w-4 h-4" />,
           badge: metrics.bot.connection.status === 'connected' ? 'online' : 'offline',
-          badgeClassName: metrics.bot.connection.status === 'connected' ? 'border-violet-400/20 bg-violet-500/10 text-violet-300' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+          badgeClassName: metrics.bot.connection.status === 'connected' ? 'border-accent/20 bg-accent/10 text-accent' : 'border-warning/20 bg-warning/10 text-warning/80',
           glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
         },
         {
@@ -345,7 +344,7 @@ export default function RecursosPage() {
           description: `Host ${metrics.network.hostname} · Node ${metrics.process.version}`,
           icon: <Wifi className="w-4 h-4" />,
           badge: isSocketConnected ? 'socket' : 'local',
-          badgeClassName: isSocketConnected ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/[0.05] text-white/70',
+          badgeClassName: isSocketConnected ? 'border-success/20 bg-success/10 text-success/80' : 'border-white/10 bg-white/[0.05] text-white/70',
           glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
         },
       ]
@@ -470,7 +469,7 @@ export default function RecursosPage() {
         <div className="panel-setting-row">
           <div className="flex items-center gap-3">
             <motion.div
-              className={cn('h-3 w-3 rounded-full', isMonitoring ? 'bg-emerald-400 shadow-glow-oguri-cyan' : 'bg-red-400')}
+              className={cn('h-3 w-3 rounded-full', isMonitoring ? 'bg-success shadow-glow-oguri-cyan' : 'bg-danger')}
               animate={isMonitoring ? { scale: [1, 1.2, 1], opacity: [1, 0.6, 1] } : { scale: 1, opacity: 1 }}
               transition={{ duration: 1.5, repeat: isMonitoring ? Infinity : 0 }}
             />

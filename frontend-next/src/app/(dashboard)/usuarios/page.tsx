@@ -15,7 +15,7 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -121,7 +121,7 @@ export default function UsuariosPage() {
               </div>
            </Card>
            <Card className="p-5 flex items-center gap-4 border-white/10 bg-card/40 backdrop-blur-xl">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 shadow-glow-sm">
+              <div className="h-12 w-12 rounded-2xl bg-success/10 flex items-center justify-center text-success shadow-glow-sm">
                 <Shield className="h-6 w-6" />
               </div>
               <div>
@@ -130,7 +130,7 @@ export default function UsuariosPage() {
               </div>
            </Card>
            <Card className="p-5 flex items-center gap-4 border-white/10 bg-card/40 backdrop-blur-xl">
-              <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 shadow-glow-sm">
+              <div className="h-12 w-12 rounded-2xl bg-info/10 flex items-center justify-center text-info shadow-glow-sm">
                 <Activity className="h-6 w-6" />
               </div>
               <div>

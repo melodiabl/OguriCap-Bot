@@ -4,7 +4,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 
+// SOCKET_EVENTS debe mantenerse sincronizado con lib/socket-io.js del backend
 export const SOCKET_EVENTS = {
+  // Bot principal
   BOT_STATUS: 'bot:status',
   BOT_QR: 'bot:qr',
   BOT_PAIRING_CODE: 'bot:pairingCode',
@@ -14,23 +16,42 @@ export const SOCKET_EVENTS = {
   BOT_GLOBAL_STATE_CHANGED: 'bot:globalStateChanged',
   BOT_GLOBAL_SHUTDOWN: 'bot:globalShutdown',
   BOT_GLOBAL_STARTUP: 'bot:globalStartup',
+  // Subbots
   SUBBOT_CREATED: 'subbot:created',
   SUBBOT_QR: 'subbot:qr',
   SUBBOT_PAIRING_CODE: 'subbot:pairingCode',
   SUBBOT_CONNECTED: 'subbot:connected',
   SUBBOT_DISCONNECTED: 'subbot:disconnected',
   SUBBOT_DELETED: 'subbot:deleted',
+  SUBBOT_UPDATED: 'subbot:updated',
   SUBBOT_STATUS: 'subbot:status',
+  // Dashboard
   STATS_UPDATE: 'stats:update',
+  // Aportes
   APORTE_CREATED: 'aporte:created',
   APORTE_UPDATED: 'aporte:updated',
+  APORTE_DELETED: 'aporte:deleted',
+  // Pedidos
   PEDIDO_CREATED: 'pedido:created',
   PEDIDO_UPDATED: 'pedido:updated',
+  PEDIDO_DELETED: 'pedido:deleted',
+  // Grupos
   GRUPO_UPDATED: 'grupo:updated',
+  GRUPO_SYNCED: 'grupo:synced',
+  // Usuarios
+  USUARIO_CREATED: 'usuario:created',
+  USUARIO_UPDATED: 'usuario:updated',
+  // Notificaciones
   NOTIFICATION: 'notification',
+  // Sistema
   SYSTEM_STATS: 'system:stats',
   LOG_ENTRY: 'log:entry',
   TERMINAL_LINE: 'terminal:line',
+  // Tasks (scheduler)
+  TASK_CREATED: 'task:created',
+  TASK_UPDATED: 'task:updated',
+  TASK_DELETED: 'task:deleted',
+  TASK_EXECUTED: 'task:executed',
 } as const;
 
 interface BotStatus {
@@ -96,17 +117,22 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
     
     const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnection: true,
       reconnectionAttempts: 15,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 10000,
+      randomizationFactor: 0.5,
       timeout: 20000,
       autoConnect: true,
       auth: { token },
     });
 
+    let connectAttempts = 0;
+
     newSocket.on('connect', () => {
+      connectAttempts = 0;
       setIsConnected(true);
       setConnectionError(null);
       
@@ -124,7 +150,11 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     newSocket.on('disconnect', () => setIsConnected(false));
 
     newSocket.on('connect_error', (error) => {
-      setConnectionError(`Error de conexión: ${error.message}`);
+      connectAttempts++;
+      // Suppress first attempt log — normal during page load
+      if (connectAttempts > 1) {
+        setConnectionError(`Error de conexión: ${error.message}`);
+      }
       setIsConnected(false);
     });
 

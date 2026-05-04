@@ -1,24 +1,12 @@
-import ws from 'ws'
-import { generateWAMessageContent, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys'
+import { generateWAMessageContent, generateWAMessageFromContent, proto } from 'baileys'
 
 function safeString(value) {
   return typeof value === 'string' ? value : (value == null ? '' : String(value))
 }
 
-function getSockReadyState(sock) {
-  return (
-    sock?.ws?.socket?.readyState ??
-    sock?.ws?.readyState ??
-    sock?.ws?.ws?.readyState ??
-    null
-  )
-}
-
 function isSockOnline(sock) {
   if (!sock) return false
-  const rs = getSockReadyState(sock)
-  if (typeof rs === 'number') return rs !== ws.CLOSED
-  return Boolean(sock?.user || sock?.isInit)
+  return sock.isConnected || Boolean(sock?.user || sock?.isInit)
 }
 
 function normalizePhone(value) {

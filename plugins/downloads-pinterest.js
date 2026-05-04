@@ -1,5 +1,5 @@
 import axios from 'axios'
-import baileys from '@whiskeysockets/baileys'
+import baileys from 'baileys'
 import cheerio from 'cheerio'
 
 let handler = async (m, { conn, text, args, usedPrefix }) => {

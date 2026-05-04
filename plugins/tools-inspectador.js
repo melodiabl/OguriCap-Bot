@@ -2,7 +2,7 @@
 // Código compatible con canales y comunidades de WhatsApp 
 // También encontrarás código para comandos enfocados para canales de WhatsApp
 
-import { getUrlFromDirectPath } from "@whiskeysockets/baileys"
+import { getUrlFromDirectPath } from "baileys"
 import _ from "lodash"
 import axios from 'axios'
 let handler = async (m, { conn, command, usedPrefix, args, text, groupMetadata, isOwner, isROwner }) => {

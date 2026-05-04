@@ -5,9 +5,11 @@ import path, { join } from "path"
 import fs, { unwatchFile, watchFile } from "fs"
 import chalk from "chalk"
 import fetch from "node-fetch"
-import ws from "ws"
 
-const { proto, areJidsSameUser } = (await import("@whiskeysockets/baileys")).default
+
+const baileys = await import("baileys")
+const proto = baileys.default?.proto || baileys.proto
+const areJidsSameUser = baileys.areJidsSameUser || baileys.default?.areJidsSameUser
 const isNumber = x => typeof x === "number" && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function () {
   clearTimeout(this)
@@ -383,7 +385,28 @@ export async function handler(chatUpdate) {
         groupMetadata.participants = rawMeta.participants.map(p => ({ ...p, id: p.jid, jid: p.jid, lid: p.lid }))
       }
       participants = (groupMetadata.participants || []).map(p => ({ id: p.jid, jid: p.jid, lid: p.lid, admin: p.admin }))
-      userGroup = participants.find(u => conn.decodeJid(u.jid) === m.sender) || {}
+      const senderIsLid = m.sender?.endsWith('@lid')
+      userGroup = participants.find(u =>
+        conn.decodeJid(u.jid) === m.sender ||
+        (u.lid && u.lid === m.sender) ||
+        conn.decodeJid(u.id) === m.sender
+      ) || {}
+      if (senderIsLid && !userGroup.jid) {
+        const freshMeta = await this.groupMetadata(m.chat).catch(_ => null) || {}
+        if (freshMeta.participants) {
+          participants = freshMeta.participants.map(p => ({
+            id: p.id || p.jid,
+            jid: p.phoneNumber || p.jid || p.id,
+            lid: p.id?.endsWith('@lid') ? p.id : (p.lid || undefined),
+            admin: p.admin
+          }))
+          userGroup = participants.find(u =>
+            conn.decodeJid(u.jid) === m.sender ||
+            (u.lid && u.lid === m.sender) ||
+            conn.decodeJid(u.id) === m.sender
+          ) || {}
+        }
+      }
       botGroup = participants.find(u => conn.decodeJid(u.jid) == this.user.jid) || {}
       isRAdmin = userGroup?.admin == "superadmin"
       isAdmin = isRAdmin || userGroup?.admin == "admin"
@@ -510,9 +533,9 @@ export async function handler(chatUpdate) {
         }
 
         if (global.db.data.chats[m.chat].primaryBot && global.db.data.chats[m.chat].primaryBot !== this.user.jid) {
-          const primaryBotConn = global.conns.find(conn => conn.user.jid === global.db.data.chats[m.chat].primaryBot && conn.ws.socket && conn.ws.socket.readyState !== ws.CLOSED)
+          const primaryBotConn = (global.conns || []).find(conn => conn.user.jid === global.db.data.chats[m.chat].primaryBot && conn.isConnected)
           // Reuse already fetched participants instead of calling groupMetadata again
-          const primaryBotInGroup = participants.some(p => p.jid === global.db.data.chats[m.chat].primaryBot)
+          const primaryBotInGroup = (participants || []).some(p => p.jid === global.db.data.chats[m.chat].primaryBot)
           if (primaryBotConn && primaryBotInGroup || global.db.data.chats[m.chat].primaryBot === global.conn.user.jid) {
             throw !1
           } else {

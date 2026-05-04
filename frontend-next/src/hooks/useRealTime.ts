@@ -177,7 +177,7 @@ export function useSubbotsStatus() {
 }
 
 
-export function useConnectionHealth(interval = 15000) {
+export function useConnectionHealth(interval = 60000) {
   const [latency, setLatency] = useState(0);
 
   const measureLatency = useCallback(async () => {

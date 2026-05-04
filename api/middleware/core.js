@@ -86,7 +86,14 @@ export async function getJwtAuth(req) {
     const username = decoded?.username
     if (!username) return { ok: false, status: 403, error: 'Token inválido' }
     const usuarios = global.db?.data?.usuarios || {}
-    const user = Object.values(usuarios).find(u => u?.username === username)
+    let user = Object.values(usuarios).find(u => u?.username === username)
+    // Fallback: buscar en PostgreSQL si no está en memoria
+    if (!user && global.db?.pool) {
+      try {
+        const { rows } = await global.db.pool.query('SELECT * FROM usuarios WHERE username = $1 LIMIT 1', [username])
+        if (rows[0]) user = rows[0]
+      } catch {}
+    }
     if (!user) return { ok: false, status: 401, error: 'Usuario no autenticado' }
     return { ok: true, user, decoded, usuarios }
   } catch {
@@ -106,9 +113,12 @@ export function getUserFromToken(token) {
 
 // ─── Body ─────────────────────────────────────────────────────────────────────
 export async function readJson(req) {
+  if (req._parsedBody !== undefined) return req._parsedBody
   let raw = ''
   for await (const c of req) raw += c
-  return raw ? JSON.parse(raw) : {}
+  const parsed = raw ? JSON.parse(raw) : {}
+  req._parsedBody = parsed
+  return parsed
 }
 
 export async function readBodyBuffer(req, { limitBytes = 10 * 1024 * 1024 } = {}) {

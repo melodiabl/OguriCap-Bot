@@ -65,6 +65,7 @@ html[data-theme="dark"] {
   --success: 37 211 102;
   --warning: 245 158 11;
   --danger: 255 77 141;
+  --info: 45 212 191;
 
   --text-primary: 242 246 243;
   --text-secondary: 178 197 186;
@@ -208,9 +209,6 @@ html[data-page="home"] {
   --page-b: 45 212 191;
   --page-c: 255 77 141;
   --page-d: 245 158 11;
-  --primary: var(--page-a);
-  --secondary: var(--page-b);
-  --accent: var(--page-c);
   --glow-boost: 1.12;
   --aurora-opacity: 0.76;
   --aurora-blur: 24px;
@@ -458,6 +456,7 @@ html[data-theme="light"] {
   --success: 37 211 102;
   --warning: 245 158 11;
   --danger: 255 77 141;
+  --info: 45 212 191;
 
   --ring: var(--primary);
   --shadow-rgb: 15 23 42;
@@ -5182,4 +5181,79 @@ html:not([data-page="home"]) table {
     align-items: stretch;
     text-align: left;
   }
+}
+
+/* ── Light theme: hardcoded dark hex overrides ─────────────────────────── */
+
+/* MainLayout root + footer */
+html[data-theme="light"] .bg-\[\#060807\],
+html[data-theme="light"] .bg-\[\#080b09\]\/80 {
+  background-color: rgb(var(--bg-0)) !important;
+}
+
+/* Header bar */
+html[data-theme="light"] .bg-\[\#0d0f0e\]\/72 {
+  background-color: rgb(var(--bg-1) / 0.92) !important;
+  border-bottom-color: rgb(var(--border) / 0.2) !important;
+}
+
+/* Header toolbar + info bar */
+html[data-theme="light"] .bg-\[\#111713\]\/74,
+html[data-theme="light"] .bg-\[\#111713\]\/66 {
+  background-color: rgb(var(--surface-elevated) / 0.9) !important;
+  border-color: rgb(var(--border) / 0.15) !important;
+}
+
+/* Sidebar */
+html[data-theme="light"] .bg-\[\#0d0f0e\]\/86 {
+  background-color: rgb(var(--bg-1) / 0.97) !important;
+  border-right-color: rgb(var(--border) / 0.2) !important;
+}
+
+/* border-white/10 in light mode */
+html[data-theme="light"] .border-white\/10 {
+  border-color: rgb(var(--border) / 0.2) !important;
+}
+
+/* text-[#a7f3c7] (green badge text) → use primary color */
+html[data-theme="light"] .text-\[\#a7f3c7\] {
+  color: rgb(var(--primary)) !important;
+}
+
+/* bg-[#25d366]/10 green badge bg → lighter */
+html[data-theme="light"] .bg-\[\#25d366\]\/10 {
+  background-color: rgb(var(--primary) / 0.1) !important;
+}
+html[data-theme="light"] .border-\[\#25d366\]\/20 {
+  border-color: rgb(var(--primary) / 0.25) !important;
+}
+
+/* ── Light theme: all hardcoded dark hex backgrounds ───────────────────── */
+html[data-theme="light"] .bg-\[\#050816\]\/85,
+html[data-theme="light"] .bg-\[\#060807\],
+html[data-theme="light"] .bg-\[\#060807\]\/60,
+html[data-theme="light"] .bg-\[\#080b09\],
+html[data-theme="light"] .bg-\[\#080b09\]\/80,
+html[data-theme="light"] .bg-\[\#0a0d0b\],
+html[data-theme="light"] .bg-\[\#0d120f\],
+html[data-theme="light"] .bg-\[\#101512\]\/86 {
+  background-color: rgb(var(--bg-0)) !important;
+}
+
+html[data-theme="light"] .bg-\[\#0d0f0e\]\/72 {
+  background-color: rgb(var(--bg-1) / 0.92) !important;
+}
+
+html[data-theme="light"] .bg-\[\#0d0f0e\]\/86 {
+  background-color: rgb(var(--bg-1) / 0.97) !important;
+}
+
+html[data-theme="light"] .bg-\[\#111713\],
+html[data-theme="light"] .bg-\[\#111713\]\/66,
+html[data-theme="light"] .bg-\[\#111713\]\/74 {
+  background-color: rgb(var(--surface-elevated) / 0.9) !important;
+}
+
+html[data-theme="light"] .bg-\[\#25d366\]\/30 {
+  background-color: rgb(var(--primary) / 0.15) !important;
 }

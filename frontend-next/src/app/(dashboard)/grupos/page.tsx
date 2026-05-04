@@ -1,10 +1,11 @@
 'use client';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, Search, RefreshCw, CheckCircle, XCircle, Power, PowerOff,
-  Star, X, Plus, Radio,
+  Star, X, Plus, Radio, CheckSquare, Square,
 } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +19,7 @@ import { useGroupsSmartRefresh } from '@/hooks/useSmartRefresh';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 import { Group } from '@/types';
 
 export default function GruposPage() {
@@ -32,6 +33,8 @@ export default function GruposPage() {
   const [pagination, setPagination] = useState<any>(null);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<any>(null);
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [isBatchActionLoading, setIsBatchActionLoading] = useState(false);
   
   // Usar el contexto global del bot
   const { isGloballyOn: globalBotState } = useBotGlobalState();
@@ -66,7 +69,7 @@ export default function GruposPage() {
       const response = await api.getMainBotStatus();
       setConnectionStatus(response);
     } catch (err) {
-      console.error('Error checking connection status:', err);
+      console.error('Error checking connection status:', getErrorMessage(err));
     }
   }, []);
 
@@ -107,20 +110,89 @@ export default function GruposPage() {
     }
   };
 
+  const toggleGroupSelection = (jid: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(jid)) next.delete(jid);
+      else next.add(jid);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedGroups.size === groups.length) {
+      setSelectedGroups(new Set());
+    } else {
+      setSelectedGroups(new Set(groups.map(g => g.wa_jid)));
+    }
+  };
+
+  const clearSelection = () => setSelectedGroups(new Set());
+
+  const batchToggleBot = async (action: 'on' | 'off') => {
+    if (selectedGroups.size === 0) return;
+    setIsBatchActionLoading(true);
+    try {
+      const promises = Array.from(selectedGroups).map(jid => api.toggleGroupBot(jid, action));
+      await Promise.all(promises);
+      setGroups(prev => prev.map(g =>
+        selectedGroups.has(g.wa_jid) ? { ...g, bot_enabled: action === 'on' } : g
+      ));
+      notify.success(`${action === 'on' ? 'Activado' : 'Desactivado'} en ${selectedGroups.size} grupos`);
+      clearSelection();
+    } catch (err) {
+      notify.error('Error en operación en lote');
+    } finally {
+      setIsBatchActionLoading(false);
+    }
+  };
+
+  const batchToggleProveedor = async (setAs: boolean) => {
+    if (selectedGroups.size === 0) return;
+    setIsBatchActionLoading(true);
+    try {
+      const promises = Array.from(selectedGroups).map(jid => api.toggleProvider(jid, setAs));
+      await Promise.all(promises);
+      setGroups(prev => prev.map(g =>
+        selectedGroups.has(g.wa_jid) ? { ...g, es_proveedor: setAs } : g
+      ));
+      notify.success(`Actualizados ${selectedGroups.size} grupos`);
+      clearSelection();
+    } catch (err) {
+      notify.error('Error en operación en lote');
+    } finally {
+      setIsBatchActionLoading(false);
+    }
+  };
+
   const syncWhatsAppGroups = async () => {
     if (!connectionStatus?.connected) {
-      notify.error('El bot debe estar conectado para sincronizar grupos.');
+      notify.error('El bot debe estar conectado para sincronizar grupos');
       return;
     }
 
     try {
       setSyncing(true);
+      notify.info('Obteniendo grupos de WhatsApp...');
+      
       const res = await api.syncWhatsAppGroups();
-      notify.success(res?.message || 'Grupos sincronizados');
+      
+      if (res?.success) {
+        const message = res.filtered > 0 
+          ? `${res.synced} sincronizados, ${res.filtered} filtrados`
+          : `${res.synced} grupos sincronizados correctamente`;
+        
+        notify.success(message);
+      } else {
+        notify.success('Grupos sincronizados correctamente');
+      }
+      
       setShowSyncModal(false);
       await manualRefresh();
     } catch (err: any) {
-      notify.error(err?.response?.data?.error || 'Error al sincronizar grupos');
+      const errorMsg = err?.response?.data?.error || 'Error al sincronizar grupos';
+      notify.error(errorMsg);
+      console.error('[SYNC ERROR]', err?.response?.data || err);
     } finally {
       setSyncing(false);
     }
@@ -145,8 +217,8 @@ export default function GruposPage() {
       description: connectionStatus?.connected ? 'Puedes traer grupos reales desde la sesion activa.' : 'Necesitas reconectar el bot antes de sincronizar.',
       icon: <RefreshCw className="w-4 h-4" />,
       badge: connectionStatus?.connected ? 'ready' : 'locked',
-      badgeClassName: connectionStatus?.connected ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
-      glowClassName: 'from-[#25d366]/18 via-[#2dd4bf]/10 to-transparent',
+      badgeClassName: connectionStatus?.connected ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-danger/20 bg-danger/10 text-danger/80',
+      glowClassName: 'from-[rgb(var(--success))]/18 via-[rgb(var(--info))]/10 to-transparent',
     },
     {
       label: 'Cobertura del bot',
@@ -154,7 +226,7 @@ export default function GruposPage() {
       description: globalBotState ? 'Grupos con el bot encendido dentro de la red actual.' : 'El estado global mantiene toda la red en pausa.',
       icon: <Power className="w-4 h-4" />,
       badge: globalBotState ? 'activo' : 'global off',
-      badgeClassName: globalBotState ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      badgeClassName: globalBotState ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-warning/20 bg-warning/10 text-warning/80',
       glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
     },
     {
@@ -163,7 +235,7 @@ export default function GruposPage() {
       description: isSocketConnected ? 'El panel recibe cambios de grupos en vivo.' : 'Sigue operativo, pero depende de recargas.',
       icon: <Radio className="w-4 h-4" />,
       badge: isSocketConnected ? 'live' : 'http',
-      badgeClassName: isSocketConnected ? 'border-violet-400/20 bg-violet-500/10 text-violet-300' : 'border-white/10 bg-white/[0.05] text-white/70',
+      badgeClassName: isSocketConnected ? 'border-accent/20 bg-accent/10 text-accent' : 'border-white/10 bg-white/[0.05] text-white/70',
       glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
     },
     {
@@ -172,7 +244,7 @@ export default function GruposPage() {
       description: 'Grupos marcados como fuente operativa o proveedor confiable.',
       icon: <Star className="w-4 h-4" />,
       badge: 'catalogo',
-      badgeClassName: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      badgeClassName: 'border-warning/20 bg-warning/10 text-warning/80',
       glowClassName: 'from-amber-400/18 via-yellow-400/10 to-transparent',
     },
   ];
@@ -234,13 +306,13 @@ export default function GruposPage() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4"
+          className="rounded-2xl border border-danger/20 bg-danger/10 p-4"
         >
           <div className="flex items-center gap-3">
-            <PowerOff className="w-5 h-5 text-red-400" />
+            <PowerOff className="w-5 h-5 text-danger" />
             <div>
-              <p className="text-red-400 font-medium">Bot Apagado Globalmente</p>
-              <p className="text-red-300/70 text-sm">
+              <p className="text-danger font-medium">Bot Apagado Globalmente</p>
+              <p className="text-danger/80/70 text-sm">
                 El bot está desactivado en todos los grupos. Los toggles individuales no funcionarán hasta que se reactive globalmente.
               </p>
             </div>
@@ -259,13 +331,13 @@ export default function GruposPage() {
               <div
                 className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
                   connectionStatus.connected
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    ? 'bg-success/20 text-success border border-success/30'
+                    : 'bg-danger/20 text-danger border border-danger/30'
                 }`}
               >
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    connectionStatus.connected ? 'bg-emerald-400' : 'bg-red-400'
+                    connectionStatus.connected ? 'bg-success' : 'bg-danger'
                   }`}
                 />
                 {connectionStatus.connected ? 'Bot Conectado' : 'Bot Desconectado'}
@@ -275,8 +347,8 @@ export default function GruposPage() {
             <div
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
                 isSocketConnected
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  ? 'bg-success/20 text-success border border-success/30'
+                  : 'bg-warning/20 text-warning border border-warning/30'
               }`}
             >
               <Radio className={`w-3 h-3 ${isSocketConnected ? 'animate-pulse' : ''}`} />
@@ -379,11 +451,99 @@ export default function GruposPage() {
         </div>
       </Card>
 
+      {/* Batch Action Bar */}
+      {selectedGroups.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="sticky top-0 z-20 rounded-2xl border border-primary/20 bg-primary/10 p-4 backdrop-blur-xl"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <CheckSquare className="w-5 h-5 text-primary" />
+              <span className="font-semibold text-foreground">
+                {selectedGroups.size} grupo{selectedGroups.size !== 1 ? 's' : ''} seleccionado{selectedGroups.size !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                loading={isBatchActionLoading}
+                onClick={() => batchToggleBot('on')}
+                disabled={!globalBotState}
+              >
+                <Power className="w-4 h-4 mr-1" />
+                Activar Bot
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={isBatchActionLoading}
+                onClick={() => batchToggleBot('off')}
+                disabled={!globalBotState}
+              >
+                <PowerOff className="w-4 h-4 mr-1" />
+                Desactivar Bot
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={isBatchActionLoading}
+                onClick={() => batchToggleProveedor(true)}
+              >
+                <Star className="w-4 h-4 mr-1" />
+                Marcar Proveedor
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={isBatchActionLoading}
+                onClick={() => batchToggleProveedor(false)}
+              >
+                <Star className="w-4 h-4 mr-1" />
+                Quitar Proveedor
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Limpiar
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Groups Grid */}
       <Card animated delay={0.3}>
         <div className="border-b border-border/15 p-5 text-center sm:p-6 sm:text-left">
-          <h2 className="text-lg font-semibold text-foreground">Lista de Grupos</h2>
-          <p className="mt-1 text-sm text-muted">{groups.length} grupos mostrados</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Lista de Grupos</h2>
+              <p className="mt-1 text-sm text-muted">{groups.length} grupos mostrados</p>
+            </div>
+            {groups.length > 0 && (
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+              >
+                {selectedGroups.size === groups.length ? (
+                  <>
+                    <CheckSquare className="w-4 h-4" />
+                    Deseleccionar todo
+                  </>
+                ) : (
+                  <>
+                    <Square className="w-4 h-4" />
+                    Seleccionar todo
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -430,105 +590,120 @@ export default function GruposPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
             <AnimatePresence>
-              {groups.map((group, index) => (
-                <motion.div
-                  key={group.wa_jid || group.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="panel-surface-soft p-5 transition-all hover:border-primary/25 hover:bg-white/[0.06]"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        group.bot_enabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        <MessageSquare className="w-6 h-6" />
+              {groups.map((group, index) => {
+                const isSelected = selectedGroups.has(group.wa_jid);
+                return (
+                  <motion.div
+                    key={group.wa_jid || group.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`panel-surface-soft p-5 transition-all hover:border-primary/25 hover:bg-white/[0.06] ${
+                      isSelected ? 'border-primary/40 bg-primary/5' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <button
+                          onClick={() => toggleGroupSelection(group.wa_jid)}
+                          className="shrink-0 rounded-lg p-1 hover:bg-white/5"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-primary" />
+                          ) : (
+                            <Square className="w-5 h-5 text-muted" />
+                          )}
+                        </button>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          group.bot_enabled ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
+                        }`}>
+                          <MessageSquare className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="truncate font-semibold text-foreground">{group.nombre}</h3>
+                          <p className="truncate text-xs text-muted">{group.wa_jid}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="truncate font-semibold text-foreground">{group.nombre}</h3>
-                        <p className="truncate text-xs text-muted">{group.wa_jid}</p>
-                      </div>
+                      {group.es_proveedor && (
+                        <span className="badge badge-warning">
+                          <Star className="w-3 h-3 mr-1" />
+                          Proveedor
+                        </span>
+                      )}
                     </div>
-                    {group.es_proveedor && (
-                      <span className="badge badge-warning">
-                        <Star className="w-3 h-3 mr-1" />
-                        Proveedor
-                      </span>
+
+                    {group.descripcion && (
+                      <p className="mb-4 line-clamp-2 text-sm text-muted">{group.descripcion}</p>
                     )}
-                  </div>
 
-                  {group.descripcion && (
-                    <p className="mb-4 line-clamp-2 text-sm text-muted">{group.descripcion}</p>
-                  )}
+                    <div className="space-y-3">
+                      <div className="panel-data-row">
+                        <span className="panel-data-row__label">JID</span>
+                        <span className="panel-data-row__value truncate">{group.wa_jid}</span>
+                      </div>
+                    </div>
 
-                  <div className="space-y-3">
-                    <div className="panel-data-row">
-                      <span className="panel-data-row__label">JID</span>
-                      <span className="panel-data-row__value truncate">{group.wa_jid}</span>
+                    <div className="flex items-center justify-between border-t border-border/15 pt-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${
+                          globalBotState && group.bot_enabled 
+                            ? 'text-success' 
+                            : 'text-danger'
+                        }`}>
+                          {globalBotState 
+                            ? (group.bot_enabled ? 'Bot Activo' : 'Bot Inactivo')
+                            : 'Bot Apagado (Global)'
+                          }
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => toggleProveedor(group)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            group.es_proveedor
+                              ? 'text-warning bg-warning/10'
+                              : 'text-muted hover:bg-white/5'
+                          }`}
+                          title={group.es_proveedor ? 'Quitar proveedor' : 'Marcar como proveedor'}
+                        >
+                          <Star className="w-4 h-4" />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: globalBotState ? 1.1 : 1 }}
+                          whileTap={{ scale: globalBotState ? 0.9 : 1 }}
+                          onClick={() => globalBotState ? toggleBot(group) : notify.error('El bot está apagado globalmente')}
+                          disabled={!globalBotState}
+                          className={`p-2 rounded-lg transition-colors ${
+                            !globalBotState
+                              ? 'cursor-not-allowed bg-gray-500/10 text-gray-500 opacity-50'
+                              : group.bot_enabled
+                              ? 'text-success bg-success/10'
+                              : 'text-danger bg-danger/10'
+                          }`}
+                          title={
+                            !globalBotState 
+                              ? 'Bot apagado globalmente' 
+                              : group.bot_enabled 
+                              ? 'Desactivar bot' 
+                              : 'Activar bot'
+                          }
+                        >
+                          {!globalBotState ? (
+                            <PowerOff className="w-4 h-4" />
+                          ) : group.bot_enabled ? (
+                            <Power className="w-4 h-4" />
+                          ) : (
+                            <PowerOff className="w-4 h-4" />
+                          )}
+                        </motion.button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-border/15 pt-4">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm ${
-                        globalBotState && group.bot_enabled 
-                          ? 'text-emerald-400' 
-                          : 'text-red-400'
-                      }`}>
-                        {globalBotState 
-                          ? (group.bot_enabled ? 'Bot Activo' : 'Bot Inactivo')
-                          : 'Bot Apagado (Global)'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => toggleProveedor(group)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          group.es_proveedor
-                            ? 'text-amber-400 bg-amber-500/10'
-                            : 'text-muted hover:bg-white/5'
-                        }`}
-                        title={group.es_proveedor ? 'Quitar proveedor' : 'Marcar como proveedor'}
-                      >
-                        <Star className="w-4 h-4" />
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: globalBotState ? 1.1 : 1 }}
-                        whileTap={{ scale: globalBotState ? 0.9 : 1 }}
-                        onClick={() => globalBotState ? toggleBot(group) : notify.error('El bot está apagado globalmente')}
-                        disabled={!globalBotState}
-                        className={`p-2 rounded-lg transition-colors ${
-                          !globalBotState
-                            ? 'cursor-not-allowed bg-gray-500/10 text-gray-500 opacity-50'
-                            : group.bot_enabled
-                            ? 'text-emerald-400 bg-emerald-500/10'
-                            : 'text-red-400 bg-red-500/10'
-                        }`}
-                        title={
-                          !globalBotState 
-                            ? 'Bot apagado globalmente' 
-                            : group.bot_enabled 
-                            ? 'Desactivar bot' 
-                            : 'Activar bot'
-                        }
-                      >
-                        {!globalBotState ? (
-                          <PowerOff className="w-4 h-4" />
-                        ) : group.bot_enabled ? (
-                          <Power className="w-4 h-4" />
-                        ) : (
-                          <PowerOff className="w-4 h-4" />
-                        )}
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         )}
@@ -538,6 +713,9 @@ export default function GruposPage() {
           <div className="flex flex-col gap-3 border-t border-border/15 p-5 text-center sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:text-left">
             <p className="text-sm text-muted">
               Página {pagination.page} de {pagination.totalPages}
+              {selectedGroups.size > 0 && (
+                <span className="ml-2 text-primary">• {selectedGroups.size} seleccionado{selectedGroups.size !== 1 ? 's' : ''}</span>
+              )}
             </p>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
@@ -557,31 +735,31 @@ export default function GruposPage() {
           {connectionStatus && (
             <div className={`rounded-2xl border p-4 ${
               connectionStatus.connected 
-                ? 'bg-emerald-500/10 border-emerald-500/20' 
-                : 'bg-red-500/10 border-red-500/20'
+                ? 'bg-success/10 border-success/20' 
+                : 'bg-danger/10 border-danger/20'
             }`}>
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  connectionStatus.connected ? 'bg-emerald-400' : 'bg-red-400'
+                  connectionStatus.connected ? 'bg-success' : 'bg-danger'
                 }`} />
                 <span className={`text-sm font-medium ${
-                  connectionStatus.connected ? 'text-emerald-400' : 'text-red-400'
+                  connectionStatus.connected ? 'text-success' : 'text-danger'
                 }`}>
                   Estado: {connectionStatus.connected ? 'Conectado' : 'Desconectado'}
                 </span>
               </div>
               {!connectionStatus.connected && (
-                <p className="text-xs text-red-400">
+                <p className="text-xs text-danger">
                   El bot debe estar conectado para sincronizar grupos.
                 </p>
               )}
             </div>
           )}
           
-          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+          <div className="rounded-2xl border border-info/20 bg-info/10 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <MessageSquare className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-medium text-blue-400">¿Qué hace la sincronización?</span>
+              <MessageSquare className="w-5 h-5 text-info" />
+              <span className="text-sm font-medium text-info">¿Qué hace la sincronización?</span>
             </div>
               <p className="text-xs text-muted">
                 Obtiene la lista actual de grupos de WhatsApp y actualiza la base de datos.

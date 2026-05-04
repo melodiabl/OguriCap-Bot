@@ -1,4 +1,5 @@
 'use client';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,7 +19,7 @@ import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 interface Proveedor {
   id: number;
@@ -167,19 +168,19 @@ export default function ProveedoresPage() {
 
   const getStatusColor = (estado: string) => {
     switch (estado) {
-      case 'activo': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'activo': return 'bg-success/20 text-success border-success/30';
       case 'inactivo': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-      case 'suspendido': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'suspendido': return 'bg-danger/20 text-danger border-danger/30';
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
 
   const getTypeColor = (tipo: string) => {
     switch (tipo) {
-      case 'manhwa': return 'bg-teal-500/20 text-teal-400 border-teal-500/30';
-      case 'manga': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-      case 'anime': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'novela': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'manhwa': return 'bg-teal-500/20 text-info border-teal-500/30';
+      case 'manga': return 'bg-accent/20 text-accent border-accent/30';
+      case 'anime': return 'bg-info/20 text-info border-info/30';
+      case 'novela': return 'bg-success/20 text-success border-success/30';
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
@@ -201,7 +202,7 @@ export default function ProveedoresPage() {
       <PageHeader
         title="Gestión de Proveedores"
         description="Administra los proveedores de contenido"
-        icon={<Building2 className="w-5 h-5 text-purple-400" />}
+        icon={<Building2 className="w-5 h-5 text-accent" />}
         actions={
           <>
             <Button onClick={() => setShowCreateModal(true)} variant="primary" icon={<Plus className="w-4 h-4" />}>
@@ -218,19 +219,19 @@ export default function ProveedoresPage() {
       <AnimatePresence>
         {error && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="panel-note-card flex items-center gap-3 border-red-500/30 text-red-400">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-red-400">{error}</span>
-            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
+            className="panel-note-card flex items-center gap-3 border-danger/30 text-danger">
+            <AlertCircle className="w-5 h-5 text-danger" />
+            <span className="text-danger">{error}</span>
+            <button onClick={() => setError(null)} className="ml-auto text-danger hover:text-danger/80">
               <XCircle className="w-4 h-4" />
             </button>
           </motion.div>
         )}
         {success && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="panel-note-card flex items-center gap-3 border-emerald-500/30 text-emerald-400">
-            <CheckCircle className="w-5 h-5 text-emerald-400" />
-            <span className="text-emerald-400">{success}</span>
+            className="panel-note-card flex items-center gap-3 border-success/30 text-success">
+            <CheckCircle className="w-5 h-5 text-success" />
+            <span className="text-success">{success}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -355,7 +356,7 @@ export default function ProveedoresPage() {
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTypeColor(proveedor.tipo || 'general')}`}>
                         {(proveedor.tipo || 'general').charAt(0).toUpperCase() + (proveedor.tipo || 'general').slice(1)}
                       </span>
-                        <div className="flex items-center gap-1 text-amber-400">
+                        <div className="flex items-center gap-1 text-warning">
                           <Star className="w-4 h-4 fill-current" />
                           <span className="text-sm">{(proveedor.rating || 0).toFixed(1)}</span>
                         </div>
@@ -382,17 +383,17 @@ export default function ProveedoresPage() {
                     </button>
                     {proveedor.estado === 'activo' ? (
                       <button onClick={() => proveedor.jid && updateProveedorStatus(proveedor.jid, 'suspendido')}
-                        className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Suspender">
+                        className="p-2 rounded-lg text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors" title="Suspender">
                         <XCircle className="w-4 h-4" />
                       </button>
                     ) : (
                       <button onClick={() => proveedor.jid && updateProveedorStatus(proveedor.jid, 'activo')}
-                        className="p-2 rounded-lg text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Activar">
+                        className="p-2 rounded-lg text-gray-400 hover:text-success hover:bg-success/10 transition-colors" title="Activar">
                         <CheckCircle className="w-4 h-4" />
                       </button>
                     )}
                     <button onClick={() => proveedor.jid && deleteProveedor(proveedor.jid)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar">
+                      className="p-2 rounded-lg text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors" title="Eliminar">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -428,7 +429,7 @@ export default function ProveedoresPage() {
             <div className="panel-form-grid">
               <div><label className="panel-field-label">Contacto</label><p className="mt-1 text-foreground">{selectedProveedor.contacto}</p></div>
               <div><label className="panel-field-label">Rating</label>
-                <div className="mt-1 flex items-center gap-1 text-amber-400">
+                <div className="mt-1 flex items-center gap-1 text-warning">
                   <Star className="w-5 h-5 fill-current" /><span className="text-foreground">{selectedProveedor.rating.toFixed(1)}</span>
                 </div>
               </div>

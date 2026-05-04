@@ -1,5 +1,5 @@
 import fetch from 'node-fetch'
-import baileys from '@whiskeysockets/baileys'
+import baileys from 'baileys'
 
 async function sendAlbumMessage(jid, medias, options = {}) {
 if (typeof jid !== "string") { throw new TypeError(`jid must be string, received: ${jid}`) }

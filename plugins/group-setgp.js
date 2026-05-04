@@ -1,4 +1,4 @@
-import { makeWASocket } from '@whiskeysockets/baileys'
+import { makeWASocket } from 'baileys'
 
 const handler = async (m, { conn, args, text, command, usedPrefix }) => {
 try {

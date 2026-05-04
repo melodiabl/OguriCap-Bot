@@ -1,4 +1,4 @@
-import { delay } from "@whiskeysockets/baileys"
+import { delay } from "baileys"
 
 const handler = async (m, { args, usedPrefix, command, conn }) => {
 if (!db.data.chats[m.chat].economy && m.isGroup) {

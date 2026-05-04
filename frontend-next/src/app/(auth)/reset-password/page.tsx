@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 function ResetPasswordInner() {
   const router = useRouter();

@@ -1,9 +1,10 @@
 'use client';
+import { notify } from '@/lib/notif';
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle, Loader2, ShieldCheck, Clock, KeyRound, Info } from 'lucide-react';
-import toast from 'react-hot-toast';
+
 
 import api from '@/services/api';
 import { Button } from '@/components/ui/Button';
@@ -52,12 +53,12 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
     const error = validateIdentifier(identifier);
     if (error) {
       setFieldError(error);
-      toast.error(error);
+      notify.error(error);
       return;
     }
 
     if (attempts >= 3) {
-      toast.error('Demasiados intentos. Intenta más tarde');
+      notify.error('Demasiados intentos. Intenta más tarde');
       return;
     }
 
@@ -66,12 +67,12 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
     try {
       await api.requestPasswordResetEmail(identifier);
       setStep('success');
-      toast.success('Te enviamos un link de recuperación');
+      notify.success('Te enviamos un link de recuperación');
     } catch (error: any) {
       setAttempts(prev => prev + 1);
       const msg = error?.response?.data?.error || 'Error al procesar la solicitud';
       setFieldError(msg);
-      toast.error(msg);
+      notify.error(msg);
     } finally {
       setIsLoading(false);
     }

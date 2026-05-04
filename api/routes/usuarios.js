@@ -1,12 +1,19 @@
 /**
  * api/routes/usuarios.js — /api/usuarios/* + /api/users
- * Extraído de lib/panel-api.js
+ * Usa PostgreSQL como fuente primaria, lowdb como fallback.
  */
 import bcrypt from 'bcryptjs'
 import { json, readJson, getJwtAuth, safeString, paginate, sanitizeJwtUsuario } from '../middleware/core.js'
+import { pgFindUser, pgFindUserById, pgCreateUser, pgUpdateUser, pgListUsers, pgDeleteUser, normalizeUser } from '../lib/pg-usuarios.js'
 
 function isAdmin(user) {
   return ['owner', 'admin', 'administrador'].includes(safeString(user?.rol || '').toLowerCase())
+}
+
+async function getAllUsers() {
+  const pgUsers = await pgListUsers({ limit: 1000 })
+  if (pgUsers.length > 0) return pgUsers.map(normalizeUser)
+  return Object.values(global.db?.data?.usuarios || {})
 }
 
 export async function handleUsuarios({ req, res, url, panelDb }) {
@@ -14,12 +21,12 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
   const method = req.method.toUpperCase()
   const db = global.db
 
-  // ── GET /api/users (alias simple) ────────────────────────────────────────
+  // ── GET /api/users (alias) ────────────────────────────────────────────────
   if (pathname === '/api/users' && method === 'GET') {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
-    const users = Object.values(db?.data?.usuarios || {}).map(sanitizeJwtUsuario)
+    const users = (await getAllUsers()).map(sanitizeJwtUsuario)
     return json(res, 200, { users, total: users.length })
   }
 
@@ -28,7 +35,7 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
-    const users = Object.values(db?.data?.usuarios || {})
+    const users = await getAllUsers()
     return json(res, 200, {
       total: users.length,
       activos: users.filter(u => u?.activo !== false).length,
@@ -42,13 +49,12 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
-    const users = Object.values(db?.data?.usuarios || {})
     const search = safeString(url.searchParams.get('search') || '').toLowerCase()
     const rol = safeString(url.searchParams.get('rol') || '').toLowerCase()
-    let filtered = users
-    if (search) filtered = filtered.filter(u => safeString(u?.username).toLowerCase().includes(search) || safeString(u?.email || u?.correo).toLowerCase().includes(search))
-    if (rol) filtered = filtered.filter(u => safeString(u?.rol || '').toLowerCase() === rol)
-    const { items, pagination } = paginate(filtered.map(sanitizeJwtUsuario), { page: url.searchParams.get('page'), limit: url.searchParams.get('limit') })
+    let users = await getAllUsers()
+    if (search) users = users.filter(u => safeString(u?.username).toLowerCase().includes(search) || safeString(u?.email || u?.correo).toLowerCase().includes(search))
+    if (rol) users = users.filter(u => safeString(u?.rol || '').toLowerCase() === rol)
+    const { items, pagination } = paginate(users.map(sanitizeJwtUsuario), { page: url.searchParams.get('page'), limit: url.searchParams.get('limit') })
     return json(res, 200, { usuarios: items, pagination })
   }
 
@@ -61,44 +67,67 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
     const { username, password, rol, email, whatsapp_number } = body || {}
     if (!username || !password) return json(res, 400, { error: 'username y password son requeridos' })
     if (!['admin','colaborador','usuario','owner','creador','moderador'].includes(rol || 'usuario')) return json(res, 400, { error: 'Rol no válido' })
-    const users = db?.data?.usuarios || {}
-    if (Object.values(users).some(u => u?.username === username)) return json(res, 409, { error: 'El usuario ya existe' })
-    const newId = Math.max(0, ...Object.keys(users).map(Number).filter(Number.isFinite)) + 1
+    const existing = await pgFindUser(username)
+    if (existing || Object.values(db?.data?.usuarios || {}).some(u => u?.username === username)) return json(res, 409, { error: 'El usuario ya existe' })
     const hashed = await bcrypt.hash(password, 10)
-    db.data.usuarios[newId] = { id: newId, username, password: hashed, rol: rol || 'usuario', email: email || null, whatsapp_number: whatsapp_number || null, fecha_registro: new Date().toISOString(), created_at: new Date().toISOString(), activo: true }
+    const pgUser = await pgCreateUser({ username, password: hashed, rol: rol || 'usuario', whatsapp_number: whatsapp_number || null, email: email || null })
+    if (pgUser) {
+      global.sendTemplateNotification?.('user_registered', { username, email: email || 'N/A' })
+      return json(res, 201, { success: true, user: sanitizeJwtUsuario(normalizeUser(pgUser)) })
+    }
+    // Fallback lowdb
+    const users = db?.data?.usuarios || {}
+    const newId = Math.max(0, ...Object.keys(users).map(Number).filter(Number.isFinite)) + 1
+    db.data.usuarios[newId] = { id: newId, username, password: hashed, rol: rol || 'usuario', email: email || null, whatsapp_number: whatsapp_number || null, fecha_registro: new Date().toISOString(), activo: true }
     if (db?.write) await db.write()
-    global.sendTemplateNotification?.('user_registered', { username, email: email || 'N/A' })
     return json(res, 201, { success: true, user: sanitizeJwtUsuario(db.data.usuarios[newId]) })
   }
 
-  // ── GET /api/usuarios/:id ─────────────────────────────────────────────────
-  const idMatch = pathname.match(/^\/api\/usuarios\/(\d+)$/)
+  // ── GET|PATCH|DELETE /api/usuarios/:id ────────────────────────────────────
+  const idMatch = pathname.match(/^\/api\/usuarios\/(\w+)$/)
   if (idMatch) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
-    const id = idMatch[1]
-    const user = db?.data?.usuarios?.[id]
+    const idOrUsername = idMatch[1]
+    const isNumeric = /^\d+$/.test(idOrUsername)
+
+    // Buscar en PG primero
+    let user = isNumeric
+      ? normalizeUser(await pgFindUserById(Number(idOrUsername)))
+      : normalizeUser(await pgFindUser(idOrUsername))
+    // Fallback lowdb
+    if (!user) user = db?.data?.usuarios?.[idOrUsername] || Object.values(db?.data?.usuarios || {}).find(u => u?.username === idOrUsername || String(u?.id) === idOrUsername)
     if (!user) return json(res, 404, { error: 'Usuario no encontrado' })
-    if (!isAdmin(auth.user) && String(auth.user.id) !== String(id)) return json(res, 403, { error: 'Sin permisos' })
+
+    if (!isAdmin(auth.user) && String(auth.user.id) !== String(user.id) && auth.user.username !== user.username) return json(res, 403, { error: 'Sin permisos' })
 
     if (method === 'GET') return json(res, 200, sanitizeJwtUsuario(user))
 
     if (method === 'PATCH' || method === 'PUT') {
       if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
       const body = await readJson(req)
-      const allowed = ['email', 'whatsapp_number', 'rol', 'activo', 'nombre']
-      for (const k of allowed) { if (k in body) user[k] = body[k] }
-      if (body.password) user.password = await bcrypt.hash(body.password, 10)
-      user.updated_at = new Date().toISOString()
-      if (db?.write) await db.write()
-      return json(res, 200, { success: true, user: sanitizeJwtUsuario(user) })
+      const fields = {}
+      for (const k of ['email', 'whatsapp_number', 'rol', 'activo']) { if (k in body) fields[k] = body[k] }
+      if (body.password) fields.password = await bcrypt.hash(body.password, 10)
+      if (user._source === 'pg') {
+        const updated = await pgUpdateUser(user.username, fields)
+        return json(res, 200, { success: true, user: sanitizeJwtUsuario(normalizeUser(updated) || user) })
+      }
+      // lowdb fallback
+      const lUser = db?.data?.usuarios?.[user.id]
+      if (lUser) { Object.assign(lUser, fields, { updated_at: new Date().toISOString() }); if (db?.write) await db.write() }
+      return json(res, 200, { success: true, user: sanitizeJwtUsuario(lUser || user) })
     }
 
     if (method === 'DELETE') {
       if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
-      if (String(auth.user.id) === String(id)) return json(res, 400, { error: 'No puedes eliminarte a ti mismo' })
-      delete db.data.usuarios[id]
-      if (db?.write) await db.write()
+      if (auth.user.username === user.username) return json(res, 400, { error: 'No puedes eliminarte a ti mismo' })
+      if (user._source === 'pg') {
+        await pgUpdateUser(user.username, { activo: false })
+      } else {
+        delete db.data.usuarios[user.id]
+        if (db?.write) await db.write()
+      }
       return json(res, 200, { success: true, message: 'Usuario eliminado' })
     }
   }

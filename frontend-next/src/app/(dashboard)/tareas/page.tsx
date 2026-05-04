@@ -1,4 +1,5 @@
 'use client';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -31,7 +32,7 @@ import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useFlashTokens } from '@/hooks/useFlashTokens';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 interface Task {
   id: string;
@@ -145,7 +146,7 @@ export default function TareasPage() {
       const tasksList = (data as any)?.tasks || (data as any)?.data?.tasks || [];
       setTasks(Array.isArray(tasksList) ? tasksList : []);
     } catch (error) {
-      console.error('Error loading tasks:', error);
+      console.error('Error loading tasks:', getErrorMessage(error));
       setTasks([]);
       notify.error('Error cargando tareas');
     } finally {
@@ -159,7 +160,7 @@ export default function TareasPage() {
       const list = (data as any)?.executions || (data as any)?.history || [];
       setExecutions(Array.isArray(list) ? list : []);
     } catch (error) {
-      console.error('Error loading executions:', error);
+      console.error('Error loading executions:', getErrorMessage(error));
       setExecutions([]);
     }
   };
@@ -229,28 +230,28 @@ export default function TareasPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'running': return <Activity className="w-4 h-4 text-blue-400 animate-spin" />;
-      case 'completed': return <CheckCircle className="w-4 h-4 text-green-400" />;
-      case 'failed': return <XCircle className="w-4 h-4 text-red-400" />;
-      case 'paused': return <Pause className="w-4 h-4 text-yellow-400" />;
+      case 'running': return <Activity className="w-4 h-4 text-info animate-spin" />;
+      case 'completed': return <CheckCircle className="w-4 h-4 text-success" />;
+      case 'failed': return <XCircle className="w-4 h-4 text-danger" />;
+      case 'paused': return <Pause className="w-4 h-4 text-warning" />;
       default: return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'running': return 'text-blue-400 bg-blue-500/20';
-      case 'completed': return 'text-green-400 bg-green-500/20';
-      case 'failed': return 'text-red-400 bg-red-500/20';
-      case 'paused': return 'text-yellow-400 bg-yellow-500/20';
+      case 'running': return 'text-info bg-info/20';
+      case 'completed': return 'text-success bg-success/20';
+      case 'failed': return 'text-danger bg-danger/20';
+      case 'paused': return 'text-warning bg-warning/20';
       default: return 'text-gray-400 bg-gray-500/20';
     }
   };
 
   const getPriorityColor = (priority: number) => {
-    if (priority >= 4) return 'text-red-400';
+    if (priority >= 4) return 'text-danger';
     if (priority >= 3) return 'text-orange-400';
-    if (priority >= 2) return 'text-yellow-400';
+    if (priority >= 2) return 'text-warning';
     return 'text-gray-400';
   };
 
@@ -492,11 +493,11 @@ export default function TareasPage() {
                         )}
                         
                         <div className="flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3 text-green-400" />
+                          <CheckCircle className="w-3 h-3 text-success" />
                           <span>
                             <AnimatedNumber value={task.successCount} />
                           </span>
-                          <XCircle className="w-3 h-3 text-red-400 ml-2" />
+                          <XCircle className="w-3 h-3 text-danger ml-2" />
                           <span>
                             <AnimatedNumber value={task.errorCount} />
                           </span>
@@ -549,7 +550,7 @@ export default function TareasPage() {
                         onClick={() => deleteTask(task.id)}
                         variant="secondary"
                         size="sm"
-                        className="flex items-center gap-1 text-red-400 hover:text-red-300"
+                        className="flex items-center gap-1 text-danger hover:text-danger/80"
                       >
                         <Trash2 className="w-3 h-3" />
                         Eliminar
@@ -624,7 +625,7 @@ export default function TareasPage() {
                                 {formatDuration(execution.duration)}
                               </p>
                               {execution.error && (
-                                <p className="text-xs text-red-400 max-w-xs truncate">
+                                <p className="text-xs text-danger max-w-xs truncate">
                                   {execution.error}
                                 </p>
                               )}

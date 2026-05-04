@@ -13,9 +13,11 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 COPY . .
+
+RUN node scripts/patch-baileys.js
 
 RUN mkdir -p Sessions storage/media logs tmp
 

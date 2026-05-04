@@ -29,8 +29,8 @@ const mime = (q.msg || q).mimetype || ''
 if (!/image\/(png|jpe?g)/.test(mime)) return conn.reply(m.chat, `❀ Por favor, responde o envía una imagen válida para cambiar la foto de perfil.`, m)
  const media = await q.download()
  if (!media) return conn.reply(m.chat, `ꕥ No se pudo obtener la imagen.`, m)
- const image = await Jimp.read(media)
- const buffer = await jimpGetBuffer(image, MIME_JPEG)
+  const image = await Jimp.read(media)
+  const buffer = await jimpGetBuffer(image, MIME_JPEG)
  await conn.updateProfilePicture(conn.user.jid, buffer)
  conn.reply(m.chat, `❀ Se cambió la *foto de perfil* del Socket correctamente.`, m)
  break

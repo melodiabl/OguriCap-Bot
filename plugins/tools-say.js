@@ -1,4 +1,4 @@
-import { generateWAMessageFromContent } from '@whiskeysockets/baileys'
+import { generateWAMessageFromContent } from 'baileys'
 import * as fs from 'fs'
 
 let handler = async (m, { conn, text, usedPrefix }) => {

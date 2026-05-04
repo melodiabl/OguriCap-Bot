@@ -1,4 +1,4 @@
-import { areJidsSameUser } from '@whiskeysockets/baileys'
+import { areJidsSameUser } from 'baileys'
 
 global.__botallowPending ||= Object.create(null)
 global.__botallowProbeCooldown ||= Object.create(null)

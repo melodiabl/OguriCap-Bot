@@ -17,7 +17,7 @@ import { RealTimeBadge } from '@/components/ui/StatusIndicator';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useLoadingOverlay } from '@/contexts/LoadingOverlayContext';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 import { cn, formatDateTime } from '@/lib/utils';
 import api from '@/services/api';
 import { useGroups } from '@/contexts/GroupsContext';
@@ -492,8 +492,8 @@ export default function GruposManagementPage() {
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
                     selectedGroup.bot_enabled
-                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                      : 'bg-red-500/20 text-red-400 border-red-500/30'
+                      ? 'bg-success/20 text-success border-success/30'
+                      : 'bg-danger/20 text-danger border-danger/30'
                   }`}>
                     {selectedGroup.bot_enabled ? 'Activo' : 'Inactivo'}
                   </span>
@@ -533,11 +533,11 @@ export default function GruposManagementPage() {
                 <p className="text-sm text-gray-400">Estado</p>
                 <div className="flex items-center gap-2 mt-1">
                   {selectedNotification.estado === 'enviado' ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle className="w-4 h-4 text-success" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-red-400" />
+                    <XCircle className="w-4 h-4 text-danger" />
                   )}
-                  <span className={selectedNotification.estado === 'enviado' ? 'text-emerald-400' : 'text-red-400'}>
+                  <span className={selectedNotification.estado === 'enviado' ? 'text-success' : 'text-danger'}>
                     {selectedNotification.estado === 'enviado' ? 'Enviado' : 'Error'}
                   </span>
                 </div>
@@ -554,9 +554,9 @@ export default function GruposManagementPage() {
               </code>
             </div>
             {selectedNotification.error_message && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-sm text-red-400 font-medium">Error</p>
-                <p className="text-sm text-red-300 mt-1">{selectedNotification.error_message}</p>
+              <div className="p-3 bg-danger/10 border border-danger/30 rounded-xl">
+                <p className="text-sm text-danger font-medium">Error</p>
+                <p className="text-sm text-danger/80 mt-1">{selectedNotification.error_message}</p>
               </div>
             )}
           </div>
@@ -587,12 +587,12 @@ export default function GruposManagementPage() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl mb-4">
+              <div className="p-4 bg-warning/10 border border-warning/30 rounded-xl mb-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
                   <div>
-                    <p className="font-semibold text-amber-400">¡Atención!</p>
-                    <p className="text-sm text-amber-300 mt-1">
+                    <p className="font-semibold text-warning">¡Atención!</p>
+                    <p className="text-sm text-warning/80 mt-1">
                       Esta acción desactivará el bot en TODOS los grupos. Solo el administrador podrá reactivarlo.
                     </p>
                   </div>

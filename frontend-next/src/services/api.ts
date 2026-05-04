@@ -67,14 +67,17 @@ class ApiService {
         const config = error?.config
 
         // Auth: hard fail -> logout
-        if (status === 401 && typeof window !== 'undefined') {
-          localStorage.removeItem('token')
-          try {
-            const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-            document.cookie = `token=; Path=/; Max-Age=0; SameSite=Lax${secure}`
-          } catch {}
-          if (window.location.pathname !== '/login') window.location.href = '/login'
-          return Promise.reject(error)
+        if ((status === 401 || status === 403) && typeof window !== 'undefined') {
+          const msg = error?.response?.data?.error || ''
+          if (status === 401 || msg === 'Token inválido') {
+            localStorage.removeItem('token')
+            try {
+              const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+              document.cookie = `token=; Path=/; Max-Age=0; SameSite=Lax${secure}`
+            } catch {}
+            if (window.location.pathname !== '/login') window.location.href = '/login'
+            return Promise.reject(error)
+          }
         }
 
         // Retry transient panel failures to avoid manual page reloads.
@@ -179,7 +182,7 @@ class ApiService {
   }
 
   async getMainBotStatus(): Promise<BotStatus> {
-    const response = await this.api.get('/api/bot/auth/status')
+    const response = await this.api.get('/api/bot/status')
     return response.data
   }
 
@@ -273,7 +276,7 @@ class ApiService {
   }
 
   async getSubbotQR(subbotId: string) {
-    const response = await this.api.get(`/api/subbot/qr/${encodeURIComponent(subbotId)}`)
+    const response = await this.api.get(`/api/subbots/${encodeURIComponent(subbotId)}/qr`)
     return response.data
   }
 
@@ -541,7 +544,7 @@ class ApiService {
     if (params.query) qp.append('query', params.query);
     if (params.startDate) qp.append('startDate', params.startDate);
     if (params.endDate) qp.append('endDate', params.endDate);
-    const response = await this.api.get(`/api/logs?${qp}`);
+    const response = await this.api.get(`/api/logs/search?${qp}`);
     return response.data;
   }
 
@@ -1006,7 +1009,7 @@ class ApiService {
 
   // System health
   async getSystemHealth() {
-    const response = await this.api.get('/api/system/health');
+    const response = await this.api.get('/api/health');
     return response.data;
   }
 

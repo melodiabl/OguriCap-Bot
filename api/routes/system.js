@@ -17,11 +17,14 @@ export async function handleSystem({ req, res, url, panelDb }) {
     const clientIP = getClientIP(req)
     const turnstileDisabled = process.env.TURNSTILE_DISABLED === '1'
     const siteKey = safeString(process.env.TURNSTILE_SITE_KEY || '').trim()
+    const mem = process.memoryUsage()
+    const dbOk = Boolean(global.db?.data)
+    const botConnected = global.stopped === 'open'
     return json(res, 200, {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      bot: global.stopped === 'open' ? 'connected' : 'disconnected',
+      bot: botConnected ? 'connected' : 'disconnected',
       version: process.env.npm_package_version || '1.0.0',
       // Campos que el frontend login necesita
       turnstileSiteKey: (!turnstileDisabled && siteKey) ? siteKey : null,
@@ -31,6 +34,18 @@ export async function handleSystem({ req, res, url, panelDb }) {
       clientIP,
       ipAllowed: isAllowedIP(clientIP, panelDb),
       canAccessDuringMaintenance: isAllowedIP(clientIP, panelDb),
+      // Rich health data
+      health: {
+        db: { status: dbOk ? 'ok' : 'error', logs: global.db?.data?.logs?.length ?? 0 },
+        memory: {
+          heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+          heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+          rss: Math.round(mem.rss / 1024 / 1024),
+          unit: 'MB'
+        },
+        bot: { connected: botConnected, uptime: global.botStartTime ? Math.floor((Date.now() - global.botStartTime) / 1000) : null },
+        process: { uptime: Math.floor(process.uptime()), pid: process.pid }
+      }
     })
   }
 

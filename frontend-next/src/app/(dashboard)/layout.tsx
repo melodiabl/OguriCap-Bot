@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { GroupsProvider } from '@/contexts/GroupsContext';
 import { BotGlobalStateProvider } from '@/contexts/BotGlobalStateContext';
 import { GlobalUpdateProvider } from '@/contexts/GlobalUpdateContext';
+import { UnifiedNotificationProvider } from '@/contexts/UnifiedNotificationContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MaintenanceBanner } from '@/components/ui/MaintenanceBanner';
 
@@ -79,11 +80,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <BotGlobalStateProvider>
       <GlobalUpdateProvider>
         <GroupsProvider>
-          <div className="min-h-screen">
-            <DataRefreshTrigger />
-            <MaintenanceBanner />
-            <MainLayout>{children}</MainLayout>
-          </div>
+          <UnifiedNotificationProvider>
+            <div className="min-h-screen">
+              <DataRefreshTrigger />
+              <MaintenanceBanner />
+              <MainLayout>{children}</MainLayout>
+            </div>
+          </UnifiedNotificationProvider>
         </GroupsProvider>
       </GlobalUpdateProvider>
     </BotGlobalStateProvider>

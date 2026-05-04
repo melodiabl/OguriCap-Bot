@@ -20,9 +20,9 @@ import { Badge } from '@/components/ui/Badge';
 import { useSocketConnection } from '@/contexts/SocketContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDateTime, cn } from '@/lib/utils';
+import { formatDateTime, cn , getErrorMessage } from '@/lib/utils';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify, notif } from '@/lib/notif';
 import QRCode from 'qrcode';
 
 type SubbotType = 'qr' | 'code';
@@ -109,7 +109,7 @@ export default function SubbotsPage() {
       description: pendingCount > 0 ? 'Subbots esperando QR o pairing para terminar la sesion.' : 'No hay autenticaciones pendientes ahora mismo.',
       icon: <Clock className="w-4 h-4" />,
       badge: pendingCount > 0 ? 'auth' : 'ok',
-      badgeClassName: pendingCount > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-white/10 bg-white/[0.05] text-white/70',
+      badgeClassName: pendingCount > 0 ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-white/10 bg-white/[0.05] text-white/70',
       glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
     },
     {
@@ -118,7 +118,7 @@ export default function SubbotsPage() {
       description: isUsuario ? 'Tu panel muestra solo instancias propias.' : 'Puedes vigilar la flota completa y operar mantenimiento.',
       icon: <User className="w-4 h-4" />,
       badge: isUsuario ? 'private' : 'admin',
-      badgeClassName: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      badgeClassName: 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
     },
     {
@@ -127,8 +127,8 @@ export default function SubbotsPage() {
       description: isGloballyOn ? `${connectedCount} instancias online con red principal habilitada.` : 'Las instancias pueden estar arriba, pero el bot global esta silenciado.',
       icon: <Zap className="w-4 h-4" />,
       badge: isGloballyOn ? 'on' : 'off',
-      badgeClassName: isGloballyOn ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-rose-400/20 bg-rose-500/10 text-rose-300',
-      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+      badgeClassName: isGloballyOn ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-danger/20 bg-danger/10 text-danger/80',
+      glowClassName: 'from-[rgb(var(--success))]/18 via-oguri-cyan/10 to-transparent',
     },
   ];
 
@@ -158,7 +158,7 @@ export default function SubbotsPage() {
       connectionState: (raw?.connectionState || raw?.connection_state || undefined) as SubbotConnectionState | undefined,
       usuario: String(raw?.usuario || raw?.owner || 'admin'),
       fecha_creacion: String(raw?.fecha_creacion || raw?.created_at || new Date().toISOString()),
-      numero: raw?.numero ?? raw?.phoneNumber ?? null,
+      numero: raw?.numero ?? raw?.phoneNumber ?? raw?.phone ?? null,
       whatsappName: raw?.nombre_whatsapp ?? raw?.whatsappName ?? null,
       aliasDir: raw?.alias_dir ?? raw?.aliasDir ?? null,
       customName: raw?.custom_name ?? raw?.customName ?? null,
@@ -288,22 +288,40 @@ export default function SubbotsPage() {
         const qrDataURL = await QRCode.toDataURL(data.qr, { width: 256, margin: 2 });
         setQrImage(qrDataURL);
         setSubbots(prev => {
-          const subbot = prev.find(s => s.code === data.subbotCode);
-          if (subbot) {
-            setSelectedSubbot(subbot);
-            setShowQR(true);
-          }
-          return prev.map(s => (
+          const existing = prev.find(s => s.code === data.subbotCode || s.codigo === data.subbotCode);
+          const updated = prev.map(s =>
             (s.code === data.subbotCode || s.codigo === data.subbotCode)
-              ? { ...s, qr_data: data.qr, connectionState: 'needs_auth', isOnline: false }
+              ? { ...s, qr_data: data.qr, connectionState: 'needs_auth' as SubbotConnectionState, isOnline: false }
               : s
-          ));
+          );
+          const target = existing
+            ? { ...existing, qr_data: data.qr, connectionState: 'needs_auth' as SubbotConnectionState, isOnline: false }
+            : { code: data.subbotCode, codigo: data.subbotCode, qr_data: data.qr, connectionState: 'needs_auth' as SubbotConnectionState, isOnline: false, estado: 'activo' as SubbotStatus, tipo: 'qr' as const, usuario: '', id: 0, session_dir: data.subbotCode, fecha_creacion: new Date().toISOString(), created_from: 'panel' };
+          setSelectedSubbot(target as Subbot);
+          setShowQR(true);
+          return existing ? updated : [...updated, target as Subbot];
         });
       } catch (err) {
-        console.error('Error generando QR:', err);
+        console.error('Error generando QR:', getErrorMessage(err));
       }
     };
 
+    const handleSubbotStatus = (data: { subbots: any[] }) => {
+      if (!Array.isArray(data?.subbots)) return;
+      setSubbots(prev => {
+        const map = new Map(prev.map(s => [s.code, s]));
+        for (const raw of data.subbots) {
+          const code = String(raw?.subbotCode || raw?.code || raw?.codigo || '').trim();
+          if (!code) continue;
+          const existing = map.get(code);
+          const merged = normalizeSubbot({ ...(existing || {}), ...raw, code, codigo: code });
+          map.set(code, merged);
+        }
+        return Array.from(map.values());
+      });
+    };
+
+    socket.on('subbot:status', handleSubbotStatus);
     socket.on('subbot:deleted', handleSubbotDeleted);
     socket.on('subbot:disconnected', handleSubbotDisconnected);
     socket.on('subbot:connected', handleSubbotConnected);
@@ -313,6 +331,7 @@ export default function SubbotsPage() {
     socket.on('subbot:updated', (data: any) => data?.subbot && upsert(normalizeSubbot(data.subbot)));
 
     return () => {
+      socket.off('subbot:status', handleSubbotStatus);
       socket.off('subbot:deleted', handleSubbotDeleted);
       socket.off('subbot:disconnected', handleSubbotDisconnected);
       socket.off('subbot:connected', handleSubbotConnected);
@@ -359,9 +378,11 @@ export default function SubbotsPage() {
     try {
       setActionLoading(`delete-${idOrCode}`);
       await api.deleteSubbot(String(idOrCode));
-      notify.success('Subbot eliminado');
+      // Actualizar UI inmediatamente sin esperar el evento socket
+      setSubbots(prev => prev.filter(s => s.code !== String(idOrCode) && s.codigo !== String(idOrCode) && s.id !== idOrCode));
+      notif.subbots.eliminado();
     } catch (err: any) {
-      notify.error(err?.response?.data?.error || 'Error al eliminar subbot');
+      notif.subbots.errorEliminar(err?.response?.data?.error);
     } finally {
       setActionLoading(null);
     }
@@ -398,8 +419,8 @@ export default function SubbotsPage() {
   };
 
   const getStatusColor = (subbot: Subbot) => {
-    if (subbot.isOnline) return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
-    if (subbot.connectionState === 'needs_auth') return 'text-amber-400 border-amber-500/30 bg-amber-500/10';
+    if (subbot.isOnline) return 'text-success border-success/30 bg-success/10';
+    if (subbot.connectionState === 'needs_auth') return 'text-warning border-warning/30 bg-warning/10';
     return 'text-gray-400 border-white/10 bg-white/5';
   };
 
@@ -574,7 +595,7 @@ export default function SubbotsPage() {
                       whileHover={{ y: -5 }}
                       className={cn(
                         "group relative overflow-hidden rounded-[28px] border bg-card/40 p-6 backdrop-blur-xl transition-all duration-300",
-                        subbot.isOnline ? "border-emerald-500/20 hover:border-emerald-500/40" : "border-white/10 hover:border-white/20"
+                        subbot.isOnline ? "border-success/20 hover:border-success/40" : "border-white/10 hover:border-white/20"
                       )}
                     >
                       {/* Ambient light for online bots */}
@@ -595,9 +616,9 @@ export default function SubbotsPage() {
                               </div>
                               <span className={cn(
                                 "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-[#0d1210]",
-                                subbot.isOnline ? "bg-emerald-500 shadow-glow-emerald" : "bg-muted-foreground"
+                                subbot.isOnline ? "bg-success shadow-glow-emerald" : "bg-muted-foreground"
                               )}>
-                                {subbot.isOnline && <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-75" />}
+                                {subbot.isOnline && <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-75" />}
                               </span>
                             </div>
                             <div className="min-w-0">
@@ -705,8 +726,8 @@ export default function SubbotsPage() {
 
       <Modal isOpen={showPairingModal && !!currentPairingCode} onClose={handleClosePairingModal} title="Código de Vinculación">
         <div className="flex flex-col items-center gap-6 py-4">
-          <div className="p-8 rounded-[32px] bg-emerald-500/10 border-2 border-emerald-500/20 shadow-glow-emerald">
-            <span className="text-5xl font-black font-mono tracking-[0.2em] text-emerald-400">
+          <div className="p-8 rounded-[32px] bg-success/10 border-2 border-success/20 shadow-glow-emerald">
+            <span className="text-5xl font-black font-mono tracking-[0.2em] text-success">
               {currentPairingCode}
             </span>
           </div>

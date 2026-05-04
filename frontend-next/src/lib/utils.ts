@@ -48,3 +48,17 @@ export function formatNumber(num: number): string {
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return num.toString();
 }
+
+/** Extracts a human-readable message from any error (Axios, Error, string, unknown) */
+export function getErrorMessage(error: unknown, fallback = 'Error desconocido'): string {
+  if (!error) return fallback;
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object') {
+    const e = error as any;
+    return e?.response?.data?.message
+      ?? e?.response?.data?.error
+      ?? e?.message
+      ?? fallback;
+  }
+  return fallback;
+}

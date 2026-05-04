@@ -1,7 +1,6 @@
-import { jidDecode } from '@whiskeysockets/baileys'
+import { jidDecode } from 'baileys'
 import path from 'path'
 import fs from 'fs'
-import ws from 'ws'
 
 const linkRegex = /https:\/\/chat\.whatsapp\.com\/([0-9A-Za-z]{20,24})/i
 const handler = async (m, { conn, command, usedPrefix, text }) => {

@@ -7,7 +7,8 @@ import path from 'path'
 import { json, readJson, getJwtAuth, safeString } from '../middleware/core.js'
 import {
   getJadiRoot, nextSubbotId, normalizeSubbotForPanel,
-  deleteSubbotByCode, cleanupBrokenSubbotSymlinks, resolveSubbotRecord,
+  deleteSubbotByCode, cleanupBrokenSubbotSymlinks, resolveSubbotRecord, findConnBySubbotCode,
+  cleanupDisconnectedSubbots,
 } from '../lib/subbot-helpers.js'
 
 function isAdmin(user) {
@@ -15,18 +16,10 @@ function isAdmin(user) {
 }
 
 async function getSubbotsList(panelDb) {
-  const { emitSubbotStatus } = await import('../../lib/socket-io.js').catch(() => ({}))
-  const conns = Array.isArray(global.conns) ? global.conns : []
   const records = Object.values(panelDb?.subbots || {})
-
   return records.map(r => {
     const code = r.codigo || r.code || ''
-    const sock = conns.find(s => {
-      const sc = safeString(s?.subbotCode || '')
-      const sb = safeString(path.basename(s?.sessionPath || '') || '')
-      const ub = safeString(s?.user?.jid || s?.user?.id || '').split('@')[0]
-      return sc === code || sb === code || ub === code || ub.replace(/\D/g,'') === code.replace(/\D/g,'')
-    })
+    const sock = findConnBySubbotCode(code, r)
     const isOnline = Boolean(sock?.user)
     return normalizeSubbotForPanel(r, { isOnline })
   })
@@ -119,7 +112,15 @@ export async function handleSubbots({ req, res, url, panelDb }) {
       const { yukiJadiBot } = await import('../../plugins/sockets-serbot.js')
       const { emitSubbotQR, emitSubbotConnected, emitSubbotCreated } = await import('../../lib/socket-io.js')
 
-      const qrData = await yukiJadiBot({
+      emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
+      global.sendTemplateNotification?.('subbot_created', { subbotCode: code })
+      if (global.db?.write) await global.db.write()
+
+      // Responder inmediatamente — el QR llega por Socket.IO
+      json(res, 200, normalizeSubbotForPanel(record, { isOnline: false }))
+
+      // Correr en background
+      yukiJadiBot({
         pathYukiJadiBot: sessionPath, m: null, conn: global.conn, args: [], usedPrefix: '/', command: 'qr',
         api: {
           code,
@@ -129,19 +130,20 @@ export async function handleSubbots({ req, res, url, panelDb }) {
           },
           onConnected: (phone) => emitSubbotConnected(code, phone),
         },
-      })
-
-      if (!qrData?.success) {
+      }).then(qrData => {
+        if (!qrData?.success && qrData?.error !== 'timeout') {
+          delete panelDb.subbots[code]
+          try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
+        } else if (qrData?.qr) {
+          record.qr_data = qrData.qr
+          emitSubbotQR(code, qrData.qr)
+        }
+      }).catch(() => {
         delete panelDb.subbots[code]
         try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
-        return json(res, 400, { error: qrData?.error || 'No se pudo crear el subbot' })
-      }
+      })
 
-      if (qrData?.qr) { record.qr_data = qrData.qr; emitSubbotQR(code, qrData.qr) }
-      emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
-      global.sendTemplateNotification?.('subbot_created', { subbotCode: code })
-      if (global.db?.write) await global.db.write()
-      return json(res, 200, normalizeSubbotForPanel(record, { isOnline: false }))
+      return
     } catch (err) {
       delete panelDb.subbots[code]
       try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
@@ -189,7 +191,14 @@ export async function handleSubbots({ req, res, url, panelDb }) {
       const { yukiJadiBot } = await import('../../plugins/sockets-serbot.js')
       const { emitSubbotPairingCode, emitSubbotConnected, emitSubbotCreated } = await import('../../lib/socket-io.js')
 
-      const result = await yukiJadiBot({
+      emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
+      global.sendTemplateNotification?.('subbot_created', { subbotCode: numero })
+      if (global.db?.write) await global.db.write()
+
+      // Responder inmediatamente — el código llega por Socket.IO
+      json(res, 200, normalizeSubbotForPanel(record, { isOnline: false }))
+
+      yukiJadiBot({
         pathYukiJadiBot: sessionPath, m: null, conn: global.conn, args: [], usedPrefix: '/', command: 'code',
         api: {
           code: numero, pairingNumber: numero,
@@ -199,19 +208,20 @@ export async function handleSubbots({ req, res, url, panelDb }) {
           },
           onConnected: (phone) => emitSubbotConnected(numero, phone),
         },
-      })
-
-      if (!result?.success) {
+      }).then(result => {
+        if (!result?.success && result?.error !== 'timeout') {
+          delete panelDb.subbots[numero]
+          try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
+        } else if (result?.pairingCode) {
+          record.pairingCode = result.pairingCode
+          emitSubbotPairingCode(numero, result.pairingCode, numero)
+        }
+      }).catch(() => {
         delete panelDb.subbots[numero]
         try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
-        return json(res, 400, { error: result?.error || 'No se pudo crear el subbot' })
-      }
+      })
 
-      if (result?.pairingCode) { record.pairingCode = result.pairingCode; emitSubbotPairingCode(numero, result.pairingCode, numero) }
-      emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
-      global.sendTemplateNotification?.('subbot_created', { subbotCode: numero })
-      if (global.db?.write) await global.db.write()
-      return json(res, 200, normalizeSubbotForPanel(record, { isOnline: false }))
+      return
     } catch (err) {
       delete panelDb.subbots[numero]
       try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
@@ -222,9 +232,12 @@ export async function handleSubbots({ req, res, url, panelDb }) {
   // ── POST /api/subbot/create (alias) ───────────────────────────────────────
   if (pathname === '/api/subbot/create' && method === 'POST') {
     const body = await readJson(req)
-    // Redirigir al endpoint correcto según tipo
     const tipo = safeString(body?.tipo || body?.type || 'qr').toLowerCase()
+    // Normalizar campo: el frontend envía phoneNumber, el endpoint espera numero
+    if (body?.phoneNumber && !body?.numero) body.numero = body.phoneNumber
     url.pathname = tipo === 'code' ? '/api/subbots/code' : '/api/subbots/qr'
+    // Re-inyectar body normalizado en req para que el handler lo lea
+    req._parsedBody = body
     return handleSubbots({ req, res, url, panelDb })
   }
 
@@ -274,6 +287,22 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     try { const { emitSubbotDeleted } = await import('../../lib/socket-io.js'); emitSubbotDeleted(code) } catch {}
     global.sendTemplateNotification?.('subbot_deleted', { subbotCode: code })
     return json(res, 200, result)
+  }
+
+  // ── POST /api/subbots/cleanup — eliminar subbots desconectados sin sesión válida ──
+  if ((pathname === '/api/subbots/cleanup' || pathname === '/api/subbot/cleanup') && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    const { removed } = cleanupDisconnectedSubbots(panelDb)
+    cleanupBrokenSubbotSymlinks()
+    if (removed.length > 0 && global.db?.write) await global.db.write()
+    try {
+      const socketIo = await import('../../lib/socket-io.js')
+      socketIo.emitSubbotStatus()
+      for (const code of removed) socketIo.emitSubbotDeleted(code)
+    } catch {}
+    return json(res, 200, { success: true, removed, count: removed.length })
   }
 
   return json(res, 404, { error: 'Ruta no encontrada' })

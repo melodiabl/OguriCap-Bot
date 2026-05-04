@@ -8,7 +8,6 @@ import { Bell, Clock3, Leaf, Menu, Moon, Sparkles, Sun, Waves, X } from 'lucide-
 
 import { DiagnosticsPanelButton } from '@/components/diagnostics/DiagnosticsPanelButton';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-import { ThemePaletteSelector } from '@/components/ThemePaletteSelector';
 import { Button } from '@/components/ui/Button';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -31,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const { isConnected: isSocketConnected } = useSocketConnection();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus();
   const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
@@ -162,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
 
             <div className="flex items-center gap-2">
               <DiagnosticsPanelButton />
-              <ThemePaletteSelector />
+              
 
               <Tooltip content={isInZone ? 'Desactivar Aura Fluida' : 'Activar Aura Fluida'}>
                 <Button
@@ -211,10 +210,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
                 className="rounded-lg border border-transparent bg-transparent text-muted hover:border-border/20 hover:bg-white/[0.06] hover:text-foreground"
               >
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
             )}
 

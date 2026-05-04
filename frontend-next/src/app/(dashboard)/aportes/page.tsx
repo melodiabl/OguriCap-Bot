@@ -1,4 +1,6 @@
 'use client';
+import { notify } from '@/lib/notif';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +20,7 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAportesSmartRefresh } from '@/hooks/useSmartRefresh';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 import { Aporte } from '@/types';
 
 export default function AportesPage() {
@@ -50,7 +52,7 @@ export default function AportesPage() {
       setAportes(response?.aportes || response?.data || []);
       setPagination(response?.pagination);
     } catch (err) {
-      toast.error('Error al cargar aportes');
+      notify.error('Error al cargar aportes');
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ export default function AportesPage() {
       const response = await api.getAporteStats();
       setStats(response);
     } catch (err) {
-      console.error('Error loading stats:', err);
+      console.error('Error loading stats:', getErrorMessage(err));
     }
   }, []);
 
@@ -79,7 +81,7 @@ export default function AportesPage() {
 
   const updateEstado = async (id: number, estado: string, motivo?: string) => {
     if (!canModerate) {
-      toast.error('Permisos insuficientes');
+      notify.error('Permisos insuficientes');
       return;
     }
     try {
@@ -97,29 +99,29 @@ export default function AportesPage() {
         })
         .catch(() => {});
       
-      toast.success(`Aporte ${estado}`);
+      notify.success(`Aporte ${estado}`);
       setSelectedAporte(null);
       loadStats();
     } catch (err) {
-      toast.error('Error al actualizar estado');
+      notify.error('Error al actualizar estado');
     }
   };
 
   const deleteAporte = async (aporte: Aporte) => {
     if (!canModerate) {
-      toast.error('Permisos insuficientes');
+      notify.error('Permisos insuficientes');
       return;
     }
     try {
       setDeleting(true);
       await api.deleteAporte(aporte.id);
-      toast.success('Aporte eliminado');
+      notify.success('Aporte eliminado');
       setAportes(prev => prev.filter(a => a.id !== aporte.id));
       if (selectedAporte?.id === aporte.id) setSelectedAporte(null);
       setDeleteTarget(null);
       loadStats();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al eliminar aporte');
+      notify.error(err?.response?.data?.error || 'Error al eliminar aporte');
     } finally {
       setDeleting(false);
     }
@@ -178,7 +180,7 @@ export default function AportesPage() {
   const handleFiles = (files: File[]) => {
     const validFiles = files.filter(file => {
       if (file.size > 50 * 1024 * 1024) {
-        toast.error(`${file.name} es demasiado grande (máximo 50MB)`);
+        notify.error(`${file.name} es demasiado grande (máximo 50MB)`);
         return false;
       }
       return true;
@@ -218,8 +220,8 @@ export default function AportesPage() {
       description: canModerate ? 'Puedes aprobar, rechazar y limpiar aportes del flujo.' : 'Puedes revisar el estado, pero no moderar cambios.',
       icon: <Eye className="w-4 h-4" />,
       badge: canModerate ? 'mod' : 'view',
-      badgeClassName: canModerate ? 'border-[#25d366]/20 bg-[#25d366]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
-      glowClassName: 'from-[#25d366]/18 via-oguri-cyan/10 to-transparent',
+      badgeClassName: canModerate ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[rgb(var(--success))]/18 via-oguri-cyan/10 to-transparent',
     },
     {
       label: 'Canal de refresh',
@@ -227,7 +229,7 @@ export default function AportesPage() {
       description: smartRefreshConnected ? 'Los cambios llegan por eventos sin esperar recarga manual.' : 'La vista sigue operativa con refresh manual.',
       icon: <Radio className="w-4 h-4" />,
       badge: smartRefreshConnected ? 'live' : 'manual',
-      badgeClassName: smartRefreshConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      badgeClassName: smartRefreshConnected ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-warning/20 bg-warning/10 text-warning/80',
       glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
     },
     {
@@ -236,7 +238,7 @@ export default function AportesPage() {
       description: (stats?.pendientes || 0) > 0 ? 'Aportes pendientes esperando una decisión de moderación.' : 'No hay cola pendiente en este momento.',
       icon: <Clock className="w-4 h-4" />,
       badge: (stats?.pendientes || 0) > 0 ? 'queue' : 'clean',
-      badgeClassName: (stats?.pendientes || 0) > 0 ? 'border-amber-400/20 bg-amber-500/10 text-amber-300' : 'border-violet-400/20 bg-violet-500/10 text-violet-300',
+      badgeClassName: (stats?.pendientes || 0) > 0 ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-accent/20 bg-accent/10 text-accent',
       glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
     },
     {
@@ -245,14 +247,14 @@ export default function AportesPage() {
       description: selectedFiles.length > 0 ? 'Archivos preparados para el próximo aporte.' : 'No hay archivos en cola para subir ahora mismo.',
       icon: <Upload className="w-4 h-4" />,
       badge: selectedFiles.length > 0 ? 'ready' : 'empty',
-      badgeClassName: selectedFiles.length > 0 ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/[0.05] text-white/70',
+      badgeClassName: selectedFiles.length > 0 ? 'border-success/20 bg-success/10 text-success/80' : 'border-white/10 bg-white/[0.05] text-white/70',
       glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
     },
   ];
 
   const createAporte = async () => {
     if (!newAporte.titulo.trim()) {
-      toast.error('El título es requerido');
+      notify.error('El título es requerido');
       return;
     }
     setUploading(true);
@@ -269,14 +271,14 @@ export default function AportesPage() {
         })
         .catch(() => {});
       
-      toast.success('Aporte creado exitosamente');
+      notify.success('Aporte creado exitosamente');
       setShowCreateModal(false);
       setNewAporte({ titulo: '', descripcion: '', tipo: 'documento', contenido: '' });
       setSelectedFiles([]);
       loadAportes();
       loadStats();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al crear aporte');
+      notify.error(err?.response?.data?.error || 'Error al crear aporte');
     } finally {
       setUploading(false);
     }
@@ -287,7 +289,7 @@ export default function AportesPage() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
         <div className="module-atmosphere" />
         <motion.div
-          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-emerald-400/18 blur-3xl"
+          className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-success/18 blur-3xl"
           animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
           transition={{ repeat: Infinity, duration: 10.8, ease: 'easeInOut' }}
         />
@@ -309,7 +311,7 @@ export default function AportesPage() {
         <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <div className="panel-live-pill mb-3 w-fit">
-              <Package className="h-3.5 w-3.5 text-emerald-300" />
+              <Package className="h-3.5 w-3.5 text-success/80" />
               Flujo de aportes
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Moderación de aportes con más presencia</h2>
@@ -344,8 +346,8 @@ export default function AportesPage() {
             <div
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
                 smartRefreshConnected
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  ? 'bg-success/20 text-success border border-success/30'
+                  : 'bg-warning/20 text-warning border border-warning/30'
               }`}
             >
               <Radio className={`w-3 h-3 ${smartRefreshConnected ? 'animate-pulse' : ''}`} />
@@ -510,7 +512,7 @@ export default function AportesPage() {
                       <td><span className="text-gray-400 text-sm">{formatDate(aporte.created_at)}</span></td>
                       <td>
                         <div className="flex items-center gap-2">
-                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setSelectedAporte(aporte)} className="p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors">
+                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setSelectedAporte(aporte)} className="p-2 rounded-lg text-info hover:bg-info/10 transition-colors">
                             <Eye className="w-4 h-4" />
                           </motion.button>
                           {canModerate && (
@@ -518,7 +520,7 @@ export default function AportesPage() {
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
                               onClick={() => setDeleteTarget(aporte)}
-                              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                              className="p-2 rounded-lg text-danger hover:bg-danger/10 transition-colors"
                               title="Eliminar aporte"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -526,10 +528,10 @@ export default function AportesPage() {
                           )}
                           {canModerate && aporte.estado === 'pendiente' && (
                             <>
-                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => updateEstado(aporte.id, 'aprobado')} className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => updateEstado(aporte.id, 'aprobado')} className="p-2 rounded-lg text-success hover:bg-success/10 transition-colors">
                                 <ThumbsUp className="w-4 h-4" />
                               </motion.button>
-                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => updateEstado(aporte.id, 'rechazado')} className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors">
+                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => updateEstado(aporte.id, 'rechazado')} className="p-2 rounded-lg text-danger hover:bg-danger/10 transition-colors">
                                 <ThumbsDown className="w-4 h-4" />
                               </motion.button>
                             </>
@@ -677,7 +679,7 @@ export default function AportesPage() {
           </div>
           <div>
             <label className="text-sm text-gray-400 mb-2 block">Archivos</label>
-            <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${dragActive ? 'border-purple-500 bg-purple-500/10' : 'border-white/20 hover:border-white/40'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
+            <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${dragActive ? 'border-accent bg-accent/10' : 'border-white/20 hover:border-white/40'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
               <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-white mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
               <p className="text-sm text-gray-500 mb-4">Máximo 50MB por archivo</p>
@@ -696,7 +698,7 @@ export default function AportesPage() {
                       <p className="text-white text-sm truncate">{file.name}</p>
                       <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
                     </div>
-                    <button onClick={() => removeFile(index)} className="text-red-400 hover:text-red-300 p-1"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => removeFile(index)} className="text-danger hover:text-danger/80 p-1"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>

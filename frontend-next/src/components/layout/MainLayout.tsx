@@ -19,6 +19,10 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     const node = mainScrollRef.current;
     if (!node) return;
     node.scrollTop = 0;
@@ -26,7 +30,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [pathname]);
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-[#060807] text-foreground flex" data-page={pageKey}>
+    <div className="h-screen w-full overflow-clip bg-[#060807] text-foreground flex" data-page={pageKey}>
       <RouteProgressBar />
 
       {/* Performant static background layer instead of heavy blurred motion divs */}
@@ -37,7 +41,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col relative z-10 w-full min-w-0 lg:pl-72 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col relative z-10 w-full min-w-0 lg:pl-72 h-screen overflow-clip">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
         <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-24">

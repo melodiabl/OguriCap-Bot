@@ -36,74 +36,35 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const theme = localStorage.getItem('theme') || 'dark';
-                const intensity = localStorage.getItem('oguricap:visual-intensity') || 'vivid';
-                const path = (location.pathname || '/').split('?')[0].split('#')[0] || '/';
-                let page = 'home';
+                var theme = localStorage.getItem('theme') || 'dark';
+                var intensity = localStorage.getItem('oguricap:visual-intensity') || 'vivid';
+                var path = (location.pathname || '/').split('?')[0].split('#')[0] || '/';
+                var page = 'home';
                 if (path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/reset-password')) page = 'auth';
                 else if (path.startsWith('/maintenance')) page = 'maintenance';
                 else if (path === '/dashboard') page = 'dashboard';
                 else {
-                  const seg = path.split('/').filter(Boolean)[0] || '';
-                  switch (seg) {
-                    case 'bot': page = 'bot'; break;
-                    case 'usuarios': page = 'usuarios'; break;
-                    case 'community-users': page = 'community-users'; break;
-                    case 'subbots': page = 'subbots'; break;
-                    case 'grupos': page = 'grupos'; break;
-                    case 'grupos-management': page = 'grupos-management'; break;
-                    case 'aportes': page = 'aportes'; break;
-                    case 'pedidos': page = 'pedidos'; break;
-                    case 'proveedores': page = 'proveedores'; break;
-                    case 'tareas': page = 'tareas'; break;
-                    case 'ai-chat': page = 'ai-chat'; break;
-                    case 'alertas': page = 'alertas'; break;
-                    case 'recursos': page = 'recursos'; break;
-                    case 'configuracion': page = 'configuracion'; break;
-                    case 'logs': page = 'logs'; break;
-                    case 'analytics': page = 'analytics'; break;
-                    case 'multimedia': page = 'multimedia'; break;
-                    case 'maintenance': page = 'maintenance'; break;
-                    default: page = path === '/' ? 'home' : 'unknown';
-                  }
-                }
-                const pagePreset = localStorage.getItem('oguricap:page-visual-preset:' + page) || 'default';
-                document.documentElement.dataset.theme = theme;
-                document.documentElement.dataset.intensity = intensity;
-                document.documentElement.dataset.pagePreset = pagePreset;
-                document.documentElement.style.colorScheme = theme;
-
-                // Load color palette
-                const savedPalette = localStorage.getItem('oguricap:color-palette');
-                if (savedPalette) {
-                  const palettes = {
-                    'default': { p: '#6366f1', s: '#8b5cf6', a: '#06b6d4' },
-                    'emerald': { p: '#10b981', s: '#06b6d4', a: '#6366f1' },
-                    'rose': { p: '#f43f5e', s: '#ec4899', a: '#f59e0b' },
-                    'purple': { p: '#a855f7', s: '#d946ef', a: '#8b5cf6' },
-                    'blue': { p: '#3b82f6', s: '#0ea5e9', a: '#06b6d4' },
-                    'amber': { p: '#f59e0b', s: '#f97316', a: '#eab308' },
-                    'teal': { p: '#14b8a6', s: '#06b6d4', a: '#10b981' },
-                    'violet': { p: '#7c3aed', s: '#a855f7', a: '#c026d3' }
+                  var seg = path.split('/').filter(Boolean)[0] || '';
+                  var pageMap = {
+                    bot:'bot', usuarios:'usuarios', 'community-users':'community-users',
+                    subbots:'subbots', grupos:'grupos', 'grupos-management':'grupos-management',
+                    aportes:'aportes', pedidos:'pedidos', proveedores:'proveedores',
+                    tareas:'tareas', 'ai-chat':'ai-chat', alertas:'alertas',
+                    recursos:'recursos', configuracion:'configuracion', logs:'logs',
+                    analytics:'analytics', multimedia:'multimedia', maintenance:'maintenance',
+                    broadcast:'broadcast', scheduler:'scheduler'
                   };
-                  const palette = palettes[savedPalette];
-                  if (palette) {
-                    const hexToRgb = (hex) => {
-                      const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);
-                      return result ? parseInt(result[1], 16) + ' ' + parseInt(result[2], 16) + ' ' + parseInt(result[3], 16) : '99 102 241';
-                    };
-                    document.documentElement.style.setProperty('--page-a', hexToRgb(palette.p));
-                    document.documentElement.style.setProperty('--page-b', hexToRgb(palette.s));
-                    document.documentElement.style.setProperty('--page-c', hexToRgb(palette.a));
-                    document.documentElement.style.setProperty('--primary', hexToRgb(palette.p));
-                    document.documentElement.style.setProperty('--secondary', hexToRgb(palette.s));
-                    document.documentElement.style.setProperty('--accent', hexToRgb(palette.a));
-                  }
+                  page = pageMap[seg] || (path === '/' ? 'home' : 'unknown');
                 }
+                var pagePreset = localStorage.getItem('oguricap:page-visual-preset:' + page) || 'default';
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-intensity', intensity);
+                document.documentElement.setAttribute('data-page-preset', pagePreset);
+                document.documentElement.style.colorScheme = theme;
               } catch (e) {
-                document.documentElement.dataset.theme = 'dark';
-                document.documentElement.dataset.intensity = 'vivid';
-                document.documentElement.dataset.pagePreset = 'default';
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.documentElement.setAttribute('data-intensity', 'vivid');
+                document.documentElement.setAttribute('data-page-preset', 'default');
                 document.documentElement.style.colorScheme = 'dark';
               }
             `,

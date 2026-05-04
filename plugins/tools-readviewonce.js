@@ -1,4 +1,4 @@
-let { downloadContentFromMessage } = (await import('@whiskeysockets/baileys'))
+let { downloadContentFromMessage } = (await import('baileys'))
 
 let handler = async (m, { conn, usedPrefix }) => {
 let quoted = m.quoted

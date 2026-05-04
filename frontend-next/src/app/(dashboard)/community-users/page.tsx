@@ -1,4 +1,6 @@
 'use client';
+import { notify } from '@/lib/notif';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -14,7 +16,7 @@ import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 
 interface CommunityUser {
   jid: string;
@@ -57,7 +59,7 @@ export default function CommunityUsersPage() {
       setUsers(response.data || []);
       setPagination(response.pagination);
     } catch (error) {
-      toast.error('Error al cargar usuarios de la comunidad');
+      notify.error('Error al cargar usuarios de la comunidad');
       setUsers([]);
     } finally {
       setIsLoading(false);
@@ -95,20 +97,20 @@ export default function CommunityUsersPage() {
   const handleBanUser = async (jid: string, banned: boolean) => {
     try {
       await api.banCommunityUser(jid, banned);
-      toast.success(banned ? 'Usuario baneado' : 'Usuario desbaneado');
+      notify.success(banned ? 'Usuario baneado' : 'Usuario desbaneado');
       loadUsers();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Error al cambiar estado del usuario');
+      notify.error(error?.response?.data?.error || 'Error al cambiar estado del usuario');
     }
   };
 
   const handlePromoteUser = async (jid: string, role: string) => {
     try {
       await api.promoteCommunityUser(jid, role);
-      toast.success(`Usuario ${role === 'admin' ? 'promovido a admin' : 'degradado a miembro'}`);
+      notify.success(`Usuario ${role === 'admin' ? 'promovido a admin' : 'degradado a miembro'}`);
       loadUsers();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Error al cambiar rol del usuario');
+      notify.error(error?.response?.data?.error || 'Error al cambiar rol del usuario');
     }
   };
 
@@ -128,16 +130,16 @@ export default function CommunityUsersPage() {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'owner': return <Crown className="w-4 h-4 text-yellow-400" />;
-      case 'admin': return <Shield className="w-4 h-4 text-blue-400" />;
+      case 'owner': return <Crown className="w-4 h-4 text-warning" />;
+      case 'admin': return <Shield className="w-4 h-4 text-info" />;
       default: return <User className="w-4 h-4 text-gray-400" />;
     }
   };
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'owner': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'admin': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'owner': return 'bg-warning/20 text-warning border-warning/30';
+      case 'admin': return 'bg-info/20 text-info border-info/30';
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
@@ -315,14 +317,14 @@ export default function CommunityUsersPage() {
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        user.isBanned ? 'bg-red-500/20' : user.isActive ? 'bg-emerald-500/20' : 'bg-gray-500/20'
+                        user.isBanned ? 'bg-danger/20' : user.isActive ? 'bg-success/20' : 'bg-gray-500/20'
                       }`}>
                         <User className={`w-6 h-6 ${
-                          user.isBanned ? 'text-red-400' : user.isActive ? 'text-emerald-400' : 'text-gray-400'
+                          user.isBanned ? 'text-danger' : user.isActive ? 'text-success' : 'text-gray-400'
                         }`} />
                       </div>
                       <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-900 ${
-                        user.isBanned ? 'bg-red-500' : user.isActive ? 'bg-emerald-500' : 'bg-gray-500'
+                        user.isBanned ? 'bg-danger' : user.isActive ? 'bg-success' : 'bg-gray-500'
                       }`}></div>
                     </div>
                     
@@ -338,7 +340,7 @@ export default function CommunityUsersPage() {
                           </div>
                         </div>
                         {user.isBanned && (
-                          <div className="px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                          <div className="px-2 py-1 rounded-full text-xs font-medium bg-danger/20 text-danger border border-danger/30">
                             Baneado
                           </div>
                         )}
@@ -474,10 +476,10 @@ export default function CommunityUsersPage() {
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                         index === 0
-                          ? 'bg-yellow-500/20 text-yellow-400'
+                          ? 'bg-warning/20 text-warning'
                           : index === 1
                             ? 'bg-gray-400/20 text-gray-300'
-                            : 'bg-amber-600/20 text-amber-400'
+                            : 'bg-warning/20 text-warning'
                       }`}
                     >
                       #{index + 1}

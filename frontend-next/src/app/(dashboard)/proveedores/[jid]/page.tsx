@@ -1,4 +1,5 @@
 'use client';
+import { notify } from '@/lib/notif';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -11,7 +12,7 @@ import { Reveal } from '@/components/motion/Reveal';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { SimpleSelect as Select } from '@/components/ui/Select';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 
 type LibraryCategory = 'bl' | 'hetero' | 'other';
 
@@ -66,7 +67,7 @@ export default function ProveedorLibraryPage() {
       setPagination(data?.pagination || null);
       setStats(data?.stats || null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error cargando biblioteca');
+      notify.error(err?.response?.data?.error || 'Error cargando biblioteca');
     } finally {
       setLoading(false);
     }
@@ -89,11 +90,11 @@ export default function ProveedorLibraryPage() {
     setUploading(true);
     try {
       await api.uploadProveedorLibraryFile(idOrJid, file);
-      toast.success('Archivo subido y clasificado');
+      notify.success('Archivo subido y clasificado');
       setPage(1);
       await load();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error subiendo archivo');
+      notify.error(err?.response?.data?.error || 'Error subiendo archivo');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -104,10 +105,10 @@ export default function ProveedorLibraryPage() {
     if (!confirm('¿Eliminar este archivo de la biblioteca?')) return;
     try {
       await api.deleteProveedorLibraryItem(idOrJid, itemId);
-      toast.success('Archivo eliminado');
+      notify.success('Archivo eliminado');
       setItems((prev) => prev.filter((x) => x.id !== itemId));
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error eliminando archivo');
+      notify.error(err?.response?.data?.error || 'Error eliminando archivo');
     }
   };
 
@@ -213,7 +214,7 @@ export default function ProveedorLibraryPage() {
         <Card animated className="p-6">
           {loading ? (
             <div className="p-10 text-center">
-              <RefreshCw className="w-8 h-8 text-purple-400 animate-spin mx-auto mb-4" />
+              <RefreshCw className="w-8 h-8 text-accent animate-spin mx-auto mb-4" />
               <p className="text-gray-400">Cargando biblioteca...</p>
             </div>
           ) : items.length === 0 ? (
@@ -238,7 +239,7 @@ export default function ProveedorLibraryPage() {
                       <p className="text-xs text-gray-500 mt-2 truncate">{it.originalName}</p>
                       {it.ai?.source === 'ai' && (
                         <div className="mt-3">
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-success/10 border border-success/30 text-success/80">
                             IA {Math.round(Number(it.ai?.confidence || 0) * 100)}%
                           </span>
                         </div>
@@ -270,7 +271,7 @@ export default function ProveedorLibraryPage() {
                         </a>
                         <button
                           onClick={() => deleteItem(it.id)}
-                          className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          className="p-2 rounded-lg text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />

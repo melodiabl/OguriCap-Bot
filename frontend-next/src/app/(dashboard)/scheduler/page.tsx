@@ -1,4 +1,6 @@
 'use client';
+import { notify } from '@/lib/notif';
+import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -15,7 +17,7 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import api from '@/services/api';
 import { useGroups } from '@/contexts/GroupsContext';
-import toast from 'react-hot-toast';
+
 
 interface ScheduledMessage {
   id: number;
@@ -80,7 +82,7 @@ export default function SchedulerPage() {
     } catch (error) {
       // Silenciar errores de rate limit
       if (error?.response?.status !== 429) {
-        console.error('Error loading groups:', error);
+        console.error('Error loading groups:', getErrorMessage(error));
       }
     }
   };
@@ -101,7 +103,7 @@ export default function SchedulerPage() {
       const response = await api.getScheduledMessages();
       setMessages(response.data || []);
     } catch (error) {
-      toast.error('Error al cargar mensajes programados');
+      notify.error('Error al cargar mensajes programados');
       setMessages([]);
     } finally {
       setIsLoading(false);
@@ -111,27 +113,27 @@ export default function SchedulerPage() {
   const handleCreateMessage = async () => {
     try {
       if (!formData.title || !formData.message || !formData.schedule_time) {
-        toast.error('Completa todos los campos requeridos');
+        notify.error('Completa todos los campos requeridos');
         return;
       }
 
       if (formData.schedule_type === 'once' && !formData.schedule_date) {
-        toast.error('Selecciona una fecha para el mensaje único');
+        notify.error('Selecciona una fecha para el mensaje único');
         return;
       }
 
       if (formData.schedule_type === 'weekly' && formData.repeat_days.length === 0) {
-        toast.error('Selecciona al menos un día para el mensaje semanal');
+        notify.error('Selecciona al menos un día para el mensaje semanal');
         return;
       }
 
       await api.createScheduledMessage(formData);
-      toast.success('Mensaje programado creado exitosamente');
+      notify.success('Mensaje programado creado exitosamente');
       setShowCreateModal(false);
       resetForm();
       loadMessages();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Error al crear mensaje programado');
+      notify.error(error?.response?.data?.error || 'Error al crear mensaje programado');
     }
   };
 
@@ -140,12 +142,12 @@ export default function SchedulerPage() {
     
     try {
       await api.updateScheduledMessage(editingMessage.id, formData);
-      toast.success('Mensaje programado actualizado');
+      notify.success('Mensaje programado actualizado');
       setEditingMessage(null);
       resetForm();
       loadMessages();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Error al actualizar mensaje');
+      notify.error(error?.response?.data?.error || 'Error al actualizar mensaje');
     }
   };
 
@@ -154,20 +156,20 @@ export default function SchedulerPage() {
     
     try {
       await api.deleteScheduledMessage(id);
-      toast.success('Mensaje programado eliminado');
+      notify.success('Mensaje programado eliminado');
       loadMessages();
     } catch (error) {
-      toast.error('Error al eliminar mensaje');
+      notify.error('Error al eliminar mensaje');
     }
   };
 
   const handleToggleMessage = async (id: number, enabled: boolean) => {
     try {
       await api.updateScheduledMessage(id, { enabled });
-      toast.success(enabled ? 'Mensaje activado' : 'Mensaje pausado');
+      notify.success(enabled ? 'Mensaje activado' : 'Mensaje pausado');
       loadMessages();
     } catch (error) {
-      toast.error('Error al cambiar estado del mensaje');
+      notify.error('Error al cambiar estado del mensaje');
     }
   };
 
@@ -176,10 +178,10 @@ export default function SchedulerPage() {
     
     try {
       await api.sendScheduledMessageNow(id);
-      toast.success('Mensaje enviado exitosamente');
+      notify.success('Mensaje enviado exitosamente');
       loadMessages();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Error al enviar mensaje');
+      notify.error(error?.response?.data?.error || 'Error al enviar mensaje');
     }
   };
 
@@ -272,8 +274,8 @@ export default function SchedulerPage() {
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <Card hover={false} className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/20">
-                <CheckCircle className="w-5 h-5 text-emerald-400" />
+              <div className="p-2 rounded-lg bg-success/20">
+                <CheckCircle className="w-5 h-5 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-white">
@@ -287,8 +289,8 @@ export default function SchedulerPage() {
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <Card hover={false} className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/20">
-                <Clock className="w-5 h-5 text-amber-400" />
+              <div className="p-2 rounded-lg bg-warning/20">
+                <Clock className="w-5 h-5 text-warning" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-white">
@@ -302,8 +304,8 @@ export default function SchedulerPage() {
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <Card hover={false} className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-500/20">
-                <Send className="w-5 h-5 text-violet-400" />
+              <div className="p-2 rounded-lg bg-accent/20">
+                <Send className="w-5 h-5 text-accent" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-white">
@@ -360,7 +362,7 @@ export default function SchedulerPage() {
                       <h3 className="font-semibold text-white">{message.title}</h3>
                       <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                         message.enabled 
-                          ? 'bg-emerald-500/20 text-emerald-400' 
+                          ? 'bg-success/20 text-success' 
                           : 'bg-gray-500/20 text-gray-400'
                       }`}>
                         {message.enabled ? 'Activo' : 'Pausado'}
@@ -395,8 +397,8 @@ export default function SchedulerPage() {
                     <div className="mt-3 flex items-center gap-2">
                       <div className={`px-2 py-1 rounded text-xs font-medium ${
                         new Date(message.next_send) > new Date()
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-red-500/20 text-red-400'
+                          ? 'bg-warning/20 text-warning'
+                          : 'bg-danger/20 text-danger'
                       }`}>
                         Próximo: {formatNextSend(message.next_send)}
                       </div>
@@ -533,7 +535,7 @@ export default function SchedulerPage() {
                       ))}
                     </select>
                     {groupsError && (
-                      <p className="text-xs text-red-400 mt-1">
+                      <p className="text-xs text-danger mt-1">
                         Error: {groupsError}
                         <button 
                           onClick={refreshGroups}
@@ -544,7 +546,7 @@ export default function SchedulerPage() {
                       </p>
                     )}
                     {!groupsLoading && availableGroups.length === 0 && !groupsError && (
-                      <div className="text-xs text-amber-400 mt-1">
+                      <div className="text-xs text-warning mt-1">
                         <p>No hay grupos disponibles. Asegúrate de que el bot esté conectado a grupos de WhatsApp.</p>
                       </div>
                     )}

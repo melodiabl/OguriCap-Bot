@@ -5,7 +5,7 @@ import { Mail, Bell, Send, Eye, Loader2, AlertCircle, CheckCircle2, Sparkles, Ty
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
-import { notify } from '@/lib/notify';
+import { notify } from '@/lib/notif';
 
 const EMAIL_PREVIEW_TEMPLATES = [
   { id: 'broadcast_announcement', label: 'Anuncio' },
@@ -160,8 +160,8 @@ export default function BroadcastPage() {
         {/* Email Broadcast */}
         <Card className="p-6 border border-oguri-purple/20 bg-gradient-oguri-phantom">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 rounded-lg bg-cyan-500/20">
-              <Mail className="w-5 h-5 text-cyan-300" />
+            <div className="p-2 rounded-lg bg-info/20">
+              <Mail className="w-5 h-5 text-info" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Email Broadcast</h3>
@@ -231,8 +231,8 @@ export default function BroadcastPage() {
         {/* Push Notifications */}
         <Card className="p-6 border border-oguri-blue/20 bg-gradient-oguri-phantom">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 rounded-lg bg-emerald-500/20">
-              <Bell className="w-5 h-5 text-emerald-300" />
+            <div className="p-2 rounded-lg bg-success/20">
+              <Bell className="w-5 h-5 text-success/80" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Push Notifications</h3>

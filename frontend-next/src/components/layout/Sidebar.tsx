@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut } from 'lucide-react';
+import { LogOut, Search, ChevronDown, ChevronRight } from 'lucide-react';
 
 import { useNavParticleBurst } from '@/components/ui/NavParticles';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
@@ -18,7 +18,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { useSocketBotStatus } from '@/contexts/SocketContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useBotStatus } from '@/hooks/useRealTime';
-import { NAV_ITEMS, NAV_SECTIONS, type NavColor } from '@/lib/navigation';
+import { NAV_ITEMS, NAV_SECTIONS, type NavColor, type NavSectionKey } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
 const colorClasses: Record<NavColor, string> = {
@@ -70,17 +70,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { unreadCount } = useNotifications();
   const { isGloballyOn } = useBotGlobalState();
   const { dashboardStats, botStatus: globalBotStatus } = useGlobalUpdate();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Set<NavSectionKey>>(new Set());
 
   const allowedMenuItems = NAV_ITEMS.filter((item) => hasPermission(item.pageKey));
   const navSections = React.useMemo(
     () =>
       NAV_SECTIONS.map((section) => ({
         ...section,
-        items: allowedMenuItems.filter((item) => item.section === section.key),
+        items: allowedMenuItems.filter((item) => {
+          if (item.section !== section.key) return false;
+          if (!searchTerm.trim()) return true;
+          const term = searchTerm.toLowerCase();
+          return (
+            item.label.toLowerCase().includes(term) ||
+            item.description.toLowerCase().includes(term)
+          );
+        }),
       })).filter((section) => section.items.length > 0),
-    [allowedMenuItems]
+    [allowedMenuItems, searchTerm]
   );
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;
+
+  const toggleSection = (key: NavSectionKey) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <>
@@ -187,98 +206,138 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
-            <div className="space-y-4">
-              {navSections.map((section, sectionIndex) => (
-                <div key={section.key} className="rounded-[22px] border border-white/8 bg-white/[0.028] p-2.5">
-                  <div className="mb-2.5 px-2 pb-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[rgb(var(--text-secondary))]">{section.label}</p>
-                      <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-muted">
-                        {section.items.length}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted">{section.description}</p>
-                  </div>
+            <div className="mb-3 px-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar página..."
+                  className="input-search w-full pl-9 py-2 text-xs"
+                />
+              </div>
+            </div>
 
-                  <div className="space-y-1.5">
-                    {section.items.map((item, itemIndex) => {
-                      const Icon = item.icon;
-                      const isActive = pathname === item.path;
-                      const showUnreadBadge = item.path === '/alertas' && unreadCount > 0;
+            <div className="space-y-3">
+              {navSections.map((section, sectionIndex) => {
+                const isCollapsed = collapsedSections.has(section.key);
+                return (
+                  <div key={section.key} className="rounded-[22px] border border-white/8 bg-white/[0.028] p-2.5">
+                    <button
+                      onClick={() => toggleSection(section.key)}
+                      className="flex w-full items-center justify-between gap-3 px-2 pb-2"
+                    >
+                      <div className="min-w-0 text-left">
+                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[rgb(var(--text-secondary))]">
+                          {section.label}
+                        </p>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-muted">{section.description}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-muted">
+                          {section.items.length}
+                        </span>
+                        {isCollapsed ? (
+                          <ChevronRight className="h-4 w-4 text-muted" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted" />
+                        )}
+                      </div>
+                    </button>
 
-                      return (
+                    <AnimatePresence initial={false}>
+                      {!isCollapsed && (
                         <motion.div
-                          key={item.path}
-                          initial={{ opacity: 0, x: -12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: sectionIndex * 0.05 + itemIndex * 0.03 }}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: 'easeInOut' }}
+                          className="overflow-hidden"
                         >
-                          <SidebarNavLink
-                            href={item.path}
-                            onClose={onClose}
-                            className={cn(
-                              'group flex items-start gap-3 overflow-hidden rounded-[18px] border px-3 py-3 transition-all duration-300',
-                              isActive
-                                ? 'border-primary/20 bg-card/72 text-foreground shadow-[0_16px_40px_-28px_rgba(0,0,0,0.2)]'
-                                : 'border-transparent bg-transparent text-[rgb(var(--text-secondary))] hover:border-border/15 hover:bg-card/48 hover:text-foreground'
-                            )}
-                          >
-                            {isActive && (
-                              <motion.div
-                                aria-hidden="true"
-                                className="absolute inset-0 bg-[linear-gradient(135deg,rgba(var(--primary),0.14),rgba(var(--secondary),0.08),rgba(var(--accent),0.12))]"
-                                animate={{ opacity: [0.35, 0.6, 0.35] }}
-                                transition={{ repeat: Infinity, duration: 4.2, ease: 'easeInOut' }}
-                              />
-                            )}
-                            {isActive && (
-                              <>
-                                <motion.span
-                                  aria-hidden="true"
-                                  className="absolute right-4 top-3 h-1.5 w-1.5 rounded-full bg-white/85 shadow-[0_0_12px_rgba(255,255,255,0.35)]"
-                                  animate={{ opacity: [0.2, 0.95, 0.2], scale: [0.8, 1.25, 0.8], y: [0, -2, 0] }}
-                                  transition={{ repeat: Infinity, duration: 3.8, ease: 'easeInOut' }}
-                                />
-                                <motion.span
-                                  aria-hidden="true"
-                                  className="absolute right-7 bottom-3 h-1 w-1 rounded-full bg-oguri-cyan/85 shadow-[0_0_10px_rgba(70,195,207,0.45)]"
-                                  animate={{ opacity: [0.18, 0.88, 0.18], scale: [0.8, 1.35, 0.8], x: [0, -2, 0] }}
-                                  transition={{ repeat: Infinity, duration: 4.4, ease: 'easeInOut', delay: 0.7 }}
-                                />
-                              </>
-                            )}
-                            {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-full bg-gradient-to-b from-primary via-secondary to-accent shadow-glow-oguri-purple" />}
-                            <div
-                              className={cn(
-                                'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-all duration-300',
-                                isActive ? colorClasses[item.color] : 'border-border/10 bg-card/55 group-hover:border-primary/15 group-hover:bg-card/75'
-                              )}
-                            >
-                              <Icon className="h-5 w-5" />
-                            </div>
+                          <div className="space-y-1.5 pt-1.5">
+                            {section.items.map((item, itemIndex) => {
+                              const Icon = item.icon;
+                              const isActive = pathname === item.path;
+                              const showUnreadBadge = item.path === '/alertas' && unreadCount > 0;
 
-                            <div className="relative z-10 min-w-0 flex-1">
-                              <div className="flex min-w-0 items-center gap-2">
-                                <p className="truncate text-sm font-semibold">{item.label}</p>
-                                {showUnreadBadge && (
-                                  <span className="shrink-0 rounded-full bg-danger px-2 py-0.5 text-[10px] font-black text-white shadow-[0_0_20px_rgba(244,63,94,0.35)]">
-                                    {unreadCount > 99 ? '99+' : unreadCount}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted/90">
-                                {item.description}
-                              </p>
-                            </div>
+                              return (
+                                <motion.div
+                                  key={item.path}
+                                  initial={{ opacity: 0, x: -12 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: sectionIndex * 0.05 + itemIndex * 0.03 }}
+                                >
+                                  <SidebarNavLink
+                                    href={item.path}
+                                    onClose={onClose}
+                                    className={cn(
+                                      'group flex items-start gap-3 overflow-hidden rounded-[18px] border px-3 py-3 transition-all duration-300',
+                                      isActive
+                                        ? 'border-primary/20 bg-card/72 text-foreground shadow-[0_16px_40px_-28px_rgba(0,0,0,0.2)]'
+                                        : 'border-transparent bg-transparent text-[rgb(var(--text-secondary))] hover:border-border/15 hover:bg-card/48 hover:text-foreground'
+                                    )}
+                                  >
+                                    {isActive && (
+                                      <motion.div
+                                        aria-hidden="true"
+                                        className="absolute inset-0 bg-[linear-gradient(135deg,rgba(var(--primary),0.14),rgba(var(--secondary),0.08),rgba(var(--accent),0.12))]"
+                                        animate={{ opacity: [0.35, 0.6, 0.35] }}
+                                        transition={{ repeat: Infinity, duration: 4.2, ease: 'easeInOut' }}
+                                      />
+                                    )}
+                                    {isActive && (
+                                      <>
+                                        <motion.span
+                                          aria-hidden="true"
+                                          className="absolute right-4 top-3 h-1.5 w-1.5 rounded-full bg-white/85 shadow-[0_0_12px_rgba(255,255,255,0.35)]"
+                                          animate={{ opacity: [0.2, 0.95, 0.2], scale: [0.8, 1.25, 0.8], y: [0, -2, 0] }}
+                                          transition={{ repeat: Infinity, duration: 3.8, ease: 'easeInOut' }}
+                                        />
+                                        <motion.span
+                                          aria-hidden="true"
+                                          className="absolute right-7 bottom-3 h-1 w-1 rounded-full bg-oguri-cyan/85 shadow-[0_0_10px_rgba(70,195,207,0.45)]"
+                                          animate={{ opacity: [0.18, 0.88, 0.18], scale: [0.8, 1.35, 0.8], x: [0, -2, 0] }}
+                                          transition={{ repeat: Infinity, duration: 4.4, ease: 'easeInOut', delay: 0.7 }}
+                                        />
+                                      </>
+                                    )}
+                                    {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-full bg-gradient-to-b from-primary via-secondary to-accent shadow-glow-oguri-purple" />}
+                                    <div
+                                      className={cn(
+                                        'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-all duration-300',
+                                        isActive ? colorClasses[item.color] : 'border-border/10 bg-card/55 group-hover:border-primary/15 group-hover:bg-card/75'
+                                      )}
+                                    >
+                                      <Icon className="h-5 w-5" />
+                                    </div>
 
-                            {isActive && <div className="relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-oguri-lavender shadow-glow-oguri-lavender" />}
-                          </SidebarNavLink>
+                                    <div className="relative z-10 min-w-0 flex-1">
+                                      <div className="flex min-w-0 items-center gap-2">
+                                        <p className="truncate text-sm font-semibold">{item.label}</p>
+                                        {showUnreadBadge && (
+                                          <span className="shrink-0 rounded-full bg-danger px-2 py-0.5 text-[10px] font-black text-white shadow-[0_0_20px_rgba(244,63,94,0.35)]">
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted/90">
+                                        {item.description}
+                                      </p>
+                                    </div>
+
+                                    {isActive && <div className="relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-oguri-lavender shadow-glow-oguri-lavender" />}
+                                  </SidebarNavLink>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
                         </motion.div>
-                      );
-                    })}
+                      )}
+                    </AnimatePresence>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </nav>
 

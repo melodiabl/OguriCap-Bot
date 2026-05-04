@@ -1,8 +1,9 @@
 'use client';
+import { notify } from '@/lib/notif';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/services/api';
-import toast from 'react-hot-toast';
+
 
 interface User {
   id: number;
@@ -132,15 +133,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Manejar contraseñas temporales y primer login
       if (isTemporaryPassword || requirePasswordChange) {
-        toast.success(
-          message || 'Login exitoso. Se requiere cambio de contraseña.',
-          { 
-            duration: 5000,
-            icon: '🔑'
-          }
+        notify.success(
+          message || 'Login exitoso. Se requiere cambio de contraseña.', { duration: 5000 }
         );
       } else if (message) {
-        toast.success(message, { duration: 3000 });
+        notify.success(message, { duration: 3000 });
       }
 
     } catch (error: any) {
@@ -183,7 +180,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clearTokenCookie();
     setToken(null);
     setUser(null);
-    toast.success('Sesión cerrada correctamente');
+    notify.success('Sesión cerrada correctamente');
   };
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
@@ -219,15 +216,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
 
-      toast.success('Contraseña cambiada correctamente', {
-        icon: '✅',
-        duration: 4000
-      });
+      notify.success('Contraseña cambiada correctamente');
 
       return data;
     } catch (error: any) {
       const errorMessage = error?.message || 'Error al cambiar contraseña';
-      toast.error(errorMessage);
+      notify.error(errorMessage);
       throw error;
     }
   };
@@ -252,12 +246,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(data.error || 'Error al restablecer contraseña');
       }
 
-      toast.success(
-        `Contraseña temporal generada: ${data.tempPassword}\nVálida por 24 horas.`,
-        {
-          icon: '🔑',
-          duration: 8000
-        }
+      notify.success(
+        `Contraseña temporal generada: ${data.tempPassword}\nVálida por 24 horas.`
       );
 
       return {
@@ -267,7 +257,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
     } catch (error: any) {
       const errorMessage = error?.message || 'Error al restablecer contraseña';
-      toast.error(errorMessage);
+      notify.error(errorMessage);
       throw error;
     }
   };
