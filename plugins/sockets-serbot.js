@@ -1,4 +1,4 @@
-import baileys from "@whiskeysockets/baileys"
+import baileys from "baileys"
 
 const {
   useMultiFileAuthState,
@@ -390,11 +390,11 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner }) => {
     )
   }
   let mentionedJid = await m.mentionedJid
-  // Evitar colisiones: el SubBot siempre corresponde al que ejecuta el comando.
-  let who = m.fromMe ? conn.user.jid : m.sender
+  // Extraer número del argumento o usar m.sender como fallback
+  const phoneArg = args?.find(a => /^\d{8,15}$/.test(String(a || '').trim()))
+  const phone = phoneArg || (m.fromMe ? conn.user.jid.split('@')[0] : m.sender.split('@')[0])
   const root = global.jadi || 'Sessions/SubBot'
-  const idRaw = `${who.split`@`[0]}`
-  const phoneDigits = normalizeWhatsAppNumber(idRaw) || idRaw
+  const phoneDigits = normalizeWhatsAppNumber(phone) || phone
   const sessionDir = resolveSubbotSessionDirByPhone(phoneDigits) || phoneDigits
   let pathYukiJadiBot = path.join(root, sessionDir)
   if (!fs.existsSync(pathYukiJadiBot)) {
@@ -575,28 +575,18 @@ export async function yukiJadiBot(options) {
           return
         }
         if (qr && mcode) {
-          const pairingNumber = api?.pairingNumber || (m?.sender ? m.sender.split`@`[0] : '')
+          // Guard: solo generar código una vez
+          if (sock._pairingCodeGenerated) return
+          sock._pairingCodeGenerated = true
+          
+          // Extraer número del argumento o usar m.sender como fallback
+          const phoneArg = args?.find(a => /^\d{8,15}$/.test(String(a || '').trim()))
+          const pairingNumber = api?.pairingNumber || phoneArg || (m?.sender ? m.sender.split`@`[0] : '')
           if (!pairingNumber) return resolveOnce({ success: false, error: 'pairingNumber requerido' })
 
-          // Generar código para subbot
-          let secret
-          const panelConfig = global.db?.data?.panel?.whatsapp?.subbots
-
-          if (panelConfig?.useFixedCodes) {
-            // Usar código fijo personalizado para subbots
-            const customCode = generateSubbotCode(pairingNumber, sessionCode)
-            if (customCode) {
-              secret = await sock.requestPairingCode(pairingNumber, customCode)
-              console.log(chalk.cyan(`[ ✿ ] SubBot usando código fijo: ${customCode}`))
-            } else {
-              secret = await sock.requestPairingCode(pairingNumber)
-              console.log(chalk.yellow('[ ⚠ ] SubBot usando código fijo (fallback)'))
-            }
-          } else {
-            // Usar código fijo para subbots
-            secret = await sock.requestPairingCode(pairingNumber)
-            console.log(chalk.cyan('[ ✿ ] SubBot usando código fijo'))
-          }
+          // Generar código para subbot (WhatsApp genera el código automáticamente)
+          const secret = await sock.requestPairingCode(pairingNumber)
+          console.log(chalk.cyan(`[ ✿ ] Código de vinculación generado para: ${pairingNumber}`))
 
           // Formatear el código
           if (typeof secret === 'string' && secret.length > 4) {

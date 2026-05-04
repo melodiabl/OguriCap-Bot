@@ -50,3 +50,4 @@ package-lock.json
 
 # Config local runtime files
 .config/
+*.bak
