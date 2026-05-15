@@ -19,7 +19,13 @@ import { handleAportes }       from './routes/aportes.js'
 import { handleSystem }        from './routes/system.js'
 import { handleNotifications } from './routes/notifications.js'
 import { handleConfig }        from './routes/config.js'
-import { handleMisc }          from './routes/misc.js'
+import { handlePlugins }       from './routes/plugins.js'
+import { handleLogs }          from './routes/logs.js'
+import { handleTasks }         from './routes/tasks.js'
+import { handleResources }     from './routes/resources.js'
+import { handleBroadcast }     from './routes/broadcast.js'
+import { handleMultimedia }    from './routes/multimedia.js'
+import { handleSupport }       from './routes/support.js'
 
 // Re-exportar emitters de Socket.IO para compatibilidad con index.js
 export {
@@ -61,7 +67,7 @@ async function initSystems() {
   const rotateLogs = () => {
     if (!global.db?.data?.logs) return
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-    let logs = global.db.data.logs.filter(l => new Date(l?.timestamp).getTime() > cutoff)
+    let logs = global.db.data.logs.filter(l => new Date(l?.timestamp || l?.fecha).getTime() > cutoff)
     if (logs.length > 5000) logs = logs.slice(logs.length - 5000)
     global.db.data.logs = logs
     global.db.write?.().catch(() => {})
@@ -86,20 +92,28 @@ function ensurePanelDb() {
     if (p.systemConfig && !Object.keys(d.systemConfig || {}).length) d.systemConfig = p.systemConfig
     if (p.botGlobalState && !d.botGlobalState?.lastUpdated)       d.botGlobalState = p.botGlobalState
     if (p.botGlobalOffMessage && !d.botGlobalOffMessage)          d.botGlobalOffMessage = p.botGlobalOffMessage
-    if (p.notifications?.length && !d.notifications?.length)      d.notifications  = p.notifications
-    if (p.subbotsCounter && !d.subbotsCounter)                    d.subbotsCounter = p.subbotsCounter
+    if (p.notifications?.length && !d.notifications?.length)           d.notifications    = p.notifications
+    if (p.subbotsCounter && !d.subbotsCounter)                        d.subbotsCounter   = p.subbotsCounter
+    if (p.disabledPlugins && !Object.keys(d.disabledPlugins || {}).length) d.disabledPlugins = p.disabledPlugins
+    if (p.users && !Object.keys(d.usuarios || {}).length)             d.usuarios         = p.users
+    if (p.dailyMetrics && !d.dailyMetrics)                            d.dailyMetrics     = p.dailyMetrics
+    if (p.logs && !d.logs)                                            d.logs             = p.logs
   }
 
-  d.panelConfig    ??= {}
-  d.subbots        ??= {}
-  d.groups         ??= {}
-  d.usuarios       ??= {}
-  d.aportes        ??= {}
-  d.pedidos        ??= {}
-  d.notifications  ??= []
-  d.multimedia     ??= {}
-  d.systemConfig   ??= {}
-  d.botGlobalState ??= { isOn: true }
+  d.panelConfig        ??= {}
+  d.subbots            ??= {}
+  d.groups             ??= {}
+  d.usuarios           ??= {}
+  d.aportes            ??= {}
+  d.pedidos            ??= {}
+  d.notifications      ??= []
+  d.pushSubscriptions  ??= []
+  d.multimedia         ??= {}
+  d.systemConfig       ??= {}
+  d.botGlobalState     ??= { isOn: true }
+  d.disabledPlugins    ??= {}
+  d.dailyMetrics       ??= {}
+  if (!Array.isArray(d.logs)) d.logs ??= []
 
   // Keep panel.subbots as a live alias so sockets-serbot.js writes are visible here
   if (d.panel && typeof d.panel === 'object') {
@@ -111,6 +125,23 @@ function ensurePanelDb() {
         }
       }
       d.panel.subbots = d.subbots
+    }
+
+    // Keep panel.logs as a live alias so handler.js writes land in global.db.data.logs
+    if (!Array.isArray(d.logs)) d.logs = []
+    if (d.panel.logs !== d.logs) {
+      if (Array.isArray(d.panel.logs) && d.panel.logs.length > d.logs.length) {
+        d.logs = d.panel.logs
+      }
+      d.panel.logs = d.logs
+    }
+
+    // Keep panel.dailyMetrics alias
+    if (d.panel.dailyMetrics !== d.dailyMetrics) {
+      if (d.panel.dailyMetrics && Object.keys(d.panel.dailyMetrics).length) {
+        Object.assign(d.dailyMetrics, d.panel.dailyMetrics)
+      }
+      d.panel.dailyMetrics = d.dailyMetrics
     }
   }
 
@@ -199,14 +230,24 @@ export async function startPanelApi({ port, host } = {}) {
       if (pathname.startsWith('/api/subbots') || pathname.startsWith('/api/subbot'))  return await handleSubbots(ctx)
       if (pathname.startsWith('/api/usuarios') || pathname === '/api/users')          return await handleUsuarios(ctx)
       if (pathname.startsWith('/api/aportes') || pathname.startsWith('/api/pedidos')) return await handleAportes(ctx)
-      if (pathname.startsWith('/api/system') || pathname.startsWith('/api/dashboard') || pathname === '/api/health') return await handleSystem(ctx)
+      if (pathname.startsWith('/api/system') || pathname === '/api/health' ||
+          pathname.startsWith('/api/websocket') || pathname.startsWith('/api/ai'))    return await handleSystem(ctx)
       if (pathname.startsWith('/api/notificaciones'))                                 return await handleNotifications(ctx)
-      // /api/config tiene su propio router — intentar antes de misc
+      if (pathname.startsWith('/api/plugins'))                                        return await handlePlugins(ctx)
+      if (pathname.startsWith('/api/logs') || pathname.startsWith('/api/audit'))      return await handleLogs(ctx)
+      if (pathname.startsWith('/api/tasks') || pathname.startsWith('/api/backups'))   return await handleTasks(ctx)
+      if (pathname.startsWith('/api/resources') || pathname.startsWith('/api/analytics') || pathname.startsWith('/api/stats')) return await handleResources(ctx)
+      if (pathname.startsWith('/api/broadcast') || pathname.startsWith('/api/email') || pathname.startsWith('/api/scheduled-messages')) return await handleBroadcast(ctx)
+      if (pathname.startsWith('/api/multimedia'))                                     return await handleMultimedia(ctx)
+      if (pathname.startsWith('/api/support') || pathname.startsWith('/api/proveedores') ||
+          pathname.startsWith('/api/community') || pathname.startsWith('/api/chat') ||
+          pathname.startsWith('/api/custom-commands') || pathname.startsWith('/api/terminal')) return await handleSupport(ctx)
+      // /api/config tiene su propio router
       if (pathname.startsWith('/api/config')) {
         const handled = await handleConfig(ctx)
         if (handled !== null) return handled
       }
-      return await handleMisc(ctx)
+      return json(res, 404, { error: 'Ruta no encontrada' })
 
     } catch (err) {
       console.error('[api] Error no manejado:', err)
@@ -239,7 +280,7 @@ function startPeriodicTasks(io) {
         if (!panelDb || !io?.engine?.clientsCount) return
         const logs = global.db?.data?.logs || []
         const today = new Date().toDateString()
-        const logsToday = logs.filter(l => { try { return new Date(l?.timestamp).toDateString() === today } catch { return false } })
+        const logsToday = logs.filter(l => { try { return new Date(l?.timestamp || l?.fecha).toDateString() === today } catch { return false } })
         const stats = {
           logsToday: logsToday.length,
           mensajesHoy: logsToday.filter(l => l?.tipo === 'mensaje').length,
@@ -268,4 +309,24 @@ function startPeriodicTasks(io) {
       setInterval(run, 6 * 60 * 60 * 1000)
     } catch {}
   }, 60000)
+
+  // Limpieza de subbots sin sesión válida en disco al arrancar (30s delay para que la DB esté lista)
+  setTimeout(async () => {
+    try {
+      const db = ensurePanelDb()
+      if (!db) return
+      const { cleanupDisconnectedSubbots, cleanupBrokenSubbotSymlinks } = await import('../api/lib/subbot-helpers.js')
+      const { removed } = cleanupDisconnectedSubbots(db)
+      cleanupBrokenSubbotSymlinks()
+      if (removed.length > 0) {
+        if (global.db?.write) await global.db.write()
+        const { emitSubbotDeleted, emitSubbotStatus } = await import('../lib/socket-io.js')
+        emitSubbotStatus()
+        for (const code of removed) {
+          emitSubbotDeleted(code)
+          console.log(`[SUBBOT-CLEANUP] Registro sin sesión eliminado al arrancar: ${code}`)
+        }
+      }
+    } catch {}
+  }, 30000)
 }

@@ -292,10 +292,12 @@ export function DevicePerformanceProvider({ children }: { children: React.ReactN
 
   React.useEffect(() => {
     const root = document.documentElement;
+    const perf = state.performanceMode ? 'low' : 'full';
     root.dataset.viewport = state.viewport;
-    root.dataset.perf = state.performanceMode ? 'low' : 'full';
+    root.dataset.perf = perf;
     root.dataset.reduceMotion = state.reduceMotion ? 'true' : 'false';
     root.dataset.intensity = state.visualIntensity;
+    try { window.localStorage.setItem('oguricap:perf', perf); } catch {}
   }, [state.performanceMode, state.reduceMotion, state.viewport, state.visualIntensity]);
 
   const value = React.useMemo<DevicePerformance>(() => {

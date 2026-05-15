@@ -104,7 +104,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-screen overflow-hidden">
+    <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-[100dvh] overflow-hidden">
       {/* Premium Ambient Background */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(var(--primary),0.05),transparent_40%)]" />

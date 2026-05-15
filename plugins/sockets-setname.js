@@ -37,8 +37,8 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
   return m.reply(`ꕤ︎ Nombre del Socket cambiado a: *${config.name}*`)
 }
 
-handler.help = ['setname']
+handler.help = ['setname', 'setbotname']
 handler.tags = ['serbot']
-handler.command = ['setname']
+handler.command = ['setname', 'setbotname']
 
 export default handler

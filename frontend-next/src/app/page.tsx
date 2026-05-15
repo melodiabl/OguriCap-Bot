@@ -117,7 +117,7 @@ const fadeInVariant = {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#060807] text-[#f2f6f3] selection:bg-[#25d366]/30">
+    <main className="min-h-[100dvh] bg-[#060807] text-[#f2f6f3] selection:bg-[#25d366]/30">
       {/* Navbar Premium */}
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.05] bg-[#060807]/60 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">

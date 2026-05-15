@@ -1,6 +1,6 @@
-
 'use client';
 
+import 'xterm/css/xterm.css';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
@@ -400,17 +400,20 @@ export default function LogsPage() {
     }
   };
 
-  const exportLogs = async (format: string) => {
+  const exportLogs = async (format: 'json' | 'csv' = 'json') => {
     try {
-      if (!canControl) {
-        notify.error('Permisos insuficientes');
-        return;
-      }
-      await api.exportLogs();
-      notify.success('Logs exportados');
-    } catch (error) {
-      notify.error('Error exportando logs');
-    }
+      if (!canControl) { notify.error('Permisos insuficientes'); return; }
+      const blob = await api.exportLogs(format);
+      const url = URL.createObjectURL(new Blob([blob], { type: format === 'csv' ? 'text/csv' : 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `logs-${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      notify.success(`Logs exportados como ${format.toUpperCase()}`);
+    } catch { notify.error('Error exportando logs'); }
   };
 
   const clearLogs = async () => {
@@ -843,8 +846,8 @@ export default function LogsPage() {
                 <CardHeader className="flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle>Logs Recientes</CardTitle>
                   <div className="panel-actions-wrap">
-                    <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('json')}>Exportar JSON</Button>
-                  {/* <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('csv')}>Exportar CSV</Button> */}
+                    <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('json')}>JSON</Button>
+                    <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={() => exportLogs('csv')}>CSV</Button>
                 </div>
               </CardHeader>
               <CardContent>

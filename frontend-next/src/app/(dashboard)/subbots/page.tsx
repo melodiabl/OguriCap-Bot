@@ -327,16 +327,21 @@ export default function SubbotsPage() {
     socket.on('subbot:connected', handleSubbotConnected);
     socket.on('subbot:pairingCode', handlePairingCode);
     socket.on('subbot:qr', handleQRCode);
-    socket.on('subbot:created', (data: any) => data?.subbot && upsert(normalizeSubbot(data.subbot)));
-    socket.on('subbot:updated', (data: any) => data?.subbot && upsert(normalizeSubbot(data.subbot)));
+    const handleSubbotCreated = (data: any) => data?.subbot && upsert(normalizeSubbot(data.subbot));
+    const handleSubbotUpdated = (data: any) => data?.subbot && upsert(normalizeSubbot(data.subbot));
+
+    socket.on('subbot:created', handleSubbotCreated);
+    socket.on('subbot:updated', handleSubbotUpdated);
 
     return () => {
-      socket.off('subbot:status', handleSubbotStatus);
-      socket.off('subbot:deleted', handleSubbotDeleted);
+      socket.off('subbot:status',       handleSubbotStatus);
+      socket.off('subbot:deleted',      handleSubbotDeleted);
       socket.off('subbot:disconnected', handleSubbotDisconnected);
-      socket.off('subbot:connected', handleSubbotConnected);
-      socket.off('subbot:pairingCode', handlePairingCode);
-      socket.off('subbot:qr', handleQRCode);
+      socket.off('subbot:connected',    handleSubbotConnected);
+      socket.off('subbot:pairingCode',  handlePairingCode);
+      socket.off('subbot:qr',           handleQRCode);
+      socket.off('subbot:created',      handleSubbotCreated);
+      socket.off('subbot:updated',      handleSubbotUpdated);
     };
   }, [socket]);
 
@@ -421,7 +426,7 @@ export default function SubbotsPage() {
   const getStatusColor = (subbot: Subbot) => {
     if (subbot.isOnline) return 'text-success border-success/30 bg-success/10';
     if (subbot.connectionState === 'needs_auth') return 'text-warning border-warning/30 bg-warning/10';
-    return 'text-gray-400 border-white/10 bg-white/5';
+    return 'text-danger border-danger/30 bg-danger/10';
   };
 
   const getStatusText = (subbot: Subbot) => {
@@ -431,7 +436,7 @@ export default function SubbotsPage() {
   };
 
   return (
-    <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-screen overflow-hidden">
+    <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-[100dvh] overflow-hidden">
       {/* Premium Ambient Background */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(var(--page-a),0.05),transparent_40%)]" />
@@ -595,12 +600,19 @@ export default function SubbotsPage() {
                       whileHover={{ y: -5 }}
                       className={cn(
                         "group relative overflow-hidden rounded-[28px] border bg-card/40 p-6 backdrop-blur-xl transition-all duration-300",
-                        subbot.isOnline ? "border-success/20 hover:border-success/40" : "border-white/10 hover:border-white/20"
+                        subbot.isOnline
+                          ? "border-success/20 hover:border-success/40"
+                          : subbot.connectionState === 'needs_auth'
+                            ? "border-warning/20 hover:border-warning/30"
+                            : "border-danger/15 hover:border-danger/30"
                       )}
                     >
-                      {/* Ambient light for online bots */}
+                      {/* Ambient light per state */}
                       {subbot.isOnline && (
                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_50%)]" />
+                      )}
+                      {!subbot.isOnline && subbot.connectionState !== 'needs_auth' && (
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(var(--danger),0.06),transparent_50%)]" />
                       )}
 
                       <div className="relative z-10 space-y-6">
@@ -616,7 +628,11 @@ export default function SubbotsPage() {
                               </div>
                               <span className={cn(
                                 "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-[#0d1210]",
-                                subbot.isOnline ? "bg-success shadow-glow-emerald" : "bg-muted-foreground"
+                                subbot.isOnline
+                                  ? "bg-success shadow-glow-emerald"
+                                  : subbot.connectionState === 'needs_auth'
+                                    ? "bg-warning"
+                                    : "bg-danger"
                               )}>
                                 {subbot.isOnline && <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-75" />}
                               </span>
@@ -630,8 +646,8 @@ export default function SubbotsPage() {
                               </p>
                             </div>
                           </div>
-                          <Badge 
-                            variant={subbot.isOnline ? 'success' : 'outline'}
+                          <Badge
+                            variant={subbot.isOnline ? 'success' : subbot.connectionState === 'needs_auth' ? 'warning' : 'danger'}
                             className="text-[9px] font-black tracking-widest uppercase"
                           >
                             {getStatusText(subbot)}

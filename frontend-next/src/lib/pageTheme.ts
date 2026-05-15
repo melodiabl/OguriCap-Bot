@@ -19,6 +19,7 @@ export type PageKey =
   | 'logs'
   | 'analytics'
   | 'multimedia'
+  | 'plugins'
   | 'auth'
   | 'maintenance'
   | 'unknown';
@@ -69,6 +70,8 @@ export function getPageKeyFromPathname(pathname?: string | null): PageKey {
       return 'analytics';
     case 'multimedia':
       return 'multimedia';
+    case 'plugins':
+      return 'plugins';
     default:
       return 'unknown';
   }

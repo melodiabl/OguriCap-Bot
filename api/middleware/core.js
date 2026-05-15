@@ -50,6 +50,7 @@ export function withCors(req, res) {
   res.setHeader('X-XSS-Protection', '1; mode=block')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
   if (!isDev) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
 
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return true }

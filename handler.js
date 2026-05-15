@@ -421,7 +421,19 @@ export async function handler(chatUpdate) {
     for (const name in global.plugins) {
       const plugin = global.plugins[name]
       if (!plugin) continue
-      if (plugin.disabled) continue
+      if (plugin.disabled) {
+        // Si el mensaje viene de un comando que coincide con este plugin, responder con mensaje personalizado
+        if (m.text && plugin.command) {
+          const isMatch = plugin.command instanceof RegExp ? plugin.command.test(m.text.slice(1).split(' ')[0]) :
+            Array.isArray(plugin.command) ? plugin.command.some(c => c === m.text.slice(1).split(' ')[0]) : false
+          if (isMatch) {
+            const cfg = global.db?.data?.disabledPlugins?.[name] ?? global.db?.data?.panel?.disabledPlugins?.[name]
+            const msg = cfg?.message || `ꕥ El comando está desactivado temporalmente.`
+            try { await conn.reply(m.chat, msg, m) } catch {}
+          }
+        }
+        continue
+      }
 
       // Permitir que el Anti-Bots actúe sobre mensajes marcados como Baileys (otros bots),
       // pero evitar ejecutar el resto de plugins para no generar loops o falsos positivos.
@@ -557,10 +569,10 @@ export async function handler(chatUpdate) {
         if (chat) {
           const botId = this.user.jid
           const primaryBotId = chat.primaryBot
-          const globalState = global.db?.data?.panel?.botGlobalState
+          const globalState = global.db?.data?.botGlobalState ?? global.db?.data?.panel?.botGlobalState
           if (m.isGroup && globalState?.isOn === false && !isROwner) {
             if (!primaryBotId || primaryBotId === botId) {
-              const offMsg = global.db?.data?.panel?.botGlobalOffMessage || 'El bot está desactivado globalmente por el administrador.'
+              const offMsg = global.db?.data?.botGlobalOffMessage ?? global.db?.data?.panel?.botGlobalOffMessage ?? 'El bot está desactivado globalmente por el administrador.'
               await m.reply(offMsg)
               return
             }

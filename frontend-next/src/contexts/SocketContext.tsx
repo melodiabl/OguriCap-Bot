@@ -52,6 +52,8 @@ export const SOCKET_EVENTS = {
   TASK_UPDATED: 'task:updated',
   TASK_DELETED: 'task:deleted',
   TASK_EXECUTED: 'task:executed',
+  // Sistema
+  SYSTEM_MAINTENANCE: 'system:maintenance',
 } as const;
 
 interface BotStatus {
@@ -120,9 +122,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       transports: ['polling', 'websocket'],
       upgrade: true,
       reconnection: true,
-      reconnectionAttempts: 15,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
+      reconnectionDelayMax: 8000,
       randomizationFactor: 0.5,
       timeout: 20000,
       autoConnect: true,
@@ -131,18 +133,17 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     let connectAttempts = 0;
 
+    const requestData = () => {
+      newSocket.emit('request:botStatus');
+      newSocket.emit('request:subbotStatus');
+      newSocket.emit('request:stats');
+      newSocket.emit('request:resourceMetrics');
+    };
+
     newSocket.on('connect', () => {
       connectAttempts = 0;
       setIsConnected(true);
       setConnectionError(null);
-      
-      const requestData = () => {
-        newSocket.emit('request:botStatus');
-        newSocket.emit('request:subbotStatus');
-        newSocket.emit('request:stats');
-        newSocket.emit('request:resourceMetrics');
-      };
-      
       requestData();
       setTimeout(requestData, 1500);
     });
@@ -151,22 +152,37 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     newSocket.on('connect_error', (error) => {
       connectAttempts++;
-      // Suppress first attempt log — normal during page load
       if (connectAttempts > 1) {
         setConnectionError(`Error de conexión: ${error.message}`);
       }
       setIsConnected(false);
     });
 
+    const handleOnline = () => {
+      if (!newSocket.connected) newSocket.connect();
+    };
+    const handleOffline = () => setIsConnected(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     newSocket.on(SOCKET_EVENTS.BOT_STATUS, (data: BotStatus) => setBotStatus(data));
-    newSocket.on(SOCKET_EVENTS.BOT_QR, (data) => setBotStatus(prev => prev ? { ...prev, qrCode: data.qr } : null));
-    newSocket.on(SOCKET_EVENTS.BOT_CONNECTED, (data) => {
-      setBotStatus(prev => prev ? { 
-        ...prev, connected: true, isConnected: true, connecting: false, phone: data.phone, qrCode: null 
-      } : null);
+    newSocket.on(SOCKET_EVENTS.BOT_QR, (data: any) => setBotStatus(prev => ({
+      ...(prev ?? {} as BotStatus),
+      qrCode: data?.qr ?? null,
+      connecting: true,
+    })));
+    newSocket.on(SOCKET_EVENTS.BOT_CONNECTED, (data: any) => {
+      setBotStatus(prev => ({
+        ...(prev ?? {} as BotStatus),
+        connected: true, isConnected: true, connecting: false,
+        phone: data?.phone ?? null, qrCode: null,
+      }));
     });
-    newSocket.on(SOCKET_EVENTS.BOT_DISCONNECTED, () => {
-      setBotStatus(prev => prev ? { ...prev, connected: false, isConnected: false, connecting: false } : null);
+    newSocket.on(SOCKET_EVENTS.BOT_DISCONNECTED, (data: any) => {
+      setBotStatus(prev => ({
+        ...(prev ?? {} as BotStatus),
+        connected: false, isConnected: false, connecting: false, qrCode: null,
+      }));
     });
 
     newSocket.on(SOCKET_EVENTS.SUBBOT_STATUS, (data: any) => setLastSubbotEvent(data));
@@ -177,6 +193,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setSocket(newSocket);
 
     return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       newSocket.disconnect();
     };
   }, [token]);

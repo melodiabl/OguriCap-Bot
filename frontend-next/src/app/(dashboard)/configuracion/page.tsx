@@ -192,7 +192,7 @@ export default function ConfiguracionPage() {
   const saveConfiguration = async () => {
     setSaving(true);
     try {
-      await api.put(`/config/${selectedConfig}`, configData[selectedConfig]);
+      await api.put(`/api/config/${selectedConfig}`, configData[selectedConfig]);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
       notify.success('Configuración guardada correctamente');
       refreshAll();
@@ -239,7 +239,7 @@ export default function ConfiguracionPage() {
 
   const exportConfiguration = async () => {
     try {
-      const res = await api.get('/config/export');
+      const res = await api.get('/api/config/export');
       const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -256,7 +256,7 @@ export default function ConfiguracionPage() {
     reader.onload = async (e) => {
       try {
         const json = JSON.parse(e.target?.result as string);
-        await api.post('/config/import', json);
+        await api.post('/api/config/import', json);
         notify.success('Configuración importada. Reiniciando vista...');
         fetchConfigurations();
       } catch (error) {
@@ -269,7 +269,7 @@ export default function ConfiguracionPage() {
   const rollbackToVersion = async (versionId: string) => {
     if (!confirm('¿Estás seguro de revertir a esta versión?')) return;
     try {
-      await api.post(`/config/rollback/${versionId}`);
+      await api.post(`/api/config/rollback/${versionId}`);
       notify.success('Sistema revertido correctamente');
       fetchConfigurations();
     } catch (error) {
@@ -281,7 +281,7 @@ export default function ConfiguracionPage() {
   const refreshEmailStatus = async () => {
     setIsCheckingEmail(true);
     try {
-      const res = await api.get('/config/email/status');
+      const res = await api.get('/api/config/email/status');
       setEmailStatus(res.data);
     } catch (error) {
       console.error(error);
@@ -295,7 +295,7 @@ export default function ConfiguracionPage() {
     setIsEmailPreviewOpen(true);
     setIsLoadingEmailPreview(true);
     try {
-      const res = await api.get(`/config/email/preview/${type}`);
+      const res = await api.get(`/api/config/email/preview/${type}`);
       setEmailPreviewData(res.data);
     } catch (error) {
       notify.error('Error al cargar preview');
@@ -307,7 +307,7 @@ export default function ConfiguracionPage() {
   const verifyEmailSmtp = async () => {
     setIsVerifyingEmail(true);
     try {
-      await api.post('/config/email/verify', configData.notifications?.email?.smtp);
+      await api.post('/api/config/email/verify', configData.notifications?.email?.smtp);
       notify.success('Configuración SMTP válida');
     } catch (error) {
       notify.error('Fallo en la verificación SMTP');
@@ -320,7 +320,7 @@ export default function ConfiguracionPage() {
     if (!testEmailTo) return notify.warning('Ingresa un correo de destino');
     setIsTestingEmail(true);
     try {
-      await api.post('/config/email/test', { to: testEmailTo });
+      await api.post('/api/config/email/test', { to: testEmailTo });
       notify.success('Email de prueba enviado');
     } catch (error) {
       notify.error('Error al enviar email de prueba');
@@ -353,21 +353,25 @@ export default function ConfiguracionPage() {
   };
 
   // Support / System actions
+  const [maintenanceLoading, setMaintenanceLoading] = React.useState(false);
   const toggleMaintenanceMode = async () => {
+    setMaintenanceLoading(true);
     try {
       const newState = !systemConfig.maintenanceMode;
-      await api.post('/config/system/maintenance', { enabled: newState });
-      setSystemConfig({ ...systemConfig, maintenanceMode: newState });
-      notify.success(`Mantenimiento ${newState ? 'activado' : 'desactivado'}`);
-    } catch (error) {
+      await api.updateSystemConfig({ maintenanceMode: newState });
+      setSystemConfig((prev: any) => ({ ...prev, maintenanceMode: newState }));
+      notify.success(`Modo mantenimiento ${newState ? 'activado' : 'desactivado'}`);
+    } catch {
       notify.error('Error al cambiar modo mantenimiento');
+    } finally {
+      setMaintenanceLoading(false);
     }
   };
 
   const saveGlobalMessage = async () => {
     setSaving(true);
     try {
-      await api.put('/config/main', { ...configData.main, globalOffMessage });
+      await api.put('/api/config/main', { ...configData.main, globalOffMessage });
       notify.success('Mensaje guardado');
     } catch (error) {
       notify.error('Error al guardar mensaje');
@@ -379,7 +383,7 @@ export default function ConfiguracionPage() {
   const saveBotConfig = async () => {
     setSaving(true);
     try {
-      await api.put('/config/bot', botConfig);
+      await api.put('/api/config/bot', botConfig);
       notify.success('Configuración del bot guardada');
     } catch (error) {
       notify.error('Error al guardar configuración del bot');
@@ -391,7 +395,7 @@ export default function ConfiguracionPage() {
   const saveSystemConfig = async () => {
     setSaving(true);
     try {
-      await api.put('/config/system', systemConfig);
+      await api.put('/api/config/system', systemConfig);
       notify.success('Configuración del sistema guardada');
     } catch (error) {
       notify.error('Error al guardar configuración del sistema');
@@ -402,7 +406,7 @@ export default function ConfiguracionPage() {
 
   const addCurrentIP = async () => {
     try {
-      await api.post('/config/system/admin-ip', { ip: systemConfig.currentIP });
+      await api.post('/api/config/system/admin-ip', { ip: systemConfig.currentIP });
       notify.success('IP agregada correctamente');
       fetchConfigurations();
     } catch (error) {
@@ -413,7 +417,7 @@ export default function ConfiguracionPage() {
   const toggleAutoAddAdminIPOnLogin = async () => {
     try {
       const newState = !systemConfig.autoAddAdminIPOnLogin;
-      await api.put('/config/system', { ...systemConfig, autoAddAdminIPOnLogin: newState });
+      await api.put('/api/config/system', { ...systemConfig, autoAddAdminIPOnLogin: newState });
       setSystemConfig({ ...systemConfig, autoAddAdminIPOnLogin: newState });
       notify.success(`Auto-guardado de IP ${newState ? 'activado' : 'desactivado'}`);
     } catch (error) {
@@ -573,10 +577,38 @@ export default function ConfiguracionPage() {
                     ))}
                  </div>
 
-                 <div className="pt-4 border-t border-white/10 flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={refreshEmailStatus} loading={isCheckingEmail} icon={<RefreshCw className="h-3 w-3" />}>Estado</Button>
-                    <Button variant="secondary" size="sm" onClick={verifyEmailSmtp} loading={isVerifyingEmail} icon={<Shield className="h-3 w-3" />}>Verificar</Button>
-                    <Button variant="primary" size="sm" onClick={sendTestEmail} loading={isTestingEmail} icon={<Mail className="h-3 w-3" />}>Test</Button>
+                 <div className="pt-4 border-t border-white/10 space-y-3">
+                    {/* Test email */}
+                    <div className="flex gap-2 items-center">
+                       <input
+                         type="email"
+                         value={testEmailTo}
+                         onChange={(e) => setTestEmailTo(e.target.value)}
+                         placeholder="destino@ejemplo.com"
+                         className="input-glass flex-1 text-sm !py-2"
+                       />
+                       <Button variant="primary" size="sm" onClick={sendTestEmail} loading={isTestingEmail} icon={<Mail className="h-3 w-3" />}>Enviar prueba</Button>
+                    </div>
+                    {/* Status/verify */}
+                    <div className="flex gap-2 flex-wrap">
+                       <Button variant="secondary" size="sm" onClick={refreshEmailStatus} loading={isCheckingEmail} icon={<RefreshCw className="h-3 w-3" />}>Estado</Button>
+                       <Button variant="secondary" size="sm" onClick={verifyEmailSmtp} loading={isVerifyingEmail} icon={<Shield className="h-3 w-3" />}>Verificar SMTP</Button>
+                    </div>
+                    {/* Template previews */}
+                    <div className="pt-2 border-t border-white/[0.06]">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Preview de plantillas</p>
+                       <div className="flex flex-wrap gap-1.5">
+                         {EMAIL_PREVIEW_TEMPLATES.map((t) => (
+                           <button
+                             key={t.id}
+                             onClick={() => openEmailPreview(t.id)}
+                             className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+                           >
+                             {t.label}
+                           </button>
+                         ))}
+                       </div>
+                    </div>
                  </div>
               </div>
             </div>
@@ -735,7 +767,7 @@ export default function ConfiguracionPage() {
   ];
 
   return (
-    <div className="relative min-h-screen p-4 sm:p-8 lg:p-10 overflow-hidden">
+    <div className="relative min-h-[100dvh] p-4 sm:p-8 lg:p-10 overflow-hidden">
       {/* Premium Ambient Background */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(var(--page-a),0.05),transparent_40%)]" />
@@ -778,6 +810,63 @@ export default function ConfiguracionPage() {
             </Card>
           ))}
         </div>
+
+        {/* Maintenance Mode Control */}
+        <Card className={cn(
+          'p-6 border transition-all duration-500',
+          systemConfig.maintenanceMode
+            ? 'border-amber-500/30 bg-amber-500/5'
+            : 'border-white/10 bg-white/[0.02]'
+        )}>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-all duration-500',
+                systemConfig.maintenanceMode
+                  ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                  : 'border-white/10 bg-white/5 text-muted-foreground'
+              )}>
+                <Wrench className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-black text-white">Modo Mantenimiento</p>
+                  <span className={cn(
+                    'rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest',
+                    systemConfig.maintenanceMode
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-white/5 text-muted-foreground border border-white/10'
+                  )}>
+                    {systemConfig.maintenanceMode ? 'ACTIVO' : 'INACTIVO'}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {systemConfig.maintenanceMode
+                    ? 'Solo administradores pueden acceder al panel'
+                    : 'Panel accesible para todos los usuarios autorizados'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {systemConfig.maintenanceMode && (
+                <span className="hidden sm:flex items-center gap-1.5 text-xs text-amber-400/80">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Usuarios no-admin serán redirigidos
+                </span>
+              )}
+              <Button
+                variant={systemConfig.maintenanceMode ? 'secondary' : 'glow'}
+                size="sm"
+                loading={maintenanceLoading}
+                onClick={toggleMaintenanceMode}
+                icon={<Wrench className="h-3.5 w-3.5" />}
+                className={systemConfig.maintenanceMode ? 'border-amber-500/30 text-amber-300 hover:bg-amber-500/10' : ''}
+              >
+                {systemConfig.maintenanceMode ? 'Desactivar' : 'Activar'}
+              </Button>
+            </div>
+          </div>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Sidebar */}
@@ -900,27 +989,62 @@ export default function ConfiguracionPage() {
       <Modal
         isOpen={isEmailPreviewOpen}
         onClose={() => setIsEmailPreviewOpen(false)}
-        title={`Preview Email: ${EMAIL_PREVIEW_TEMPLATES.find(t => t.id === emailPreviewType)?.label}`}
-        className="max-w-5xl"
+        title={`Preview: ${EMAIL_PREVIEW_TEMPLATES.find(t => t.id === emailPreviewType)?.label ?? emailPreviewType}`}
+        className="max-w-2xl"
       >
-        <div className="space-y-6">
-           <div className="flex items-center justify-between">
-              <div className="flex gap-2">
-                 <Button variant={emailPreviewMode === 'html' ? 'primary' : 'secondary'} size="sm" onClick={() => setEmailPreviewMode('html')}>HTML</Button>
-                 <Button variant={emailPreviewMode === 'text' ? 'primary' : 'secondary'} size="sm" onClick={() => setEmailPreviewMode('text')}>TEXTO</Button>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => copyEmailPreview(emailPreviewMode)} icon={<Copy className="h-3.5 w-3.5" />}>Copiar</Button>
-           </div>
-
-           <div className="rounded-2xl border border-white/10 bg-black/20 overflow-hidden min-h-[500px]">
-              {isLoadingEmailPreview ? (
-                <div className="flex items-center justify-center h-[500px] text-muted-foreground animate-pulse">Generando vista previa...</div>
-              ) : emailPreviewMode === 'html' ? (
-                <iframe srcDoc={emailPreviewData?.html} className="w-full h-[500px] bg-white" title="Email Preview" />
-              ) : (
-                <pre className="p-6 text-sm text-gray-300 whitespace-pre-wrap">{extractPlainTextFromHtml(emailPreviewData?.html || '')}</pre>
+        <div className="space-y-4">
+          {/* Meta info */}
+          {!isLoadingEmailPreview && emailPreviewData && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs">
+              {emailPreviewData.subject && (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="shrink-0 font-semibold uppercase tracking-wide text-muted/60">Asunto</span>
+                  <span className="truncate text-foreground/90">{emailPreviewData.subject}</span>
+                </div>
               )}
-           </div>
+              {emailPreviewData.recipient && (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="shrink-0 font-semibold uppercase tracking-wide text-muted/60">Para</span>
+                  <span className="truncate text-foreground/90">{emailPreviewData.recipient}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Toolbar */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              <Button variant={emailPreviewMode === 'html' ? 'primary' : 'secondary'} size="sm" onClick={() => setEmailPreviewMode('html')}>HTML</Button>
+              <Button variant={emailPreviewMode === 'text' ? 'primary' : 'secondary'} size="sm" onClick={() => setEmailPreviewMode('text')}>Texto plano</Button>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => copyEmailPreview(emailPreviewMode)} icon={<Copy className="h-3.5 w-3.5" />}>Copiar</Button>
+          </div>
+
+          {/* Preview area */}
+          <div className="rounded-2xl border border-white/10 bg-black/20 overflow-hidden min-h-[360px]">
+            {isLoadingEmailPreview ? (
+              <div className="flex flex-col items-center justify-center h-[360px] gap-3 text-muted animate-pulse">
+                <div className="h-8 w-8 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
+                <span className="text-sm">Generando vista previa...</span>
+              </div>
+            ) : !emailPreviewData?.html ? (
+              <div className="flex flex-col items-center justify-center h-[360px] gap-2 text-muted/60 text-sm">
+                <span className="text-2xl">📭</span>
+                <span>No hay contenido para este template</span>
+              </div>
+            ) : emailPreviewMode === 'html' ? (
+              <iframe
+                srcDoc={emailPreviewData.html}
+                className="w-full h-[360px] bg-white rounded-2xl"
+                title="Email Preview"
+                sandbox="allow-same-origin"
+              />
+            ) : (
+              <pre className="p-6 text-sm text-gray-300 whitespace-pre-wrap leading-relaxed overflow-auto h-[360px]">
+                {extractPlainTextFromHtml(emailPreviewData.html)}
+              </pre>
+            )}
+          </div>
         </div>
       </Modal>
     </div>

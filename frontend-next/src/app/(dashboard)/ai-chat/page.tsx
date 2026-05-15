@@ -1,325 +1,353 @@
 'use client';
-import { notify } from '@/lib/notif';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { Bot, Send, User, Sparkles, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import {
+  Bot, Send, User, Sparkles, RefreshCw, Trash2,
+  Zap, Brain, Code2, MessageSquare, ChevronDown, Copy, Check
+} from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { SimpleSelect } from '@/components/ui/Select';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Reveal } from '@/components/motion/Reveal';
+import { notify } from '@/lib/notif';
 import api from '@/services/api';
-
 
 interface Message {
   id: number;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  model?: string;
 }
 
-const MODEL_OPTIONS = [
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  { value: 'claude', label: 'Claude' },
-  { value: 'qwen', label: 'Qwen' },
-  { value: 'luminai', label: 'Luminai' },
-  { value: 'chatgpt', label: 'ChatGPT' },
-];
+const MODELS = [
+  { value: 'qwen', label: 'Qwen 3', badge: 'RÁPIDO', color: 'cyan', icon: Zap, desc: 'Motor rápido y eficiente' },
+  { value: 'gemini', label: 'Gemini', badge: 'MULTI', color: 'blue', icon: Sparkles, desc: 'Razonamiento multimodal' },
+  { value: 'claude', label: 'Claude', badge: 'PRECISO', color: 'violet', icon: Brain, desc: 'Análisis profundo' },
+  { value: 'gpt-4', label: 'GPT-4', badge: 'PRO', color: 'green', icon: Code2, desc: 'Código y lógica avanzada' },
+  { value: 'luminai', label: 'Luminai', badge: 'LIBRE', color: 'pink', icon: MessageSquare, desc: 'Conversación natural' },
+] as const;
+
+type ModelValue = typeof MODELS[number]['value'];
+
+const modelColorMap: Record<string, string> = {
+  cyan: 'border-oguri-cyan/30 bg-oguri-cyan/10 text-oguri-cyan shadow-[0_0_24px_rgba(45,212,191,0.15)]',
+  blue: 'border-oguri-blue/30 bg-oguri-blue/10 text-oguri-blue shadow-[0_0_24px_rgba(45,212,191,0.15)]',
+  violet: 'border-oguri-lavender/30 bg-oguri-lavender/10 text-oguri-lavender shadow-[0_0_24px_rgba(167,243,199,0.12)]',
+  green: 'border-primary/30 bg-primary/10 text-primary shadow-[0_0_24px_rgba(37,211,102,0.15)]',
+  pink: 'border-oguri-energy/30 bg-oguri-energy/10 text-oguri-energy shadow-[0_0_24px_rgba(255,77,141,0.15)]',
+};
+
+const modelBubbleMap: Record<string, string> = {
+  cyan: 'border-oguri-cyan/20 bg-gradient-to-br from-oguri-cyan/10 to-oguri-blue/5',
+  blue: 'border-oguri-blue/20 bg-gradient-to-br from-oguri-blue/10 to-oguri-cyan/5',
+  violet: 'border-oguri-lavender/20 bg-gradient-to-br from-oguri-lavender/10 to-primary/5',
+  green: 'border-primary/20 bg-gradient-to-br from-primary/10 to-oguri-cyan/5',
+  pink: 'border-oguri-energy/20 bg-gradient-to-br from-oguri-energy/10 to-oguri-gold/5',
+};
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="rounded-md border border-white/10 bg-white/[0.05] p-1 text-muted opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+function TypingIndicator({ color }: { color: string }) {
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-2xl border px-4 py-3 ${modelBubbleMap[color]} backdrop-blur-sm`}>
+      {[0, 0.18, 0.36].map((delay, i) => (
+        <motion.div
+          key={i}
+          className="h-2 w-2 rounded-full bg-current opacity-60"
+          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+          transition={{ repeat: Infinity, duration: 1.1, delay, ease: 'easeInOut' }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function AiChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [model, setModel] = useState('gemini');
-  const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
+  const [model, setModel] = useState<ModelValue>('qwen');
+  const [sessionId] = useState(() => `s-${Date.now().toString(36)}`);
+  const [selectorOpen, setSelectorOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const reduceMotion = useReducedMotion();
+
+  const activeModel = MODELS.find(m => m.value === model) || MODELS[0];
+  const activeColor = activeModel.color;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
-  }, [messages, reduceMotion]);
+  }, [messages, isLoading, reduceMotion]);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    const text = input.trim();
+    if (!text || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now(),
-      role: 'user',
-      content: input,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMsg: Message = { id: Date.now(), role: 'user', content: text, timestamp: new Date() };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setIsLoading(true);
 
     try {
-      const response = await api.sendAIMessage({
-        message: input,
-        model,
-        sessionId,
-      });
-
-      if (response?.error) notify.error(`El modelo respondió con error: ${response.error}`);
-
-      const assistantMessage: Message = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: response.response || response.content || 'Sin respuesta',
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      notify.error('Error al enviar mensaje');
-      const errorMessage: Message = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: 'Lo siento, hubo un error al procesar tu mensaje.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      const response = await api.sendAIMessage({ message: text, model, sessionId });
+      const reply = response.response || response.content || 'Sin respuesta';
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1, role: 'assistant', content: reply,
+        timestamp: new Date(), model,
+      }]);
+    } catch {
+      notify.error('Error al conectar con la IA');
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1, role: 'assistant',
+        content: 'Ocurrió un error al procesar tu mensaje. Intenta de nuevo.',
+        timestamp: new Date(), model,
+      }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const aiLanes = [
-    {
-      label: 'Modelo activo',
-      value: MODEL_OPTIONS.find((option) => option.value === model)?.label || model,
-      description: 'Motor seleccionado para la conversación actual.',
-      icon: <Sparkles className="w-4 h-4" />,
-      badge: 'model',
-      badgeClassName: 'border-accent/20 bg-accent/10 text-accent',
-      glowClassName: 'from-violet-400/18 via-oguri-lavender/10 to-transparent',
-    },
-    {
-      label: 'Mensajes',
-      value: `${messages.length}`,
-      description: messages.length > 0 ? 'Cantidad acumulada en la sesión actual.' : 'Todavía no comenzó la conversación.',
-      icon: <Bot className="w-4 h-4" />,
-      badge: messages.length > 0 ? 'active' : 'idle',
-      badgeClassName: messages.length > 0 ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-white/10 bg-white/[0.05] text-white/70',
-      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
-    },
-    {
-      label: 'Estado',
-      value: isLoading ? 'Pensando...' : 'Listo para responder',
-      description: isLoading ? 'La IA está procesando el último mensaje.' : 'Puedes seguir escribiendo en la misma sesión.',
-      icon: <RefreshCw className="w-4 h-4" />,
-      badge: isLoading ? 'busy' : 'ready',
-      badgeClassName: isLoading ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]',
-      glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
-    },
-    {
-      label: 'Sesión',
-      value: sessionId.slice(-8),
-      description: 'Identificador corto para mantener continuidad del chat.',
-      icon: <User className="w-4 h-4" />,
-      badge: 'session',
-      badgeClassName: 'border-success/20 bg-success/10 text-success/80',
-      glowClassName: 'from-emerald-400/18 via-oguri-cyan/10 to-transparent',
-    },
-  ];
+  const clearChat = () => { setMessages([]); notify.success('Conversación limpiada'); };
 
   return (
-    <div className="panel-page relative flex min-h-0 min-h-full flex-col overflow-hidden">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
-        <div className="module-atmosphere" />
-        <div className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-oguri-lavender/18 blur-3xl opacity-30" />
-        <div className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/18 blur-3xl opacity-30" />
+    <div className="panel-page flex h-[calc(100dvh-var(--header-height,180px))] min-h-0 flex-col overflow-hidden">
+      {/* Atmosphere */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden opacity-60">
+        <div className="absolute -left-20 top-0 h-64 w-64 rounded-full bg-[rgb(var(--page-a))/0.12] blur-[80px]" />
+        <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-[rgb(var(--page-b))/0.10] blur-[70px]" />
+        <div className="absolute left-1/2 top-8 h-48 w-48 -translate-x-1/2 rounded-full bg-[rgb(var(--page-c))/0.07] blur-[60px]" />
       </div>
-
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
-      >
-        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
-        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
-            <div className="panel-live-pill mb-3 w-fit">
-              <Sparkles className="h-3.5 w-3.5 text-oguri-cyan" />
-              Copiloto conversacional
-            </div>
-            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Chat AI con más presencia de cabina</h2>
-            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
-              Conversa, cambia de modelo y mantén continuidad del contexto desde una vista más viva que el chat plano original.
-            </p>
-          </div>
-          <div className="panel-hero-meta-grid">
-            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Modelo</p>
-              <p className="mt-2 text-lg font-black text-white">{MODEL_OPTIONS.find((option) => option.value === model)?.label || model}</p>
-            </div>
-            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Mensajes</p>
-              <p className="mt-2 text-lg font-black text-white">{messages.length}</p>
-            </div>
-            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Estado</p>
-              <p className="mt-2 text-lg font-black text-white">{isLoading ? 'BUSY' : 'READY'}</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
 
       <PageHeader
         title="AI Chat"
-        description="Conversa con la inteligencia artificial"
-        icon={<Sparkles className="w-5 h-5 text-primary" />}
+        description={`Conversación con ${activeModel.label} · Sesión ${sessionId.slice(-6).toUpperCase()}`}
         actions={
-          <>
-            <div className="w-full sm:w-52">
-              <SimpleSelect
-                value={model}
-                onChange={setModel}
-                options={MODEL_OPTIONS}
-                placeholder="Modelo"
-                disabled={isLoading}
-              />
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<RefreshCw className="w-4 h-4" />}
-              onClick={() => {
-                setMessages([]);
-                setSessionId(`session-${Date.now()}`);
-              }}
-            >
-              Limpiar
+          messages.length > 0 ? (
+            <Button variant="ghost" size="sm" onClick={clearChat} className="gap-2 text-muted hover:text-red-400">
+              <Trash2 className="h-4 w-4" /> Limpiar
             </Button>
-          </>
+          ) : null
         }
-        className="mb-6"
       />
 
-      <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {aiLanes.map((lane, index) => (
-          <motion.div
-            key={lane.label}
-            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
-            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+      <div className="flex min-h-0 flex-1 flex-col gap-4 pb-4">
+        {/* Model Selector */}
+        <div className="relative">
+          <button
+            onClick={() => setSelectorOpen(!selectorOpen)}
+            className={`flex w-full items-center gap-3 rounded-2xl border p-3 transition-all duration-300 ${modelColorMap[activeColor]} backdrop-blur-sm`}
           >
-            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
-            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-            <div className="relative z-10">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
-                  {lane.icon}
-                </div>
-                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
-                  {lane.badge}
-                </span>
-              </div>
-              <div className="mt-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
-                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
-                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
-              </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-current/20 bg-current/10">
+              <activeModel.icon className="h-5 w-5" />
             </div>
-          </motion.div>
-        ))}
-      </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-black tracking-tight">{activeModel.label}</p>
+              <p className="text-xs opacity-70">{activeModel.desc}</p>
+            </div>
+            <span className="rounded-full border border-current/30 bg-current/10 px-2.5 py-0.5 text-[10px] font-black tracking-widest">
+              {activeModel.badge}
+            </span>
+            <ChevronDown className={`h-4 w-4 opacity-60 transition-transform ${selectorOpen ? 'rotate-180' : ''}`} />
+          </button>
 
-      <Reveal className="flex-1 min-h-0">
-        <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {/* Messages */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="w-20 h-20 rounded-3xl bg-primary/12 border border-primary/20 flex items-center justify-center mb-4">
-                <Sparkles className="w-10 h-10 text-primary" />
-              </div>
-              <h3 className="text-xl font-extrabold text-foreground mb-2">¡Hola! Soy tu asistente AI</h3>
-              <p className="text-muted max-w-md text-balance">
-                Puedo ayudarte con preguntas sobre el bot, comandos, o cualquier otra cosa.
-              </p>
-            </div>
-          ) : (
-            messages.map((message, index) => (
+          <AnimatePresence>
+            {selectorOpen && (
               <motion.div
-                key={message.id}
-                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={reduceMotion ? { duration: 0 } : { delay: index < 8 ? index * 0.04 : 0 }}
-                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1012]/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
               >
-                {message.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-primary" />
-                  </div>
-                )}
-                <div className={`max-w-[88%] break-words p-4 [overflow-wrap:anywhere] sm:max-w-[72%] ${
-                  message.role === 'user'
-                    ? 'bg-primary/85 text-[rgb(var(--text-on-accent)/1)] rounded-br-sm'
-                    : 'bg-card/20 border border-border/20 text-foreground/90 rounded-bl-sm'
-                }`}>
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                  <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-[rgb(var(--text-on-accent)/0.80)]' : 'text-muted/80'}`}>
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
-                </div>
-                {message.role === 'user' && (
-                  <div className="w-8 h-8 rounded-2xl bg-success/12 border border-success/20 flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-success" />
-                  </div>
-                )}
+                {MODELS.map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => { setModel(m.value); setSelectorOpen(false); }}
+                    className={`flex w-full items-center gap-3 px-4 py-3 transition-all hover:bg-white/[0.04] ${model === m.value ? 'bg-white/[0.06]' : ''}`}
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg border ${modelColorMap[m.color]}`}>
+                      <m.icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-bold text-foreground">{m.label}</p>
+                      <p className="text-xs text-muted">{m.desc}</p>
+                    </div>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black tracking-widest ${modelColorMap[m.color]}`}>{m.badge}</span>
+                    {model === m.value && <div className="h-2 w-2 rounded-full bg-current" />}
+                  </button>
+                ))}
               </motion.div>
-            ))
-          )}
-          {isLoading && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary" />
-              </div>
-              <div className="bg-card/20 border border-border/20 p-4 rounded-2xl rounded-bl-sm">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-muted animate-bounce" />
-                  <div className="w-2 h-2 rounded-full bg-muted animate-bounce animation-delay-150" />
-                  <div className="w-2 h-2 rounded-full bg-muted animate-bounce animation-delay-300" />
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Messages */}
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0c0b]/70 backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:32px_32px]" />
+
+          <div className="h-full overflow-y-auto scroll-smooth px-4 py-4">
+            {messages.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="flex h-full flex-col items-center justify-center gap-5 text-center"
+              >
+                <div className={`relative flex h-20 w-20 items-center justify-center rounded-3xl border ${modelColorMap[activeColor]}`}>
+                  <activeModel.icon className="h-10 w-10" />
+                  <motion.div
+                    className="absolute inset-0 rounded-3xl border border-current opacity-30"
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 2.5, ease: 'easeOut' }}
+                  />
                 </div>
-              </div>
+                <div>
+                  <p className="text-lg font-black text-foreground">{activeModel.label} listo</p>
+                  <p className="mt-1 text-sm text-muted">{activeModel.desc} · Escribe para comenzar</p>
+                </div>
+                <div className="grid max-w-sm grid-cols-1 gap-2 text-left sm:grid-cols-2">
+                  {['¿Qué es un webhook?', 'Escribe un script en Python', 'Explica el bot', 'Analiza este código'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setInput(s); textareaRef.current?.focus(); }}
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-muted transition-all hover:border-white/20 hover:bg-white/[0.07] hover:text-foreground"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            <div className="space-y-4">
+              <AnimatePresence initial={false}>
+                {messages.map((msg) => {
+                  const msgModel = MODELS.find(m => m.value === msg.model) || activeModel;
+                  const msgColor = msgModel.color;
+                  return (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className={`group flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                    >
+                      {/* Avatar */}
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                        msg.role === 'user'
+                          ? 'border-white/15 bg-white/[0.07]'
+                          : `${modelColorMap[msgColor]}`
+                      }`}>
+                        {msg.role === 'user'
+                          ? <User className="h-5 w-5 text-muted" />
+                          : <msgModel.icon className="h-5 w-5" />}
+                      </div>
+
+                      {/* Bubble */}
+                      <div className={`group relative max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+                        <div className={`relative rounded-2xl border px-4 py-3 backdrop-blur-sm ${
+                          msg.role === 'user'
+                            ? 'rounded-tr-sm border-white/15 bg-white/[0.07]'
+                            : `rounded-tl-sm ${modelBubbleMap[msgColor]}`
+                        }`}>
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{msg.content}</p>
+                          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <CopyButton text={msg.content} />
+                          </div>
+                        </div>
+                        <span className="px-1 text-[10px] text-muted">
+                          {msg.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                          {msg.role === 'assistant' && ` · ${msgModel.label}`}
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3"
+                >
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${modelColorMap[activeColor]}`}>
+                    <activeModel.icon className="h-5 w-5" />
+                  </div>
+                  <TypingIndicator color={activeColor} />
+                </motion.div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
-          )}
-          <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-border/20">
-          <div className="flex gap-3">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Escribe tu mensaje..."
-              className="input-glass flex-1 resize-none"
-              rows={1}
-              disabled={isLoading}
-            />
-            <Button variant="primary" onClick={handleSend} disabled={!input.trim() || isLoading} loading={isLoading}>
-              <Send className="w-5 h-5" />
-            </Button>
+        <div className={`relative overflow-hidden rounded-2xl border bg-[#0d1012]/80 backdrop-blur-sm transition-all duration-300 ${
+          modelColorMap[activeColor].replace('text-', 'focus-within:border-').split(' ')[0]
+        } border-white/15 focus-within:shadow-[0_0_0_1px_rgba(var(--page-a),0.2)]`}>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => { setInput(e.target.value); autoResize(); }}
+            onKeyDown={handleKeyDown}
+            placeholder={`Mensaje para ${activeModel.label}... (Enter para enviar, Shift+Enter nueva línea)`}
+            rows={1}
+            disabled={isLoading}
+            className="w-full resize-none bg-transparent px-4 py-3.5 pr-14 text-sm text-foreground placeholder:text-muted focus:outline-none disabled:opacity-50"
+            style={{ minHeight: '52px', maxHeight: '160px' }}
+          />
+
+          <div className="absolute bottom-2 right-2">
+            <motion.button
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+                input.trim() && !isLoading
+                  ? `${modelColorMap[activeColor]} scale-100`
+                  : 'border-white/10 bg-white/[0.04] text-muted'
+              }`}
+            >
+              {isLoading
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />}
+            </motion.button>
           </div>
         </div>
-        </Card>
-      </Reveal>
+      </div>
     </div>
   );
 }

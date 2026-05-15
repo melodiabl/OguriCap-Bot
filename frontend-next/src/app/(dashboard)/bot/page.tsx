@@ -37,7 +37,7 @@ export default function BotStatusPage() {
   const { status, isConnected, isConnecting: botConnecting, refetch } = useBotStatus();
   const { isOn, setGlobalState } = useBotGlobalState();
   const { memoryUsage, cpuUsage, diskUsage, uptime } = useSystemStats();
-  const { isConnected: isSocketConnected } = useSocketConnection();
+  const { isConnected: isSocketConnected, socket } = useSocketConnection();
   const socketBotStatus = useSocketBotStatus();
   const { user } = useAuth();
   const { withLoading } = useLoadingOverlay();
@@ -65,18 +65,14 @@ export default function BotStatusPage() {
   }, [socketBotStatus?.qrCode, status?.qrCode, connected]);
 
   useEffect(() => {
-    if (authMethod === 'pairing') {
-      const handlePairingCode = (data: { pairingCode: string }) => {
-        setPairingCode(data.pairingCode);
-        setIsConnecting(false);
-      };
-      const socket = (window as any).socket;
-      if (socket) {
-        socket.on('bot:pairingCode', handlePairingCode);
-        return () => socket.off('bot:pairingCode', handlePairingCode);
-      }
-    }
-  }, [authMethod]);
+    if (authMethod !== 'pairing' || !socket) return;
+    const handlePairingCode = (data: { pairingCode: string }) => {
+      setPairingCode(data.pairingCode);
+      setIsConnecting(false);
+    };
+    socket.on('bot:pairingCode', handlePairingCode);
+    return () => { socket.off('bot:pairingCode', handlePairingCode); };
+  }, [authMethod, socket]);
 
   useEffect(() => {
     if (socketBotStatus?.pairingCode) {
@@ -147,7 +143,7 @@ export default function BotStatusPage() {
   ];
 
   return (
-    <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-screen overflow-hidden">
+    <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-[100dvh] overflow-hidden">
       {/* Premium Ambient Background */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(var(--page-a),0.05),transparent_40%)]" />
@@ -223,7 +219,7 @@ export default function BotStatusPage() {
                   size={220}
                   strokeWidth={14}
                   glow={connected}
-                  color={connected ? "rgb(var(--success))" : connecting ? "rgb(var(--warning))" : "rgb(var(--primary))"}
+                  color={connected ? "rgb(var(--success))" : connecting ? "rgb(var(--warning))" : "rgb(var(--danger))"}
                 >
                   <div className="text-center">
                     <AnimatedNumber value={connected ? 100 : connecting ? 65 : 0} className="text-4xl font-black text-foreground" />

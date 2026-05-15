@@ -1,3 +1,5 @@
+import fs from 'fs'
+
 export const bodyMenu = `> 𖧧 ¡Hola! *@$sender*, Soy *$namebot*, Aquí tienes la lista de comandos$cat
 
 ╭┈ࠢ͜┅ࠦ͜͜╾݊͜─ؕ͜─ׄ͜─֬͜─֟͜─֫͜─ׄ͜─ؕ͜─݊͜┈ࠦ͜┅ࠡ͜͜┈࠭͜͜۰۰͜۰
@@ -651,17 +653,25 @@ async function sendSingleMenu(m, conn, text) {
   if (!text) return
   const mention = m?.sender ? [m.sender] : []
 
+  const botJid = String(conn?.user?.jid || conn?.user?.id || '').split(':')[0]
+  const settings = global?.db?.data?.settings?.[botJid] || {}
+  const cfg = conn?.subbotRuntimeConfig || {}
+  const bannerPath = settings.banner || cfg.banner
+
   try {
     const baseRcanal = global?.rcanal
-    if (baseRcanal?.contextInfo) {
-      const payload = {
-        ...baseRcanal,
-        contextInfo: {
-          ...baseRcanal.contextInfo,
-          mentionedJid: mention,
-        },
-      }
-      await conn.sendMessage(m.chat, { text, ...payload }, { quoted: m })
+    const rcanalPayload = baseRcanal?.contextInfo
+      ? { ...baseRcanal, contextInfo: { ...baseRcanal.contextInfo, mentionedJid: mention } }
+      : null
+
+    if (bannerPath && fs.existsSync(bannerPath)) {
+      const bannerBuffer = fs.readFileSync(bannerPath)
+      const imagePayload = rcanalPayload
+        ? { image: bannerBuffer, caption: text, ...rcanalPayload }
+        : { image: bannerBuffer, caption: text, mentions: mention }
+      await conn.sendMessage(m.chat, imagePayload, { quoted: m })
+    } else if (rcanalPayload) {
+      await conn.sendMessage(m.chat, { text, ...rcanalPayload }, { quoted: m })
     } else {
       await conn.sendMessage(m.chat, { text, mentions: mention }, { quoted: m })
     }

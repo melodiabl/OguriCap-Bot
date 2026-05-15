@@ -36,11 +36,39 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const users = await getAllUsers()
+    const now = new Date()
+    const todayKey = now.toISOString().slice(0, 10)
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+    const activeToday = users.filter(u => u?.last_login && new Date(u.last_login) >= oneDayAgo).length
+    const activeYesterday = users.filter(u => {
+      const d = u?.last_login && new Date(u.last_login)
+      return d && d >= twoDaysAgo && d < oneDayAgo
+    }).length
+
+    // Hourly activity from panel logs
+    const logs = global.db?.data?.logs || []
+    const logsToday = logs.filter(l => safeString(l?.fecha || l?.timestamp || '').slice(0, 10) === todayKey)
+    const uniqueUsersPerHour = {}
+    for (const l of logsToday) {
+      const h = safeString(l?.fecha || l?.timestamp || '').slice(11, 13)
+      if (!h || h.length !== 2) continue
+      uniqueUsersPerHour[h] = uniqueUsersPerHour[h] || new Set()
+      if (l?.usuario) uniqueUsersPerHour[h].add(l.usuario)
+    }
+    const hourlyActivity = Array.from({ length: 24 }, (_, i) => {
+      const h = String(i).padStart(2, '0')
+      return { name: `${h}:00`, value: uniqueUsersPerHour[h]?.size || 0, timestamp: `${todayKey}T${h}:00:00.000Z` }
+    })
+
     return json(res, 200, {
       total: users.length,
       activos: users.filter(u => u?.activo !== false).length,
       inactivos: users.filter(u => u?.activo === false).length,
+      activeToday,
+      activeYesterday,
       porRol: users.reduce((acc, u) => { const r = safeString(u?.rol || 'usuario'); acc[r] = (acc[r] || 0) + 1; return acc }, {}),
+      hourlyActivity,
     })
   }
 
@@ -81,6 +109,29 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
     db.data.usuarios[newId] = { id: newId, username, password: hashed, rol: rol || 'usuario', email: email || null, whatsapp_number: whatsapp_number || null, fecha_registro: new Date().toISOString(), activo: true }
     if (db?.write) await db.write()
     return json(res, 201, { success: true, user: sanitizeJwtUsuario(db.data.usuarios[newId]) })
+  }
+
+  // ── POST /api/usuarios/:id/password ──────────────────────────────────────
+  const pwMatch = pathname.match(/^\/api\/usuarios\/(\w+)\/password$/)
+  if (pwMatch && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    const body = await readJson(req)
+    const { newPassword } = body || {}
+    if (!newPassword || newPassword.length < 6) return json(res, 400, { error: 'La contraseña debe tener al menos 6 caracteres' })
+    const idOrUsername = pwMatch[1]
+    const isNumeric = /^\d+$/.test(idOrUsername)
+    let user = isNumeric ? normalizeUser(await pgFindUserById(Number(idOrUsername))) : normalizeUser(await pgFindUser(idOrUsername))
+    if (!user) return json(res, 404, { error: 'Usuario no encontrado' })
+    const hashed = await bcrypt.hash(newPassword, 10)
+    if (user._source === 'pg') {
+      await pgUpdateUser(user.username, { password: hashed, require_password_change: false })
+    } else {
+      const lUser = db?.data?.usuarios?.[user.id]
+      if (lUser) { lUser.password = hashed; if (db?.write) await db.write() }
+    }
+    return json(res, 200, { success: true, message: 'Contraseña actualizada' })
   }
 
   // ── GET|PATCH|DELETE /api/usuarios/:id ────────────────────────────────────

@@ -61,10 +61,29 @@ export async function handleGrupos({ req, res, url, panelDb }) {
   // ── GET /api/grupos/stats ─────────────────────────────────────────────────
   if (pathname === '/api/grupos/stats' && method === 'GET') {
     const grupos = Object.values(panelDb?.groups || {})
+    const todayKey = new Date().toISOString().slice(0, 10)
+    // Count messages per group from today's logs
+    const logs = global.db?.data?.logs || []
+    const logsToday = logs.filter(l => safeString(l?.fecha || l?.timestamp || '').slice(0, 10) === todayKey)
+    const groupMsgsPerHour = {}
+    for (const l of logsToday) {
+      if (!l?.grupo) continue
+      const h = safeString(l?.fecha || l?.timestamp || '').slice(11, 13)
+      if (!h || h.length !== 2) continue
+      groupMsgsPerHour[h] = (groupMsgsPerHour[h] || 0) + 1
+    }
+    const hourlyActivity = Array.from({ length: 24 }, (_, i) => {
+      const h = String(i).padStart(2, '0')
+      return { name: `${h}:00`, value: groupMsgsPerHour[h] || 0, timestamp: `${todayKey}T${h}:00:00.000Z` }
+    })
+    const activeYesterday = grupos.filter(g => g?.bot_enabled !== false).length
     return json(res, 200, {
       total: grupos.length,
       activos: grupos.filter(g => g?.bot_enabled !== false).length,
       inactivos: grupos.filter(g => g?.bot_enabled === false).length,
+      activeToday: grupos.filter(g => g?.bot_enabled !== false).length,
+      activeYesterday,
+      hourlyActivity,
     })
   }
 
@@ -75,96 +94,63 @@ export async function handleGrupos({ req, res, url, panelDb }) {
     
     const { emitGroupSyncStart, emitGroupSyncComplete, emitGroupSyncError, emitGroupUpdated } = await import('../../lib/event-bus.js')
     
-    console.log('[SYNC] Iniciando sincronización de grupos...')
     emitGroupSyncStart()
-    
+
     try {
       const conn = global.conn
       if (!conn) {
-        console.log('[SYNC] Error: Bot no conectado')
         emitGroupSyncError(new Error('Bot no conectado'))
         return json(res, 503, { error: 'Bot no conectado' })
       }
-      
+
       if (typeof conn.groupFetchAllParticipating !== 'function') {
-        console.log('[SYNC] Error: Función groupFetchAllParticipating no disponible')
         emitGroupSyncError(new Error('Función de sincronización no disponible'))
         return json(res, 503, { error: 'Función de sincronización no disponible' })
       }
-      
-      console.log('[SYNC] Obteniendo grupos de WhatsApp...')
+
       const chats = await conn.groupFetchAllParticipating()
-      
+
       if (!chats || typeof chats !== 'object') {
-        console.log('[SYNC] Error: No se pudieron obtener los grupos')
         emitGroupSyncError(new Error('No se pudieron obtener los grupos'))
         return json(res, 500, { error: 'No se pudieron obtener los grupos' })
       }
-      
+
       const totalChats = Object.keys(chats).length
-      console.log(`[SYNC] Total de chats obtenidos: ${totalChats}`)
-      
       panelDb.groups ||= {}
       let synced = 0
       let filtered = 0
-      
+
       for (const [jid, meta] of Object.entries(chats)) {
-        // Filtrar: solo grupos normales (@g.us), excluir comunidades (@newsletter) y canales
-        if (!jid || !jid.endsWith('@g.us')) {
-          filtered++
-          continue
+        if (!jid || !jid.endsWith('@g.us') || jid.includes('newsletter') || jid.includes('broadcast')) {
+          filtered++; continue
         }
-        if (jid.includes('newsletter') || jid.includes('broadcast')) {
-          filtered++
-          continue
+        if (meta?.announce === 'true' || meta?.isAnnounce) { filtered++; continue }
+
+        const groupData = {
+          ...(panelDb.groups[jid] || {}),
+          wa_jid: jid,
+          nombre: meta?.subject || jid,
+          participants: meta?.participants?.length || 0,
+          updated_at: new Date().toISOString()
         }
-        if (meta?.announce === 'true' || meta?.isAnnounce) {
-          filtered++
-          continue
-        }
-        
-        const groupData = { 
-          ...(panelDb.groups[jid] || {}), 
-          wa_jid: jid, 
-          nombre: meta?.subject || jid, 
-          participants: meta?.participants?.length || 0, 
-          updated_at: new Date().toISOString() 
-        }
-        
         panelDb.groups[jid] = groupData
-        emitGroupUpdated(groupData) // Emitir evento por cada grupo actualizado
+        emitGroupUpdated(groupData)
         synced++
       }
-      
-      console.log(`[SYNC] Grupos sincronizados: ${synced}, Filtrados: ${filtered}`)
-      
+
       if (global.db?.write) {
-        try {
-          await global.db.write()
-          console.log('[SYNC] Base de datos guardada correctamente')
-        } catch (writeErr) {
-          console.error('[SYNC] Error escribiendo DB:', writeErr)
-        }
+        try { await global.db.write() } catch {}
       }
-      
       cache.grupos = null
-      
-      console.log('[SYNC] Sincronización completada exitosamente')
-      
-      // Emitir evento de sincronización completada
       emitGroupSyncComplete(synced, filtered, totalChats)
-      
-      return json(res, 200, { 
-        success: true, 
-        synced, 
-        filtered,
-        total: totalChats,
-        message: `${synced} grupos sincronizados correctamente${filtered > 0 ? ` (${filtered} filtrados)` : ''}`
+
+      return json(res, 200, {
+        success: true, synced, filtered, total: totalChats,
+        message: `${synced} grupos sincronizados${filtered > 0 ? ` (${filtered} filtrados)` : ''}`
       })
-    } catch (err) { 
-      console.error('Error en /api/grupos/sync:', err)
+    } catch (err) {
       emitGroupSyncError(err)
-      return json(res, 500, { error: err?.message || 'Error sincronizando grupos', details: err?.stack }) 
+      return json(res, 500, { error: err?.message || 'Error sincronizando grupos' })
     }
   }
 
@@ -187,6 +173,25 @@ export async function handleGrupos({ req, res, url, panelDb }) {
     Object.assign(panelDb.groups[jid], body, { updated_at: new Date().toISOString() })
     try { const { emitGrupoUpdated } = await import('../../lib/socket-io.js'); emitGrupoUpdated(panelDb.groups[jid]) } catch {}
     return json(res, 200, { success: true, grupo: panelDb.groups[jid] })
+  }
+
+  // ── POST /api/grupos/bulk-update ──────────────────────────────────────────
+  if (pathname === '/api/grupos/bulk-update' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    const isAdmin = ['owner', 'admin', 'administrador'].includes(safeString(auth.user?.rol || '').toLowerCase())
+    if (!isAdmin) return json(res, 403, { error: 'Permisos insuficientes' })
+    const body = await readJson(req)
+    const jids = Array.isArray(body?.jids) ? body.jids : []
+    const settings = body?.settings || {}
+    let updated = 0
+    for (const jid of jids) {
+      try {
+        const g = global.db?.data?.chats?.[jid]
+        if (g) { Object.assign(g, settings); updated++ }
+      } catch {}
+    }
+    return json(res, 200, { success: true, updated })
   }
 
   return json(res, 404, { error: 'Ruta no encontrada' })

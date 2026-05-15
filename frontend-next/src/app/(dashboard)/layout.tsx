@@ -10,6 +10,7 @@ import { GlobalUpdateProvider } from '@/contexts/GlobalUpdateContext';
 import { UnifiedNotificationProvider } from '@/contexts/UnifiedNotificationContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MaintenanceBanner } from '@/components/ui/MaintenanceBanner';
+import { SocketEventToasts } from '@/components/effects/SocketEventToasts';
 
 function DataRefreshTrigger() {
   const pathname = usePathname();
@@ -25,8 +26,10 @@ function DataRefreshTrigger() {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+
+  const isAdmin = user && ['owner', 'admin', 'administrador'].includes(user.rol);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -36,7 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-background px-6 py-10 text-foreground">
+      <div className="relative min-h-[100dvh] overflow-hidden bg-background px-6 py-10 text-foreground">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(var(--primary),0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(var(--accent),0.12),transparent_34%)]" />
         <div className="relative flex min-h-[80vh] items-center justify-center">
         <motion.div
@@ -81,7 +84,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <GlobalUpdateProvider>
         <GroupsProvider>
           <UnifiedNotificationProvider>
-            <div className="min-h-screen">
+            <SocketEventToasts />
+            <div className="min-h-[100dvh]">
               <DataRefreshTrigger />
               <MaintenanceBanner />
               <MainLayout>{children}</MainLayout>

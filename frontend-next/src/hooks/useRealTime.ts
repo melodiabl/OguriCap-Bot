@@ -15,7 +15,9 @@ export function useDashboardStats() {
   const query = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: () => api.getStats(),
-    refetchInterval: 30000, // Background refresh every 30s as fallback
+    // Only poll when socket is disconnected — socket pushes updates in real-time
+    refetchInterval: isConnected ? false : 30000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   });
 
@@ -63,7 +65,8 @@ export function useBotStatus() {
   const query = useQuery<BotStatus>({
     queryKey: ['bot-status'],
     queryFn: () => api.getBotStatus(),
-    refetchInterval: 10000,
+    refetchInterval: socketConnected ? false : 10000,
+    refetchIntervalInBackground: false,
     staleTime: 2000,
   });
 
@@ -89,12 +92,13 @@ export function useBotStatus() {
 
 export function useSystemStats() {
   const queryClient = useQueryClient();
-  const { socket } = useSocketConnection();
+  const { socket, isConnected } = useSocketConnection();
 
   const query = useQuery({
     queryKey: ['system-stats'],
     queryFn: () => api.getSystemStats(),
-    refetchInterval: 15000,
+    refetchInterval: isConnected ? false : 15000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   });
 
@@ -141,12 +145,13 @@ export function useSystemStats() {
 
 export function useSubbotsStatus() {
   const queryClient = useQueryClient();
-  const { socket } = useSocketConnection();
+  const { socket, isConnected } = useSocketConnection();
 
   const query = useQuery({
     queryKey: ['subbots-status'],
     queryFn: () => api.getSubbotStatus(),
-    refetchInterval: 20000,
+    refetchInterval: isConnected ? false : 20000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   });
 
@@ -206,14 +211,15 @@ export function useConnectionHealth(interval = 60000) {
 
 export function useNotifications() {
   const queryClient = useQueryClient();
-  const { socket } = useSocketConnection();
+  const { socket, isConnected } = useSocketConnection();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const query = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.getNotificaciones(1, 10),
     enabled: !authLoading && isAuthenticated,
-    refetchInterval: 60000,
+    refetchInterval: isConnected ? false : 60000,
+    refetchIntervalInBackground: false,
     staleTime: 10000,
   });
 
@@ -248,12 +254,13 @@ export function useNotifications() {
 
 export function useRecentActivity() {
   const queryClient = useQueryClient();
-  const { socket } = useSocketConnection();
+  const { socket, isConnected } = useSocketConnection();
 
   const query = useQuery({
     queryKey: ['recent-activity'],
     queryFn: () => api.getRecentActivity(10),
-    refetchInterval: 30000,
+    refetchInterval: isConnected ? false : 30000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   });
 

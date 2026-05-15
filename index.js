@@ -1,6 +1,10 @@
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1'
 process.env.TZ = process.env.TZ || 'America/Argentina/Buenos_Aires'
 import 'dotenv/config'
+if (!process.env.JWT_SECRET) { console.error('FATAL: JWT_SECRET is not set'); process.exit(1) }
+import { patchConsole } from './lib/logger.js'
+patchConsole()
+import './lib/patch-jimp-runtime.js'
 import './settings.js'
 import './plugins/_allfake.js'
 import cfonts from 'cfonts'
@@ -146,9 +150,8 @@ import('./lib/init-admin.js').catch(err => {
 });
 
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
-const msgRetryCounterMap = new Map()
-const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
-const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
+const msgRetryCounterCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 })
+const userDevicesCache = new NodeCache({ stdTTL: 1800, checkperiod: 300 })
 const { version } = await fetchLatestBaileysVersion()
 let phoneNumber = global.botNumber
 const methodCodeQR = process.argv.includes("qr")

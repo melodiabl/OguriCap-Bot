@@ -15,14 +15,57 @@ function isAdmin(user) {
   return ['owner', 'admin', 'administrador'].includes(safeString(user?.rol || '').toLowerCase())
 }
 
+function resolveOwnerEmail(panelDb, ownerUsername) {
+  if (!ownerUsername) return null;
+  const usuarios = panelDb?.usuarios || {};
+  const user = Object.values(usuarios).find(u =>
+    safeString(u?.username) === safeString(ownerUsername) ||
+    safeString(u?.user) === safeString(ownerUsername)
+  );
+  return user?.email || null;
+}
+
 async function getSubbotsList(panelDb) {
+  const root = getJadiRoot()
   const records = Object.values(panelDb?.subbots || {})
-  return records.map(r => {
+  const ghosts = []
+
+  const list = records.map(r => {
     const code = r.codigo || r.code || ''
     const sock = findConnBySubbotCode(code, r)
     const isOnline = Boolean(sock?.user)
+
+    if (!isOnline) {
+      const candidates = [r.session_dir, r.alias_dir, r.aliasDir, code]
+        .filter(Boolean).map(d => path.join(root, String(d).trim()))
+      const hasSession = candidates.some(p => {
+        try { return fs.existsSync(path.join(p, 'creds.json')) } catch { return false }
+      })
+      if (!hasSession) {
+        ghosts.push(code)
+        return null
+      }
+    }
+
     return normalizeSubbotForPanel(r, { isOnline })
-  })
+  }).filter(Boolean)
+
+  if (ghosts.length > 0) {
+    setImmediate(async () => {
+      for (const code of ghosts) {
+        if (panelDb.subbots?.[code]) delete panelDb.subbots[code]
+      }
+      try { if (global.db?.write) await global.db.write() } catch {}
+      try {
+        const { emitSubbotDeleted, emitSubbotStatus } = await import('../../lib/socket-io.js')
+        emitSubbotStatus()
+        for (const code of ghosts) emitSubbotDeleted(code)
+        console.log(`[SUBBOTS] Ghost records eliminados: ${ghosts.join(', ')}`)
+      } catch {}
+    })
+  }
+
+  return list
 }
 
 export async function handleSubbots({ req, res, url, panelDb }) {
@@ -281,11 +324,22 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const code = decodeURIComponent(delMatch[1])
+    // Capture owner info before the record is deleted
+    const record = resolveSubbotRecord(panelDb, code)
+    const ownerUsername = safeString(record?.usuario || record?.owner || '')
+    const ownerEmail = resolveOwnerEmail(panelDb, ownerUsername)
+    const subbotName = safeString(record?.custom_name || record?.nombre_whatsapp || code)
     const result = await deleteSubbotByCode(code, panelDb)
     if (!result.success) return json(res, 404, result)
     if (global.db?.write) await global.db.write()
     try { const { emitSubbotDeleted } = await import('../../lib/socket-io.js'); emitSubbotDeleted(code) } catch {}
-    global.sendTemplateNotification?.('subbot_deleted', { subbotCode: code })
+    global.sendTemplateNotification?.('subbot_deleted', {
+      subbotCode: code,
+      subbotName,
+      deletedBy: safeString(auth.user?.username || auth.user?.user || 'admin'),
+      ownerName: ownerUsername || code,
+      ...(ownerEmail ? { emailTo: ownerEmail } : {}),
+    })
     return json(res, 200, result)
   }
 
@@ -294,13 +348,35 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    // Snapshot owner info before records are deleted
+    const ownerMap = {}
+    for (const [key, rec] of Object.entries(panelDb?.subbots || {})) {
+      const c = safeString(rec?.codigo || rec?.code || key)
+      const ownerUsername = safeString(rec?.usuario || rec?.owner || '')
+      ownerMap[c] = {
+        ownerUsername,
+        ownerEmail: resolveOwnerEmail(panelDb, ownerUsername),
+        subbotName: safeString(rec?.custom_name || rec?.nombre_whatsapp || c),
+      }
+    }
     const { removed } = cleanupDisconnectedSubbots(panelDb)
     cleanupBrokenSubbotSymlinks()
     if (removed.length > 0 && global.db?.write) await global.db.write()
     try {
       const socketIo = await import('../../lib/socket-io.js')
       socketIo.emitSubbotStatus()
-      for (const code of removed) socketIo.emitSubbotDeleted(code)
+      for (const code of removed) {
+        socketIo.emitSubbotDeleted(code)
+        const info = ownerMap[code]
+        if (info) {
+          global.sendTemplateNotification?.('subbot_deleted_by_cleanup', {
+            subbotCode: code,
+            subbotName: info.subbotName,
+            ownerName: info.ownerUsername || code,
+            ...(info.ownerEmail ? { emailTo: info.ownerEmail } : {}),
+          })
+        }
+      }
     } catch {}
     return json(res, 200, { success: true, removed, count: removed.length })
   }

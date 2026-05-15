@@ -3,7 +3,7 @@ import { notify } from '@/lib/notif';
 import { getErrorMessage } from '@/lib/utils';
 
 import React, { useState, useEffect } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
 import { Video, Music, File, Trash2, Download, Eye, Upload, Search, Loader2, FileText, ImageIcon, AlertTriangle } from 'lucide-react';
 import { Card, StatCard } from '@/components/ui/Card';
@@ -49,6 +49,7 @@ export default function MultimediaPage() {
   const [pagination, setPagination] = useState<any>(null);
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<number, boolean>>({});
   const [modalImageError, setModalImageError] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     loadData();
@@ -232,8 +233,103 @@ export default function MultimediaPage() {
     );
   }
 
+  const multimediaLanes = [
+    {
+      label: 'Total archivos',
+      value: `${stats?.totalFiles || items.length || 0}`,
+      description: (stats?.totalFiles || 0) > 0 ? 'Archivos almacenados en el sistema.' : 'Sin archivos cargados aún.',
+      icon: <File className="w-4 h-4" />,
+      badge: 'total',
+      badgeClassName: 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[rgb(var(--page-a))]/18 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'Imágenes',
+      value: `${stats?.images || 0}`,
+      description: (stats?.images || 0) > 0 ? 'Archivos de imagen disponibles.' : 'Sin imágenes almacenadas.',
+      icon: <ImageIcon className="w-4 h-4" />,
+      badge: 'img',
+      badgeClassName: 'border-info/20 bg-info/10 text-info/80',
+      glowClassName: 'from-info/14 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'Videos',
+      value: `${stats?.videos || 0}`,
+      description: (stats?.videos || 0) > 0 ? 'Archivos de video disponibles.' : 'Sin videos almacenados.',
+      icon: <Video className="w-4 h-4" />,
+      badge: 'vid',
+      badgeClassName: 'border-violet-500/20 bg-violet-500/10 text-violet-300',
+      glowClassName: 'from-violet-500/14 via-purple-900/10 to-transparent',
+    },
+    {
+      label: 'Audio / Docs',
+      value: `${(stats?.audio || 0) + (stats?.documents || 0)}`,
+      description: (stats?.audio || 0) + (stats?.documents || 0) > 0 ? 'Audio y documentos disponibles.' : 'Sin audio ni documentos.',
+      icon: <Music className="w-4 h-4" />,
+      badge: 'misc',
+      badgeClassName: 'border-warning/20 bg-warning/10 text-warning/80',
+      glowClassName: 'from-amber-400/14 via-oguri-gold/10 to-transparent',
+    },
+  ];
+
   return (
-    <div className="panel-page">
+    <div className="panel-page relative overflow-hidden">
+      {/* Ambient atmosphere */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        {!shouldReduceMotion && (
+          <>
+            <motion.div
+              className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-pink-500/14 blur-3xl"
+              animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.14, 0.30, 0.14] }}
+              transition={{ repeat: Infinity, duration: 11, ease: 'easeInOut' }}
+            />
+            <motion.div
+              className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-violet-500/14 blur-3xl"
+              animate={{ x: [0, -16, 0], y: [0, 18, 0], opacity: [0.14, 0.30, 0.14] }}
+              transition={{ repeat: Infinity, duration: 12, ease: 'easeInOut', delay: 0.6 }}
+            />
+          </>
+        )}
+      </div>
+
+      {/* HUD hero banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <ImageIcon className="h-3.5 w-3.5 text-pink-400/80" />
+              Biblioteca multimedia
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Gestión de archivos</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Repositorio de imágenes, videos, audio y documentos accesibles para el bot.
+            </p>
+          </div>
+          <div className="panel-hero-meta-grid">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Archivos</p>
+              <p className="mt-2 text-lg font-black text-white">{stats?.totalFiles || items.length || 0}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Imágenes</p>
+              <p className="mt-2 text-lg font-black text-white">{stats?.images || 0}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Videos</p>
+              <p className="mt-2 text-lg font-black text-white">{stats?.videos || 0}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title="Gestión de Multimedia"
@@ -245,6 +341,37 @@ export default function MultimediaPage() {
           </Button>
         }
       />
+
+      {/* Lane cards */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {multimediaLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       {/* Stats */}
       <Stagger className="grid grid-cols-1 md:grid-cols-5 gap-4" delay={0.02} stagger={0.07}>
@@ -344,6 +471,7 @@ export default function MultimediaPage() {
                                 src={item.thumbnail || item.url}
                                 alt={item.name}
                                 fill
+                                unoptimized
                                 sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
                                 quality={70}
                                 className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
@@ -531,6 +659,7 @@ export default function MultimediaPage() {
                       src={selectedItem.url}
                       alt={selectedItem.name}
                       fill
+                      unoptimized
                       sizes="(max-width: 640px) 90vw, 640px"
                       quality={80}
                       className="object-contain"

@@ -667,9 +667,44 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             nextSettings.push = false;
             notify.warning('Activa las notificaciones del navegador para usar Push');
           }
+
+          // Subscribe to Web Push if permission granted
+          if (nextSettings.push !== false && Notification.permission === 'granted' && serviceWorkerRegistrationRef.current) {
+            try {
+              const vapidRes = await fetch('/api/notificaciones/vapid-key');
+              if (vapidRes.ok) {
+                const { publicKey } = await vapidRes.json();
+                const existing = await serviceWorkerRegistrationRef.current.pushManager.getSubscription();
+                const sub = existing || await serviceWorkerRegistrationRef.current.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: publicKey,
+                });
+                await fetch('/api/notificaciones/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                  body: JSON.stringify({ subscription: sub.toJSON() }),
+                });
+              }
+            } catch {
+              // Web Push subscription failed — in-app notifications still work
+            }
+          }
         }
       } else {
         closeAllBrowserPushes();
+        // Unsubscribe from Web Push
+        try {
+          const reg = serviceWorkerRegistrationRef.current || await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await fetch('/api/notificaciones/subscribe', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+              body: JSON.stringify({ endpoint: sub.endpoint }),
+            });
+            await sub.unsubscribe();
+          }
+        } catch {}
       }
     }
 

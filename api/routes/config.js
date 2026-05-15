@@ -3,6 +3,16 @@
  * Lee/escribe configuración del bot desde global.* y panelDb.systemConfig
  */
 import { json, readJson, getJwtAuth, safeString } from '../middleware/core.js'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+
+function readMainJson() {
+  try {
+    const p = join(process.cwd(), '.config', 'main.json')
+    if (!existsSync(p)) return {}
+    return JSON.parse(readFileSync(p, 'utf8'))
+  } catch { return {} }
+}
 
 function isAdmin(user) {
   return ['owner', 'admin', 'administrador'].includes(safeString(user?.rol || '').toLowerCase())
@@ -47,17 +57,23 @@ function buildConfig(panelDb) {
       turnstileEnabled: process.env.TURNSTILE_DISABLED !== '1',
       bcryptRounds: 10,
     },
-    notifications: {
-      email: {
-        enabled: Boolean(process.env.SMTP_HOST),
-        smtp: {
-          host: process.env.SMTP_HOST || '',
-          port: Number(process.env.SMTP_PORT) || 587,
-          secure: process.env.SMTP_SECURE === 'true',
-          user: process.env.SMTP_USER || '',
+    notifications: (() => {
+      const mainJson = readMainJson()
+      const smtp = mainJson?.notifications?.email?.smtp || {}
+      return {
+        email: {
+          enabled: mainJson?.notifications?.email?.enabled ?? Boolean(process.env.SMTP_HOST),
+          smtp: {
+            host:     smtp.host     || process.env.SMTP_HOST  || '',
+            port:     smtp.port     || Number(process.env.SMTP_PORT) || 587,
+            secure:   smtp.secure   ?? (process.env.SMTP_SECURE === 'true'),
+            user:     smtp.user     || process.env.SMTP_USER  || '',
+            from:     smtp.from     || process.env.SMTP_FROM  || '',
+            replyTo:  smtp.replyTo  || process.env.SMTP_REPLY_TO || '',
+          },
         },
-      },
-    },
+      }
+    })(),
   }
 }
 
@@ -166,6 +182,38 @@ export async function handleConfig({ req, res, url, panelDb }) {
     return json(res, 200, { success: true, adminIPs: panelDb.systemConfig.adminIPs })
   }
 
+  // ── PUT /api/config/notifications ────────────────────────────────────────
+  if (pathname === '/api/config/notifications' && method === 'PUT') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    const body = await readJson(req)
+
+    const { default: fs } = await import('fs')
+    const { default: path } = await import('path')
+    const mainConfigPath = path.join(process.cwd(), '.config', 'main.json')
+    let existing = {}
+    try { existing = JSON.parse(fs.readFileSync(mainConfigPath, 'utf8')) } catch {}
+    // Preserve pass if not sent (panel doesn't show it)
+    const existingPass = existing?.notifications?.email?.smtp?.pass || ''
+    const incomingSmtp = body?.email?.smtp || {}
+    if (!incomingSmtp.pass && existingPass) incomingSmtp.pass = existingPass
+    const merged = { ...existing, notifications: body }
+    fs.writeFileSync(mainConfigPath, JSON.stringify(merged, null, 2), 'utf8')
+
+    saveVersion(panelDb, 'notifications', body)
+    return json(res, 200, { success: true, config: merged.notifications })
+  }
+
+  // ── PUT /api/config/security ──────────────────────────────────────────────
+  if (pathname === '/api/config/security' && method === 'PUT') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    // security fields are env-driven; acknowledge but do nothing server-side
+    return json(res, 200, { success: true, config: buildConfig(panelDb).security })
+  }
+
   // ── GET /api/config/export ────────────────────────────────────────────────
   if (pathname === '/api/config/export' && method === 'GET') {
     const auth = await getJwtAuth(req)
@@ -223,7 +271,8 @@ export async function handleConfig({ req, res, url, panelDb }) {
     try {
       const type = pathname.split('/').pop()
       const { getEmailTemplatePreview } = await import('../../lib/email-service.js')
-      return json(res, 200, { html: getEmailTemplatePreview?.(type) || '' })
+      const preview = getEmailTemplatePreview?.(type)
+      return json(res, 200, { html: preview?.html || '', subject: preview?.subject || '', recipient: preview?.recipient || '' })
     } catch { return json(res, 200, { html: '' }) }
   }
 

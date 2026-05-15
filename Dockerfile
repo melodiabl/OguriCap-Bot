@@ -5,19 +5,23 @@ RUN apk add --no-cache \
   git \
   ffmpeg \
   python3 \
+  py3-pip \
   make \
   g++ \
   wget \
   curl
 
+# Instalar yt-dlp para descarga de anime
+RUN pip3 install --no-cache-dir yt-dlp || \
+    wget -O /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
+
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 COPY . .
-
-RUN node scripts/patch-baileys.js
 
 RUN mkdir -p Sessions storage/media logs tmp
 

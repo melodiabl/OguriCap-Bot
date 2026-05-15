@@ -117,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-screen w-72 flex-col overflow-hidden border-r border-white/10 bg-[#0d0f0e]/86 shadow-[0_20px_80px_-35px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-transform duration-300 ease-out',
+          'fixed left-0 top-0 z-50 flex h-[100dvh] w-72 flex-col overflow-hidden border-r border-white/10 bg-[#0d0f0e]/86 shadow-[0_20px_80px_-35px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-transform duration-300 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0'
         )}

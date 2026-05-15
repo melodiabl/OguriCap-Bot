@@ -1,12 +1,11 @@
 import baileys from "baileys"
+import { proto, generateWAMessageFromContent } from "baileys"
 
 const {
   useMultiFileAuthState,
   DisconnectReason,
   makeCacheableSignalKeyStore,
   fetchLatestBaileysVersion,
-  proto,
-  generateWAMessageFromContent
 } = baileys
 
 import qrcode from "qrcode"
@@ -369,6 +368,7 @@ function generateSubbotCode(phoneNumber, sessionCode) {
   }
 }
 let handler = async (m, { conn, args, usedPrefix, command, isOwner }) => {
+  if (conn.isSubBot) return // solo el bot principal puede crear subbots
   if (!globalThis.db.data.settings[conn.user.jid].jadibotmd) return m.reply(`ꕥ El Comando *${command}* está desactivado temporalmente.`)
   let time = global.db.data.users[m.sender].Subs + 120000
   if (new Date - global.db.data.users[m.sender].Subs < 120000) return conn.reply(m.chat, `ꕥ Debes esperar ${msToTime(time - new Date())} para volver a vincular un *Sub-Bot.*`, m)
@@ -492,6 +492,7 @@ export async function yukiJadiBot(options) {
       let reconnectAttempts = 0
       let reconnectTimer = null
       let reconnectInProgress = false
+      let pairingCodeRequested = false
 
       const clearReconnectTimer = () => {
         if (!reconnectTimer) return
@@ -545,10 +546,28 @@ export async function yukiJadiBot(options) {
             emitSubbotDisconnected(subbotCodeCleanup, 'auto-limpieza')
             emitSubbotDeleted(subbotCodeCleanup)
           } catch { }
-          // Eliminar de la base de datos del panel
+          // Eliminar de la base de datos (canonical path + legacy alias) + email al dueño
           try {
-            if (global.db?.data?.panel?.subbots?.[subbotCodeCleanup]) {
-              delete global.db.data.panel.subbots[subbotCodeCleanup]
+            const map = global.db?.data?.subbots || global.db?.data?.panel?.subbots
+            const rec = map?.[subbotCodeCleanup]
+            if (rec) {
+              // Resolve owner email before deleting the record
+              const ownerUsername = String(rec?.usuario || rec?.owner || '')
+              const usuarios = global.db?.data?.usuarios || {}
+              const ownerUser = Object.values(usuarios).find(u =>
+                String(u?.username || '') === ownerUsername || String(u?.user || '') === ownerUsername
+              )
+              const ownerEmail = ownerUser?.email || null
+              delete map[subbotCodeCleanup]
+              global.db?.write?.().catch(() => {})
+              if (ownerEmail) {
+                global.sendTemplateNotification?.('subbot_deleted_by_cleanup', {
+                  subbotCode: subbotCodeCleanup,
+                  subbotName: String(rec?.custom_name || rec?.nombre_whatsapp || subbotCodeCleanup),
+                  ownerName: ownerUsername || subbotCodeCleanup,
+                  emailTo: ownerEmail,
+                })
+              }
             }
           } catch { }
           resolveOnce({ success: false, error: 'auto-limpieza' })
@@ -575,17 +594,19 @@ export async function yukiJadiBot(options) {
           return
         }
         if (qr && mcode) {
-          // Guard: solo generar código una vez
-          if (sock._pairingCodeGenerated) return
-          sock._pairingCodeGenerated = true
+          // Guard: solo generar código una vez (variable externa, persiste entre reconexiones)
+          if (pairingCodeRequested) return
+          pairingCodeRequested = true
           
           // Extraer número del argumento o usar m.sender como fallback
           const phoneArg = args?.find(a => /^\d{8,15}$/.test(String(a || '').trim()))
-          const pairingNumber = api?.pairingNumber || phoneArg || (m?.sender ? m.sender.split`@`[0] : '')
+          const rawPairingNumber = api?.pairingNumber || phoneArg || (m?.sender ? m.sender.split`@`[0] : '')
+          // Fix 4: sanitizar número eliminando caracteres no numéricos
+          const pairingNumber = String(rawPairingNumber || '').replace(/\D/g, '')
           if (!pairingNumber) return resolveOnce({ success: false, error: 'pairingNumber requerido' })
 
           // Generar código para subbot (WhatsApp genera el código automáticamente)
-          const secret = await sock.requestPairingCode(pairingNumber)
+          let secret = await sock.requestPairingCode(pairingNumber)
           console.log(chalk.cyan(`[ ✿ ] Código de vinculación generado para: ${pairingNumber}`))
 
           // Formatear el código
@@ -598,35 +619,32 @@ export async function yukiJadiBot(options) {
           } catch { }
           resolveOnce({ success: true, pairingCode: secret })
           if (m?.chat) {
+            // texto plano con instrucciones + código como fallback
             txtCode = await conn.sendMessage(m.chat, { text: rtx2 }, { quoted: m })
             const content = {
-              viewOnceMessage: {
-                message: {
-                  interactiveMessage: proto.Message.InteractiveMessage.create({
-                    body: proto.Message.InteractiveMessage.Body.create({
-                      text: secret
-                    }),
-                    footer: proto.Message.InteractiveMessage.Footer.create({
-                      text: panelConfig?.useFixedCodes ? '🔒 Código Fijo Personalizado' : '🔒 Código Fijo'
-                    }),
-                    header: proto.Message.InteractiveMessage.Header.create({
-                      title: '📱 Código SubBot',
-                      hasMediaAttachment: false
-                    }),
-                    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
-                      buttons: [
-                        {
-                          name: 'cta_copy',
-                          buttonParamsJson: JSON.stringify({
-                            display_text: '📋 COPIAR CÓDIGO',
-                            copy_code: secret
-                          })
-                        }
-                      ]
-                    })
-                  })
-                }
-              }
+              interactiveMessage: proto.Message.InteractiveMessage.create({
+                body: proto.Message.InteractiveMessage.Body.create({
+                  text: secret
+                }),
+                footer: proto.Message.InteractiveMessage.Footer.create({
+                  text: '🔒 Código SubBot'
+                }),
+                header: proto.Message.InteractiveMessage.Header.create({
+                  title: '📱 Código SubBot',
+                  hasMediaAttachment: false
+                }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                  buttons: [
+                    {
+                      name: 'cta_copy',
+                      buttonParamsJson: JSON.stringify({
+                        display_text: '📋 COPIAR CÓDIGO',
+                        copy_code: secret
+                      })
+                    }
+                  ]
+                })
+              })
             }
 
             const msg = generateWAMessageFromContent(
@@ -707,7 +725,8 @@ export async function yukiJadiBot(options) {
 
               // Mantener el registro en el panel (solo marcar offline). Esto evita que "desaparezca".
               try {
-                const rec = global.db?.data?.panel?.subbots?.[subbotCode]
+                const subbotsMap = global.db?.data?.subbots || global.db?.data?.panel?.subbots
+                const rec = subbotsMap?.[subbotCode]
                 if (rec) {
                   const now = new Date().toISOString()
                   rec.estado = 'inactivo'
@@ -718,13 +737,14 @@ export async function yukiJadiBot(options) {
                   rec.pairingCode = null
                   rec.last_disconnect_reason = String(reason)
                   emitSubbotUpdated(rec)
+                  global.db?.write?.().catch(() => {})
                 }
               } catch { }
 
               emitSubbotDisconnected(subbotCode, reason)
 
               // Notificación persistente - solo email si fue creado desde panel
-              sendTemplateNotification('subbot_disconnected', { 
+              sendTemplateNotification('subbot_disconnected', {
                 subbotCode: stableKey,
                 reason: `Sesión cerrada o dispositivo desconectado (Código: ${reason})`,
                 createdFrom: 'whatsapp' // No email para subbots de WhatsApp
@@ -753,7 +773,8 @@ export async function yukiJadiBot(options) {
 
               // Mantener el registro en el panel (solo marcar offline).
               try {
-                const rec = global.db?.data?.panel?.subbots?.[subbotCode403]
+                const subbotsMap403 = global.db?.data?.subbots || global.db?.data?.panel?.subbots
+                const rec = subbotsMap403?.[subbotCode403]
                 if (rec) {
                   const now = new Date().toISOString()
                   rec.estado = 'inactivo'
@@ -764,6 +785,7 @@ export async function yukiJadiBot(options) {
                   rec.pairingCode = null
                   rec.last_disconnect_reason = String(reason)
                   emitSubbotUpdated(rec)
+                  global.db?.write?.().catch(() => {})
                 }
               } catch { }
 
@@ -787,9 +809,10 @@ export async function yukiJadiBot(options) {
           clearReconnectTimer()
           reconnectInProgress = false
           reconnectAttempts = 0
+          // Fix 3: llamar joinChannels inmediatamente al conectar, antes de cualquier otra operación
+          await joinChannels(sock)
           if (!global.db.data?.users) loadDatabase()
           // Asegurar que el SUBBOT (su propia cuenta) siga los canales configurados
-          await joinChannels(sock)
           let userName, userJid
           userName = sock.authState.creds.me.name || 'Anónimo'
           userJid = sock.authState.creds.me.jid || sock.authState.creds.me.id || notifyJid || ''
@@ -1004,9 +1027,12 @@ function msToTime(duration) {
 }
 
 async function joinChannels(sock) {
-  for (const value of Object.values(global.ch)) {
-    if (typeof value === 'string' && value.endsWith('@newsletter')) {
-      await sock.newsletterFollow(value).catch(() => { })
+  try {
+    if (!global.ch || typeof global.ch !== 'object') return
+    for (const value of Object.values(global.ch)) {
+      if (typeof value === 'string' && value.endsWith('@newsletter')) {
+        await sock.newsletterFollow(value).catch(() => { })
+      }
     }
-  }
+  } catch { }
 }

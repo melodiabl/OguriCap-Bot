@@ -889,8 +889,17 @@ class ApiService {
   }
 
   // Export Logs
-  async exportLogs() {
-    const response = await this.api.get('/api/logs/export');
+  async exportLogs(format: 'json' | 'csv' = 'json') {
+    const response = await this.api.get(`/api/logs/export?format=${format}`, {
+      responseType: format === 'csv' ? 'blob' : 'json',
+    });
+    return response.data;
+  }
+
+  async exportNotifications(format: 'json' | 'csv' = 'csv') {
+    const response = await this.api.get(`/api/notificaciones?format=${format}`, {
+      responseType: 'blob',
+    });
     return response.data;
   }
 

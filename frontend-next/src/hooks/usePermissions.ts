@@ -5,30 +5,25 @@ import { useAuth } from '@/contexts/AuthContext';
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   owner: ['*'],
   admin: [
-    'dashboard', 'bot-status', 'usuarios', 'subbots', 'grupos', 'grupos-management',
-    'aportes', 'pedidos', 'proveedores', 'ai-chat', 'bot-commands', 'logs',
-    'notificaciones', 'analytics', 'multimedia', 'settings'
+    'dashboard', 'bot', 'usuarios', 'community-users', 'subbots', 'grupos', 'grupos-management',
+    'aportes', 'pedidos', 'proveedores', 'ai-chat', 'logs',
+    'analytics', 'multimedia', 'configuracion', 'plugins',
+    'broadcast', 'tareas', 'alertas', 'recursos',
   ],
   moderator: [
-    'dashboard', 'bot-status', 'grupos', 'aportes', 'pedidos', 'notificaciones', 'logs'
+    'dashboard', 'bot', 'grupos', 'aportes', 'pedidos', 'logs', 'alertas',
   ],
   provider: [
-    'dashboard', 'aportes', 'pedidos', 'notificaciones'
+    'dashboard', 'aportes', 'pedidos',
   ],
   collaborator: [
-    'dashboard', 'aportes', 'pedidos', 'notificaciones'
+    'dashboard', 'aportes', 'pedidos',
   ],
   member: [
-    'dashboard', 'notificaciones'
+    'dashboard',
   ],
   usuario: [
-    'dashboard',
-    'pedidos',
-    'aportes',
-    'subbots',
-    'ai-chat',
-    'bot-status',
-    'notificaciones',
+    'dashboard', 'pedidos', 'aportes', 'subbots', 'ai-chat', 'bot',
   ],
 };
 

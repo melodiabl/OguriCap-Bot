@@ -78,9 +78,22 @@ export async function handleSystem({ req, res, url, panelDb }) {
     const body = await readJson(req)
     panelDb.systemConfig ||= {}
     const allowed = ['maintenanceMode', 'maintenanceMessage', 'autoAddAdminIPOnLogin', 'registrationEnabled', 'maxSubbotsPerUser', 'adminIPs']
+    const prevMaintenance = panelDb.systemConfig.maintenanceMode
     for (const k of allowed) { if (k in body) panelDb.systemConfig[k] = body[k] }
     panelDb.systemConfig.updated_at = new Date().toISOString()
     if (global.db?.write) await global.db.write()
+    // Emit socket event when maintenance mode changes
+    if ('maintenanceMode' in body && body.maintenanceMode !== prevMaintenance) {
+      try {
+        const { getIO } = await import('../../lib/socket-io.js')
+        const io = getIO()
+        if (io) io.emit('system:maintenance', {
+          enabled: Boolean(body.maintenanceMode),
+          message: panelDb.systemConfig.maintenanceMessage || null,
+          timestamp: new Date().toISOString(),
+        })
+      } catch {}
+    }
     return json(res, 200, { success: true, config: panelDb.systemConfig })
   }
 
@@ -162,6 +175,65 @@ export async function handleSystem({ req, res, url, panelDb }) {
       return json(res, 200, { data: data.activities || [], total: data.total || 0, lastUpdate: data.lastUpdate })
     } catch { return json(res, 500, { error: 'Error obteniendo actividad' }) }
   }
+
+  // ── GET /api/system/ping ──────────────────────────────────────────────────
+  if (pathname === '/api/system/ping' && method === 'GET') {
+    return json(res, 200, { pong: true, timestamp: Date.now() })
+  }
+
+  // ── GET /api/websocket/test ───────────────────────────────────────────────
+  if (pathname === '/api/websocket/test' && method === 'GET') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    try {
+      const { getIO } = await import('../../lib/socket-io.js')
+      const io = getIO()
+      return json(res, 200, { connected: Boolean(io), clients: io?.engine?.clientsCount || 0 })
+    } catch { return json(res, 200, { connected: false, clients: 0 }) }
+  }
+
+  // ── /api/system/clear-cache ───────────────────────────────────────────────
+  if (pathname === '/api/system/clear-cache' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    global.__realTimeDataCache = null
+    global.__resourceMonitorCache = null
+    return json(res, 200, { success: true, message: 'Caché limpiada correctamente' })
+  }
+
+  // ── /api/activity/feed ────────────────────────────────────────────────────
+  if (pathname === '/api/activity/feed' && method === 'GET') {
+    const limit = Math.min(Number(url.searchParams.get('limit')) || 20, 100)
+    try {
+      const { getRecentActivity } = await import('../../lib/real-time-data.js').catch(() => ({ getRecentActivity: null }))
+      if (typeof getRecentActivity === 'function') {
+        const data = await getRecentActivity(limit).catch(() => [])
+        return json(res, 200, { data, total: data.length, lastUpdate: new Date().toISOString() })
+      }
+    } catch {}
+    const logs = (global.db?.data?.logs || []).slice(-limit).map(l => ({
+      id: l?.id || Date.now(),
+      type: l?.type || 'evento',
+      icon: 'Activity',
+      color: 'info',
+      title: l?.type || 'Evento',
+      desc: safeString(l?.desc || l?.message || '').slice(0, 80),
+      time: 'Ahora',
+      timestamp: l?.timestamp || new Date().toISOString(),
+    }))
+    return json(res, 200, { data: logs.reverse(), total: logs.length, lastUpdate: new Date().toISOString() })
+  }
+
+  // ── /api/ai (stubs) ───────────────────────────────────────────────────────
+  if (pathname === '/api/ai/stats' && method === 'GET') return json(res, 200, { requests: 0, tokens: 0 })
+  if (pathname === '/api/ai/enhance-pedido' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    const body = await readJson(req)
+    return json(res, 200, { enhanced: body?.text || '', suggestions: [] })
+  }
+  if (pathname === '/api/ai/test-command' && method === 'POST') return json(res, 200, { result: 'ok' })
 
   return json(res, 404, { error: 'Ruta no encontrada' })
 }

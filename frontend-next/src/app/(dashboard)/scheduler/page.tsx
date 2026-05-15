@@ -2,11 +2,11 @@
 import { notify } from '@/lib/notif';
 import { getErrorMessage } from '@/lib/utils';
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Plus, Calendar, Clock, Send, Pause, Play, Trash2, Edit,
-  MessageSquare, Repeat, AlertCircle, CheckCircle
+  MessageSquare, Repeat, AlertCircle, CheckCircle, Radio
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -237,8 +237,108 @@ export default function SchedulerPage() {
     return 'Próximamente';
   };
 
+  const shouldReduceMotion = useReducedMotion();
+  const activeCount = messages.filter(m => m.enabled).length;
+  const pendingCount = messages.filter(m => m.enabled && new Date(m.next_send) > new Date()).length;
+  const totalSent = messages.reduce((sum, m) => sum + m.sent_count, 0);
+
+  const schedulerLanes = [
+    {
+      label: 'Programados',
+      value: `${messages.length}`,
+      description: messages.length > 0 ? 'Mensajes configurados en el sistema.' : 'Sin mensajes configurados aún.',
+      icon: <Calendar className="w-4 h-4" />,
+      badge: 'total',
+      badgeClassName: 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[rgb(var(--page-a))]/18 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'Activos ahora',
+      value: `${activeCount}`,
+      description: activeCount > 0 ? 'Mensajes activos listos para enviarse.' : 'Ningún mensaje habilitado.',
+      icon: <CheckCircle className="w-4 h-4" />,
+      badge: activeCount > 0 ? 'live' : 'off',
+      badgeClassName: activeCount > 0 ? 'border-[rgb(var(--success))]/20 bg-[rgb(var(--success))]/10 text-[#c7f9d8]' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-[rgb(var(--success))]/18 via-oguri-cyan/10 to-transparent',
+    },
+    {
+      label: 'En cola',
+      value: `${pendingCount}`,
+      description: pendingCount > 0 ? 'Esperando su ventana de envío.' : 'No hay cola pendiente.',
+      icon: <Clock className="w-4 h-4" />,
+      badge: pendingCount > 0 ? 'queue' : 'clear',
+      badgeClassName: pendingCount > 0 ? 'border-warning/20 bg-warning/10 text-warning/80' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-amber-400/18 via-oguri-gold/10 to-transparent',
+    },
+    {
+      label: 'Enviados',
+      value: `${totalSent}`,
+      description: totalSent > 0 ? 'Total de mensajes entregados.' : 'Sin historial de envíos aún.',
+      icon: <Send className="w-4 h-4" />,
+      badge: totalSent > 0 ? 'ok' : 'new',
+      badgeClassName: totalSent > 0 ? 'border-oguri-cyan/20 bg-oguri-cyan/10 text-oguri-cyan' : 'border-white/10 bg-white/[0.05] text-white/70',
+      glowClassName: 'from-oguri-cyan/18 via-oguri-blue/10 to-transparent',
+    },
+  ];
+
   return (
-    <div className="panel-page">
+    <div className="panel-page relative overflow-hidden">
+      {/* Ambient atmosphere */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-8%] top-[-4rem] -z-10 h-[420px] overflow-hidden">
+        <div className="module-atmosphere" />
+        {!shouldReduceMotion && (
+          <>
+            <motion.div
+              className="absolute left-[8%] top-[12%] h-52 w-52 rounded-full bg-[rgb(var(--page-a))]/18 blur-3xl"
+              animate={{ x: [0, 18, 0], y: [0, 14, 0], opacity: [0.18, 0.38, 0.18] }}
+              transition={{ repeat: Infinity, duration: 11, ease: 'easeInOut' }}
+            />
+            <motion.div
+              className="absolute right-[10%] top-[10%] h-56 w-56 rounded-full bg-oguri-cyan/16 blur-3xl"
+              animate={{ x: [0, -18, 0], y: [0, 18, 0], opacity: [0.16, 0.36, 0.16] }}
+              transition={{ repeat: Infinity, duration: 12, ease: 'easeInOut', delay: 0.6 }}
+            />
+          </>
+        )}
+      </div>
+
+      {/* HUD hero banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(var(--page-a),0.18),rgba(var(--page-b),0.10),rgba(var(--page-c),0.12))] p-5 shadow-[0_28px_90px_-44px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-6"
+      >
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="panel-live-pill mb-3 w-fit">
+              <Calendar className="h-3.5 w-3.5 text-[rgb(var(--success))]/80" />
+              Programador activo
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Mensajes programados</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-gray-300">
+              Configura mensajes automáticos recurrentes para mantener activa tu comunidad en WhatsApp.
+            </p>
+          </div>
+          <div className="panel-hero-meta-grid">
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Programados</p>
+              <p className="mt-2 text-lg font-black text-white">{messages.length}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Activos</p>
+              <p className="mt-2 text-lg font-black text-white">{activeCount}</p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Enviados</p>
+              <p className="mt-2 text-lg font-black text-white">{totalSent}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <PageHeader
         title="Programador de Mensajes"
@@ -254,7 +354,38 @@ export default function SchedulerPage() {
         }
       />
 
-      {/* Stats Cards */}
+      {/* Lane cards */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {schedulerLanes.map((lane, index) => (
+          <motion.div
+            key={lane.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + index * 0.05, duration: 0.3 }}
+            className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#101512]/86 p-4 shadow-[0_22px_70px_-36px_rgba(0,0,0,0.4)]"
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${lane.glowClassName}`} />
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white">
+                  {lane.icon}
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${lane.badgeClassName}`}>
+                  {lane.badge}
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">{lane.label}</p>
+                <p className="mt-1 text-base font-black text-white">{lane.value}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-400">{lane.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Stats Cards (compact, after lane cards) */}
       <Stagger className="grid grid-cols-1 md:grid-cols-4 gap-4" delay={0.02} stagger={0.07}>
         <StaggerItem whileHover={{ y: -8, scale: 1.015, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
           <Card hover={false} className="p-4">

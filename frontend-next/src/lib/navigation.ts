@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
-import { Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings, FileText, BarChart3, Image, Zap, Globe, Calendar, AlertTriangle, Send } from 'lucide-react';
+import { Home, Bot, Users, MessageSquare, Package, ShoppingCart, Settings, FileText, BarChart3, Image, Zap, Globe, Calendar, AlertTriangle, Send, Puzzle } from 'lucide-react';
 import type { PageKey } from './pageTheme';
 
 export type NavColor = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'violet' | 'cyan' | 'purple';
@@ -59,6 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/aportes', pageKey: 'aportes', label: 'Aportes', description: 'Ingreso de material y aprobaciones.', section: 'operations', icon: Package, color: 'success' },
   { path: '/pedidos', pageKey: 'pedidos', label: 'Pedidos', description: 'Solicitudes, cola y resolucion.', section: 'operations', icon: ShoppingCart, color: 'warning' },
   { path: '/multimedia', pageKey: 'multimedia', label: 'Multimedia', description: 'Archivos listos para enviar y publicar.', section: 'operations', icon: Image, color: 'cyan' },
+  { path: '/plugins', pageKey: 'plugins', label: 'Plugins', description: 'Activar o desactivar comandos del bot en tiempo real.', section: 'operations', icon: Puzzle, color: 'violet' },
   { path: '/tareas', pageKey: 'tareas', label: 'Tareas & Programador', headerLabel: 'Tareas', description: 'Rutinas, ejecuciones y automatizacion.', section: 'operations', icon: Calendar, color: 'primary' },
   { path: '/alertas', pageKey: 'alertas', label: 'Alertas', description: 'Incidentes, avisos y urgencias.', section: 'intelligence', icon: AlertTriangle, color: 'danger' },
   { path: '/recursos', pageKey: 'recursos', label: 'Recursos', description: 'CPU, memoria, disco y salud del host.', section: 'intelligence', icon: BarChart3, color: 'success' },

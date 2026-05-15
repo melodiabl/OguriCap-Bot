@@ -1,8 +1,14 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+  animate,
+} from 'framer-motion'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle, Zap } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export interface StackNotification {
@@ -22,153 +28,211 @@ interface NotificationStackProps {
   maxVisible?: number
 }
 
-const SWIPE_THRESHOLD = 72
+type NType = StackNotification['type']
 
-export function NotificationStack({ notifications, onDismiss, position = 'top-right', maxVisible = 5 }: NotificationStackProps) {
+// ─── Design tokens per type ────────────────────────────────────────────────
+
+const ICON_EL: Record<NType, React.ElementType> = {
+  success: CheckCircle,
+  error:   AlertCircle,
+  warning: AlertTriangle,
+  info:    Info,
+  system:  Zap,
+}
+
+const ICON_BG: Record<NType, string> = {
+  success: 'linear-gradient(135deg, rgb(var(--success))  0%, rgb(var(--secondary)) 100%)',
+  error:   'linear-gradient(135deg, rgb(var(--danger))   0%, rgb(var(--warning)/0.75) 100%)',
+  warning: 'linear-gradient(135deg, rgb(var(--warning))  0%, rgb(var(--danger)/0.65) 100%)',
+  info:    'linear-gradient(135deg, rgb(var(--info))     0%, rgb(var(--primary)) 100%)',
+  system:  'linear-gradient(135deg, rgb(var(--primary))  0%, rgb(var(--secondary)) 100%)',
+}
+
+const ACCENT: Record<NType, string> = {
+  success: 'rgb(var(--success))',
+  error:   'rgb(var(--danger))',
+  warning: 'rgb(var(--warning))',
+  info:    'rgb(var(--info))',
+  system:  'rgb(var(--primary))',
+}
+
+const GLOW: Record<NType, string> = {
+  success: '0 0 0 1px rgb(var(--success)/0.18), 0 4px 30px rgb(var(--success)/0.1), 0 12px 48px rgb(0 0 0/0.6)',
+  error:   '0 0 0 1px rgb(var(--danger)/0.18),  0 4px 30px rgb(var(--danger)/0.1),  0 12px 48px rgb(0 0 0/0.6)',
+  warning: '0 0 0 1px rgb(var(--warning)/0.18), 0 4px 30px rgb(var(--warning)/0.1), 0 12px 48px rgb(0 0 0/0.6)',
+  info:    '0 0 0 1px rgb(var(--info)/0.18),    0 4px 30px rgb(var(--info)/0.1),    0 12px 48px rgb(0 0 0/0.6)',
+  system:  '0 0 0 1px rgb(var(--primary)/0.18), 0 4px 30px rgb(var(--primary)/0.1), 0 12px 48px rgb(0 0 0/0.6)',
+}
+
+const POSITIONS: Record<string, string> = {
+  'top-right':    'top-4 right-4 items-end',
+  'top-left':     'top-4 left-4 items-start',
+  'bottom-right': 'bottom-4 right-4 items-end',
+  'bottom-left':  'bottom-4 left-4 items-start',
+}
+
+// ─── Stack ─────────────────────────────────────────────────────────────────
+
+export function NotificationStack({
+  notifications,
+  onDismiss,
+  position = 'top-right',
+  maxVisible = 5,
+}: NotificationStackProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
 
-  const pos = { 'top-right': 'top-4 right-4', 'top-left': 'top-4 left-4', 'bottom-right': 'bottom-4 right-4', 'bottom-left': 'bottom-4 left-4' }
+  const pos = POSITIONS[position] ?? POSITIONS['top-right']
 
-  const stack = (
-    <div className={`fixed ${pos[position]} z-[99999] w-[360px] max-w-[calc(100vw-2rem)] flex flex-col gap-3`}>
+  return createPortal(
+    <div className={`fixed ${pos} z-[99999] flex flex-col gap-2.5 w-[360px] max-w-[calc(100vw-2rem)] pointer-events-none`}>
       <AnimatePresence mode="popLayout">
         {notifications.slice(0, maxVisible).map((n) => (
           <NotificationCard key={n.id} notification={n} onDismiss={onDismiss} />
         ))}
       </AnimatePresence>
-    </div>
+    </div>,
+    document.body,
   )
-
-  if (!mounted) return null
-  return createPortal(stack, document.body)
 }
 
-function NotificationCard({ notification, onDismiss }: { notification: StackNotification; onDismiss: (id: string) => void }) {
-  const [translateX, setTranslateX] = useState(0)
-  const [dismissed, setDismissed] = useState(false)
-  const [paused, setPaused] = useState(false)
-  const startX = useRef<number | null>(null)
-  const isDragging = useRef(false)
+// ─── Card ──────────────────────────────────────────────────────────────────
 
-  // Auto-dismiss
-  useEffect(() => {
-    if (!notification.duration || paused || dismissed) return
-    const t = setTimeout(() => dismiss(0), notification.duration)
-    return () => clearTimeout(t)
-  }, [notification.duration, paused, dismissed])
+function NotificationCard({
+  notification: n,
+  onDismiss,
+}: {
+  notification: StackNotification
+  onDismiss: (id: string) => void
+}) {
+  const [paused, setPaused]   = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
-  function dismiss(toX: number) {
-    if (dismissed) return
-    setDismissed(true)
-    setTranslateX(toX)
-    setTimeout(() => onDismiss(notification.id), 250)
-  }
+  const x       = useMotionValue(0)
+  const opacity = useTransform(x, [-220, -50, 0, 50, 220], [0, 0.45, 1, 0.45, 0])
+  const rotate  = useTransform(x, [-220, 0, 220], [-2.5, 0, 2.5])
 
-  function onPointerDown(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest('button')) return
-    startX.current = e.clientX
-    isDragging.current = false
-    setPaused(true)
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
+  const Icon = ICON_EL[n.type]
+  const accent = ACCENT[n.type]
 
-  function onPointerMove(e: React.PointerEvent) {
-    if (startX.current === null) return
-    const dx = e.clientX - startX.current
-    if (Math.abs(dx) > 5) isDragging.current = true
-    if (isDragging.current) setTranslateX(dx)
-  }
-
-  function onPointerUp(e: React.PointerEvent) {
-    if (startX.current === null) return
-    const dx = e.clientX - startX.current
-    startX.current = null
-    if (Math.abs(dx) > SWIPE_THRESHOLD) {
-      dismiss(dx > 0 ? 500 : -500)
+  function dismiss(toX?: number) {
+    if (leaving) return
+    setLeaving(true)
+    if (toX) {
+      animate(x, toX, { duration: 0.2, ease: [0.4, 0, 1, 1] })
+      setTimeout(() => onDismiss(n.id), 195)
     } else {
-      setTranslateX(0)
-      setPaused(false)
+      onDismiss(n.id)
     }
-    isDragging.current = false
   }
 
-  const absX = Math.abs(translateX)
-  const dragOpacity = dismissed ? 0 : Math.max(0, 1 - absX / 200)
-
-  const colors: Record<string, string> = {
-    success: 'bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200/50 dark:border-emerald-800/50',
-    error:   'bg-red-50/95 dark:bg-red-950/90 border-red-200/50 dark:border-red-800/50',
-    warning: 'bg-amber-50/95 dark:bg-amber-950/90 border-amber-200/50 dark:border-amber-800/50',
-    system:  'bg-purple-50/95 dark:bg-purple-950/90 border-purple-200/50 dark:border-purple-800/50',
-    info:    'bg-blue-50/95 dark:bg-blue-950/90 border-blue-200/50 dark:border-blue-800/50',
-  }
-
-  const icons: Record<string, React.ReactNode> = {
-    success: <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />,
-    error:   <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />,
-    warning: <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />,
-    system:  <Zap className="w-5 h-5 text-purple-500 flex-shrink-0" />,
-    info:    <Info className="w-5 h-5 text-blue-500 flex-shrink-0" />,
-  }
+  useEffect(() => {
+    if (!n.duration || paused || leaving) return
+    const t = setTimeout(() => dismiss(), n.duration)
+    return () => clearTimeout(t)
+  }, [n.duration, paused, leaving])
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -16, scale: 0.95 }}
+      initial={{ opacity: 0, y: -22, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+      exit={{ opacity: 0, scale: 0.86, y: -8, transition: { duration: 0.17, ease: 'easeIn' } }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.1}
+      whileDrag={{ scale: 0.975 }}
+      onDragStart={() => setPaused(true)}
+      onDragEnd={(_, info) => {
+        if (Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 480) {
+          dismiss(info.offset.x > 0 ? 520 : -520)
+        } else {
+          animate(x, 0, { type: 'spring', stiffness: 440, damping: 36 })
+          setPaused(false)
+        }
+      }}
+      style={{
+        x,
+        opacity,
+        rotate,
+        boxShadow: GLOW[n.type],
+        background: 'rgba(14, 18, 16, 0.88)',
+        backdropFilter: 'blur(28px) saturate(175%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(175%)',
+        borderTop:    '1px solid rgba(255,255,255,0.08)',
+        borderRight:  '1px solid rgba(255,255,255,0.06)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderLeft:   `3px solid ${accent}`,
+      }}
+      className="pointer-events-auto cursor-grab active:cursor-grabbing select-none rounded-2xl overflow-hidden"
     >
+      {/* Ambient gradient from accent color */}
       <div
-        className={`${colors[notification.type] ?? colors.info} border rounded-xl shadow-xl backdrop-blur-md select-none touch-pan-y cursor-grab active:cursor-grabbing`}
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
         style={{
-          transform: `translateX(${translateX}px)`,
-          opacity: dragOpacity,
-          transition: isDragging.current ? 'none' : 'transform 0.25s ease, opacity 0.25s ease',
-          willChange: 'transform',
+          background: `radial-gradient(ellipse 90% 70% at 0% 0%, ${accent}10 0%, transparent 65%)`,
         }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <div className="p-4 flex items-start gap-3">
-          <div className="mt-0.5">{icons[notification.type] ?? icons.info}</div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 leading-tight">
-              {notification.title}
-            </p>
-            {notification.message && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
-                {notification.message}
-              </p>
-            )}
-            {notification.action && (
-              <button
-                onClick={() => { notification.action!.onClick(); onDismiss(notification.id) }}
-                className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {notification.action.label}
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => dismiss(400)}
-            className="flex-shrink-0 p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-          >
-            <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          </button>
+      />
+
+      {/* Content */}
+      <div className="relative p-3.5 flex items-start gap-3">
+        {/* Icon badge */}
+        <div
+          className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5 shadow-lg"
+          style={{ background: ICON_BG[n.type] }}
+        >
+          <Icon className="w-[15px] h-[15px] text-white" strokeWidth={2.5} />
         </div>
 
-        {notification.duration && !paused && !dismissed && (
-          <motion.div
-            className="h-0.5 bg-current opacity-20 rounded-b-xl"
-            initial={{ scaleX: 1, originX: 0 }}
-            animate={{ scaleX: 0 }}
-            transition={{ duration: notification.duration / 1000, ease: 'linear' }}
-          />
-        )}
+        {/* Text */}
+        <div className="flex-1 min-w-0 py-0.5">
+          <p className="font-semibold text-sm leading-snug text-foreground">
+            {n.title}
+          </p>
+          {n.message && (
+            <p className="text-xs mt-1 leading-relaxed line-clamp-2 text-muted">
+              {n.message}
+            </p>
+          )}
+          {n.action && (
+            <button
+              onClick={(e) => { e.stopPropagation(); n.action!.onClick(); onDismiss(n.id) }}
+              className="mt-1.5 text-xs font-semibold hover:opacity-70 transition-opacity"
+              style={{ color: accent }}
+            >
+              {n.action.label} →
+            </button>
+          )}
+        </div>
+
+        {/* Close button */}
+        <button
+          onClick={() => dismiss(400)}
+          className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-muted hover:text-foreground hover:bg-white/10 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
+
+      {/* Progress bar */}
+      {n.duration && !paused && !leaving && (
+        <div className="px-3.5 pb-2.5">
+          <div className="h-[2px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <motion.div
+              className="h-full rounded-full"
+              style={{
+                transformOrigin: 'left',
+                background: `linear-gradient(90deg, ${accent}, ${accent}50)`,
+              }}
+              initial={{ scaleX: 1 }}
+              animate={{ scaleX: 0 }}
+              transition={{ duration: n.duration / 1000, ease: 'linear' }}
+            />
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }

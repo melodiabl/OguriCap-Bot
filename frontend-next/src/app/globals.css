@@ -527,8 +527,8 @@ html[data-perf="low"] .badge,
 html[data-perf="low"] .live-indicator,
 html[data-perf="low"] .status-badge,
 html[data-perf="low"] .ultra-card {
-  backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 /* Simplify backgrounds */
@@ -1046,6 +1046,7 @@ html[data-perf="full"] .aura-flow-layer::before {
   border: 1px solid rgb(var(--border) / 0.14);
   background: linear-gradient(180deg, rgb(var(--card) / 0.82), rgb(var(--surface-elevated) / 0.72));
   box-shadow: 0 18px 42px -28px rgb(var(--shadow-rgb) / 0.28), inset 0 1px 0 rgb(var(--shine) / 0.05);
+  -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
   backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
 }
 
@@ -1216,6 +1217,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     border: 1px solid rgb(var(--border) / 0.18);
     background: linear-gradient(135deg, rgb(var(--shine) / 0.10), rgb(var(--shine) / 0.04));
     box-shadow: var(--shadow), inset 0 0 0 1px rgb(var(--shine) / 0.04);
+    -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
     backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
   }
 
@@ -1228,6 +1230,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     box-shadow:
       0 30px 80px rgb(var(--shadow-rgb) / 0.3),
       inset 0 0 0 1px rgb(var(--shine) / 0.1);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 1.5)) saturate(calc(var(--chrome-sat) * 1.2));
     backdrop-filter: blur(calc(var(--chrome-blur) * 1.5)) saturate(calc(var(--chrome-sat) * 1.2));
   }
   
@@ -1300,6 +1303,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     border-color: rgb(var(--border) / 0.15);
     background: linear-gradient(180deg, rgb(var(--card) / 0.9), rgb(var(--surface-elevated) / 0.8));
     box-shadow: 0 12px 38px rgb(var(--shadow-rgb) / 0.24), inset 0 0 0 1px rgb(var(--shine) / 0.05);
+    -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
     backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
   }
 
@@ -1356,6 +1360,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     color: rgb(var(--text-primary) / 1);
     border-color: rgb(var(--border) / 0.18);
     background: linear-gradient(135deg, rgb(var(--surface) / 0.62), rgb(var(--surface-elevated) / 0.42));
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.9)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.9)) saturate(var(--chrome-sat));
     box-shadow:
       0 14px 34px rgb(var(--shadow-rgb) / 0.18),
@@ -1379,6 +1384,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     color: rgb(var(--text-primary) / 1);
     border-color: rgb(var(--border) / 0.16);
     background: linear-gradient(135deg, rgb(var(--card) / 0.76), rgb(var(--surface-elevated) / 0.56));
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     box-shadow:
       0 8px 32px rgb(var(--shadow-rgb) / 0.16),
@@ -1414,6 +1420,7 @@ html[data-perf="full"] .aura-flow-layer::before {
 
   .badge {
     @apply relative inline-flex items-center gap-2 overflow-hidden rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em];
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.7)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.7)) saturate(var(--chrome-sat));
     box-shadow: inset 0 0 0 1px rgb(var(--shine) / 0.03), 0 16px 34px -24px rgb(var(--shadow-rgb) / 0.6);
   }
@@ -1587,6 +1594,7 @@ html[data-perf="full"] .aura-flow-layer::before {
       radial-gradient(900px 700px at 80% 25%, rgb(var(--page-b) / 0.18), transparent 62%),
       radial-gradient(900px 700px at 50% 90%, rgb(var(--page-c) / 0.14), transparent 60%),
       rgb(var(--bg) / 0.78);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
   }
 
@@ -1596,6 +1604,7 @@ html[data-perf="full"] .aura-flow-layer::before {
       radial-gradient(900px 700px at 80% 25%, rgb(var(--page-b) / 0.18), transparent 62%),
       radial-gradient(900px 700px at 50% 90%, rgb(var(--page-c) / 0.14), transparent 60%),
       rgb(var(--bg) / 0.78);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
   }
 
@@ -1608,6 +1617,7 @@ html[data-perf="full"] .aura-flow-layer::before {
   .modal-content {
     @apply panel-surface w-full max-w-2xl max-h-[90vh] overflow-auto p-5 animate-scale-in sm:p-6;
     transform: translate3d(0, 0, 0);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 1.05)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 1.05)) saturate(var(--chrome-sat));
   }
 
@@ -1712,6 +1722,12 @@ html[data-perf="full"] .aura-flow-layer::before {
 
   .press-scale:active {
     transform: scale(0.985);
+  }
+
+  /* Global keyboard focus fallback (WCAG 2.4.7) */
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary) / 0.7);
+    outline-offset: 2px;
   }
 
   .focus-ring-animated:focus-visible {
@@ -2082,6 +2098,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     box-shadow:
       0 30px 90px rgb(var(--shadow-rgb) / 0.22),
       inset 0 0 0 1px rgb(var(--shine) / 0.035);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
   }
 
@@ -2278,6 +2295,7 @@ html[data-perf="full"] .aura-flow-layer::before {
       0 28px 90px rgb(var(--shadow-rgb) / 0.28),
       0 0 36px rgb(var(--page-a) / calc(0.06 * var(--glow-boost))),
       inset 0 0 0 1px rgb(var(--shine) / 0.05);
+    -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
     backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
     transform: translate3d(0, 0, 0);
   }
@@ -2351,6 +2369,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em];
     background: linear-gradient(135deg, rgb(var(--shine) / 0.08), rgb(var(--shine) / 0.03));
     border-color: rgb(var(--border) / 0.14);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     box-shadow: 0 12px 30px rgb(var(--shadow-rgb) / 0.2);
   }
@@ -2441,6 +2460,7 @@ html[data-perf="full"] .aura-flow-layer::before {
 
   .status-badge {
     @apply relative inline-flex items-center gap-2 overflow-hidden rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em];
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.85)) saturate(var(--chrome-sat));
     box-shadow: inset 0 0 0 1px rgb(var(--shine) / 0.03), 0 14px 30px -24px rgb(var(--shadow-rgb) / 0.28);
   }
@@ -2536,6 +2556,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     @apply relative overflow-hidden rounded-3xl border border-white/20 p-5;
     background: linear-gradient(135deg, rgb(var(--shine) / 0.10), rgb(var(--shine) / 0.03));
     box-shadow: 0 26px 80px rgb(var(--shadow-rgb) / 0.5), inset 0 0 0 1px rgb(var(--shine) / 0.05);
+    -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
     backdrop-filter: blur(var(--chrome-blur)) saturate(var(--chrome-sat));
   }
 
@@ -2828,6 +2849,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     border-color: rgb(var(--warning) / 0.35);
     background: linear-gradient(135deg, rgb(var(--warning) / 0.92), rgb(var(--danger) / 0.78));
     box-shadow: 0 22px 60px rgb(var(--shadow-rgb) / 0.55);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.9)) saturate(155%);
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.9)) saturate(155%);
   }
 
@@ -2851,6 +2873,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     @apply relative overflow-hidden rounded-3xl border p-3 shadow-inner-glow;
     border-color: rgb(var(--border) / 0.16);
     background: rgb(var(--card) / 0.12);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.9)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.9)) saturate(var(--chrome-sat));
   }
 
@@ -2897,6 +2920,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     border: 1px solid rgb(var(--border) / 0.16);
     background: linear-gradient(135deg, rgb(var(--bg) / 0.86), rgb(var(--surface-elevated) / 0.62));
     box-shadow: 0 22px 60px rgb(var(--shadow-rgb) / 0.55), 0 0 30px rgb(var(--page-a) / 0.10);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     color: rgb(var(--text-on-accent) / 1);
   }
@@ -2993,6 +3017,7 @@ html[data-perf="full"] .aura-flow-layer::before {
     @apply absolute z-50 px-3 py-2 text-sm font-semibold text-white rounded-xl border border-white/20;
     background: linear-gradient(135deg, rgb(var(--bg) / 0.86), rgb(var(--surface-elevated) / 0.62));
     box-shadow: 0 22px 60px rgb(var(--shadow-rgb) / 0.65), 0 0 30px rgb(var(--page-a) / 0.12);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
     opacity: 0;
     visibility: hidden;
@@ -3488,6 +3513,7 @@ html[data-page="bot"] .glass-card::after {
   @apply absolute z-50 px-3 py-2 text-xs font-bold tracking-wide uppercase text-white rounded-xl border border-white/15 opacity-0 invisible transition-all duration-300 group-hover:opacity-100 group-hover:visible;
   background: linear-gradient(135deg, rgb(var(--bg) / 0.86), rgb(var(--surface-elevated) / 0.62));
   box-shadow: 0 22px 60px rgb(var(--shadow-rgb) / 0.65), 0 0 30px rgb(var(--page-a) / 0.12);
+  -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
   backdrop-filter: blur(calc(var(--chrome-blur) * 0.95)) saturate(var(--chrome-sat));
   transform: translate3d(0, 6px, 0) scale(0.98);
   will-change: transform, opacity;
@@ -4513,6 +4539,7 @@ html[data-theme="light"] .avatar {
 /* Cards con efecto glass Oguri */
 .glass-oguri {
   background: rgba(37, 211, 102, 0.05);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(167, 243, 199, 0.15);
   box-shadow: 
@@ -4572,6 +4599,7 @@ html[data-theme="light"] .avatar {
 /* Tooltips temáticos */
 .tooltip-oguri {
   background: linear-gradient(135deg, rgba(37, 211, 102, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(167, 243, 199, 0.3);
   box-shadow: 
@@ -4671,6 +4699,7 @@ html[data-perf="low"] .animate-oguri-float {
 }
 
 html[data-perf="low"] .glass-oguri {
+  -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   background: rgba(37, 211, 102, 0.1) !important;
 }
@@ -4752,6 +4781,21 @@ html[data-perf="low"] .hover-oguri-glow:hover {
 /* Prevenir zoom en inputs en iOS */
 @supports (-webkit-touch-callout: none) {
   input, select, textarea { font-size: 16px !important; }
+}
+
+/* Eliminar highlight azul/gris en tap (iOS/Android) */
+button, [role="button"], [role="tab"], [role="checkbox"], [role="switch"],
+a, label[for], summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Touch targets mínimos 44×44 para WCAG 2.5.5 */
+button:not(.no-min-touch),
+a:not(.no-min-touch):not(.inline-link),
+[role="button"]:not(.no-min-touch) {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* Scroll suave en toda la app */
@@ -4874,6 +4918,7 @@ html { scroll-behavior: smooth; }
       0 24px 72px -36px rgb(var(--shadow-rgb) / 0.42),
       0 0 0 1px rgb(var(--shine) / 0.04) inset,
       0 0 42px rgb(var(--page-b) / 0.10);
+    -webkit-backdrop-filter: blur(calc(var(--chrome-blur) * 1.02)) saturate(calc(var(--chrome-sat) * 1.04));
     backdrop-filter: blur(calc(var(--chrome-blur) * 1.02)) saturate(calc(var(--chrome-sat) * 1.04));
   }
 

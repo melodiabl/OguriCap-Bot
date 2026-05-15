@@ -1,4 +1,49 @@
 /** @type {import('next').NextConfig} */
+const withPWA = require('@ducanh2912/next-pwa').default({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  skipWaiting: true,
+  sw: 'sw.js',
+  customWorkerSrc: 'worker',
+  fallbacks: {
+    document: '/offline',
+  },
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  workboxOptions: {
+    disableDevLogs: true,
+    runtimeCaching: [
+      {
+        urlPattern: /^\/api\//,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'api-cache',
+          networkTimeoutSeconds: 10,
+          expiration: { maxEntries: 64, maxAgeSeconds: 60 * 5 },
+        },
+      },
+      {
+        urlPattern: /\.(png|jpg|jpeg|svg|gif|webp|avif|ico)$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'image-cache',
+          expiration: { maxEntries: 128, maxAgeSeconds: 60 * 60 * 24 * 30 },
+        },
+      },
+      {
+        urlPattern: /\.(js|css|woff2?)$/,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'static-cache',
+          expiration: { maxEntries: 256, maxAgeSeconds: 60 * 60 * 24 * 7 },
+        },
+      },
+    ],
+  },
+});
+
 const safeParseUrl = (value) => {
   const raw = String(value || '').trim()
   if (!raw) return null
@@ -13,9 +58,6 @@ const parsedApiUrl = safeParseUrl(process.env.NEXT_PUBLIC_API_URL || process.env
 const apiHostname = parsedApiUrl?.hostname || null
 const apiProtocol = parsedApiUrl?.protocol ? parsedApiUrl.protocol.replace(':', '') : null
 const apiPort = parsedApiUrl?.port || ''
-
-const imageDomains = ['localhost', '127.0.0.1']
-if (apiHostname && !imageDomains.includes(apiHostname)) imageDomains.push(apiHostname)
 
 const remotePatterns = [
   {
@@ -41,67 +83,45 @@ if (apiHostname && !['localhost', '127.0.0.1'].includes(apiHostname) && apiProto
   })
 }
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
-  // Configuración de webpack para resolver paths
-  webpack: (config, { dev, isServer }) => {
+
+  webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': require('path').resolve(__dirname, 'src'),
     };
-    
     return config;
   },
-  
-  // Configuración experimental básica
+
   experimental: {
     serverComponentsExternalPackages: [],
   },
-  
-  // Configuración para Docker (standalone output)
+
   output: 'standalone',
-  
-  // Configuración del compilador
+
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn']
-    } : false,
+    removeConsole: process.env.NODE_ENV === 'production'
+      ? { exclude: ['error', 'warn'] }
+      : false,
   },
-  
-  // Configuración de imágenes
+
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24,
-    domains: imageDomains,
     remotePatterns,
-    // Deshabilitar optimización para archivos locales en /media/
-    unoptimized: true,
   },
-  
-  // Configuración de rewrites para API
+
   async rewrites() {
-    // En producción con Docker, las rutas API van directamente a nginx
-    if (process.env.NODE_ENV === 'production') {
-      return [];
-    }
-    
-    // Solo en desarrollo, redirigir a localhost:8080
+    if (process.env.NODE_ENV === 'production') return [];
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    
     return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-      {
-        source: '/media/:path*',
-        destination: `${apiUrl}/media/:path*`,
-      },
+      { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
+      { source: '/media/:path*', destination: `${apiUrl}/media/:path*` },
     ];
   },
-  
-  // Configuración básica de producción
+
   compress: true,
   trailingSlash: false,
   poweredByHeader: false,
@@ -109,4 +129,4 @@ const nextConfig = {
   generateEtags: false,
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);

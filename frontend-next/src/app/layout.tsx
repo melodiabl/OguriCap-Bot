@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-import 'xterm/css/xterm.css';
 import { Providers } from './providers';
 import { RouteProgress } from '@/components/ui/RouteProgress';
 
@@ -19,6 +18,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 };
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
@@ -57,14 +57,21 @@ export default function RootLayout({
                   page = pageMap[seg] || (path === '/' ? 'home' : 'unknown');
                 }
                 var pagePreset = localStorage.getItem('oguricap:page-visual-preset:' + page) || 'default';
+                var w = window.innerWidth;
+                var viewport = w <= 767 ? 'mobile' : w <= 1023 ? 'tablet' : 'desktop';
+                var perf = localStorage.getItem('oguricap:perf') || 'full';
                 document.documentElement.setAttribute('data-theme', theme);
                 document.documentElement.setAttribute('data-intensity', intensity);
                 document.documentElement.setAttribute('data-page-preset', pagePreset);
+                document.documentElement.setAttribute('data-viewport', viewport);
+                document.documentElement.setAttribute('data-perf', perf);
                 document.documentElement.style.colorScheme = theme;
               } catch (e) {
                 document.documentElement.setAttribute('data-theme', 'dark');
                 document.documentElement.setAttribute('data-intensity', 'vivid');
                 document.documentElement.setAttribute('data-page-preset', 'default');
+                document.documentElement.setAttribute('data-viewport', 'desktop');
+                document.documentElement.setAttribute('data-perf', 'full');
                 document.documentElement.style.colorScheme = 'dark';
               }
             `,
@@ -75,7 +82,11 @@ export default function RootLayout({
         <link rel="icon" href="/bot-icon.svg?v=2" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="rgb(99 102 241)" />
+        <meta name="theme-color" content="#8B5CF6" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#7C3AED" media="(prefers-color-scheme: light)" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>

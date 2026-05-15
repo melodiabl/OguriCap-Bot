@@ -3,12 +3,11 @@
  * Rate limiting por IP — ventana deslizante en memoria
  */
 
-const store = new Map() // key → { count, resetAt }
-
 /**
  * Crea un limiter. Devuelve función (req, res) → boolean (true=permitido)
  */
 export function rateLimit({ windowMs = 60_000, max = 60, keyFn } = {}) {
+  const store = new Map() // each limiter gets its own store — avoids cross-limiter interference
   setInterval(() => {
     const now = Date.now()
     for (const [k, v] of store) if (v.resetAt < now) store.delete(k)

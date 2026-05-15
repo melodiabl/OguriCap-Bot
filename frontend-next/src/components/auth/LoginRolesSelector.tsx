@@ -36,20 +36,20 @@ export function LoginRolesSelector({
 }: LoginRolesSelectorProps) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-muted mb-2">
+      <label className="block text-xs font-semibold text-muted mb-1.5">
         Rol de Acceso <span className="text-danger">*</span>
       </label>
       {(!selectedRole || showError) && (
         <p
           className={cn(
-            "text-xs mb-3 flex items-center gap-1",
+            "text-xs mb-2 flex items-center gap-1",
             showError ? "text-danger" : "text-warning",
           )}
         >
           <span aria-hidden="true">⚠</span> Selecciona el rol con el que deseas acceder
         </p>
       )}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         {roles.map((role) => {
           const IconComponent = role.icon;
           const isSelected = selectedRole === role.value;
@@ -63,14 +63,14 @@ export function LoginRolesSelector({
               whileHover={performanceMode ? undefined : { scale: 1.02 }}
               whileTap={{ scale: 0.985 }}
               className={cn(
-                "p-2.5 rounded-2xl border transition-all duration-200 text-left hover-outline-gradient press-scale",
+                "p-2 rounded-xl border transition-all duration-200 text-left hover-outline-gradient press-scale",
                 isSelected
                   ? `${tone.bg} ${tone.border} shadow-[0_18px_60px_rgb(var(--shadow-rgb)_/_0.28)]`
                   : "bg-card/15 border-border/20 hover:bg-card/25 hover:border-border/35",
                 !selectedRole && showError && "shake-on-error",
               )}
             >
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-1.5 mb-0.5">
                 <IconComponent
                   className={cn(
                     "w-4 h-4",

@@ -61,6 +61,36 @@ services:
       - oguricap-network
 
   # ============================================
+  # Postgres daily backup (pg_dump → ./backups/)
+  # ============================================
+  postgres-backup:
+    image: postgres:16
+    container_name: oguricap-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-oguribot}
+      POSTGRES_USER: ${POSTGRES_USER:-bot_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    networks:
+      - oguricap-network
+    entrypoint: >
+      sh -c "
+        mkdir -p /backups &&
+        while true; do
+          ts=$$(date +%Y%m%d_%H%M%S);
+          pg_dump -h postgres -U $$POSTGRES_USER $$POSTGRES_DB | gzip > /backups/backup_$$ts.sql.gz && echo \"Backup $$ts OK\";
+          find /backups -name '*.sql.gz' -mtime +7 -delete;
+          sleep 86400;
+        done
+      "
+
+  # ============================================
   # Panel Admin (Next.js Frontend)
   # ============================================
   admin-panel:
