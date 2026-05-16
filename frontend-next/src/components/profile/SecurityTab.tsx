@@ -62,7 +62,7 @@ export function SecurityTab() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-bold text-foreground">Dispositivos de confianza</p>
-            <p className="text-xs text-muted">Gestiona los dispositivos en el tab "Dispositivos".</p>
+            <p className="text-xs text-muted">Gestiona los dispositivos en el tab &quot;Dispositivos&quot;.</p>
           </div>
         </div>
 
