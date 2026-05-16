@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { AlertCircle, AlertTriangle, CheckCircle, Info, Zap } from 'lucide-react';
 import { useSocketConnection, SOCKET_EVENTS } from './SocketContext';
@@ -157,7 +157,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const browserPushTimeoutsRef = useRef<Map<string, number>>(new Map());
   const serviceWorkerRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
+  const pathname = usePathname();
   const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
+
+  // Cerrar al navegar entre páginas
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
 
   const generateContentHash = useCallback((n: Notification) => {
     // Normalizar texto para evitar duplicados por espacios o mayúsculas
