@@ -36,7 +36,10 @@ describe('renderPanelEmail', () => {
   })
   test('paleta: contiene verde #25d366', () => assert.ok(html.includes('#25d366')))
   test('paleta: contiene teal #2dd4bf', () => assert.ok(html.includes('#2dd4bf')))
-  test('paleta: contiene rosa #ff4d8d', () => assert.ok(html.includes('#ff4d8d')))
+  test('paleta: type=danger contiene rosa #ff4d8d', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'danger' })
+    assert.ok(h.includes('#ff4d8d'))
+  })
   test('branding: contiene El Monstruo de las Cenizas', () => assert.ok(html.includes('El Monstruo de las Cenizas')))
   test('branding: contiene Powered by Oguri Power System', () => assert.ok(html.includes('Powered by Oguri Power System')))
 })
@@ -76,5 +79,39 @@ describe('renderDataBlock', () => {
   test('default badgeColor=green contiene #25d366', () => {
     const block = renderDataBlock({ label: 'X', value: 'Y', badge: 'B' })
     assert.ok(block.includes('#25d366'))
+  })
+})
+
+describe('renderPanelEmail — type/icon', () => {
+  test('type=danger genera header con color rosa', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'danger' })
+    assert.ok(h.includes('#ff4d8d'))
+  })
+  test('type=warning genera header con color dorado', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'warning' })
+    assert.ok(h.includes('#fbbf24'))
+  })
+  test('type=info genera header con color teal', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'info' })
+    assert.ok(h.includes('#2dd4bf'))
+  })
+  test('type=success (default) genera header verde', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '' })
+    assert.ok(h.includes('#25d366'))
+  })
+  test('icon se renderiza en el header', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', icon: '🚀' })
+    assert.ok(h.includes('🚀'))
+  })
+})
+
+describe('renderDataBlock — gold y lavender', () => {
+  test('badgeColor=gold contiene #fbbf24', () => {
+    const b = renderDataBlock({ label: 'X', value: 'Y', badge: 'B', badgeColor: 'gold' })
+    assert.ok(b.includes('#fbbf24'))
+  })
+  test('badgeColor=lavender contiene #818cf8', () => {
+    const b = renderDataBlock({ label: 'X', value: 'Y', badge: 'B', badgeColor: 'lavender' })
+    assert.ok(b.includes('#818cf8'))
   })
 })
