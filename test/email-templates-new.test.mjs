@@ -57,3 +57,17 @@ describe('buildLoginNewDeviceEmail', () => {
   test('html contiene aviso contraseña', () => assert.ok(result.html.includes('contraseña')))
   test('subject contiene "Acceso"',      () => assert.ok(result.subject.includes('Acceso')))
 })
+
+import { buildAccountDeletedEmail } from '../lib/email/templates/account-deleted.js'
+
+describe('buildAccountDeletedEmail', () => {
+  const result = buildAccountDeletedEmail({ username: 'testuser', deletedBy: 'admin', reason: 'Inactividad' })
+  test('retorna html string',         () => assert.ok(typeof result.html === 'string'))
+  test('html contiene username',      () => assert.ok(result.html.includes('testuser')))
+  test('html contiene deletedBy',     () => assert.ok(result.html.includes('admin')))
+  test('html contiene reason',        () => assert.ok(result.html.includes('Inactividad')))
+  test('sin CTA — no hay href de acceso', () => {
+    const r = buildAccountDeletedEmail({ username: 'u', deletedBy: 'sistema' })
+    assert.ok(!r.html.includes('Ver mi perfil'))
+  })
+})
