@@ -99,3 +99,73 @@ describe('buildAportePendienteEmail', () => {
   test('html contiene dueDate', () => assert.ok(result.html.includes('31/05/2026')))
   test('subject contiene pendiente', () => assert.ok(result.subject.toLowerCase().includes('pendiente')))
 })
+
+import { buildMaintenanceNoticeEmail } from '../lib/email/templates/maintenance-notice.js'
+import { buildAccountSuspendedEmail } from '../lib/email/templates/account-suspended.js'
+import { buildAccountReactivatedEmail } from '../lib/email/templates/account-reactivated.js'
+import { buildSubbotCreatedEmail } from '../lib/email/templates/subbot-created.js'
+import { buildSubbotDeletedEmail } from '../lib/email/templates/subbot-deleted.js'
+import { buildTwoFactorCodeEmail } from '../lib/email/templates/two-factor-code.js'
+import { buildSystemAlertEmail } from '../lib/email/templates/system-alert.js'
+
+describe('maintenance-notice', () => {
+  const r = buildMaintenanceNoticeEmail({ startTime: '03:00 AM', durationMinutes: 30 })
+  test('subject contiene mantenimiento', () => assert.ok(r.subject.toLowerCase().includes('mantenimiento')))
+  test('html contiene startTime', () => assert.ok(r.html.includes('03:00 AM')))
+  test('html es type warning (color dorado)', () => assert.ok(r.html.includes('#fbbf24')))
+  test('html contiene ícono', () => assert.ok(r.html.includes('🛠️')))
+  test('affectedServices se listan', () => {
+    const r2 = buildMaintenanceNoticeEmail({ startTime: 'T', durationMinutes: 10, affectedServices: ['Panel', 'API'] })
+    assert.ok(r2.html.includes('Panel'))
+    assert.ok(r2.html.includes('API'))
+  })
+})
+
+describe('account-suspended', () => {
+  const r = buildAccountSuspendedEmail({ username: 'juan', suspendedBy: 'Admin', reason: 'fraude' })
+  test('html contiene username', () => assert.ok(r.html.includes('juan')))
+  test('html es type danger (color rosa)', () => assert.ok(r.html.includes('#ff4d8d')))
+  test('html contiene motivo', () => assert.ok(r.html.includes('fraude')))
+})
+
+describe('account-reactivated', () => {
+  const r = buildAccountReactivatedEmail({ username: 'juan', reactivatedBy: 'Admin' })
+  test('html contiene username', () => assert.ok(r.html.includes('juan')))
+  test('html es type success (color verde)', () => assert.ok(r.html.includes('#25d366')))
+})
+
+describe('subbot-created', () => {
+  const r = buildSubbotCreatedEmail({ subbotName: 'TestBot', subbotNumber: '+549111', createdBy: 'Admin' })
+  test('html contiene nombre', () => assert.ok(r.html.includes('TestBot')))
+  test('html es type success', () => assert.ok(r.html.includes('#25d366')))
+})
+
+describe('subbot-deleted', () => {
+  const r = buildSubbotDeletedEmail({ subbotName: 'TestBot', deletedBy: 'Admin' })
+  test('html contiene nombre', () => assert.ok(r.html.includes('TestBot')))
+  test('html es type danger', () => assert.ok(r.html.includes('#ff4d8d')))
+})
+
+describe('two-factor-code', () => {
+  const r = buildTwoFactorCodeEmail({ username: 'juan', code: '482917', expiresMinutes: 5 })
+  test('html contiene el código', () => assert.ok(r.html.includes('482917')))
+  test('html no tiene CTA link', () => assert.ok(!r.html.includes('href="http')))
+  test('html es type info (teal)', () => assert.ok(r.html.includes('#2dd4bf')))
+  test('subject contiene el código', () => assert.ok(r.subject.includes('482917')))
+})
+
+describe('system-alert', () => {
+  test('level warning → type warning (dorado)', () => {
+    const r = buildSystemAlertEmail({ metric: 'memory_usage', value: '91%', threshold: '85%', level: 'warning' })
+    assert.ok(r.html.includes('#fbbf24'))
+  })
+  test('level critical → type danger (rosa)', () => {
+    const r = buildSystemAlertEmail({ metric: 'cpu_usage', value: '99%', threshold: '90%', level: 'critical' })
+    assert.ok(r.html.includes('#ff4d8d'))
+    assert.ok(r.html.includes('CRÍTICO'))
+  })
+  test('html contiene la métrica', () => {
+    const r = buildSystemAlertEmail({ metric: 'disk_usage', value: '95%', threshold: '80%' })
+    assert.ok(r.html.includes('disk_usage'))
+  })
+})
