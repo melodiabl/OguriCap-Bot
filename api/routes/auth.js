@@ -151,7 +151,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
           const now = new Date().toISOString()
           await pgAddKnownDevice(username, {
             hash, ip: clientIp, browser, os, ua: safeString(userAgent).slice(0, 300),
-            first_seen: isNew ? now : undefined,
+            ...(isNew ? { first_seen: now } : {}),
             last_seen: now,
           })
           if (isNew && notifPrefs.login_new_device !== false) {
@@ -164,7 +164,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
                 ip: clientIp,
                 location: '-',
                 device: `${browser} en ${os}`,
-                time: new Date().toLocaleString('es-ES', { timeZone: 'America/Santo_Domingo' }),
+                time: new Date().toUTCString(),
               }).catch(() => {})
             }
           }
