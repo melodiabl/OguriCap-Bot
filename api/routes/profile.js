@@ -69,7 +69,7 @@ export async function handleProfile({ req, res, url }) {
     if (!body || typeof body !== 'object') return json(res, 400, { error: 'Body inválido' })
     const prefs = {}
     for (const key of Object.keys(DEFAULT_NOTIF_PREFS)) {
-      if (key in body) prefs[key] = Boolean(body[key])
+      if (key in body && typeof body[key] === 'boolean') prefs[key] = body[key]
     }
     await pgUpdateUserMetadata(username, { notification_prefs: prefs })
     return json(res, 200, { ok: true, prefs: { ...DEFAULT_NOTIF_PREFS, ...prefs } })
