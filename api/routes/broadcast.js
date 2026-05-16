@@ -138,6 +138,47 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     } catch { return json(res, 200, { html: '', subject: '' }) }
   }
 
+  // ── /api/email/send — admin manual send ───────────────────────────────────────
+  if (pathname === '/api/email/send' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!['owner', 'admin', 'administrador'].includes(auth.user?.rol)) {
+      return json(res, 403, { error: 'Solo administradores pueden enviar emails manuales' })
+    }
+
+    let body
+    try { body = await readJson(req) } catch { return json(res, 400, { error: 'JSON inválido' }) }
+
+    const { template, to, ...params } = body || {}
+    if (!template || !to) return json(res, 400, { error: 'template y to son requeridos' })
+
+    try {
+      const emailLib = await import('../../lib/email/index.js')
+
+      const TEMPLATE_MAP = {
+        'maintenance-notice':  'sendMaintenanceNoticeEmail',
+        'account-suspended':   'sendAccountSuspendedEmail',
+        'account-reactivated': 'sendAccountReactivatedEmail',
+        'subbot-created':      'sendSubbotCreatedEmail',
+        'subbot-deleted':      'sendSubbotDeletedEmail',
+        'two-factor-code':     'sendTwoFactorCodeEmail',
+        'system-alert':        'sendSystemAlertEmail',
+        'notification':        'sendNotificationEmail',
+        'security-alert':      'sendSecurityAlertEmail',
+      }
+
+      const fnName = TEMPLATE_MAP[template]
+      if (!fnName || typeof emailLib[fnName] !== 'function') {
+        return json(res, 400, { error: `Template desconocido: ${template}` })
+      }
+
+      await emailLib[fnName]({ to, ...params })
+      return json(res, 200, { success: true, template, to })
+    } catch (err) {
+      return json(res, 500, { error: err?.message || 'Error al enviar email' })
+    }
+  }
+
   // ── /api/scheduled-messages ───────────────────────────────────────────────
   if (pathname === '/api/scheduled-messages' && method === 'GET') {
     const auth = await getJwtAuth(req)
