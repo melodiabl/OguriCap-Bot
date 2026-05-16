@@ -4,7 +4,6 @@ import { User, Mail, Shield, Clock, MapPin } from 'lucide-react';
 import { ProfileAvatar } from '@/components/user/ProfileAvatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileApi, ProfileMe } from '@/services/profileApi';
-import { cn } from '@/lib/utils';
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null }) {
   return (

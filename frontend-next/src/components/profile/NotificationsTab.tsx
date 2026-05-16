@@ -66,7 +66,7 @@ export function NotificationsTab() {
             const enabled = prefs?.[event.key] ?? true;
             const isSaving = saving === event.key;
             return (
-              <div key={event.key} className="flex items-start gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 transition-colors hover:border-white/12">
+              <div key={event.key} className="flex items-start gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 transition-colors hover:border-white/[0.12]">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"
                   style={{ borderColor: `${event.color}22`, background: `${event.color}10` }}>
                   <Icon className="h-4 w-4" style={{ color: event.color }} />

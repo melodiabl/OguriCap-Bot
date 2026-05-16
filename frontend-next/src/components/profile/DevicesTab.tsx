@@ -79,7 +79,7 @@ export function DevicesTab() {
               'group flex items-center gap-4 rounded-2xl border p-4 transition-all',
               i === 0
                 ? 'border-[#25d366]/25 bg-[#25d366]/5'
-                : 'border-white/[0.07] bg-white/[0.025] hover:border-white/12'
+                : 'border-white/[0.07] bg-white/[0.025] hover:border-white/[0.12]'
             )}>
               <div className={cn(
                 'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
