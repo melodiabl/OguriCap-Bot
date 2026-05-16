@@ -56,7 +56,7 @@ if (!res.data?.status || !res.data?.song || !res.data?.downloadUrl) throw new Er
 const s = res.data.song
 const data = { title: s.title || "Desconocido", artist: s.artist || "Desconocido", duration: s.duration || "Desconocido", image: s.thumbnail || null, download: res.data.downloadUrl, url: s.spotifyUrl || text }
 const caption = `「✦」Descargando *<${data.title}>*\n\nꕥ Autor » *${data.artist}*\nⴵ Duración » *${data.duration}*\n🜸 Enlace » ${data.url}`
-const bannerBuffer = data.image ? await (await fetch(data.image)).buffer() : null
+const bannerBuffer = data.image ? await (await fetch(data.image)).arrayBuffer().then(b => Buffer.from(b)) : null
 await conn.sendMessage(m.chat, {
 text: caption,
 contextInfo: {

@@ -11,7 +11,7 @@ if (res.headers.get('content-length') > 100 * 1024 * 1024 * 1024) {
 throw `Content-Length: ${res.headers.get('content-length')}`
 }
 if (!/text|json/.test(res.headers.get('content-type'))) return conn.sendFile(m.chat, url, 'file', text, m)
-let txt = await res.buffer()
+let txt = await res.arrayBuffer().then(b => Buffer.from(b))
 try {
 txt = format(JSON.parse(txt + ''))
 } catch (e) {

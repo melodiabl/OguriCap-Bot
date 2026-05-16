@@ -33,7 +33,7 @@ body: dev,
 mediaType: 1,
 previewType: 0,
 renderLargerThumbnail: true,
-thumbnail: await (await fetch('https://raw.githubusercontent.com/The-King-Destroy/Adiciones/main/Contenido/1742781294508.jpeg')).buffer(),
+thumbnail: await (await fetch('https://raw.githubusercontent.com/The-King-Destroy/Adiciones/main/Contenido/1742781294508.jpeg')).arrayBuffer().then(b => Buffer.from(b)),
 sourceUrl: redes
 }}}}, { quoted: m })
 await m.react('✔️')

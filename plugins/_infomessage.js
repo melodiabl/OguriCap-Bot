@@ -22,7 +22,7 @@ const actorJid = (typeof usuario === 'string' && usuario.includes('@')) ? usuari
 const actorTag = actorJid ? `@${actorJid.split('@')[0]}` : 'alguien'
 const targetTag = targetJid ? `@${targetJid.split('@')[0]}` : 'alguien'
 const groupAdmins = Array.isArray(participants) ? participants.filter(p => p.admin) : []
-const rcanal = { contextInfo: { isForwarded: true, forwardedNewsletterMessageInfo: { newsletterJid: channelRD.id, serverMessageId: '', newsletterName: channelRD.name }, externalAdReply: { title: "𐔌 . ⋮ ᗩ ᐯ I Տ O .ᐟ ֹ ₊ ꒱", body: textbot, mediaUrl: null, description: null, previewType: "PHOTO", thumbnail: await (await fetch(icono)).buffer(), sourceUrl: redes, mediaType: 1, renderLargerThumbnail: false }, mentionedJid: null }}
+const rcanal = { contextInfo: { isForwarded: true, forwardedNewsletterMessageInfo: { newsletterJid: channelRD.id, serverMessageId: '', newsletterName: channelRD.name }, externalAdReply: { title: "𐔌 . ⋮ ᗩ ᐯ I Տ O .ᐟ ֹ ₊ ꒱", body: textbot, mediaUrl: null, description: null, previewType: "PHOTO", thumbnail: await (await fetch(icono)).arrayBuffer().then(b => Buffer.from(b)), sourceUrl: redes, mediaType: 1, renderLargerThumbnail: false }, mentionedJid: null }}
 const pp = await conn.profilePictureUrl(m.chat, 'image').catch(_ => null) || 'https://files.catbox.moe/xr2m6u.jpg'
 const nombre = `> ❀ ${actorTag} Ha cambiado el nombre del grupo.\n> ✦ Ahora el grupo se llama:\n> *${stubParams[0] ?? ''}*.`
 const foto = `> ❀ Se ha cambiado la imagen del grupo.\n> ✦ Acción hecha por:\n> » ${actorTag}`

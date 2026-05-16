@@ -4,7 +4,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
 if (!args[0]) return conn.reply(m.chat, `❀ Por favor, ingrese el Link de una página.`, m)
 try {
 await m.react('🕒')
-let ss = await (await fetch(`https://image.thum.io/get/fullpage/${args[0]}`)).buffer()
+let ss = await (await fetch(`https://image.thum.io/get/fullpage/${args[0]}`)).arrayBuffer().then(b => Buffer.from(b))
 conn.sendFile(m.chat, ss, 'error.png', args[0], fkontak)
 await m.react('✔️')
 } catch (error) {

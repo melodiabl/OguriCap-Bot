@@ -17,7 +17,7 @@ const zipRes = await fetch(`https://api.github.com/repos/${user}/${repo}/zipball
 const repoData = await repoRes.json()
 zipName = zipRes.headers.get('content-disposition')?.match(/filename=(.*)/)?.[1]
 if (!zipName) zipName = `${repo}-${user}.zip`
-zipBuffer = await zipRes.buffer()
+zipBuffer = await zipRes.arrayBuffer().then(b => Buffer.from(b))
 repos.push(repoData)
 image = 'https://raw.githubusercontent.com/The-King-Destroy/Adiciones/main/Contenido/1745610598914.jpeg'
 } else {
@@ -25,7 +25,7 @@ const res = await fetch(`https://api.github.com/search/repositories?q=${encodeUR
 const json = await res.json()
 if (!json.items.length) return conn.reply(m.chat, '✧ No se encontraron resultados.', m)
 repos = json.items
-image = await (await fetch(repos[0].owner.avatar_url)).buffer()
+image = await (await fetch(repos[0].owner.avatar_url)).arrayBuffer().then(b => Buffer.from(b))
 }
 info += repos.map((repo, index) => `✩ Resultado: ${index + 1}
 ✩ Creador: ${repo.owner.login}
