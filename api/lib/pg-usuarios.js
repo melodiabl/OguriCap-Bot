@@ -72,6 +72,50 @@ export async function pgDeleteUser(username) {
   await pool().query('UPDATE usuarios SET activo=false WHERE username=$1', [username])
 }
 
+export async function pgGetUserMetadata(username) {
+  try {
+    const { rows } = await pool().query(
+      'SELECT metadata FROM usuarios WHERE username = $1 LIMIT 1', [username]
+    )
+    if (!rows[0]) return {}
+    return typeof rows[0].metadata === 'object' ? (rows[0].metadata || {}) : {}
+  } catch { return {} }
+}
+
+export async function pgUpdateUserMetadata(username, patch) {
+  try {
+    const current = await pgGetUserMetadata(username)
+    const merged = { ...current, ...patch }
+    await pool().query(
+      `UPDATE usuarios SET metadata = $1::jsonb WHERE username = $2`,
+      [JSON.stringify(merged), username]
+    )
+  } catch {}
+}
+
+export async function pgAddKnownDevice(username, device) {
+  try {
+    const meta = await pgGetUserMetadata(username)
+    const devices = Array.isArray(meta.known_devices) ? meta.known_devices : []
+    const idx = devices.findIndex(d => d.hash === device.hash)
+    if (idx >= 0) {
+      devices[idx] = { ...devices[idx], ...device }
+    } else {
+      devices.push(device)
+    }
+    if (devices.length > 20) devices.splice(0, devices.length - 20)
+    await pgUpdateUserMetadata(username, { known_devices: devices })
+  } catch {}
+}
+
+export async function pgRevokeDevice(username, hash) {
+  try {
+    const meta = await pgGetUserMetadata(username)
+    const devices = (meta.known_devices || []).filter(d => d.hash !== hash)
+    await pgUpdateUserMetadata(username, { known_devices: devices })
+  } catch {}
+}
+
 export function normalizeUser(row) {
   if (!row) return null
   const meta = typeof row.metadata === 'object' ? (row.metadata || {}) : {}
