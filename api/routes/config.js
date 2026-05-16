@@ -261,7 +261,7 @@ export async function handleConfig({ req, res, url, panelDb }) {
   // ── GET /api/config/email/status ──────────────────────────────────────────
   if (pathname === '/api/config/email/status' && method === 'GET') {
     try {
-      const { getEmailServiceStatus } = await import('../../lib/email-service.js')
+      const { getEmailServiceStatus } = await import('../../lib/email/index.js')
       return json(res, 200, getEmailServiceStatus?.() || { configured: false })
     } catch { return json(res, 200, { configured: false }) }
   }
@@ -270,7 +270,7 @@ export async function handleConfig({ req, res, url, panelDb }) {
   if (pathname.startsWith('/api/config/email/preview/') && method === 'GET') {
     try {
       const type = pathname.split('/').pop()
-      const { getEmailTemplatePreview } = await import('../../lib/email-service.js')
+      const { getEmailTemplatePreview } = await import('../../lib/email/index.js')
       const preview = getEmailTemplatePreview?.(type)
       return json(res, 200, { html: preview?.html || '', subject: preview?.subject || '', recipient: preview?.recipient || '' })
     } catch { return json(res, 200, { html: '' }) }
@@ -281,7 +281,7 @@ export async function handleConfig({ req, res, url, panelDb }) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     try {
-      const { verifySmtp } = await import('../../lib/email-service.js')
+      const { verifySmtp } = await import('../../lib/email/index.js')
       const result = await verifySmtp?.()
       return json(res, 200, { success: true, result })
     } catch (err) { return json(res, 500, { error: err?.message || 'Error verificando SMTP' }) }
@@ -293,7 +293,7 @@ export async function handleConfig({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     const body = await readJson(req)
     try {
-      const { sendTestEmail } = await import('../../lib/email-service.js')
+      const { sendTestEmail } = await import('../../lib/email/index.js')
       await sendTestEmail?.({ to: body?.to || auth.user.email })
       return json(res, 200, { success: true })
     } catch (err) { return json(res, 500, { error: err?.message || 'Error enviando email de prueba' }) }

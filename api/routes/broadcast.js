@@ -65,7 +65,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const body = await readJson(req)
     try {
-      const { sendBroadcastEmail } = await import('../../lib/email-service.js')
+      const { sendBroadcastEmail } = await import('../../lib/email/index.js')
       await sendBroadcastEmail?.(body)
       return json(res, 200, { success: true })
     } catch (err) { return json(res, 500, { error: err?.message || 'Error enviando email broadcast' }) }
@@ -86,7 +86,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
   // ── /api/email/status ─────────────────────────────────────────────────────
   if (pathname === '/api/email/status' && method === 'GET') {
     try {
-      const { getEmailServiceStatus } = await import('../../lib/email-service.js')
+      const { getEmailServiceStatus } = await import('../../lib/email/index.js')
       return json(res, 200, getEmailServiceStatus?.() || { configured: false })
     } catch { return json(res, 200, { configured: false }) }
   }
@@ -98,7 +98,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const body = await readJson(req)
     try {
-      const { sendTestEmail } = await import('../../lib/email-service.js')
+      const { sendTestEmail } = await import('../../lib/email/index.js')
       await sendTestEmail?.({ to: body?.to || auth.user.email })
       return json(res, 200, { success: true })
     } catch (err) { return json(res, 500, { error: err?.message || 'Error enviando email de prueba' }) }
@@ -109,7 +109,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
   if (pathname === '/api/email/preview' && method === 'GET') {
     try {
       const type = url.searchParams.get('template') || 'test'
-      const { getEmailTemplatePreview } = await import('../../lib/email-service.js')
+      const { getEmailTemplatePreview } = await import('../../lib/email/index.js')
       const preview = getEmailTemplatePreview?.(type)
       return json(res, 200, { html: preview?.html || '', subject: preview?.subject || '', recipient: preview?.recipient || '' })
     } catch { return json(res, 200, { html: '', subject: '', recipient: '' }) }
@@ -118,7 +118,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
   if (pathname === '/api/email/preview' && method === 'POST') {
     try {
       const body = await readJson(req)
-      const { renderPanelEmail, getBrandConfig } = await import('../../lib/email-service.js')
+      const { renderPanelEmail, getBrandConfig } = await import('../../lib/email/index.js')
       const brand = getBrandConfig()
       const subject = String(body?.subject || 'Broadcast').trim()
       const title = String(body?.title || subject).trim()
