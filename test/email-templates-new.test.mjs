@@ -46,3 +46,14 @@ describe('buildAporteReceivedEmail', () => {
   test('html contiene concept',   () => assert.ok(result.html.includes('Mes de octubre')))
   test('subject contiene "aporte"', () => assert.ok(result.subject.toLowerCase().includes('aporte')))
 })
+
+import { buildLoginNewDeviceEmail } from '../lib/email/templates/login-new-device.js'
+
+describe('buildLoginNewDeviceEmail', () => {
+  const result = buildLoginNewDeviceEmail({ username: 'María', ip: '192.168.1.1', location: 'Buenos Aires', device: 'Chrome' })
+  test('retorna html string',             () => assert.ok(typeof result.html === 'string'))
+  test('html contiene IP',               () => assert.ok(result.html.includes('192.168.1.1')))
+  test('html contiene location',         () => assert.ok(result.html.includes('Buenos Aires')))
+  test('html contiene aviso contraseña', () => assert.ok(result.html.includes('contraseña')))
+  test('subject contiene "Acceso"',      () => assert.ok(result.subject.includes('Acceso')))
+})
