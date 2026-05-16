@@ -13,3 +13,15 @@ describe('buildRoleChangedEmail', () => {
   test('html contiene oldRole', () => assert.ok(result.html.includes('Usuario')))
   test('subject contiene "rol"', () => assert.ok(result.subject.toLowerCase().includes('rol')))
 })
+
+import { buildBotAlertEmail } from '../lib/email/templates/bot-alert.js'
+
+describe('buildBotAlertEmail', () => {
+  const disconnected = buildBotAlertEmail({ botName: 'OguriBot', status: 'disconnected', reason: 'Timeout' })
+  const reconnected  = buildBotAlertEmail({ botName: 'OguriBot', status: 'reconnected' })
+  test('disconnected: html contiene botName', () => assert.ok(disconnected.html.includes('OguriBot')))
+  test('disconnected: html contiene reason',  () => assert.ok(disconnected.html.includes('Timeout')))
+  test('reconnected: html contiene botName',  () => assert.ok(reconnected.html.includes('OguriBot')))
+  test('disconnected: subject contiene 🔴',   () => assert.ok(disconnected.subject.includes('🔴')))
+  test('reconnected: subject contiene 🟢',    () => assert.ok(reconnected.subject.includes('🟢')))
+})
