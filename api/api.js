@@ -26,6 +26,7 @@ import { handleResources }     from './routes/resources.js'
 import { handleBroadcast }     from './routes/broadcast.js'
 import { handleMultimedia }    from './routes/multimedia.js'
 import { handleSupport }       from './routes/support.js'
+import { handleProfile }         from './routes/profile.js'
 
 // Re-exportar emitters de Socket.IO para compatibilidad con index.js
 export {
@@ -239,6 +240,7 @@ export async function startPanelApi({ port, host } = {}) {
       if (pathname.startsWith('/api/resources') || pathname.startsWith('/api/analytics') || pathname.startsWith('/api/stats')) return await handleResources(ctx)
       if (pathname.startsWith('/api/broadcast') || pathname.startsWith('/api/email') || pathname.startsWith('/api/scheduled-messages')) return await handleBroadcast(ctx)
       if (pathname.startsWith('/api/multimedia'))                                     return await handleMultimedia(ctx)
+      if (pathname.startsWith('/api/profile'))                                          return await handleProfile(ctx)
       if (pathname.startsWith('/api/support') || pathname.startsWith('/api/proveedores') ||
           pathname.startsWith('/api/community') || pathname.startsWith('/api/chat') ||
           pathname.startsWith('/api/custom-commands') || pathname.startsWith('/api/terminal')) return await handleSupport(ctx)
