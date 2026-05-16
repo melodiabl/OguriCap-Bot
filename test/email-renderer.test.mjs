@@ -30,4 +30,8 @@ describe('renderPanelEmail', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 't', contentHtml: 'c', ctaUrl: '', ctaText: '' })
     assert.ok(!h.includes('href=""'))
   })
+  test('rechaza ctaUrl con esquema javascript:', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 't', contentHtml: 'c', ctaUrl: 'javascript:alert(1)', ctaText: 'click' })
+    assert.ok(!h.includes('javascript:'))
+  })
 })
