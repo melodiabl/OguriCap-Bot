@@ -5,21 +5,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { Bell, Clock3, Leaf, Menu, Moon, Sparkles, Sun, Waves, X } from 'lucide-react';
+import { Bell, Leaf, Menu, Moon, Sparkles, Sun, Waves, X } from 'lucide-react';
 
 import { DiagnosticsPanelButton } from '@/components/diagnostics/DiagnosticsPanelButton';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { Button } from '@/components/ui/Button';
-import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ProfileAvatar } from '@/components/user/ProfileAvatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useOguriTheme } from '@/contexts/OguriThemeContext';
-import { useSocketConnection } from '@/contexts/SocketContext';
-import { useBotStatus } from '@/hooks/useRealTime';
-import { NAV_ITEMS, NAV_SECTIONS } from '@/lib/navigation';
+import { NAV_ITEMS } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -32,35 +29,17 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const pathname = usePathname();
   const { user } = useAuth();
   const { theme, resolvedTheme, setTheme } = useTheme();
-  const { isConnected: isSocketConnected } = useSocketConnection();
-  const { isConnected: pollingConnected, isConnecting } = useBotStatus();
   const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
   const { isInZone, toggleZone } = useOguriTheme();
   const { effectsMode, performanceMode, cycleEffectsMode } = useDevicePerformance();
   const reduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
-  const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    const syncTime = () => setCurrentTime(formatter.format(new Date()));
-    syncTime();
-
-    const intervalId = window.setInterval(syncTime, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
   const currentPage = NAV_ITEMS.find((item) => item.path === pathname);
-  const currentSection = NAV_SECTIONS.find((section) => section.key === currentPage?.section);
-  const isConnected = pollingConnected;
 
   const effectsLabel =
     effectsMode === 'auto'
@@ -233,61 +212,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-stretch xl:justify-between">
-          <div className="flex-1 rounded-[22px] border border-white/10 bg-[#111713]/66 p-3 shadow-[0_18px_38px_-28px_rgba(0,0,0,0.24)]">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[#25d366]/20 bg-[#25d366]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#a7f3c7]">
-                {currentSection?.label || 'Panel'}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
-                {user?.rol || 'sesion activa'}
-              </span>
-              {unreadCount > 0 && (
-                <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-300">
-                  {unreadCount > 99 ? '99+' : unreadCount} alertas
-                </span>
-              )}
-            </div>
-            <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <div className="min-w-0">
-                <p className="text-base font-black tracking-tight text-foreground sm:text-lg">
-                  {currentPage?.headerLabel || currentPage?.label || 'Centro operativo'}
-                </p>
-                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted">
-                  {currentPage?.description || 'Gestiona el ecosistema completo desde un panel mas claro, mas ordenado y con lectura en vivo.'}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex sm:flex-wrap">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted">Tiempo real</p>
-                  <p className="mt-1 text-sm font-bold text-foreground">{isSocketConnected ? 'Sincronizado' : 'Fallback'}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted">Hora</p>
-                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
-                    <Clock3 className="h-4 w-4 text-oguri-cyan" />
-                    {currentTime || '--:--'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start xl:justify-end">
-            <LiveIndicator
-              className="hidden lg:inline-flex"
-              state={isSocketConnected ? 'live' : 'danger'}
-              label={isSocketConnected ? 'Real-Time' : 'Offline'}
-            />
-
-            <LiveIndicator
-              className="hidden lg:inline-flex"
-              state={isConnecting ? 'warning' : isConnected ? 'live' : 'danger'}
-              label={isConnecting ? 'Bot Connecting' : isConnected ? 'Bot Online' : 'Bot Offline'}
-            />
-
-          </div>
-        </div>
       </div>
     </header>
   );
