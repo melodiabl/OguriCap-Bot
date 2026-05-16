@@ -80,17 +80,22 @@ interface ConfigStats {
 }
 
 const EMAIL_PREVIEW_TEMPLATES = [
-  { id: 'test', label: 'Prueba' },
-  { id: 'registration', label: 'Registro' },
-  { id: 'welcome', label: 'Bienvenida' },
-  { id: 'password-reset', label: 'Reset' },
-  { id: 'security-alert', label: 'Seguridad' },
-  { id: 'notification', label: 'Notificación' },
-  { id: 'role_updated', label: 'Promoción' },
-  { id: 'subbot_disconnected', label: 'Subbot Offline' },
+  { id: 'test',                   label: 'Prueba' },
+  { id: 'registration',           label: 'Registro' },
+  { id: 'welcome',                label: 'Bienvenida' },
+  { id: 'password-reset',         label: 'Reset contraseña' },
+  { id: 'security-alert',         label: 'Alerta seguridad' },
+  { id: 'notification',           label: 'Notificación' },
+  { id: 'role-changed',           label: 'Cambio de rol' },
+  { id: 'bot-alert-disconnected', label: 'Bot offline' },
+  { id: 'bot-alert-reconnected',  label: 'Bot reconectado' },
+  { id: 'subbot-alert',           label: 'Subbot offline' },
+  { id: 'aporte-received',        label: 'Aporte recibido' },
+  { id: 'login-new-device',       label: 'Acceso nuevo dispositivo' },
+  { id: 'account-deleted',        label: 'Cuenta eliminada' },
   { id: 'broadcast_announcement', label: 'Anuncio' },
-  { id: 'broadcast_update', label: 'Novedades' },
-  { id: 'broadcast_alert', label: 'Alerta' },
+  { id: 'broadcast_update',       label: 'Novedades' },
+  { id: 'broadcast_alert',        label: 'Alerta broadcast' },
 ] as const;
 
 const EMAIL_PROVIDER_PRESETS = [
@@ -177,7 +182,7 @@ export default function ConfiguracionPage() {
       setSystemConfig(data.config?.system || {});
       
     } catch (error) {
-      console.error(error);
+      console.error('Error cargando configuraciones:', error);
       notify.error('No se pudieron cargar las configuraciones');
     } finally {
       setIsLoading(false);
@@ -284,7 +289,7 @@ export default function ConfiguracionPage() {
       const res = await api.get('/api/config/email/status');
       setEmailStatus(res.data);
     } catch (error) {
-      console.error(error);
+      console.error('Error chequeando estado de email:', error);
     } finally {
       setIsCheckingEmail(false);
     }

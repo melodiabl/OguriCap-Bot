@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
@@ -101,7 +102,22 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   const titleId = React.useId();
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const onCloseRef = React.useRef(onClose);
+  const pathname = usePathname();
   React.useEffect(() => setMounted(true), []);
+
+  // Cerrar el modal cuando el usuario navega a otra página
+  React.useEffect(() => {
+    onCloseRef.current?.();
+  }, [pathname]);
+
+  // Limpiar body classes si el componente se desmonta con el modal abierto
+  React.useEffect(() => {
+    return () => {
+      const body = document.body;
+      delete body.dataset.modalCount;
+      body.classList.remove('modal-open');
+    };
+  }, []);
 
   // Keep latest onClose without re-running focus effect
   React.useEffect(() => {
