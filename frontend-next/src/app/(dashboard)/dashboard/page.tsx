@@ -33,7 +33,6 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { Progress } from '@/components/ui/Progress';
 import { RealTimeBadge } from '@/components/ui/StatusIndicator';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { CommandCenterStrip } from '@/components/dashboard/CommandCenterStrip';
 import { useDashboardStats, useBotStatus, useSystemStats, useSubbotsStatus, useRecentActivity } from '@/hooks/useRealTime';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
@@ -159,8 +158,6 @@ export default function DashboardPage() {
             )}
           </div>
         </PageHeader>
-
-        <CommandCenterStrip />
 
         {/* Main Stats Grid */}
         <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
