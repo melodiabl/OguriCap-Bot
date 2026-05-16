@@ -25,3 +25,13 @@ describe('buildBotAlertEmail', () => {
   test('disconnected: subject contiene 🔴',   () => assert.ok(disconnected.subject.includes('🔴')))
   test('reconnected: subject contiene 🟢',    () => assert.ok(reconnected.subject.includes('🟢')))
 })
+
+import { buildSubbotAlertEmail } from '../lib/email/templates/subbot-alert.js'
+
+describe('buildSubbotAlertEmail', () => {
+  const result = buildSubbotAlertEmail({ subbotNumber: '+5491155555555', status: 'disconnected', reason: 'QR expirado' })
+  test('retorna html string',           () => assert.ok(typeof result.html === 'string'))
+  test('html contiene subbotNumber',    () => assert.ok(result.html.includes('+5491155555555')))
+  test('html contiene reason',          () => assert.ok(result.html.includes('QR expirado')))
+  test('subject contiene "Subbot"',     () => assert.ok(result.subject.includes('Subbot')))
+})
