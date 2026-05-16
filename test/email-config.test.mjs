@@ -40,6 +40,12 @@ describe('getSmtpTransportHint', () => {
   test('465 → TLS implícito', () => {
     assert.ok(getSmtpTransportHint({ port: 465, secure: false }).includes('TLS'))
   })
+  test('secure + 587 → STARTTLS', () => {
+    assert.ok(getSmtpTransportHint({ port: 587, secure: true }).includes('STARTTLS'))
+  })
+  test('plain → aviso sobre TLS explícito', () => {
+    assert.ok(getSmtpTransportHint({ port: 587, secure: false }).includes('Verifica'))
+  })
 })
 
 describe('getBrandConfig', () => {
