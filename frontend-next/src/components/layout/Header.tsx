@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTheme } from 'next-themes';
@@ -219,13 +220,16 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
 
             <div className="hidden h-8 w-px bg-border/20 xl:block" />
 
-            <div className="hidden xl:flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.045] px-2.5 py-1.5">
-              <ProfileAvatar editable size="sm" />
+            <Link
+              href="/perfil"
+              className="hidden xl:flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.045] px-2.5 py-1.5 transition-colors hover:border-[#25d366]/30 hover:bg-[#25d366]/5"
+            >
+              <ProfileAvatar size="sm" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">{user?.username || 'Usuario'}</p>
                 <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[rgb(var(--text-secondary))]">{user?.rol || 'sesion activa'}</p>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
 
