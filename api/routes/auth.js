@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import crypto from 'crypto'
+import crypto, { createHash } from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { json, readJson, getJwtAuth, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
 import { encryptPassword } from '../../lib/password-crypto.js'
@@ -36,6 +36,29 @@ async function findUser(username) {
 /** Busca usuario por email en PG */
 async function findUserByEmail(email) {
   return pgFindUserByEmail(email)
+}
+
+function deviceFingerprint(ip, ua) {
+  const normalized = safeString(ua).replace(/\s+/g, ' ').trim().slice(0, 300)
+  return createHash('sha256').update(`${ip}|${normalized}`).digest('hex').slice(0, 16)
+}
+
+function parseBrowserOS(ua) {
+  const s = safeString(ua)
+  let browser = 'Navegador'
+  let os = 'Sistema operativo'
+  if (/Edg\//.test(s)) browser = 'Edge'
+  else if (/OPR\/|Opera/.test(s)) browser = 'Opera'
+  else if (/Chrome\//.test(s)) browser = 'Chrome'
+  else if (/Safari\//.test(s) && !/Chrome/.test(s)) browser = 'Safari'
+  else if (/Firefox\//.test(s)) browser = 'Firefox'
+  else if (/MSIE|Trident/.test(s)) browser = 'Internet Explorer'
+  if (/Windows NT/.test(s)) os = 'Windows'
+  else if (/Android/.test(s)) os = 'Android'
+  else if (/iPhone|iPad/.test(s)) os = 'iOS'
+  else if (/Mac OS X/.test(s)) os = 'macOS'
+  else if (/Linux/.test(s)) os = 'Linux'
+  return { browser, os }
 }
 
 export async function handleAuth({ req, res, url, panelDb }) {
@@ -116,6 +139,36 @@ export async function handleAuth({ req, res, url, panelDb }) {
     setImmediate(async () => {
       try {
         await pgUpdateUserLogin(username, clientIp)
+        // Detección de nuevo dispositivo
+        try {
+          const { pgGetUserMetadata, pgAddKnownDevice } = await import('../lib/pg-usuarios.js')
+          const meta = await pgGetUserMetadata(username)
+          const devices = meta.known_devices || []
+          const notifPrefs = meta.notification_prefs || {}
+          const hash = deviceFingerprint(clientIp, userAgent)
+          const isNew = !devices.some(d => d.hash === hash)
+          const { browser, os } = parseBrowserOS(userAgent)
+          const now = new Date().toISOString()
+          await pgAddKnownDevice(username, {
+            hash, ip: clientIp, browser, os, ua: safeString(userAgent).slice(0, 300),
+            first_seen: isNew ? now : undefined,
+            last_seen: now,
+          })
+          if (isNew && notifPrefs.login_new_device !== false) {
+            const userEmail = meta.email || null
+            if (userEmail) {
+              const { sendLoginNewDeviceEmail } = await import('../../lib/email/index.js')
+              void sendLoginNewDeviceEmail({
+                to: userEmail,
+                username,
+                ip: clientIp,
+                location: '-',
+                device: `${browser} en ${os}`,
+                time: new Date().toLocaleString('es-ES', { timeZone: 'America/Santo_Domingo' }),
+              }).catch(() => {})
+            }
+          }
+        } catch {}
         // Sync lowdb si el usuario viene de ahí
         if (user._source !== 'pg') {
           user.last_login = new Date().toISOString()
