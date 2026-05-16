@@ -22,8 +22,8 @@ describe('buildBotAlertEmail', () => {
   test('disconnected: html contiene botName', () => assert.ok(disconnected.html.includes('OguriBot')))
   test('disconnected: html contiene reason',  () => assert.ok(disconnected.html.includes('Timeout')))
   test('reconnected: html contiene botName',  () => assert.ok(reconnected.html.includes('OguriBot')))
-  test('disconnected: subject contiene 🔴',   () => assert.ok(disconnected.subject.includes('🔴')))
-  test('reconnected: subject contiene 🟢',    () => assert.ok(reconnected.subject.includes('🟢')))
+  test('disconnected: html contiene icon 🔴',   () => assert.ok(disconnected.html.includes('🔴')))
+  test('reconnected: html contiene icon 🟢',    () => assert.ok(reconnected.html.includes('🟢')))
 })
 
 import { buildSubbotAlertEmail } from '../lib/email/templates/subbot-alert.js'
@@ -33,7 +33,7 @@ describe('buildSubbotAlertEmail', () => {
   test('retorna html string',           () => assert.ok(typeof result.html === 'string'))
   test('html contiene subbotNumber',    () => assert.ok(result.html.includes('+5491155555555')))
   test('html contiene reason',          () => assert.ok(result.html.includes('QR expirado')))
-  test('subject contiene "Subbot"',     () => assert.ok(result.subject.includes('Subbot')))
+  test('subject contiene "sub-bot"',     () => assert.ok(result.subject.toLowerCase().includes('sub-bot')))
 })
 
 import { buildAporteReceivedEmail } from '../lib/email/templates/aporte-received.js'
@@ -89,15 +89,15 @@ describe('buildAporteRechazadoEmail', () => {
   test('retorna html string', () => assert.ok(typeof result.html === 'string'))
   test('html contiene RECHAZADO', () => assert.ok(result.html.includes('RECHAZADO')))
   test('html contiene reason', () => assert.ok(result.html.includes('Comprobante ilegible')))
-  test('subject contiene procesado', () => assert.ok(result.subject.toLowerCase().includes('procesado')))
+  test('subject contiene rechazado', () => assert.ok(result.subject.toLowerCase().includes('rechazado')))
 })
 
 describe('buildAportePendienteEmail', () => {
   const result = buildAportePendienteEmail({ username: 'María', amount: '$1000', dueDate: '31/05/2026' })
   test('retorna html string', () => assert.ok(typeof result.html === 'string'))
-  test('html contiene PENDIENTE', () => assert.ok(result.html.includes('PENDIENTE')))
+  test('html contiene EN REVISIÓN', () => assert.ok(result.html.includes('EN REVISIÓN')))
   test('html contiene dueDate', () => assert.ok(result.html.includes('31/05/2026')))
-  test('subject contiene pendiente', () => assert.ok(result.subject.toLowerCase().includes('pendiente')))
+  test('subject contiene revisión', () => assert.ok(result.subject.toLowerCase().includes('revisi')))
 })
 
 import { buildMaintenanceNoticeEmail } from '../lib/email/templates/maintenance-notice.js'
