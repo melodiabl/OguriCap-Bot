@@ -174,7 +174,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Revoke refresh token server-side (fire-and-forget)
+    const currentToken = token || localStorage.getItem('token');
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {},
+    }).catch(() => {});
+
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     clearTokenCookie();
