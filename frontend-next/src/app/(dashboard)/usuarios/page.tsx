@@ -229,6 +229,19 @@ export default function UsuariosPage() {
     }
   };
 
+  const toggleUserActive = async (u: User) => {
+    const newState = u.activo === false ? true : false;
+    const action = newState ? 'reactivar' : 'suspender';
+    if (!confirm(`¿Querés ${action} la cuenta de ${u.username}?`)) return;
+    try {
+      await api.updateUsuario(u.id, { activo: newState });
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, activo: newState } : x));
+      notify.success(`Cuenta de ${u.username} ${newState ? 'reactivada' : 'suspendida'}`);
+    } catch (err: any) {
+      notify.error(err.response?.data?.error || `Error al ${action} cuenta`);
+    }
+  };
+
   const inputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-foreground text-sm focus:border-primary/50 outline-none transition-all';
   const labelCls = 'text-[10px] font-black uppercase tracking-widest text-muted-foreground';
 
@@ -494,6 +507,23 @@ export default function UsuariosPage() {
                           >
                             <Key className="h-4 w-4" />
                           </button>
+                          {currentUser?.id !== u.id && (
+                            <button
+                              onClick={() => toggleUserActive(u)}
+                              title={u.activo !== false ? 'Suspender cuenta' : 'Reactivar cuenta'}
+                              className={cn(
+                                'p-2 rounded-xl bg-white/5 border border-white/10 transition-all',
+                                u.activo !== false
+                                  ? 'text-muted-foreground hover:text-amber-400 hover:border-amber-400/40'
+                                  : 'text-muted-foreground hover:text-emerald-400 hover:border-emerald-400/40'
+                              )}
+                            >
+                              {u.activo !== false
+                                ? <EyeOff className="h-4 w-4" />
+                                : <CheckCircle className="h-4 w-4" />
+                              }
+                            </button>
+                          )}
                           {currentUser?.id !== u.id && (
                             <button
                               onClick={() => deleteUser(u)}

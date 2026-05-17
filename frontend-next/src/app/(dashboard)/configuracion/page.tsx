@@ -99,6 +99,13 @@ const EMAIL_PREVIEW_TEMPLATES = [
   { id: 'broadcast_announcement', label: 'Anuncio' },
   { id: 'broadcast_update',       label: 'Novedades' },
   { id: 'broadcast_alert',        label: 'Alerta broadcast' },
+  { id: 'maintenance-notice',     label: 'Mantenimiento programado' },
+  { id: 'account-suspended',      label: 'Cuenta suspendida' },
+  { id: 'account-reactivated',    label: 'Cuenta reactivada' },
+  { id: 'subbot-created',         label: 'Sub-bot creado' },
+  { id: 'subbot-deleted',         label: 'Sub-bot eliminado' },
+  { id: 'two-factor-code',        label: 'Código 2FA' },
+  { id: 'system-alert',           label: 'Alerta del sistema' },
 ] as const;
 
 const EMAIL_PROVIDER_PRESETS = [
@@ -362,6 +369,26 @@ export default function ConfiguracionPage() {
 
   // Support / System actions
   const [maintenanceLoading, setMaintenanceLoading] = React.useState(false);
+  const [maintenanceEmailLoading, setMaintenanceEmailLoading] = React.useState(false);
+
+  const handleSendMaintenanceEmail = async () => {
+    setMaintenanceEmailLoading(true);
+    try {
+      await api.post('/api/email/send', {
+        template: 'maintenance-notice',
+        to: 'admin@admin.com',
+        startTime: new Date().toLocaleString('es-ES'),
+        durationMinutes: 30,
+        affectedServices: ['Panel', 'Bot'],
+      });
+      notify.success('Email de mantenimiento enviado');
+    } catch {
+      notify.error('Error al enviar email de mantenimiento');
+    } finally {
+      setMaintenanceEmailLoading(false);
+    }
+  };
+
   const toggleMaintenanceMode = async () => {
     setMaintenanceLoading(true);
     try {
@@ -861,6 +888,18 @@ export default function ConfiguracionPage() {
                   <AlertTriangle className="h-3.5 w-3.5" />
                   Usuarios no-admin serán redirigidos
                 </span>
+              )}
+              {systemConfig.maintenanceMode && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={maintenanceEmailLoading}
+                  onClick={handleSendMaintenanceEmail}
+                  icon={<Mail className="h-3.5 w-3.5" />}
+                  className="border-amber-500/20 text-amber-300 hover:bg-amber-500/10"
+                >
+                  Notificar por email
+                </Button>
               )}
               <Button
                 variant={systemConfig.maintenanceMode ? 'secondary' : 'glow'}
