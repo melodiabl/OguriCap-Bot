@@ -3,6 +3,8 @@
  * Acceso directo a la tabla `usuarios` en PostgreSQL via global.db.pool
  */
 
+import { decryptPII, blindIndex } from '../../lib/crypto/pii.js'
+
 function pool() { return global.db?.pool }
 
 export async function pgFindUser(username) {
@@ -21,7 +23,23 @@ export async function pgFindUserById(id) {
 
 export async function pgFindUserByEmail(email) {
   try {
-    const { rows } = await pool().query(`SELECT * FROM usuarios WHERE metadata->>'email' = $1 LIMIT 1`, [email])
+    const hash = blindIndex(String(email).toLowerCase().trim())
+    const { rows } = await pool().query(
+      `SELECT * FROM usuarios WHERE email_hash = $1 OR metadata->>'email' = $2 LIMIT 1`,
+      [hash, email]
+    )
+    return rows[0] ? normalizeUser(rows[0]) : null
+  } catch { return null }
+}
+
+export async function pgFindUserByWhatsapp(whatsappNumber) {
+  try {
+    const normalized = String(whatsappNumber).replace(/\D/g, '').replace(/^0+/, '')
+    const hash = blindIndex(normalized)
+    const { rows } = await pool().query(
+      `SELECT * FROM usuarios WHERE whatsapp_hash = $1 OR whatsapp_number = $2 LIMIT 1`,
+      [hash, normalized]
+    )
     return rows[0] ? normalizeUser(rows[0]) : null
   } catch { return null }
 }
@@ -43,7 +61,10 @@ export async function pgUpdateUserLogin(username, clientIp) {
 }
 
 export async function pgUpdateUser(username, fields) {
-  const allowed = ['password', 'rol', 'activo', 'whatsapp_number', 'require_password_change', 'temp_password', 'temp_password_expires']
+  const allowed = [
+    'password', 'rol', 'activo', 'whatsapp_number', 'require_password_change',
+    'email', 'email_hash', 'whatsapp_hash', 'whatsapp_enc',
+  ]
   const sets = [], vals = []
   let i = 1
   for (const [k, v] of Object.entries(fields)) {
@@ -118,23 +139,10 @@ export async function pgRevokeDevice(username, hash) {
 
 export function normalizeUser(row) {
   if (!row) return null
-  const meta = typeof row.metadata === 'object' ? (row.metadata || {}) : {}
+  const { email_hash, whatsapp_hash, ...rest } = row
   return {
-    id: row.id,
-    username: row.username,
-    password: row.password,
-    rol: row.rol,
-    email: meta.email || null,
-    correo: meta.email || null,
-    whatsapp_number: row.whatsapp_number,
-    activo: row.activo !== false,
-    last_login: row.last_login,
-    login_ip: row.login_ip,
-    fecha_registro: row.fecha_registro || row.created_at,
-    require_password_change: row.require_password_change || false,
-    temp_password: row.temp_password || null,
-    temp_password_expires: row.temp_password_expires || null,
-    metadata: meta,
-    _source: 'pg',
+    ...rest,
+    email: decryptPII(row.email) ?? row.metadata?.email ?? null,
+    whatsapp_number: decryptPII(row.whatsapp_enc) ?? row.whatsapp_number ?? null,
   }
 }
