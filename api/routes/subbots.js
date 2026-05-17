@@ -157,6 +157,19 @@ export async function handleSubbots({ req, res, url, panelDb }) {
 
       emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
       global.sendTemplateNotification?.('subbot_created', { subbotCode: code })
+      setImmediate(async () => {
+        try {
+          const ownerEmail = resolveOwnerEmail(panelDb, usuario)
+          if (!ownerEmail) return
+          const { sendSubbotCreatedEmail } = await import('../../lib/email/index.js')
+          await sendSubbotCreatedEmail({
+            to: ownerEmail,
+            subbotName: safeString(code || ''),
+            subbotNumber: safeString(code || ''),
+            createdBy: safeString(auth?.user?.username || 'panel'),
+          })
+        } catch {}
+      })
       if (global.db?.write) await global.db.write()
 
       // Responder inmediatamente — el QR llega por Socket.IO
@@ -236,6 +249,19 @@ export async function handleSubbots({ req, res, url, panelDb }) {
 
       emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
       global.sendTemplateNotification?.('subbot_created', { subbotCode: numero })
+      setImmediate(async () => {
+        try {
+          const ownerEmail = resolveOwnerEmail(panelDb, usuario)
+          if (!ownerEmail) return
+          const { sendSubbotCreatedEmail } = await import('../../lib/email/index.js')
+          await sendSubbotCreatedEmail({
+            to: ownerEmail,
+            subbotName: safeString(numero || ''),
+            subbotNumber: safeString(numero || ''),
+            createdBy: safeString(auth?.user?.username || 'panel'),
+          })
+        } catch {}
+      })
       if (global.db?.write) await global.db.write()
 
       // Responder inmediatamente — el código llega por Socket.IO
@@ -339,6 +365,17 @@ export async function handleSubbots({ req, res, url, panelDb }) {
       deletedBy: safeString(auth.user?.username || auth.user?.user || 'admin'),
       ownerName: ownerUsername || code,
       ...(ownerEmail ? { emailTo: ownerEmail } : {}),
+    })
+    setImmediate(async () => {
+      try {
+        if (!ownerEmail) return
+        const { sendSubbotDeletedEmail } = await import('../../lib/email/index.js')
+        await sendSubbotDeletedEmail({
+          to: ownerEmail,
+          subbotName: safeString(subbotName || code || ''),
+          deletedBy: safeString(auth?.user?.username || 'panel'),
+        })
+      } catch {}
     })
     return json(res, 200, result)
   }

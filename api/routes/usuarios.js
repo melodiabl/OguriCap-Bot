@@ -160,14 +160,33 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
       const fields = {}
       for (const k of ['email', 'whatsapp_number', 'rol', 'activo']) { if (k in body) fields[k] = body[k] }
       if (body.password) fields.password = await bcrypt.hash(body.password, 10)
+      let updatedUser
       if (user._source === 'pg') {
         const updated = await pgUpdateUser(user.username, fields)
-        return json(res, 200, { success: true, user: sanitizeJwtUsuario(normalizeUser(updated) || user) })
+        updatedUser = sanitizeJwtUsuario(normalizeUser(updated) || user)
+      } else {
+        // lowdb fallback
+        const lUser = db?.data?.usuarios?.[user.id]
+        if (lUser) { Object.assign(lUser, fields, { updated_at: new Date().toISOString() }); if (db?.write) await db.write() }
+        updatedUser = sanitizeJwtUsuario(lUser || user)
       }
-      // lowdb fallback
-      const lUser = db?.data?.usuarios?.[user.id]
-      if (lUser) { Object.assign(lUser, fields, { updated_at: new Date().toISOString() }); if (db?.write) await db.write() }
-      return json(res, 200, { success: true, user: sanitizeJwtUsuario(lUser || user) })
+      // Notificar por email si cambia activo
+      if ('activo' in body && user.email) {
+        const userEmail = user.email
+        const adminName = safeString(auth.user?.username || 'Admin')
+        const username  = safeString(user.username || '')
+        setImmediate(async () => {
+          try {
+            const emailLib = await import('../../lib/email/index.js')
+            if (body.activo === false) {
+              await emailLib.sendAccountSuspendedEmail({ to: userEmail, username, suspendedBy: adminName })
+            } else if (body.activo === true) {
+              await emailLib.sendAccountReactivatedEmail({ to: userEmail, username, reactivatedBy: adminName })
+            }
+          } catch {}
+        })
+      }
+      return json(res, 200, { success: true, user: updatedUser })
     }
 
     if (method === 'DELETE') {
