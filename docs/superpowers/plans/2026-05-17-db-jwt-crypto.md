@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrate from `jsonwebtoken` to `jose`, add access/refresh token rotation with DB-backed revocation, encrypt PII (email, whatsapp) with AES-256-GCM + HMAC blind indexes, clean up the DB schema, and fix the WhatsApp JID normalization bug affecting 16 users.
+**Goal:** Add access/refresh token rotation with DB-backed revocation (keeping `jsonwebtoken`), encrypt PII (email, whatsapp) with AES-256-GCM + HMAC blind indexes, clean up the DB schema, and fix the WhatsApp JID normalization bug affecting 16 users.
 
-**Architecture:** A new `lib/crypto/` module handles key derivation (HKDF) and PII encryption; `lib/jwt/index.js` wraps `jose` for token creation/verification. DB migration adds `refresh_tokens` and `token_blacklist` tables plus encrypted columns on `usuarios`. Auth middleware is updated to verify via `jose` and check the JTI blacklist on every request.
+**Architecture:** A new `lib/crypto/` module handles HKDF key derivation and PII encryption; `lib/jwt/index.js` wraps the existing `jsonwebtoken` for short-lived access tokens (15min) and adds opaque refresh tokens stored hashed in DB. Auth middleware gets a JTI blacklist check. No library migration needed.
 
-**Tech Stack:** `jose` (JOSE-compliant JWT), Node.js built-in `node:crypto` (HKDF, AES-256-GCM, HMAC-SHA256), PostgreSQL, Next.js/Axios frontend.
+**Tech Stack:** `jsonwebtoken` (existing, kept as-is), Node.js built-in `node:crypto` (HKDF, AES-256-GCM, HMAC-SHA256), PostgreSQL, Next.js/Axios frontend.
 
 ---
 
@@ -16,42 +16,29 @@
 |---|---|---|
 | `lib/crypto/keys.js` | CREATE | HKDF key derivation — encryption key + HMAC key from master secret |
 | `lib/crypto/pii.js` | CREATE | `encryptPII`, `decryptPII`, `blindIndex` |
-| `lib/jwt/index.js` | CREATE | `createAccessToken`, `verifyAccessToken`, `createRefreshToken`, `hashRefreshToken` |
+| `lib/jwt/index.js` | CREATE | `createAccessToken`, `verifyAccessToken`, `createRefreshToken`, `hashRefreshToken` (wraps jsonwebtoken) |
 | `database/migrations/003_security_pii.sql` | CREATE | Schema: `refresh_tokens`, `token_blacklist`, PII columns on `usuarios` |
 | `database/migrations/migrate-pii.mjs` | CREATE | One-time data migration: normalize JIDs, migrate email, encrypt PII |
 | `api/lib/pg-usuarios.js` | MODIFY | Decrypt PII in `normalizeUser`, blind-index lookups, new allowed fields |
-| `api/routes/auth.js` | MODIFY | Login uses jose, add `/api/auth/refresh`, revoke on logout |
-| `api/middleware/core.js` | MODIFY | Replace `jsonwebtoken` with `jose`, add blacklist check in `getJwtAuth` |
-| `lib/socket-io.js` | MODIFY | Replace `jsonwebtoken` dynamic import with `jose` |
+| `api/routes/auth.js` | MODIFY | Login issues short-lived token + refresh, add `/api/auth/refresh`, revoke on logout |
+| `api/middleware/core.js` | MODIFY | Short access token expiry (15min), add JTI blacklist check in `getJwtAuth` |
 | `plugins/panel-registro.js` | MODIFY | Normalize `m.sender` JID before sending to auto-register |
 | `frontend-next/src/services/api.ts` | MODIFY | Add refresh interceptor on 401 |
 | `frontend-next/src/contexts/AuthContext.tsx` | MODIFY | Logout calls `POST /api/auth/logout` |
 | `test/crypto-keys.test.mjs` | CREATE | Tests for key derivation |
 | `test/crypto-pii.test.mjs` | CREATE | Tests for PII encrypt/decrypt/blindIndex |
 | `test/jwt-helpers.test.mjs` | CREATE | Tests for createAccessToken / verifyAccessToken / createRefreshToken |
-| `package.json` | MODIFY | Add `jose`, remove `jsonwebtoken` |
 | `.env` / `.env.example` | MODIFY | Add `DB_ENCRYPTION_KEY` |
 
 ---
 
-## Task 1: Install `jose`, add `DB_ENCRYPTION_KEY` to env
+## Task 1: Add `DB_ENCRYPTION_KEY` to env
 
 **Files:**
-- Modify: `package.json`
 - Modify: `/home/OguriCap-Bot/.env`
 - Modify: `/home/OguriCap-Bot/.env.example`
 
-- [ ] **Step 1: Install jose, remove jsonwebtoken**
-
-```bash
-cd /home/OguriCap-Bot
-npm install jose
-npm uninstall jsonwebtoken
-```
-
-Expected: `jose` appears in `package.json` dependencies, `jsonwebtoken` removed.
-
-- [ ] **Step 2: Add DB_ENCRYPTION_KEY to .env**
+- [ ] **Step 1: Add DB_ENCRYPTION_KEY to .env**
 
 ```bash
 echo "DB_ENCRYPTION_KEY=\"$(openssl rand -hex 32)\"" >> /home/OguriCap-Bot/.env
@@ -74,8 +61,8 @@ Expected: line present.
 
 ```bash
 cd /home/OguriCap-Bot
-git add package.json package-lock.json .env.example
-git commit -m "chore: add jose, remove jsonwebtoken; add DB_ENCRYPTION_KEY to env template"
+git add .env.example
+git commit -m "chore: add DB_ENCRYPTION_KEY to env template"
 ```
 
 ---
@@ -323,20 +310,20 @@ const { createAccessToken, verifyAccessToken, createRefreshToken, hashRefreshTok
   await import('../lib/jwt/index.js')
 
 describe('createAccessToken', () => {
-  test('returns token, jti, expiresIn', async () => {
-    const { token, jti, expiresIn } = await createAccessToken({ username: 'juan', rol: 'usuario' })
+  test('returns token, jti, expiresIn', () => {
+    const { token, jti, expiresIn } = createAccessToken({ username: 'juan', rol: 'usuario' })
     assert.ok(typeof token === 'string' && token.length > 20)
     assert.ok(typeof jti === 'string' && jti.length > 10)
     assert.strictEqual(expiresIn, 900)
   })
-  test('verifyAccessToken decodes sub and rol', async () => {
-    const { token } = await createAccessToken({ username: 'maria', rol: 'admin' })
-    const payload = await verifyAccessToken(token)
+  test('verifyAccessToken decodes sub and rol', () => {
+    const { token } = createAccessToken({ username: 'maria', rol: 'admin' })
+    const payload = verifyAccessToken(token)
     assert.strictEqual(payload.sub, 'maria')
     assert.strictEqual(payload.rol, 'admin')
   })
-  test('verifyAccessToken throws on invalid token', async () => {
-    await assert.rejects(() => verifyAccessToken('bad.token.value'))
+  test('verifyAccessToken throws on invalid token', () => {
+    assert.throws(() => verifyAccessToken('bad.token.value'))
   })
 })
 
@@ -371,7 +358,7 @@ Expected: "Cannot find module '../lib/jwt/index.js'"
 - [ ] **Step 3: Create `lib/jwt/index.js`**
 
 ```js
-import { SignJWT, jwtVerify } from 'jose'
+import jwt from 'jsonwebtoken'
 import { randomBytes, createHash, randomUUID } from 'node:crypto'
 
 const ACCESS_TTL_SECONDS = 900 // 15 minutes
@@ -379,22 +366,17 @@ const ACCESS_TTL_SECONDS = 900 // 15 minutes
 function getSecret() {
   const raw = String(process.env.JWT_SECRET || '').trim()
   if (!raw) throw new Error('JWT_SECRET no configurada')
-  return new TextEncoder().encode(raw)
+  return raw
 }
 
-export async function createAccessToken({ username, rol }) {
+export function createAccessToken({ username, rol }) {
   const jti = randomUUID()
-  const token = await new SignJWT({ sub: username, rol, jti })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(`${ACCESS_TTL_SECONDS}s`)
-    .sign(getSecret())
+  const token = jwt.sign({ sub: username, username, rol, jti }, getSecret(), { expiresIn: ACCESS_TTL_SECONDS })
   return { token, jti, expiresIn: ACCESS_TTL_SECONDS }
 }
 
-export async function verifyAccessToken(token) {
-  const { payload } = await jwtVerify(token, getSecret())
-  return payload
+export function verifyAccessToken(token) {
+  return jwt.verify(token, getSecret()) // throws on invalid/expired
 }
 
 export function createRefreshToken() {
@@ -999,74 +981,35 @@ git commit -m "feat(auth): add /api/auth/refresh with rotation + /api/auth/logou
 
 ---
 
-## Task 10: Update `api/middleware/core.js` — replace jsonwebtoken with jose
+## Task 10: Update `api/middleware/core.js` — add JTI blacklist check
 
 **Files:**
 - Modify: `api/middleware/core.js`
 
-- [ ] **Step 1: Replace the import**
+- [ ] **Step 1: Update `getJwtAuth` to add blacklist check**
 
-At the top of `api/middleware/core.js`, replace:
-```js
-import jwt from 'jsonwebtoken'
-```
-With:
-```js
-import { jwtVerify, SignJWT } from 'jose'
-```
+`core.js` already uses `jsonwebtoken` via `verifyJwt`. Just add the JTI blacklist check after successful verification. Find:
 
-- [ ] **Step 2: Replace `verifyJwt` and `signJwt`**
-
-Replace:
-```js
-export function verifyJwt(token) {
-  const secret = String(process.env.JWT_SECRET || '').trim()
-  if (!secret) throw new Error('JWT_SECRET no configurado')
-  return jwt.verify(token, secret)
-}
-
-export function signJwt(payload, expiresIn = '7d') {
-  const secret = String(process.env.JWT_SECRET || '').trim()
-  if (!secret) throw new Error('JWT_SECRET no configurado')
-  return jwt.sign(payload, secret, { expiresIn })
-}
-```
-
-With:
-```js
-function getJwtSecret() {
-  const raw = String(process.env.JWT_SECRET || '').trim()
-  if (!raw) throw new Error('JWT_SECRET no configurado')
-  return new TextEncoder().encode(raw)
-}
-
-export async function verifyJwt(token) {
-  const { payload } = await jwtVerify(token, getJwtSecret())
-  return payload
-}
-
-export async function signJwt(payload, expiresIn = '7d') {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(expiresIn)
-    .sign(getJwtSecret())
-}
-```
-
-- [ ] **Step 3: Update `getJwtAuth` to be fully async and check blacklist**
-
-Replace the current `getJwtAuth`:
 ```js
 export async function getJwtAuth(req) {
   const token = getBearerToken(req) || parseCookies(req)['auth_token'] || ''
   if (!token) return { ok: false, status: 401, error: 'Token requerido' }
   try {
-    const decoded = await verifyJwt(token)
-    const username = decoded?.sub || decoded?.username
-    if (!username) return { ok: false, status: 403, error: 'Token inválido' }
+    const decoded = verifyJwt(token)
+    const username = decoded?.username
+```
 
-    // Check JTI blacklist
+Replace with:
+
+```js
+export async function getJwtAuth(req) {
+  const token = getBearerToken(req) || parseCookies(req)['auth_token'] || ''
+  if (!token) return { ok: false, status: 401, error: 'Token requerido' }
+  try {
+    const decoded = verifyJwt(token)
+    const username = decoded?.sub || decoded?.username
+
+    // Check JTI blacklist for revoked tokens
     const jti = decoded?.jti
     if (jti && global.db?.pool) {
       try {
@@ -1076,90 +1019,18 @@ export async function getJwtAuth(req) {
         if (rows.length > 0) return { ok: false, status: 401, error: 'Token revocado' }
       } catch {}
     }
-
-    const usuarios = global.db?.data?.usuarios || {}
-    let user = Object.values(usuarios).find(u => u?.username === username)
-    if (!user && global.db?.pool) {
-      try {
-        const { rows } = await global.db.pool.query('SELECT * FROM usuarios WHERE username = $1 LIMIT 1', [username])
-        if (rows[0]) user = rows[0]
-      } catch {}
-    }
-    if (!user) return { ok: false, status: 401, error: 'Usuario no autenticado' }
-    return { ok: true, user, decoded, usuarios }
-  } catch {
-    return { ok: false, status: 403, error: 'Token inválido' }
-  }
-}
-```
-
-- [ ] **Step 4: Update `getUserFromToken` to be async**
-
-Replace:
-```js
-export function getUserFromToken(token) {
-  try {
-    const decoded = verifyJwt(token)
-    const username = decoded?.username
-    if (!username) return null
-```
-
-With:
-```js
-export async function getUserFromToken(token) {
-  try {
-    const decoded = await verifyJwt(token)
-    const username = decoded?.sub || decoded?.username
-    if (!username) return null
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add api/middleware/core.js
-git commit -m "feat(auth): migrate core.js from jsonwebtoken to jose, add JTI blacklist check"
-```
-
----
-
-## Task 11: Fix `lib/socket-io.js` — replace jsonwebtoken with jose
-
-**Files:**
-- Modify: `lib/socket-io.js`
-
-- [ ] **Step 1: Replace the dynamic jsonwebtoken import**
-
-Find in `lib/socket-io.js` (around line 149):
-```js
-const jwt = (await import('jsonwebtoken')).default;
-const jwtSecret = String(process.env.JWT_SECRET || '').trim();
-if (jwtSecret) {
-  jwt.verify(token, jwtSecret);
-  socket.join('authenticated');
-}
-```
-
-Replace with:
-```js
-const { jwtVerify } = await import('jose')
-const jwtSecret = String(process.env.JWT_SECRET || '').trim()
-if (jwtSecret) {
-  const secret = new TextEncoder().encode(jwtSecret)
-  await jwtVerify(token, secret)
-  socket.join('authenticated')
-}
 ```
 
 - [ ] **Step 2: Commit**
 
 ```bash
-git add lib/socket-io.js
-git commit -m "fix(socket): replace jsonwebtoken with jose for socket authentication"
+git add api/middleware/core.js
+git commit -m "feat(auth): add JTI blacklist check in getJwtAuth"
 ```
 
 ---
 
-## Task 12: Fix `plugins/panel-registro.js` — normalize JID before auto-register
+## Task 11: Fix `plugins/panel-registro.js` — normalize JID before auto-register  
 
 **Files:**
 - Modify: `plugins/panel-registro.js`
@@ -1197,7 +1068,7 @@ git commit -m "fix(plugin): normalize WhatsApp JID to number before auto-registe
 
 ---
 
-## Task 13: Frontend `api.ts` — refresh interceptor on 401
+## Task 12: Frontend `api.ts` — refresh interceptor on 401
 
 **Files:**
 - Modify: `frontend-next/src/services/api.ts`
@@ -1269,7 +1140,7 @@ git commit -m "feat(frontend): add silent token refresh on 401 via /api/auth/ref
 
 ---
 
-## Task 14: Frontend `AuthContext.tsx` — server logout
+## Task 13: Frontend `AuthContext.tsx` — server logout
 
 **Files:**
 - Modify: `frontend-next/src/contexts/AuthContext.tsx`
@@ -1323,7 +1194,7 @@ git commit -m "feat(frontend): logout calls /api/auth/logout to revoke refresh t
 
 ---
 
-## Task 15: Build and verify everything
+## Task 14: Build and verify everything
 
 - [ ] **Step 1: Run all tests**
 
