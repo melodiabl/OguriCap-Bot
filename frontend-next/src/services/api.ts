@@ -72,7 +72,7 @@ class ApiService {
             const refreshRes = await this.api.post(
               '/api/auth/refresh',
               {},
-              { withCredentials: true, ...({ __isRefresh: true } as any) }
+              { withCredentials: true, __isRefresh: true } as any
             )
             const newToken = refreshRes.data?.token
             if (newToken) {
