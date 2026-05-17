@@ -21,7 +21,7 @@ const { CONNECTING } = ws
 import { makeWASocket } from '../lib/simple.js'
 import { getSubbotCapacityInfo } from '../lib/subbot-capacity.js'
 import { fileURLToPath } from 'url'
-import { sendTemplateNotification } from '../api/notification/index.js'
+import { sendTemplateNotification } from '../lib/notification-system.js'
 let crm1 = "Y2QgcGx1Z2lucy"
 let crm2 = "A7IG1kNXN1b"
 let crm3 = "SBpbmZvLWRvbmFyLmpz"
@@ -542,7 +542,7 @@ export async function yukiJadiBot(options) {
           console.log(`[AUTO-LIMPIEZA] Sesión ${subbotCodeCleanup} eliminada credenciales invalidos.`)
           // Emitir evento de subbot eliminado al panel
           try {
-            const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../api/socket-io.js')
+            const { emitSubbotDeleted, emitSubbotDisconnected } = await import('../lib/socket-io.js')
             emitSubbotDisconnected(subbotCodeCleanup, 'auto-limpieza')
             emitSubbotDeleted(subbotCodeCleanup)
           } catch { }
@@ -721,7 +721,7 @@ export async function yukiJadiBot(options) {
             } catch { }
             // Emitir evento de subbot eliminado al panel
             try {
-              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../api/socket-io.js')
+              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../lib/socket-io.js')
 
               // Mantener el registro en el panel (solo marcar offline). Esto evita que "desaparezca".
               try {
@@ -769,7 +769,7 @@ export async function yukiJadiBot(options) {
             } catch { }
             // Emitir evento de subbot eliminado al panel
             try {
-              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../api/socket-io.js')
+              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../lib/socket-io.js')
 
               // Mantener el registro en el panel (solo marcar offline).
               try {
@@ -883,7 +883,7 @@ export async function yukiJadiBot(options) {
 
               // Emitir evento de subbot conectado al panel
               try {
-                const { emitSubbotConnected, emitSubbotStatus, emitSubbotUpdated, emitSubbotCreated } = await import('../api/socket-io.js')
+                const { emitSubbotConnected, emitSubbotStatus, emitSubbotUpdated, emitSubbotCreated } = await import('../lib/socket-io.js')
                 emitSubbotConnected(stableKey, phone)
                 // Emitir estado global para que el panel refresque rápido
                 emitSubbotStatus()

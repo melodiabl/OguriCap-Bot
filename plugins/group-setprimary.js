@@ -18,7 +18,7 @@ const handler = async (m, { conn }) => {
 
     // Emitir evento Socket.IO
     try {
-      const { emitGrupoUpdated } = await import('../api/socket-io.js')
+      const { emitGrupoUpdated } = await import('../lib/socket-io.js')
       emitGrupoUpdated({ jid: m.chat, primaryBot: who })
     } catch { }
 

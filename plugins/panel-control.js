@@ -18,7 +18,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
 
         // Emitir evento Socket.IO
         try {
-          const { emitBotStatus } = await import('../api/socket-io.js')
+          const { emitBotStatus } = await import('../lib/socket-io.js')
           emitBotStatus()
         } catch { }
 
@@ -30,7 +30,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
 
         // Emitir evento Socket.IO
         try {
-          const { emitBotStatus } = await import('../api/socket-io.js')
+          const { emitBotStatus } = await import('../lib/socket-io.js')
           emitBotStatus()
         } catch { }
 
