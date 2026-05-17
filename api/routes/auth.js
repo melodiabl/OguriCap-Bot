@@ -288,7 +288,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
 
     const hashed = await bcrypt.hash(newPassword, 10)
     await db.pool.query(
-      `UPDATE usuarios SET password=$2, require_password_change=false, temp_password=null,
+      `UPDATE usuarios SET password=$2, require_password_change=false,
        metadata = metadata - 'reset_password_token_hash' - 'reset_password_expires' WHERE id=$1`,
       [row.id, hashed]
     )
@@ -445,7 +445,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     if (!user || !await bcrypt.compare(currentPassword, user.password || '')) return json(res, 400, { error: 'Contraseña actual incorrecta' })
     if (await bcrypt.compare(newPassword, user.password || '')) return json(res, 400, { error: 'La nueva contraseña debe ser diferente a la actual' })
     const hashed = await bcrypt.hash(newPassword, 10)
-    await pgUpdateUser(auth.user.username, { password: hashed, require_password_change: false, temp_password: null })
+    await pgUpdateUser(auth.user.username, { password: hashed, require_password_change: false })
     global.sendTemplateNotification?.('password_changed', { username: auth.user.username })
     return json(res, 200, { success: true, message: 'Contraseña cambiada correctamente' })
   }
@@ -462,7 +462,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     const tempPassword = 'r-' + crypto.randomBytes(6).toString('hex')
     const hashed = await bcrypt.hash(tempPassword, 10)
     await db.pool.query(
-      `UPDATE usuarios SET password=$2, temp_password=null, require_password_change=true WHERE id=$1`,
+      `UPDATE usuarios SET password=$2, require_password_change=true WHERE id=$1`,
       [rows[0].id, hashed]
     )
     // Send temp password via WhatsApp — never include it in the HTTP response
@@ -492,8 +492,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     db.data.usuarios[newId] = {
       id: newId, username, password: await bcrypt.hash(tempPassword, 10), rol: 'usuario',
       whatsapp_number, grupo_registro: grupo_jid, fecha_registro: new Date().toISOString(), activo: true,
-      temp_password_expires: new Date(Date.now() + 86400000).toISOString(),
-      temp_password_used: false, require_password_change: true,
+      require_password_change: true,
     }
     if (db?.write) await db.write()
     global.sendTemplateNotification?.('user_registered', { username, whatsapp: whatsapp_number })

@@ -687,9 +687,9 @@ export default function LoginPage() {
 
                   {/* Register link */}
                   <p className="text-center font-mono text-[10px] text-muted/35 pt-0.5">
-                    ¿Sin credenciales?{' '}
+                    ¿No tenés cuenta?{' '}
                     <Link href="/register" className="font-bold text-primary/65 hover:text-primary transition-colors">
-                      Solicitar acceso
+                      Crear tu cuenta
                     </Link>
                   </p>
                 </form>
