@@ -58,13 +58,25 @@ export function withCors(req, res) {
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+function parseCookies(req) {
+  const cookies = {}
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const idx = part.indexOf('=')
+    if (idx < 0) continue
+    const k = part.slice(0, idx).trim()
+    const v = part.slice(idx + 1).trim()
+    if (k) cookies[k] = decodeURIComponent(v)
+  }
+  return cookies
+}
+
 export function getBearerToken(req) {
   const [, t] = (req.headers.authorization || '').match(/^Bearer\s+(.+)$/i) || []
   return t || ''
 }
 
 export function getTokenFromRequest(req, url) {
-  return getBearerToken(req) || url?.searchParams?.get('token') || ''
+  return getBearerToken(req) || url?.searchParams?.get('token') || parseCookies(req)['auth_token'] || ''
 }
 
 export function verifyJwt(token) {
@@ -80,11 +92,23 @@ export function signJwt(payload, expiresIn = '7d') {
 }
 
 export async function getJwtAuth(req) {
-  const token = getBearerToken(req)
+  const token = getBearerToken(req) || parseCookies(req)['auth_token'] || ''
   if (!token) return { ok: false, status: 401, error: 'Token requerido' }
   try {
     const decoded = verifyJwt(token)
-    const username = decoded?.username
+    const username = decoded?.sub || decoded?.username
+
+    // Check JTI blacklist for revoked tokens
+    const jti = decoded?.jti
+    if (jti && global.db?.pool) {
+      try {
+        const { rows } = await global.db.pool.query(
+          'SELECT 1 FROM token_blacklist WHERE jti = $1 AND expires_at > NOW() LIMIT 1', [jti]
+        )
+        if (rows.length > 0) return { ok: false, status: 401, error: 'Token revocado' }
+      } catch {}
+    }
+
     if (!username) return { ok: false, status: 403, error: 'Token inválido' }
     const usuarios = global.db?.data?.usuarios || {}
     let user = Object.values(usuarios).find(u => u?.username === username)
