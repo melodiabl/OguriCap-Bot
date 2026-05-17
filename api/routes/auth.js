@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import crypto, { createHash } from 'node:crypto'
-import jwt from 'jsonwebtoken'
-import { json, readJson, getJwtAuth, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
+import { createAccessToken, createRefreshToken, hashRefreshToken, verifyAccessToken, ACCESS_TOKEN_SECONDS } from '../../lib/jwt/index.js'
+import { json, readJson, getJwtAuth, getBearerToken, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
 import { encryptPassword } from '../../lib/password-crypto.js'
 import {
   pgFindUser, pgFindUserByEmail, pgCreateUser, pgUpdateUserLogin,
@@ -120,19 +120,36 @@ export async function handleAuth({ req, res, url, panelDb }) {
     if (!await bcrypt.compare(password, user.password || '')) { await sendFailAlert('Login fallido (contraseña)'); return json(res, 401, { error: 'Credenciales inválidas' }) }
     if (role && user.rol !== role) { await sendFailAlert('Login fallido (rol)', [{ label: 'Rol pedido', value: safeString(role) }]); return json(res, 403, { error: 'No tienes permisos para acceder con este rol' }) }
 
-    const config = getConfig()
-    const jwtSecret = safeString(process.env.JWT_SECRET || config?.security?.jwtSecret || '').trim()
-    if (!jwtSecret) throw new Error('JWT_SECRET no configurado')
-    const token = jwt.sign({ username: user.username, rol: user.rol }, jwtSecret, { expiresIn: process.env.JWT_EXPIRY || config?.security?.jwtExpiry || '24h' })
+    const { token, jti, expiresIn } = createAccessToken({ username: user.username, rol: user.rol })
+    const { rawToken: refreshRaw, tokenHash: refreshHash } = createRefreshToken()
+
+    // Store refresh token in DB
+    const familyId = crypto.randomUUID()
+    const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    const deviceHint = crypto.createHash('sha256').update(userAgent || '').digest('hex').slice(0, 16)
+    try {
+      await db.pool.query(
+        `INSERT INTO refresh_tokens (token_hash, user_id, family_id, device_hint, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [refreshHash, user.id, familyId, deviceHint, refreshExpires]
+      )
+    } catch {}
 
     user.last_login = new Date().toISOString()
     user.login_ip = clientIp
 
+    // Set both tokens as httpOnly cookies
+    const isSecure = process.env.NODE_ENV === 'production'
+    res.setHeader('Set-Cookie', [
+      `auth_token=${token}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${ACCESS_TOKEN_SECONDS}`,
+      `refresh_token=${refreshRaw}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth/refresh; Max-Age=${7 * 24 * 3600}`,
+    ])
     json(res, 200, {
       token,
+      expiresIn,
       user: { id: user.id, username: user.username, rol: user.rol, email: user.email || user.correo || null,
         last_login: user.last_login, require_password_change: user.require_password_change || false,
-        isTemporaryPassword: !!user.temp_password && !user.temp_password_used },
+        isTemporaryPassword: !user.temp_password_used },
       message: user.require_password_change ? 'Se requiere cambio de contraseña' : undefined,
     })
 
@@ -239,7 +256,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
       const expiresAt = new Date(Date.now() + expiresMs).toISOString()
       try {
         await db.pool.query(
-          `UPDATE usuarios SET metadata = COALESCE(metadata,'{}':jsonb) || $2::jsonb WHERE id = $1`,
+          `UPDATE usuarios SET metadata = COALESCE(metadata,'{}' ::jsonb) || $2::jsonb WHERE id = $1`,
           [user.id, JSON.stringify({ reset_password_token_hash: tokenHash, reset_password_expires: expiresAt })]
         )
       } catch {}
@@ -307,6 +324,106 @@ export async function handleAuth({ req, res, url, panelDb }) {
     return json(res, auth.ok ? 200 : auth.status, auth.ok ? { valid: true, user: sanitizeJwtUsuario(auth.user) } : { valid: false })
   }
 
+  // ── POST /api/auth/logout ─────────────────────────────────────────────────
+  if (pathname === '/api/auth/logout' && method === 'POST') {
+    // Parse cookies
+    const logoutCookies = {}
+    for (const part of String(req.headers.cookie || '').split(';')) {
+      const idx = part.indexOf('=')
+      if (idx < 0) continue
+      logoutCookies[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim())
+    }
+
+    // Revoke refresh token from DB
+    const rawRefresh = logoutCookies['refresh_token']
+    if (rawRefresh && db?.pool) {
+      const hash = hashRefreshToken(rawRefresh)
+      await db.pool.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [hash]).catch(() => {})
+    }
+
+    // Blacklist access token JTI
+    const bearerToken = getBearerToken(req) || logoutCookies['auth_token']
+    if (bearerToken && db?.pool) {
+      try {
+        const payload = verifyAccessToken(bearerToken)
+        if (payload?.jti) {
+          const expMs = (payload.exp || 0) * 1000
+          await db.pool.query(
+            'INSERT INTO token_blacklist (jti, expires_at) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [payload.jti, new Date(expMs)]
+          ).catch(() => {})
+        }
+      } catch {}
+    }
+
+    const isSecure = process.env.NODE_ENV === 'production'
+    res.setHeader('Set-Cookie', [
+      `auth_token=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=0`,
+      `refresh_token=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth/refresh; Max-Age=0`,
+    ])
+    return json(res, 200, { success: true })
+  }
+
+  // ── POST /api/auth/refresh ─────────────────────────────────────────────────
+  if (pathname === '/api/auth/refresh' && method === 'POST') {
+    const refreshCookies = {}
+    for (const part of String(req.headers.cookie || '').split(';')) {
+      const idx = part.indexOf('=')
+      if (idx < 0) continue
+      refreshCookies[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim())
+    }
+    const rawRefresh = refreshCookies['refresh_token']
+    if (!rawRefresh) return json(res, 401, { error: 'Refresh token requerido' })
+
+    const tokenHash = hashRefreshToken(rawRefresh)
+
+    let row
+    try {
+      const { rows } = await db.pool.query(
+        `SELECT * FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW() LIMIT 1`,
+        [tokenHash]
+      )
+      row = rows[0]
+    } catch { return json(res, 500, { error: 'Error de base de datos' }) }
+
+    if (!row) return json(res, 401, { error: 'Refresh token inválido o expirado' })
+
+    // Detect token reuse (theft): if already used, revoke entire family
+    if (row.used_at) {
+      await db.pool.query('DELETE FROM refresh_tokens WHERE family_id = $1', [row.family_id]).catch(() => {})
+      return json(res, 401, { error: 'Token reutilizado — sesión revocada por seguridad' })
+    }
+
+    // Mark current token as used
+    await db.pool.query('UPDATE refresh_tokens SET used_at = NOW() WHERE id = $1', [row.id]).catch(() => {})
+
+    // Find user
+    const { pgFindUserById } = await import('../lib/pg-usuarios.js')
+    const user = await pgFindUserById(row.user_id)
+    if (!user || !user.activo) return json(res, 401, { error: 'Usuario no válido' })
+
+    // Issue new token pair
+    const { token, jti, expiresIn } = createAccessToken({ username: user.username, rol: user.rol })
+    const { rawToken: newRawRefresh, tokenHash: newRefreshHash } = createRefreshToken()
+
+    const newExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    await db.pool.query(
+      `INSERT INTO refresh_tokens (token_hash, user_id, family_id, device_hint, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [newRefreshHash, user.id, row.family_id, row.device_hint, newExpires]
+    ).catch(() => {})
+
+    // Lazy cleanup expired blacklist entries
+    db.pool.query('DELETE FROM token_blacklist WHERE expires_at < NOW()').catch(() => {})
+
+    const isSecure = process.env.NODE_ENV === 'production'
+    res.setHeader('Set-Cookie', [
+      `auth_token=${token}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${ACCESS_TOKEN_SECONDS}`,
+      `refresh_token=${newRawRefresh}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth/refresh; Max-Age=${7 * 24 * 3600}`,
+    ])
+    return json(res, 200, { token, expiresIn })
+  }
+
   // ── POST /api/auth/change-password ────────────────────────────────────────
   if (pathname === '/api/auth/change-password' && method === 'POST') {
     const auth = await getJwtAuth(req)
@@ -333,28 +450,40 @@ export async function handleAuth({ req, res, url, panelDb }) {
       'SELECT * FROM usuarios WHERE username=$1 AND whatsapp_number=$2 LIMIT 1', [username, whatsapp_number]
     )
     if (!rows[0]) return json(res, 404, { error: 'Usuario no encontrado o número de WhatsApp no coincide' })
-    const tempPassword = 'reset' + Math.random().toString(36).substring(2, 8)
+    const tempPassword = 'r-' + crypto.randomBytes(6).toString('hex')
     const hashed = await bcrypt.hash(tempPassword, 10)
     await db.pool.query(
-      `UPDATE usuarios SET password=$2, temp_password=$3, require_password_change=true WHERE id=$1`,
-      [rows[0].id, hashed, tempPassword]
+      `UPDATE usuarios SET password=$2, temp_password=null, require_password_change=true WHERE id=$1`,
+      [rows[0].id, hashed]
     )
-    return json(res, 200, { success: true, message: 'Contraseña restablecida', tempPassword, username })
+    // Send temp password via WhatsApp — never include it in the HTTP response
+    try {
+      const normalizedNum = normalizeWhatsAppNumber(rows[0].whatsapp_number)
+      const jid = normalizedNum + '@s.whatsapp.net'
+      global.conn?.sendMessage(jid, {
+        text: `🔑 Tu contraseña temporal para *${username}* es:\n\n\`${tempPassword}\`\n\nInicia sesión y cámbiala de inmediato.`
+      })
+    } catch {}
+    return json(res, 200, { success: true, message: 'Contraseña restablecida. Revisa tu WhatsApp.' })
   }
 
-  // ── POST /api/auth/auto-register (desde WhatsApp) ─────────────────────────
+  // ── POST /api/auth/auto-register (desde WhatsApp — solo bot interno) ────────
   if (pathname === '/api/auth/auto-register' && method === 'POST') {
+    const botSecret = process.env.INTERNAL_BOT_SECRET
+    if (!botSecret || req.headers['x-bot-secret'] !== botSecret) {
+      return json(res, 403, { error: 'Acceso denegado' })
+    }
     const body = await readJson(req)
     const { whatsapp_number, username, grupo_jid } = body || {}
     if (!whatsapp_number || !username || !grupo_jid) return json(res, 400, { error: 'Número de WhatsApp, username y grupo son requeridos' })
     const users = db?.data?.usuarios || {}
     if (Object.values(users).some(u => u?.username === username)) return json(res, 400, { error: 'El nombre de usuario ya existe' })
-    const tempPassword = 'temp' + Math.random().toString(36).substring(2, 8)
+    const tempPassword = 't-' + crypto.randomBytes(6).toString('hex')
     const newId = Math.max(0, ...Object.keys(users).map(Number).filter(Number.isFinite)) + 1
     db.data.usuarios[newId] = {
       id: newId, username, password: await bcrypt.hash(tempPassword, 10), rol: 'usuario',
       whatsapp_number, grupo_registro: grupo_jid, fecha_registro: new Date().toISOString(), activo: true,
-      temp_password: tempPassword, temp_password_expires: new Date(Date.now() + 86400000).toISOString(),
+      temp_password_expires: new Date(Date.now() + 86400000).toISOString(),
       temp_password_used: false, require_password_change: true,
     }
     if (db?.write) await db.write()
