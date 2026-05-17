@@ -7,7 +7,7 @@ import EventEmitter from 'events'
 import fs from 'fs'
 import path from 'path'
 import metricsSystem from './metrics-system.js'
-import notificationSystem from './notification-system.js'
+import notificationSystem from './notification/index.js'
 import auditLogger, { AUDIT_EVENTS, logSystemAction } from './audit-logger.js'
 
 class IntelligentAlerts extends EventEmitter {

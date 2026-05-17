@@ -6,7 +6,7 @@ import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import crypto from 'crypto';
 import auditLogger, { AUDIT_EVENTS } from './audit-logger.js';
-import notificationSystem from './notification-system.js';
+import notificationSystem from './notification/index.js';
 
 // Tipos de backup
 export const BACKUP_TYPES = {

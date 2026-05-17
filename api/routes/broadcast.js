@@ -65,7 +65,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const body = await readJson(req)
     try {
-      const { sendBroadcastEmail } = await import('../../lib/email/index.js')
+      const { sendBroadcastEmail } = await import('../email/index.js')
       await sendBroadcastEmail?.(body)
       return json(res, 200, { success: true })
     } catch (err) { return json(res, 500, { error: err?.message || 'Error enviando email broadcast' }) }
@@ -77,7 +77,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     const body = await readJson(req)
     try {
-      const { getIO } = await import('../../lib/socket-io.js')
+      const { getIO } = await import('../socket-io.js')
       getIO()?.emit('push:notification', body)
     } catch {}
     return json(res, 200, { success: true })
@@ -86,7 +86,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
   // ── /api/email/status ─────────────────────────────────────────────────────
   if (pathname === '/api/email/status' && method === 'GET') {
     try {
-      const { getEmailServiceStatus } = await import('../../lib/email/index.js')
+      const { getEmailServiceStatus } = await import('../email/index.js')
       return json(res, 200, getEmailServiceStatus?.() || { configured: false })
     } catch { return json(res, 200, { configured: false }) }
   }
@@ -98,7 +98,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const body = await readJson(req)
     try {
-      const { sendTestEmail } = await import('../../lib/email/index.js')
+      const { sendTestEmail } = await import('../email/index.js')
       await sendTestEmail?.({ to: body?.to || auth.user.email })
       return json(res, 200, { success: true })
     } catch (err) { return json(res, 500, { error: err?.message || 'Error enviando email de prueba' }) }
@@ -109,7 +109,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
   if (pathname === '/api/email/preview' && method === 'GET') {
     try {
       const type = url.searchParams.get('template') || 'test'
-      const { getEmailTemplatePreview } = await import('../../lib/email/index.js')
+      const { getEmailTemplatePreview } = await import('../email/index.js')
       const preview = getEmailTemplatePreview?.(type)
       return json(res, 200, { html: preview?.html || '', subject: preview?.subject || '', recipient: preview?.recipient || '' })
     } catch { return json(res, 200, { html: '', subject: '', recipient: '' }) }
@@ -118,7 +118,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
   if (pathname === '/api/email/preview' && method === 'POST') {
     try {
       const body = await readJson(req)
-      const { renderPanelEmail, getBrandConfig } = await import('../../lib/email/index.js')
+      const { renderPanelEmail, getBrandConfig } = await import('../email/index.js')
       const brand = getBrandConfig()
       const subject = String(body?.subject || 'Broadcast').trim()
       const title = String(body?.title || subject).trim()
@@ -153,7 +153,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!template || !to) return json(res, 400, { error: 'template y to son requeridos' })
 
     try {
-      const emailLib = await import('../../lib/email/index.js')
+      const emailLib = await import('../email/index.js')
 
       const TEMPLATE_MAP = {
         'maintenance-notice':  'sendMaintenanceNoticeEmail',
@@ -193,7 +193,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
 
     try {
       const { pgListUsers } = await import('../../api/lib/pg-usuarios.js')
-      const { sendNotificationEmail } = await import('../../lib/email/index.js')
+      const { sendNotificationEmail } = await import('../email/index.js')
 
       const allUsers = await pgListUsers()
       const targets = allUsers.filter(u => u.email && String(u.email).includes('@'))

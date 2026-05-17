@@ -177,7 +177,7 @@ export async function handleUsuarios({ req, res, url, panelDb }) {
         const username  = safeString(user.username || '')
         setImmediate(async () => {
           try {
-            const emailLib = await import('../../lib/email/index.js')
+            const emailLib = await import('../email/index.js')
             if (body.activo === false) {
               await emailLib.sendAccountSuspendedEmail({ to: userEmail, username, suspendedBy: adminName })
             } else if (body.activo === true) {

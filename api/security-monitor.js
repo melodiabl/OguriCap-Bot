@@ -3,8 +3,8 @@
 import { EventEmitter } from 'events'
 import crypto from 'crypto'
 import auditLogger, { AUDIT_EVENTS } from './audit-logger.js'
-import alertSystem from './alert-system.js'
-import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from './notification-system.js'
+import alertSystem from './alert/index.js'
+import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from './notification/index.js'
 
 // Tipos de amenazas
 export const THREAT_TYPES = {

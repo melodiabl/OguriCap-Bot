@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 process.env.DB_ENCRYPTION_KEY = 'b'.repeat(64)
 
-const { encryptPII, decryptPII, blindIndex } = await import('../lib/crypto/pii.js')
+const { encryptPII, decryptPII, blindIndex } = await import('../api/crypto/pii.js')
 
 describe('encryptPII / decryptPII', () => {
   test('round-trips correctly', () => {

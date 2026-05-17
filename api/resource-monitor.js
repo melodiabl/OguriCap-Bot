@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import auditLogger, { AUDIT_EVENTS } from './audit-logger.js';
-import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from './notification-system.js';
+import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from './notification/index.js';
 
 // Umbrales de alerta por defecto
 const DEFAULT_THRESHOLDS = {

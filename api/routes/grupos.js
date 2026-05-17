@@ -41,7 +41,7 @@ export async function handleGrupos({ req, res, url, panelDb }) {
     const id = wa_jid
     panelDb.groups[id] = { ...(panelDb.groups[id] || {}), wa_jid, nombre: nombre || wa_jid, bot_enabled: bot_enabled !== false, updated_at: new Date().toISOString() }
     cache.grupos = null
-        try { const { emitGrupoUpdated } = await import('../../lib/socket-io.js'); emitGrupoUpdated(panelDb.groups[id]) } catch {}
+        try { const { emitGrupoUpdated } = await import('../socket-io.js'); emitGrupoUpdated(panelDb.groups[id]) } catch {}
     return json(res, 200, { success: true, grupo: panelDb.groups[id] })
   }
 
@@ -92,7 +92,7 @@ export async function handleGrupos({ req, res, url, panelDb }) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     
-    const { emitGroupSyncStart, emitGroupSyncComplete, emitGroupSyncError, emitGroupUpdated } = await import('../../lib/event-bus.js')
+    const { emitGroupSyncStart, emitGroupSyncComplete, emitGroupSyncError, emitGroupUpdated } = await import('../event-bus.js')
     
     emitGroupSyncStart()
 
@@ -171,7 +171,7 @@ export async function handleGrupos({ req, res, url, panelDb }) {
     if (!panelDb?.groups?.[jid]) return json(res, 404, { error: 'Grupo no encontrado' })
     const body = await readJson(req)
     Object.assign(panelDb.groups[jid], body, { updated_at: new Date().toISOString() })
-    try { const { emitGrupoUpdated } = await import('../../lib/socket-io.js'); emitGrupoUpdated(panelDb.groups[jid]) } catch {}
+    try { const { emitGrupoUpdated } = await import('../socket-io.js'); emitGrupoUpdated(panelDb.groups[jid]) } catch {}
     return json(res, 200, { success: true, grupo: panelDb.groups[jid] })
   }
 

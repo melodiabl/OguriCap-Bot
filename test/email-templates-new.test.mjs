@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildRoleChangedEmail } from '../lib/email/templates/role-changed.js'
+import { buildRoleChangedEmail } from '../api/email/templates/role-changed.js'
 
 describe('buildRoleChangedEmail', () => {
   const result = buildRoleChangedEmail({ username: 'María', oldRole: 'Usuario', newRole: 'Admin' })
@@ -14,7 +14,7 @@ describe('buildRoleChangedEmail', () => {
   test('subject contiene "rol"', () => assert.ok(result.subject.toLowerCase().includes('rol')))
 })
 
-import { buildBotAlertEmail } from '../lib/email/templates/bot-alert.js'
+import { buildBotAlertEmail } from '../api/email/templates/bot-alert.js'
 
 describe('buildBotAlertEmail', () => {
   const disconnected = buildBotAlertEmail({ botName: 'OguriBot', status: 'disconnected', reason: 'Timeout' })
@@ -26,7 +26,7 @@ describe('buildBotAlertEmail', () => {
   test('reconnected: html contiene icon 🟢',    () => assert.ok(reconnected.html.includes('🟢')))
 })
 
-import { buildSubbotAlertEmail } from '../lib/email/templates/subbot-alert.js'
+import { buildSubbotAlertEmail } from '../api/email/templates/subbot-alert.js'
 
 describe('buildSubbotAlertEmail', () => {
   const result = buildSubbotAlertEmail({ subbotNumber: '+5491155555555', status: 'disconnected', reason: 'QR expirado' })
@@ -36,7 +36,7 @@ describe('buildSubbotAlertEmail', () => {
   test('subject contiene "sub-bot"',     () => assert.ok(result.subject.toLowerCase().includes('sub-bot')))
 })
 
-import { buildAporteReceivedEmail } from '../lib/email/templates/aporte-received.js'
+import { buildAporteReceivedEmail } from '../api/email/templates/aporte-received.js'
 
 describe('buildAporteReceivedEmail', () => {
   const result = buildAporteReceivedEmail({ username: 'Juan', amount: '$500', concept: 'Mes de octubre', date: '16/05/2026' })
@@ -47,7 +47,7 @@ describe('buildAporteReceivedEmail', () => {
   test('subject contiene "aporte"', () => assert.ok(result.subject.toLowerCase().includes('aporte')))
 })
 
-import { buildLoginNewDeviceEmail } from '../lib/email/templates/login-new-device.js'
+import { buildLoginNewDeviceEmail } from '../api/email/templates/login-new-device.js'
 
 describe('buildLoginNewDeviceEmail', () => {
   const result = buildLoginNewDeviceEmail({ username: 'María', ip: '192.168.1.1', location: 'Buenos Aires', device: 'Chrome' })
@@ -58,7 +58,7 @@ describe('buildLoginNewDeviceEmail', () => {
   test('subject contiene "Acceso"',      () => assert.ok(result.subject.includes('Acceso')))
 })
 
-import { buildAccountDeletedEmail } from '../lib/email/templates/account-deleted.js'
+import { buildAccountDeletedEmail } from '../api/email/templates/account-deleted.js'
 
 describe('buildAccountDeletedEmail', () => {
   const result = buildAccountDeletedEmail({ username: 'testuser', deletedBy: 'admin', reason: 'Inactividad' })
@@ -72,9 +72,9 @@ describe('buildAccountDeletedEmail', () => {
   })
 })
 
-import { buildAporteAceptadoEmail } from '../lib/email/templates/aporte-aceptado.js'
-import { buildAporteRechazadoEmail } from '../lib/email/templates/aporte-rechazado.js'
-import { buildAportePendienteEmail } from '../lib/email/templates/aporte-pendiente.js'
+import { buildAporteAceptadoEmail } from '../api/email/templates/aporte-aceptado.js'
+import { buildAporteRechazadoEmail } from '../api/email/templates/aporte-rechazado.js'
+import { buildAportePendienteEmail } from '../api/email/templates/aporte-pendiente.js'
 
 describe('buildAporteAceptadoEmail', () => {
   const result = buildAporteAceptadoEmail({ username: 'Juan', amount: '$500', concept: 'Mes mayo', acceptedBy: 'admin' })
@@ -100,13 +100,13 @@ describe('buildAportePendienteEmail', () => {
   test('subject contiene revisión', () => assert.ok(result.subject.toLowerCase().includes('revisi')))
 })
 
-import { buildMaintenanceNoticeEmail } from '../lib/email/templates/maintenance-notice.js'
-import { buildAccountSuspendedEmail } from '../lib/email/templates/account-suspended.js'
-import { buildAccountReactivatedEmail } from '../lib/email/templates/account-reactivated.js'
-import { buildSubbotCreatedEmail } from '../lib/email/templates/subbot-created.js'
-import { buildSubbotDeletedEmail } from '../lib/email/templates/subbot-deleted.js'
-import { buildTwoFactorCodeEmail } from '../lib/email/templates/two-factor-code.js'
-import { buildSystemAlertEmail } from '../lib/email/templates/system-alert.js'
+import { buildMaintenanceNoticeEmail } from '../api/email/templates/maintenance-notice.js'
+import { buildAccountSuspendedEmail } from '../api/email/templates/account-suspended.js'
+import { buildAccountReactivatedEmail } from '../api/email/templates/account-reactivated.js'
+import { buildSubbotCreatedEmail } from '../api/email/templates/subbot-created.js'
+import { buildSubbotDeletedEmail } from '../api/email/templates/subbot-deleted.js'
+import { buildTwoFactorCodeEmail } from '../api/email/templates/two-factor-code.js'
+import { buildSystemAlertEmail } from '../api/email/templates/system-alert.js'
 
 describe('maintenance-notice', () => {
   const r = buildMaintenanceNoticeEmail({ startTime: '03:00 AM', durationMinutes: 30 })

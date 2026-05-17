@@ -174,7 +174,7 @@ export async function handler(chatUpdate) {
 
         // Emitir stats del dashboard en tiempo real (throttled)
         try {
-          void import('./lib/socket-io.js')
+          void import('./api/socket-io.js')
             .then((m) => m?.emitDashboardStatsUpdateThrottled?.())
             .catch(() => { })
         } catch { }
@@ -705,7 +705,7 @@ export async function handler(chatUpdate) {
 
               // Emitir stats del dashboard en tiempo real (throttled)
               try {
-                void import('./lib/socket-io.js')
+                void import('./api/socket-io.js')
                   .then((m) => m?.emitDashboardStatsUpdateThrottled?.())
                   .catch(() => { })
               } catch { }

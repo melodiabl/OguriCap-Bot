@@ -8,11 +8,11 @@ function isAdmin(user) {
 }
 
 async function getResourceMonitor() {
-  try { return (await import('../../lib/resource-monitor.js')).default } catch { return null }
+  try { return (await import('../resource-monitor.js')).default } catch { return null }
 }
 
 async function getRealTimeData() {
-  try { return (await import('../../lib/real-time-data.js')).default } catch { return null }
+  try { return (await import('../real-time-data.js')).default } catch { return null }
 }
 
 export async function handleResources({ req, res, url }) {

@@ -92,7 +92,7 @@ export async function handleBot({ req, res, url, panelDb }) {
     const isOn = body?.isOn !== false
     panelDb.botGlobalState = { isOn, lastUpdated: new Date().toISOString() }
     try {
-      const { emitBotStatus, emitNotification, getIO } = await import('../../lib/socket-io.js')
+      const { emitBotStatus, emitNotification, getIO } = await import('../socket-io.js')
       emitBotStatus()
       getIO()?.emit('bot:globalStateChanged', { isOn })
       emitNotification({ type: isOn ? 'success' : 'warning', title: isOn ? 'Bot Activado Globalmente' : 'Bot Desactivado Globalmente', message: isOn ? 'El bot está operativo en todos los grupos.' : 'El bot no responderá en ningún grupo.', categoria: 'bot' })
@@ -106,7 +106,7 @@ export async function handleBot({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!['owner','admin','administrador'].includes(safeString(auth.user.rol).toLowerCase())) return json(res, 403, { error: 'Permisos insuficientes' })
     panelDb.botGlobalState = { isOn: false, lastUpdated: new Date().toISOString() }
-    try { const { emitBotStatus } = await import('../../lib/socket-io.js'); emitBotStatus() } catch {}
+    try { const { emitBotStatus } = await import('../socket-io.js'); emitBotStatus() } catch {}
     return json(res, 200, { success: true, message: 'Bot global OFF' })
   }
 
@@ -136,7 +136,7 @@ export async function handleBot({ req, res, url, panelDb }) {
   // ── GET /api/bot/stats ────────────────────────────────────────────────────
   if (pathname === '/api/bot/stats' && method === 'GET') {
     try {
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       return json(res, 200, realTimeData.getDashboardStats?.() || {})
     } catch { return json(res, 200, {}) }
   }
@@ -163,7 +163,7 @@ export async function handleBot({ req, res, url, panelDb }) {
   // ── GET /api/dashboard/stats ──────────────────────────────────────────────
   if (pathname === '/api/dashboard/stats' && method === 'GET') {
     try {
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       return json(res, 200, realTimeData.getDashboardStats?.() || {})
     } catch { return json(res, 500, { error: 'Error obteniendo stats' }) }
   }
@@ -172,7 +172,7 @@ export async function handleBot({ req, res, url, panelDb }) {
   if (pathname === '/api/dashboard/recent-activity' && method === 'GET') {
     try {
       const limit = clampInt(url.searchParams.get('limit'), { min: 1, max: 50, fallback: 10 })
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       const data = realTimeData.getRecentActivity?.(limit) || {}
       return json(res, 200, { data: data.activities || [], total: data.total || 0, lastUpdate: data.lastUpdate, systemStatus: data.systemStatus })
     } catch { return json(res, 500, { error: 'Error obteniendo actividad' }) }
@@ -246,6 +246,22 @@ export async function handleBot({ req, res, url, panelDb }) {
     const body = await readJson(req)
     const command = safeString(body?.command || '').trim()
     if (!command) return json(res, 400, { error: 'command es requerido' })
+
+    // Allowlist — only specific safe commands are permitted
+    const ALLOWED = [
+      /^pm2\s+(status|logs\s+[\w-]+|restart\s+[\w-]+|reload\s+[\w-]+)$/,
+      /^docker\s+(ps|stats|logs\s+[\w-]+(\s+--tail\s+\d+)?)$/,
+      /^systemctl\s+(status|restart|reload)\s+[\w.-]+$/,
+      /^df\s+-h$/,
+      /^free\s+-h$/,
+      /^uptime$/,
+      /^node\s+--version$/,
+      /^npm\s+--version$/,
+    ]
+    if (!ALLOWED.some(re => re.test(command))) {
+      return json(res, 403, { error: 'Comando no permitido' })
+    }
+
     try {
       const { exec } = await import('child_process')
       const output = await new Promise((resolve, reject) => {

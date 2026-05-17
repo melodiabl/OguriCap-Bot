@@ -52,7 +52,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
   // ── GET /api/system/stats ─────────────────────────────────────────────────
   if (pathname === '/api/system/stats' && method === 'GET') {
     try {
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       return json(res, 200, realTimeData.getSystemStats?.() || {})
     } catch { return json(res, 500, { error: 'Error obteniendo stats' }) }
   }
@@ -85,7 +85,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
     // Emit socket event when maintenance mode changes
     if ('maintenanceMode' in body && body.maintenanceMode !== prevMaintenance) {
       try {
-        const { getIO } = await import('../../lib/socket-io.js')
+        const { getIO } = await import('../socket-io.js')
         const io = getIO()
         if (io) io.emit('system:maintenance', {
           enabled: Boolean(body.maintenanceMode),
@@ -122,7 +122,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
   // ── GET /api/system/metrics ───────────────────────────────────────────────
   if (pathname === '/api/system/metrics' && method === 'GET') {
     try {
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       return json(res, 200, realTimeData.getSystemStats?.() || {})
     } catch { return json(res, 500, { error: 'Error obteniendo métricas' }) }
   }
@@ -162,7 +162,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
   // ── GET /api/dashboard/stats ──────────────────────────────────────────────
   if (pathname === '/api/dashboard/stats' && method === 'GET') {
     try {
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       return json(res, 200, realTimeData.getDashboardStats?.() || {})
     } catch { return json(res, 500, { error: 'Error obteniendo stats' }) }
   }
@@ -170,7 +170,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
   // ── GET /api/dashboard/recent-activity ───────────────────────────────────
   if (pathname === '/api/dashboard/recent-activity' && method === 'GET') {
     try {
-      const realTimeData = (await import('../../lib/real-time-data.js')).default
+      const realTimeData = (await import('../real-time-data.js')).default
       const data = realTimeData.getRecentActivity?.(10) || {}
       return json(res, 200, { data: data.activities || [], total: data.total || 0, lastUpdate: data.lastUpdate })
     } catch { return json(res, 500, { error: 'Error obteniendo actividad' }) }
@@ -186,7 +186,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     try {
-      const { getIO } = await import('../../lib/socket-io.js')
+      const { getIO } = await import('../socket-io.js')
       const io = getIO()
       return json(res, 200, { connected: Boolean(io), clients: io?.engine?.clientsCount || 0 })
     } catch { return json(res, 200, { connected: false, clients: 0 }) }
@@ -206,7 +206,7 @@ export async function handleSystem({ req, res, url, panelDb }) {
   if (pathname === '/api/activity/feed' && method === 'GET') {
     const limit = Math.min(Number(url.searchParams.get('limit')) || 20, 100)
     try {
-      const { getRecentActivity } = await import('../../lib/real-time-data.js').catch(() => ({ getRecentActivity: null }))
+      const { getRecentActivity } = await import('../real-time-data.js').catch(() => ({ getRecentActivity: null }))
       if (typeof getRecentActivity === 'function') {
         const data = await getRecentActivity(limit).catch(() => [])
         return json(res, 200, { data, total: data.length, lastUpdate: new Date().toISOString() })

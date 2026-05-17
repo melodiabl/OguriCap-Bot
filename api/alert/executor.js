@@ -1,4 +1,4 @@
-import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../notification-system.js';
+import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../notification/index.js';
 import { ALERT_SEVERITIES } from './types.js';
 
 /**

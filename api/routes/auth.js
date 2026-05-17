@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import crypto, { createHash } from 'node:crypto'
-import { createAccessToken, createRefreshToken, hashRefreshToken, verifyAccessToken, ACCESS_TOKEN_SECONDS } from '../../lib/jwt/index.js'
+import { createAccessToken, createRefreshToken, hashRefreshToken, verifyAccessToken, ACCESS_TOKEN_SECONDS } from '../jwt/index.js'
 import { json, readJson, getJwtAuth, getBearerToken, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
 import {
   pgFindUser, pgFindUserByEmail, pgFindUserById, pgCreateUser, pgUpdateUserLogin,
@@ -107,7 +107,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
       try {
         global.sendTemplateNotification?.('login_failed', { username: username || 'unknown', ip: clientIp })
         if (alertTo && canAlert(`login_fail:${username}:${clientIp}`)) {
-          const { sendSecurityAlertEmail } = await import('../../lib/email/index.js')
+          const { sendSecurityAlertEmail } = await import('../email/index.js')
           void sendSecurityAlertEmail({ to: alertTo, subject: 'Alerta: login fallido', title, message: title,
             details: [{ label: 'Usuario', value: safeString(username) }, { label: 'IP', value: clientIp }, { label: 'User-Agent', value: userAgent || '-' }, ...extra] }).catch(() => {})
         }
@@ -175,7 +175,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
           if (isNew && notifPrefs.login_new_device !== false) {
             const userEmail = meta.email || null
             if (userEmail) {
-              const { sendLoginNewDeviceEmail } = await import('../../lib/email/index.js')
+              const { sendLoginNewDeviceEmail } = await import('../email/index.js')
               void sendLoginNewDeviceEmail({
                 to: userEmail,
                 username,
@@ -235,7 +235,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     const pgUser = await pgCreateUser({ username: usernameStr, password: hashed, rol: 'usuario', whatsapp_number: whatsappClean, email: emailStr, clientIp })
 
     try { global.sendTemplateNotification?.('user_registered', { username: usernameStr, email: emailStr }) } catch {}
-    try { const { sendRegistrationEmail } = await import('../../lib/email/index.js'); void sendRegistrationEmail({ to: emailStr, username: usernameStr }).catch(() => {}) } catch {}
+    try { const { sendRegistrationEmail } = await import('../email/index.js'); void sendRegistrationEmail({ to: emailStr, username: usernameStr }).catch(() => {}) } catch {}
 
     return json(res, 201, { success: true, user: { id: pgUser.id, username: usernameStr, rol: 'usuario', email: emailStr, whatsapp_number: whatsappClean || null }, message: 'Usuario registrado' })
   }
@@ -262,7 +262,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
         )
       } catch {}
       try {
-        const { sendPasswordResetEmail } = await import('../../lib/email/index.js')
+        const { sendPasswordResetEmail } = await import('../email/index.js')
         void sendPasswordResetEmail({ to, username: user.username, token: rawToken, expiresMinutes: Math.round(expiresMs / 60_000) }).catch(() => {})
       } catch {}
     }

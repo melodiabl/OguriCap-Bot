@@ -489,7 +489,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
         if (global.db?.write) await global.db.write().catch(() => { })
 
         try {
-          const { emitAporteCreated } = await import('../lib/socket-io.js')
+          const { emitAporteCreated } = await import('../api/socket-io.js')
           emitAporteCreated(entry)
         } catch { }
 

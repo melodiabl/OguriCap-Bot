@@ -174,7 +174,7 @@ export async function handleSupport({ req, res, url, panelDb }) {
     const banned = Boolean(body?.banned)
     const reason = safeString(body?.reason || '').trim() || (banned ? 'Baneado desde el panel' : '')
     try {
-      const { setUserBanned } = await import('../../lib/panel-actions.js')
+      const { setUserBanned } = await import('../panel-actions.js')
       const result = await setUserBanned(jid, banned, reason)
       if (!result.success) return json(res, 400, { error: result.error || 'Error al banear' })
       if (global.db?.write) await global.db.write()
@@ -202,7 +202,7 @@ export async function handleSupport({ req, res, url, panelDb }) {
     const role = safeString(body?.role || 'member')
     const givePremium = role === 'admin' || role === 'premium'
     try {
-      const { setUserPremium } = await import('../../lib/panel-actions.js')
+      const { setUserPremium } = await import('../panel-actions.js')
       await setUserPremium(jid, givePremium, 0)
       if (global.db?.write) await global.db.write()
     } catch {

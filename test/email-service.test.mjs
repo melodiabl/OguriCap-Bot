@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeRecipients, getEmailServiceStatus } from '../lib/email/service.js'
+import { normalizeRecipients, getEmailServiceStatus } from '../api/email/service.js'
 
 describe('normalizeRecipients', () => {
   test('filtra emails inválidos', () => {

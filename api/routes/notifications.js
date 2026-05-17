@@ -94,9 +94,9 @@ export async function handleNotifications({ req, res, url, panelDb }) {
     if (panelDb.notifications.length > 500) panelDb.notifications = panelDb.notifications.slice(0, 500)
     if (global.db?.write) await global.db.write()
     sseBroadcast('notificaciones', notif)
-    try { const { emitNotification } = await import('../../lib/socket-io.js'); emitNotification(notif) } catch {}
+    try { const { emitNotification } = await import('../socket-io.js'); emitNotification(notif) } catch {}
     try {
-      const { broadcastPush } = await import('../../lib/web-push.js')
+      const { broadcastPush } = await import('../web-push.js')
       broadcastPush(panelDb, { title: notif.title, body: notif.message, url: '/', tag: `notif-${notif.id}` })
     } catch {}
     return json(res, 201, { success: true, notification: notif })
@@ -160,7 +160,7 @@ export async function handleNotifications({ req, res, url, panelDb }) {
   // ── GET /api/notificaciones/vapid-key ────────────────────────────────────
   if (pathname === '/api/notificaciones/vapid-key' && method === 'GET') {
     try {
-      const { getVapidPublicKey } = await import('../../lib/web-push.js')
+      const { getVapidPublicKey } = await import('../web-push.js')
       const key = getVapidPublicKey()
       if (!key) return json(res, 503, { error: 'Web Push no configurado' })
       return json(res, 200, { publicKey: key })

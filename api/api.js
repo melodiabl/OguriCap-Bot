@@ -37,7 +37,7 @@ export {
   emitAporteCreated, emitAporteUpdated,
   emitPedidoCreated, emitPedidoUpdated,
   emitGrupoUpdated, emitNotification, emitLogEntry
-} from '../lib/socket-io.js'
+} from './socket-io.js'
 
 // ─── Sistemas lazy-loaded ─────────────────────────────────────────────────────
 let notificationSystem, taskScheduler, backupSystem, alertSystem
@@ -48,7 +48,7 @@ async function initSystems() {
     try { return (await import(mod)).default } catch (e) { console.warn(`[api] ${mod}:`, e.message); return fallback }
   }
   try {
-    const m = await import('../lib/notification-system.js')
+    const m = await import('./notification/index.js')
     notificationSystem = m.default
     global.sendTemplateNotification = m.sendTemplateNotification
     NOTIFICATION_TYPES = m.NOTIFICATION_TYPES
@@ -60,9 +60,9 @@ async function initSystems() {
     NOTIFICATION_TYPES = { INFO: 'info', SUCCESS: 'success', WARNING: 'warning', ERROR: 'error', CRITICAL: 'critical' }
     NOTIFICATION_CATEGORIES = { SYSTEM: 'system', BOT: 'bot', USER: 'user', SECURITY: 'security' }
   }
-  taskScheduler = await tryLoad('../lib/task-scheduler.js', { getAllTasks: () => [], isRunning: false, createTask: () => Promise.resolve(), executeTask: () => Promise.resolve() })
-  backupSystem   = await tryLoad('../lib/backup-system.js',  { isRunning: false, createBackup: () => Promise.resolve(), getBackups: () => [] })
-  alertSystem    = await tryLoad('../lib/alert-system.js',   { getAllAlerts: () => [], collectMetrics: () => Promise.resolve({}), isRunning: false })
+  taskScheduler = await tryLoad('./task-scheduler.js', { getAllTasks: () => [], isRunning: false, createTask: () => Promise.resolve(), executeTask: () => Promise.resolve() })
+  backupSystem   = await tryLoad('./backup-system.js',  { isRunning: false, createBackup: () => Promise.resolve(), getBackups: () => [] })
+  alertSystem    = await tryLoad('./alert/index.js',   { getAllAlerts: () => [], collectMetrics: () => Promise.resolve({}), isRunning: false })
 
   // Log rotation: keep max 5000 entries, drop entries older than 7 days
   const rotateLogs = () => {
@@ -259,7 +259,7 @@ export async function startPanelApi({ port, host } = {}) {
   })
 
   // Socket.IO
-  const { initSocketIO, connectEventBusToSocket } = await import('../lib/socket-io.js')
+  const { initSocketIO, connectEventBusToSocket } = await import('./socket-io.js')
   const io = initSocketIO(panelServer)
   global.io = io
   
@@ -306,7 +306,7 @@ function startPeriodicTasks(io) {
   // Limpieza de notificaciones cada 6h
   setTimeout(async () => {
     try {
-      const { performNotificationMaintenance } = await import('../lib/notification-cleanup.js')
+      const { performNotificationMaintenance } = await import('./notification-cleanup.js')
       const run = () => { try { const db = ensurePanelDb(); if (db) performNotificationMaintenance(db) } catch {} }
       run()
       setInterval(run, 6 * 60 * 60 * 1000)
@@ -323,7 +323,7 @@ function startPeriodicTasks(io) {
       cleanupBrokenSubbotSymlinks()
       if (removed.length > 0) {
         if (global.db?.write) await global.db.write()
-        const { emitSubbotDeleted, emitSubbotStatus } = await import('../lib/socket-io.js')
+        const { emitSubbotDeleted, emitSubbotStatus } = await import('./socket-io.js')
         emitSubbotStatus()
         for (const code of removed) {
           emitSubbotDeleted(code)

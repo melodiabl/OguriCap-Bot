@@ -2,7 +2,7 @@
 
 import cron from 'node-cron';
 import auditLogger, { AUDIT_EVENTS } from './audit-logger.js';
-import notificationSystem from './notification-system.js';
+import notificationSystem from './notification/index.js';
 import { emit, SOCKET_EVENTS } from './socket-io.js';
 
 // Tipos de tareas

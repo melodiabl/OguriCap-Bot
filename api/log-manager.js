@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import auditLogger, { AUDIT_EVENTS } from './audit-logger.js';
-import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from './notification-system.js';
+import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from './notification/index.js';
 
 // Niveles de log
 export const LOG_LEVELS = {

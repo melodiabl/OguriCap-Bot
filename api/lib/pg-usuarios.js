@@ -3,7 +3,7 @@
  * Acceso directo a la tabla `usuarios` en PostgreSQL via global.db.pool
  */
 
-import { decryptPII, blindIndex } from '../../lib/crypto/pii.js'
+import { decryptPII, blindIndex } from '../crypto/pii.js'
 
 function pool() { return global.db?.pool }
 

@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { getEmailTemplatePreview } from '../lib/email/preview.js'
+import { getEmailTemplatePreview } from '../api/email/preview.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 

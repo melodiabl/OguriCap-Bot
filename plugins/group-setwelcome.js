@@ -35,7 +35,7 @@ const handler = async (m, { conn, command, usedPrefix, text, groupMetadata }) =>
 
         // Emitir evento Socket.IO
         try {
-          const { emitGrupoUpdated } = await import('../lib/socket-io.js')
+          const { emitGrupoUpdated } = await import('../api/socket-io.js')
           emitGrupoUpdated({ jid: m.chat, sWelcome: value })
         } catch { }
 
@@ -52,7 +52,7 @@ const handler = async (m, { conn, command, usedPrefix, text, groupMetadata }) =>
 
         // Emitir evento Socket.IO
         try {
-          const { emitGrupoUpdated } = await import('../lib/socket-io.js')
+          const { emitGrupoUpdated } = await import('../api/socket-io.js')
           emitGrupoUpdated({ jid: m.chat, sBye: value })
         } catch { }
 

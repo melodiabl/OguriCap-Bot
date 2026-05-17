@@ -57,7 +57,7 @@ async function getSubbotsList(panelDb) {
       }
       try { if (global.db?.write) await global.db.write() } catch {}
       try {
-        const { emitSubbotDeleted, emitSubbotStatus } = await import('../../lib/socket-io.js')
+        const { emitSubbotDeleted, emitSubbotStatus } = await import('../socket-io.js')
         emitSubbotStatus()
         for (const code of ghosts) emitSubbotDeleted(code)
         console.log(`[SUBBOTS] Ghost records eliminados: ${ghosts.join(', ')}`)
@@ -108,7 +108,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     const { removed } = cleanupBrokenSubbotSymlinks()
     const list = await getSubbotsList(panelDb)
-    try { const { emitSubbotStatus } = await import('../../lib/socket-io.js'); emitSubbotStatus() } catch {}
+    try { const { emitSubbotStatus } = await import('../socket-io.js'); emitSubbotStatus() } catch {}
     return json(res, 200, { success: true, count: list.length, removed_symlinks: removed })
   }
 
@@ -118,7 +118,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     cleanupBrokenSubbotSymlinks()
-    try { const { emitSubbotStatus } = await import('../../lib/socket-io.js'); emitSubbotStatus() } catch {}
+    try { const { emitSubbotStatus } = await import('../socket-io.js'); emitSubbotStatus() } catch {}
     return json(res, 200, { success: true })
   }
 
@@ -153,7 +153,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
 
     try {
       const { yukiJadiBot } = await import('../../plugins/sockets-serbot.js')
-      const { emitSubbotQR, emitSubbotConnected, emitSubbotCreated } = await import('../../lib/socket-io.js')
+      const { emitSubbotQR, emitSubbotConnected, emitSubbotCreated } = await import('../socket-io.js')
 
       emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
       global.sendTemplateNotification?.('subbot_created', { subbotCode: code })
@@ -161,7 +161,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
         try {
           const ownerEmail = resolveOwnerEmail(panelDb, usuario)
           if (!ownerEmail) return
-          const { sendSubbotCreatedEmail } = await import('../../lib/email/index.js')
+          const { sendSubbotCreatedEmail } = await import('../email/index.js')
           await sendSubbotCreatedEmail({
             to: ownerEmail,
             subbotName: safeString(code || ''),
@@ -245,7 +245,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
 
     try {
       const { yukiJadiBot } = await import('../../plugins/sockets-serbot.js')
-      const { emitSubbotPairingCode, emitSubbotConnected, emitSubbotCreated } = await import('../../lib/socket-io.js')
+      const { emitSubbotPairingCode, emitSubbotConnected, emitSubbotCreated } = await import('../socket-io.js')
 
       emitSubbotCreated(normalizeSubbotForPanel(record, { isOnline: false }))
       global.sendTemplateNotification?.('subbot_created', { subbotCode: numero })
@@ -253,7 +253,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
         try {
           const ownerEmail = resolveOwnerEmail(panelDb, usuario)
           if (!ownerEmail) return
-          const { sendSubbotCreatedEmail } = await import('../../lib/email/index.js')
+          const { sendSubbotCreatedEmail } = await import('../email/index.js')
           await sendSubbotCreatedEmail({
             to: ownerEmail,
             subbotName: safeString(numero || ''),
@@ -339,7 +339,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     for (const k of allowed) { if (k in body) subbot[k] = body[k] }
     subbot.updated_at = new Date().toISOString()
     if (global.db?.write) await global.db.write()
-    try { const { emitSubbotUpdated } = await import('../../lib/socket-io.js'); emitSubbotUpdated(subbot) } catch {}
+    try { const { emitSubbotUpdated } = await import('../socket-io.js'); emitSubbotUpdated(subbot) } catch {}
     return json(res, 200, { success: true, subbot })
   }
 
@@ -358,7 +358,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     const result = await deleteSubbotByCode(code, panelDb)
     if (!result.success) return json(res, 404, result)
     if (global.db?.write) await global.db.write()
-    try { const { emitSubbotDeleted } = await import('../../lib/socket-io.js'); emitSubbotDeleted(code) } catch {}
+    try { const { emitSubbotDeleted } = await import('../socket-io.js'); emitSubbotDeleted(code) } catch {}
     global.sendTemplateNotification?.('subbot_deleted', {
       subbotCode: code,
       subbotName,
@@ -369,7 +369,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     setImmediate(async () => {
       try {
         if (!ownerEmail) return
-        const { sendSubbotDeletedEmail } = await import('../../lib/email/index.js')
+        const { sendSubbotDeletedEmail } = await import('../email/index.js')
         await sendSubbotDeletedEmail({
           to: ownerEmail,
           subbotName: safeString(subbotName || code || ''),
@@ -400,7 +400,7 @@ export async function handleSubbots({ req, res, url, panelDb }) {
     cleanupBrokenSubbotSymlinks()
     if (removed.length > 0 && global.db?.write) await global.db.write()
     try {
-      const socketIo = await import('../../lib/socket-io.js')
+      const socketIo = await import('../socket-io.js')
       socketIo.emitSubbotStatus()
       for (const code of removed) {
         socketIo.emitSubbotDeleted(code)

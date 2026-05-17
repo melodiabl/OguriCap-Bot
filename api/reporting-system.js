@@ -9,7 +9,7 @@ import os from 'os'
 import { execSync } from 'child_process'
 import resourceMonitor from './resource-monitor.js'
 import auditLogger from './audit-logger.js'
-import notificationSystem from './notification-system.js'
+import notificationSystem from './notification/index.js'
 
 class ReportingSystem {
   constructor() {

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../lib/database');
-const logger = require('../lib/log-manager');
+const logger = require('../api/log-manager');
 
 async function runMigration() {
     const migrationPath = path.join(__dirname, 'migrations/001_create_notifications_table.sql');

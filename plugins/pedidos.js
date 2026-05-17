@@ -1588,7 +1588,7 @@ const savePedidoAndEmit = async (panel, pedido, eventName = 'updated') => {
     panel.pedidos[pedido.id] = pedido
     if (global.db?.write) await global.db.write().catch(() => { })
     try {
-      const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+      const { emitPedidoUpdated } = await import('../api/socket-io.js')
       emitPedidoUpdated(pedido)
     } catch { }
     if (eventName) appendPedidoLog(pedido, { event: eventName, step: safeString(pedido?.flow?.step || '') })
@@ -3156,7 +3156,7 @@ const finalizePedidoAsCompleted = async (panel, pedido, { selected, pdfFile } = 
   panel.pedidos[pedido.id] = pedido
   if (global.db?.write) await global.db.write().catch(() => { })
   try {
-    const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+    const { emitPedidoUpdated } = await import('../api/socket-io.js')
     emitPedidoUpdated(pedido)
   } catch { }
 }
@@ -3377,7 +3377,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       panel.pedidos[id] = pedido
       if (global.db?.write) await global.db.write().catch(() => { })
       try {
-        const { emitPedidoCreated } = await import('../lib/socket-io.js')
+        const { emitPedidoCreated } = await import('../api/socket-io.js')
         emitPedidoCreated(pedido)
       } catch { }
 
@@ -4144,7 +4144,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (global.db?.write) await global.db.write().catch(() => { })
 
       try {
-        const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+        const { emitPedidoUpdated } = await import('../api/socket-io.js')
         emitPedidoUpdated(pedido)
       } catch { }
 
@@ -4167,7 +4167,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (global.db?.write) await global.db.write().catch(() => { })
 
       try {
-        const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+        const { emitPedidoUpdated } = await import('../api/socket-io.js')
         emitPedidoUpdated(pedido)
       } catch { }
 
@@ -4193,7 +4193,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (global.db?.write) await global.db.write().catch(() => { })
 
       try {
-        const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+        const { emitPedidoUpdated } = await import('../api/socket-io.js')
         emitPedidoUpdated(pedido)
       } catch { }
 
@@ -4366,7 +4366,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
         if (global.db?.write) await global.db.write().catch(() => { })
 
         try {
-          const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+          const { emitPedidoUpdated } = await import('../api/socket-io.js')
           emitPedidoUpdated(pedido)
         } catch { }
 
@@ -4430,7 +4430,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (global.db?.write) await global.db.write().catch(() => { })
 
       try {
-        const { emitPedidoUpdated } = await import('../lib/socket-io.js')
+        const { emitPedidoUpdated } = await import('../api/socket-io.js')
         emitPedidoUpdated(pedido)
       } catch { }
 

@@ -120,7 +120,7 @@ export async function handleLogs({ req, res, url }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     try {
-      const auditLogger = (await import('../../lib/audit-logger.js')).default
+      const auditLogger = (await import('../audit-logger.js')).default
       const logs = auditLogger?.getLogs?.() || []
       const { items, pagination } = paginate(logs, { page: url.searchParams.get('page'), limit: url.searchParams.get('limit') })
       return json(res, 200, { logs: items, pagination })

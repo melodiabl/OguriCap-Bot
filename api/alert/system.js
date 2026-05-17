@@ -1,5 +1,5 @@
 import auditLogger, { AUDIT_EVENTS } from '../audit-logger.js';
-import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../notification-system.js';
+import notificationSystem, { NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../notification/index.js';
 import { emitNotification } from '../socket-io.js';
 import { ALERT_TYPES, ALERT_SEVERITIES, ALERT_STATES, ALERT_CONDITIONS } from './types.js';
 import { AnomalyDetector } from './anomaly.js';

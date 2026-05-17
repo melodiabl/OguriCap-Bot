@@ -14,7 +14,7 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: join(__dir, '../../.env') })
 
 // Load crypto modules AFTER dotenv so env vars are set
-const { encryptPII, blindIndex } = await import('../../lib/crypto/pii.js')
+const { encryptPII, blindIndex } = await import('../../api/crypto/pii.js')
 
 const pool = new pg.Pool({
   host: process.env.POSTGRES_HOST || 'localhost',

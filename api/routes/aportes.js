@@ -60,7 +60,7 @@ export async function handleAportes({ req, res, url, panelDb }) {
     panelDb.aportes ||= {}
     panelDb.aportes[id] = aporte
     if (global.db?.write) await global.db.write()
-    try { const { emitAporteCreated } = await import('../../lib/socket-io.js'); emitAporteCreated(aporte) } catch {}
+    try { const { emitAporteCreated } = await import('../socket-io.js'); emitAporteCreated(aporte) } catch {}
     global.sendTemplateNotification?.('aporte_created', { titulo, usuario: auth.user.username })
     return json(res, 201, { success: true, aporte })
   }
@@ -77,7 +77,7 @@ export async function handleAportes({ req, res, url, panelDb }) {
     const body = await readJson(req)
     Object.assign(aporte, body, { updated_at: new Date().toISOString() })
     if (global.db?.write) await global.db.write()
-    try { const { emitAporteUpdated } = await import('../../lib/socket-io.js'); emitAporteUpdated(aporte) } catch {}
+    try { const { emitAporteUpdated } = await import('../socket-io.js'); emitAporteUpdated(aporte) } catch {}
     return json(res, 200, { success: true, aporte })
   }
 
@@ -118,7 +118,7 @@ export async function handleAportes({ req, res, url, panelDb }) {
     panelDb.pedidos ||= {}
     panelDb.pedidos[id] = pedido
     if (global.db?.write) await global.db.write()
-    try { const { emitPedidoCreated } = await import('../../lib/socket-io.js'); emitPedidoCreated(pedido) } catch {}
+    try { const { emitPedidoCreated } = await import('../socket-io.js'); emitPedidoCreated(pedido) } catch {}
     return json(res, 201, { success: true, pedido })
   }
 
@@ -134,7 +134,7 @@ export async function handleAportes({ req, res, url, panelDb }) {
     const body = await readJson(req)
     Object.assign(pedido, body, { updated_at: new Date().toISOString() })
     if (global.db?.write) await global.db.write()
-    try { const { emitPedidoUpdated } = await import('../../lib/socket-io.js'); emitPedidoUpdated(pedido) } catch {}
+    try { const { emitPedidoUpdated } = await import('../socket-io.js'); emitPedidoUpdated(pedido) } catch {}
     return json(res, 200, { success: true, pedido })
   }
 

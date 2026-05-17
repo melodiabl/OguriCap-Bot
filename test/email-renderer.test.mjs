@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { escapeHtml, renderPanelEmail, renderDataBlock } from '../lib/email/renderer.js'
+import { escapeHtml, renderPanelEmail, renderDataBlock } from '../api/email/renderer.js'
 
 describe('escapeHtml', () => {
   test('escapa &', () => assert.equal(escapeHtml('a & b'), 'a &amp; b'))
