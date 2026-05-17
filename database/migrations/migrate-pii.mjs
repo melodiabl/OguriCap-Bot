@@ -41,7 +41,10 @@ async function run() {
       const normalized = row.whatsapp_number.split('@')[0]
       console.log(`  [${row.id}] ${row.username}: "${row.whatsapp_number}" → "${normalized}"`)
       if (!DRY_RUN) {
-        await client.query('UPDATE usuarios SET whatsapp_number = $1 WHERE id = $2', [normalized, row.id])
+        await client.query(
+          'UPDATE usuarios SET whatsapp_number = $1, whatsapp_enc = NULL, whatsapp_hash = NULL WHERE id = $2',
+          [normalized, row.id]
+        )
       }
     }
 
@@ -50,6 +53,22 @@ async function run() {
       `SELECT id, username, metadata FROM usuarios WHERE metadata->>'email' IS NOT NULL AND metadata->>'email' != 'null' AND (email IS NULL OR email = '')`
     )
     console.log(`\nStep 2: Migrate email from metadata — ${emailRows.length} users`)
+
+    // Pre-flight: detect duplicate emails to avoid mid-migration constraint violation
+    const { rows: dupRows } = await client.query(
+      `SELECT metadata->>'email' AS email, COUNT(*)
+       FROM usuarios
+       WHERE metadata->>'email' IS NOT NULL AND (email IS NULL OR email = '')
+       GROUP BY 1 HAVING COUNT(*) > 1`
+    )
+    if (dupRows.length > 0) {
+      console.error('❌ Duplicate emails in metadata would violate unique constraint:')
+      for (const dup of dupRows) console.error(`  "${dup.email}" — ${dup.count} users`)
+      await client.query('ROLLBACK')
+      await pool.end()
+      process.exit(1)
+    }
+
     for (const row of emailRows) {
       const emailPlain = row.metadata?.email
       if (!emailPlain) continue
@@ -67,6 +86,8 @@ async function run() {
       }
     }
 
+    // Step 3 intentionally runs after Step 1: the SELECT reads in-transaction updated rows,
+    // ensuring whatsapp_number values are already JID-normalized before encryption.
     // 3. Encrypt whatsapp_number for all users that have one and haven't been encrypted yet
     const { rows: waRows } = await client.query(
       `SELECT id, username, whatsapp_number FROM usuarios WHERE whatsapp_number IS NOT NULL AND whatsapp_number != '' AND whatsapp_enc IS NULL`
@@ -101,4 +122,4 @@ async function run() {
   }
 }
 
-run()
+run().catch(err => { console.error('❌ Fatal:', err.message); process.exit(1) })
