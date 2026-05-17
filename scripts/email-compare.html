@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Email Renderer — Comparación A vs B</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #030504; font-family: 'Segoe UI', sans-serif; padding: 32px 16px; }
+  h1 { color: #f2f6f3; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; text-align: center; margin-bottom: 32px; opacity: .5; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 1060px; margin: 0 auto; }
+  .label { color: #84968e; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; text-align: center; margin-bottom: 14px; }
+  .label strong { color: #25d366; }
+
+  /* ─── SHARED EMAIL SHELL ─── */
+  .email { background: #060807; border-radius: 20px; overflow: hidden; border: 1px solid rgba(37,211,102,0.12); box-shadow: 0 8px 48px rgba(0,0,0,.7); }
+  .email-logo { text-align: center; padding: 18px 0 14px; }
+  .email-logo-pill { display: inline-block; border: 1px solid rgba(37,211,102,0.2); border-radius: 50px; padding: 6px 16px; background: rgba(37,211,102,0.05); }
+  .email-logo-pill span { color: #25d366; font-size: 14px; font-weight: 900; letter-spacing: 2px; }
+  .email-body { background: linear-gradient(160deg,#0f1a14 0%,#0c1410 100%); border-radius: 16px; margin: 0 10px 10px; border: 1px solid rgba(37,211,102,0.18); overflow: hidden; }
+  .data-block { background: rgba(37,211,102,0.05); border: 1px solid rgba(37,211,102,0.15); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
+  .data-block.teal { background: rgba(45,212,191,0.05); border-color: rgba(45,212,191,0.15); }
+  .data-block.pink { background: rgba(255,77,141,0.05); border-color: rgba(255,77,141,0.15); }
+  .data-block.gold { background: rgba(251,191,36,0.05); border-color: rgba(251,191,36,0.15); }
+  .data-label { color: #84968e; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 2px; }
+  .data-value { color: #f2f6f3; font-size: 15px; font-weight: 800; }
+  .cta { background: linear-gradient(135deg,#25d366,#2dd4bf); border-radius: 10px; text-align: center; padding: 14px; color: #060807; font-weight: 900; font-size: 14px; margin-top: 16px; }
+  .email-foot { text-align: center; padding: 14px 0 6px; color: #2d4038; font-size: 11px; }
+  .body-inner { padding: 32px 28px 28px; }
+  .body-title { color: #f2f6f3; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .body-divider { height: 1px; background: linear-gradient(90deg,rgba(37,211,102,.35),rgba(45,212,191,.18),transparent); margin: 16px 0; }
+  .body-text { color: #b2c5ba; font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
+
+  /* ─── OPCIÓN A: franja triple ─── */
+  .stripe-bar { display: flex; height: 4px; }
+  .stripe-bar .s1 { flex: 1; }
+  .stripe-bar .s2 { flex: 1; }
+  .stripe-bar .s3 { flex: 1; }
+
+  /* success */
+  .a-success .stripe-bar .s1 { background: #25d366; }
+  .a-success .stripe-bar .s2 { background: #2dd4bf; }
+  .a-success .stripe-bar .s3 { background: #a3f7d2; }
+
+  /* danger */
+  .a-danger .stripe-bar .s1 { background: #ff4d8d; }
+  .a-danger .stripe-bar .s2 { background: #ff7eb6; }
+  .a-danger .stripe-bar .s3 { background: #ffb3d0; }
+
+  /* warning */
+  .a-warning .stripe-bar .s1 { background: #fbbf24; }
+  .a-warning .stripe-bar .s2 { background: #f59e0b; }
+  .a-warning .stripe-bar .s3 { background: #fde68a; }
+
+  /* info */
+  .a-info .stripe-bar .s1 { background: #2dd4bf; }
+  .a-info .stripe-bar .s2 { background: #818cf8; }
+  .a-info .stripe-bar .s3 { background: #a5b4fc; }
+
+  /* CTA colores por tipo */
+  .a-success .cta { background: linear-gradient(135deg,#25d366,#2dd4bf); }
+  .a-danger  .cta { background: linear-gradient(135deg,#ff4d8d,#e11d48); color: #fff; }
+  .a-warning .cta { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+  .a-info    .cta { background: linear-gradient(135deg,#2dd4bf,#818cf8); }
+
+  /* ─── OPCIÓN B: header temático ─── */
+  .b-header { padding: 28px 28px 20px; position: relative; overflow: hidden; }
+  .b-header::before { content: ''; position: absolute; inset: 0; opacity: .08; }
+
+  .b-success .b-header { background: linear-gradient(135deg,rgba(37,211,102,.18) 0%,rgba(45,212,191,.08) 100%); border-bottom: 1px solid rgba(37,211,102,.25); }
+  .b-danger  .b-header { background: linear-gradient(135deg,rgba(255,77,141,.18) 0%,rgba(225,29,72,.08) 100%); border-bottom: 1px solid rgba(255,77,141,.25); }
+  .b-warning .b-header { background: linear-gradient(135deg,rgba(251,191,36,.14) 0%,rgba(245,158,11,.06) 100%); border-bottom: 1px solid rgba(251,191,36,.22); }
+  .b-info    .b-header { background: linear-gradient(135deg,rgba(45,212,191,.14) 0%,rgba(129,140,248,.08) 100%); border-bottom: 1px solid rgba(45,212,191,.22); }
+
+  .b-icon { width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 12px; }
+  .b-success .b-icon { background: rgba(37,211,102,.15); border: 1px solid rgba(37,211,102,.3); }
+  .b-danger  .b-icon { background: rgba(255,77,141,.15); border: 1px solid rgba(255,77,141,.3); }
+  .b-warning .b-icon { background: rgba(251,191,36,.15); border: 1px solid rgba(251,191,36,.3); }
+  .b-info    .b-icon { background: rgba(45,212,191,.15); border: 1px solid rgba(45,212,191,.3); }
+
+  .b-badge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 12px; border-radius: 50px; margin-bottom: 8px; }
+  .b-success .b-badge { background: rgba(37,211,102,.15); color: #25d366; border: 1px solid rgba(37,211,102,.3); }
+  .b-danger  .b-badge { background: rgba(255,77,141,.15); color: #ff4d8d; border: 1px solid rgba(255,77,141,.3); }
+  .b-warning .b-badge { background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+  .b-info    .b-badge { background: rgba(45,212,191,.15); color: #2dd4bf; border: 1px solid rgba(45,212,191,.3); }
+
+  .b-h-title { font-size: 24px; font-weight: 900; letter-spacing: -.5px; line-height: 1.15; }
+  .b-success .b-h-title { color: #a7f3c7; }
+  .b-danger  .b-h-title { color: #ffb3d0; }
+  .b-warning .b-h-title { color: #fde68a; }
+  .b-info    .b-h-title { color: #99f6e4; }
+
+  .b-body { padding: 20px 28px 24px; }
+
+  .b-success .cta { background: linear-gradient(135deg,#25d366,#2dd4bf); }
+  .b-danger  .cta { background: linear-gradient(135deg,#ff4d8d,#e11d48); color: #fff; }
+  .b-warning .cta { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+  .b-info    .cta { background: linear-gradient(135deg,#2dd4bf,#818cf8); }
+
+  .mini-group { display: flex; flex-direction: column; gap: 24px; }
+  .col-label { color: #f2f6f3; font-size: 15px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; text-align: center; padding: 8px 0 18px; border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 6px; }
+  .col-label em { color: #25d366; font-style: normal; font-size: 22px; }
+</style>
+</head>
+<body>
+<h1>Comparación de estilos — Email Renderer</h1>
+
+<div class="grid">
+
+  <!-- ══════════ COLUMNA A ══════════ -->
+  <div>
+    <div class="col-label"><em>A</em><br/>Franja de acento superior</div>
+    <div class="mini-group">
+
+      <!-- A — SUCCESS (bienvenida) -->
+      <div>
+        <div class="label"><strong>SUCCESS</strong> — Bienvenida / Aporte aceptado</div>
+        <div class="email a-success">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="stripe-bar"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+            <div class="body-inner">
+              <div class="body-title">¡Bienvenido al equipo!</div>
+              <div class="body-divider"></div>
+              <div class="body-text">Hola <strong style="color:#fff">melodia</strong>, tu cuenta fue creada con el rol <strong style="color:#25d366">Admin</strong>.</div>
+              <div class="data-block"><div class="data-label">Rol asignado</div><div class="data-value">Admin</div></div>
+              <div class="cta">Acceder al panel</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+      <!-- A — DANGER (cuenta suspendida) -->
+      <div>
+        <div class="label"><strong style="color:#ff4d8d">DANGER</strong> — Cuenta suspendida / Alerta</div>
+        <div class="email a-danger">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="stripe-bar"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+            <div class="body-inner">
+              <div class="body-title">🔒 Cuenta suspendida</div>
+              <div class="body-divider"></div>
+              <div class="body-text">Tu acceso al panel fue suspendido temporalmente.</div>
+              <div class="data-block pink"><div class="data-label">Suspendido por</div><div class="data-value">melodia (Admin)</div></div>
+              <div class="data-block"><div class="data-label">Motivo</div><div class="data-value">Revisión de cuenta</div></div>
+              <div class="cta">Contactar soporte</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+      <!-- A — WARNING (mantenimiento) -->
+      <div>
+        <div class="label"><strong style="color:#fbbf24">WARNING</strong> — Mantenimiento programado</div>
+        <div class="email a-warning">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="stripe-bar"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+            <div class="body-inner">
+              <div class="body-title">🛠️ Mantenimiento programado</div>
+              <div class="body-divider"></div>
+              <div class="body-text">El panel estará fuera de servicio por un período breve.</div>
+              <div class="data-block gold"><div class="data-label">Inicio</div><div class="data-value">Hoy 03:00 AM</div></div>
+              <div class="data-block gold"><div class="data-label">Duración estimada</div><div class="data-value">~30 minutos</div></div>
+              <div class="cta">Ver estado del sistema</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+      <!-- A — INFO (2FA) -->
+      <div>
+        <div class="label"><strong style="color:#2dd4bf">INFO</strong> — Código 2FA / Sub-bot creado</div>
+        <div class="email a-info">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="stripe-bar"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+            <div class="body-inner">
+              <div class="body-title">🔑 Código de verificación</div>
+              <div class="body-divider"></div>
+              <div class="body-text">Usá este código para completar tu inicio de sesión.</div>
+              <div class="data-block teal"><div class="data-label">Tu código</div><div class="data-value" style="font-size:32px;letter-spacing:8px;font-family:monospace;">482 917</div></div>
+              <div class="body-text" style="font-size:12px;color:#84968e;">Vence en 5 minutos. No lo compartas.</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════ COLUMNA B ══════════ -->
+  <div>
+    <div class="col-label"><em>B</em><br/>Header temático completo</div>
+    <div class="mini-group">
+
+      <!-- B — SUCCESS -->
+      <div>
+        <div class="label"><strong>SUCCESS</strong> — Bienvenida / Aporte aceptado</div>
+        <div class="email b-success">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="b-header">
+              <div class="b-icon">🎉</div>
+              <div class="b-badge">Exitoso</div>
+              <div class="b-h-title">¡Bienvenido al equipo!</div>
+            </div>
+            <div class="b-body">
+              <div class="body-text">Hola <strong style="color:#fff">melodia</strong>, tu cuenta fue creada con el rol <strong style="color:#25d366">Admin</strong>.</div>
+              <div class="data-block"><div class="data-label">Rol asignado</div><div class="data-value">Admin</div></div>
+              <div class="cta">Acceder al panel</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+      <!-- B — DANGER -->
+      <div>
+        <div class="label"><strong style="color:#ff4d8d">DANGER</strong> — Cuenta suspendida / Alerta</div>
+        <div class="email b-danger">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="b-header">
+              <div class="b-icon">🔒</div>
+              <div class="b-badge">Acción requerida</div>
+              <div class="b-h-title">Cuenta suspendida</div>
+            </div>
+            <div class="b-body">
+              <div class="body-text">Tu acceso al panel fue suspendido temporalmente.</div>
+              <div class="data-block pink"><div class="data-label">Suspendido por</div><div class="data-value">melodia (Admin)</div></div>
+              <div class="data-block"><div class="data-label">Motivo</div><div class="data-value">Revisión de cuenta</div></div>
+              <div class="cta">Contactar soporte</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+      <!-- B — WARNING -->
+      <div>
+        <div class="label"><strong style="color:#fbbf24">WARNING</strong> — Mantenimiento programado</div>
+        <div class="email b-warning">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="b-header">
+              <div class="b-icon">🛠️</div>
+              <div class="b-badge">Aviso importante</div>
+              <div class="b-h-title">Mantenimiento programado</div>
+            </div>
+            <div class="b-body">
+              <div class="body-text">El panel estará fuera de servicio por un período breve.</div>
+              <div class="data-block gold"><div class="data-label">Inicio</div><div class="data-value">Hoy 03:00 AM</div></div>
+              <div class="data-block gold"><div class="data-label">Duración estimada</div><div class="data-value">~30 minutos</div></div>
+              <div class="cta">Ver estado del sistema</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+      <!-- B — INFO -->
+      <div>
+        <div class="label"><strong style="color:#2dd4bf">INFO</strong> — Código 2FA / Sub-bot creado</div>
+        <div class="email b-info">
+          <div class="email-logo"><div class="email-logo-pill"><span>✦ OGURICAP</span></div></div>
+          <div class="email-body">
+            <div class="b-header">
+              <div class="b-icon">🔑</div>
+              <div class="b-badge">Verificación</div>
+              <div class="b-h-title">Código de acceso</div>
+            </div>
+            <div class="b-body">
+              <div class="body-text">Usá este código para completar tu inicio de sesión.</div>
+              <div class="data-block teal"><div class="data-label">Tu código</div><div class="data-value" style="font-size:32px;letter-spacing:8px;font-family:monospace;">482 917</div></div>
+              <div class="body-text" style="font-size:12px;color:#84968e;">Vence en 5 minutos. No lo compartas.</div>
+            </div>
+          </div>
+          <div class="email-foot">© 2026 OguriCap · El Monstruo de las Cenizas</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
