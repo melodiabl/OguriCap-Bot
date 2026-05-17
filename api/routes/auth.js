@@ -1,10 +1,9 @@
 import bcrypt from 'bcryptjs'
 import crypto, { createHash } from 'node:crypto'
 import { createAccessToken, createRefreshToken, hashRefreshToken, verifyAccessToken, ACCESS_TOKEN_SECONDS } from '../../lib/jwt/index.js'
-import { json, readJson, getJwtAuth, getBearerToken, signJwt, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
-import { encryptPassword } from '../../lib/password-crypto.js'
+import { json, readJson, getJwtAuth, getBearerToken, sanitizeJwtUsuario, safeString, getClientIP, normalizeClientIP, clampInt, isAllowedIP } from '../middleware/core.js'
 import {
-  pgFindUser, pgFindUserByEmail, pgCreateUser, pgUpdateUserLogin,
+  pgFindUser, pgFindUserByEmail, pgFindUserById, pgCreateUser, pgUpdateUserLogin,
   pgUpdateUser
 } from '../lib/pg-usuarios.js'
 
@@ -128,12 +127,14 @@ export async function handleAuth({ req, res, url, panelDb }) {
     const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     const deviceHint = crypto.createHash('sha256').update(userAgent || '').digest('hex').slice(0, 16)
     try {
-      await db.pool.query(
+      if (db?.pool) await db.pool.query(
         `INSERT INTO refresh_tokens (token_hash, user_id, family_id, device_hint, expires_at)
          VALUES ($1, $2, $3, $4, $5)`,
         [refreshHash, user.id, familyId, deviceHint, refreshExpires]
       )
-    } catch {}
+    } catch (err) {
+      console.error('[login] Failed to store refresh token:', err?.message)
+    }
 
     user.last_login = new Date().toISOString()
     user.login_ip = clientIp
@@ -142,7 +143,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     const isSecure = process.env.NODE_ENV === 'production'
     res.setHeader('Set-Cookie', [
       `auth_token=${token}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${ACCESS_TOKEN_SECONDS}`,
-      `refresh_token=${refreshRaw}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth/refresh; Max-Age=${7 * 24 * 3600}`,
+      `refresh_token=${refreshRaw}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth; Max-Age=${7 * 24 * 3600}`,
     ])
     json(res, 200, {
       token,
@@ -359,7 +360,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     const isSecure = process.env.NODE_ENV === 'production'
     res.setHeader('Set-Cookie', [
       `auth_token=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=0`,
-      `refresh_token=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth/refresh; Max-Age=0`,
+      `refresh_token=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth; Max-Age=0`,
     ])
     return json(res, 200, { success: true })
   }
@@ -379,26 +380,34 @@ export async function handleAuth({ req, res, url, panelDb }) {
 
     let row
     try {
-      const { rows } = await db.pool.query(
-        `SELECT * FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW() LIMIT 1`,
+      const { rows: updRows } = await db.pool.query(
+        `UPDATE refresh_tokens SET used_at = NOW()
+         WHERE token_hash = $1 AND expires_at > NOW() AND used_at IS NULL
+         RETURNING *`,
         [tokenHash]
       )
-      row = rows[0]
+      row = updRows[0]
     } catch { return json(res, 500, { error: 'Error de base de datos' }) }
 
-    if (!row) return json(res, 401, { error: 'Refresh token inválido o expirado' })
-
-    // Detect token reuse (theft): if already used, revoke entire family
-    if (row.used_at) {
-      await db.pool.query('DELETE FROM refresh_tokens WHERE family_id = $1', [row.family_id]).catch(() => {})
-      return json(res, 401, { error: 'Token reutilizado — sesión revocada por seguridad' })
+    if (!row) {
+      // Either token not found/expired, or already used — check which
+      let existing
+      try {
+        const { rows } = await db.pool.query(
+          `SELECT family_id, used_at FROM refresh_tokens WHERE token_hash = $1 LIMIT 1`,
+          [tokenHash]
+        )
+        existing = rows[0]
+      } catch {}
+      if (existing?.used_at) {
+        // Token reuse detected — revoke entire family
+        db.pool.query('DELETE FROM refresh_tokens WHERE family_id = $1', [existing.family_id]).catch(() => {})
+        return json(res, 401, { error: 'Token reutilizado — sesión revocada por seguridad' })
+      }
+      return json(res, 401, { error: 'Refresh token inválido o expirado' })
     }
 
-    // Mark current token as used
-    await db.pool.query('UPDATE refresh_tokens SET used_at = NOW() WHERE id = $1', [row.id]).catch(() => {})
-
     // Find user
-    const { pgFindUserById } = await import('../lib/pg-usuarios.js')
     const user = await pgFindUserById(row.user_id)
     if (!user || !user.activo) return json(res, 401, { error: 'Usuario no válido' })
 
@@ -419,7 +428,7 @@ export async function handleAuth({ req, res, url, panelDb }) {
     const isSecure = process.env.NODE_ENV === 'production'
     res.setHeader('Set-Cookie', [
       `auth_token=${token}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${ACCESS_TOKEN_SECONDS}`,
-      `refresh_token=${newRawRefresh}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth/refresh; Max-Age=${7 * 24 * 3600}`,
+      `refresh_token=${newRawRefresh}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth; Max-Age=${7 * 24 * 3600}`,
     ])
     return json(res, 200, { token, expiresIn })
   }
