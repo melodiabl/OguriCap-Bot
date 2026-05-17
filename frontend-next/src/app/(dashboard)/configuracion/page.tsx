@@ -371,6 +371,51 @@ export default function ConfiguracionPage() {
   const [maintenanceLoading, setMaintenanceLoading] = React.useState(false);
   const [maintenanceEmailLoading, setMaintenanceEmailLoading] = React.useState(false);
 
+  // Comunicaciones globales
+  const OUTAGE_PRESETS = [
+    { id: 'outage',        label: 'Bot fuera de servicio',     title: 'Bot fuera de servicio',     message: 'El bot está temporalmente fuera de servicio. Estamos trabajando para restablecer el servicio lo antes posible.' },
+    { id: 'issues',        label: 'Problemas técnicos',        title: 'Problemas técnicos',        message: 'Estamos experimentando problemas técnicos. Disculpá las molestias, nuestro equipo ya está trabajando en ello.' },
+    { id: 'maintenance',   label: 'Mantenimiento programado',  title: 'Mantenimiento programado',  message: 'El sistema estará en mantenimiento por un período breve. Te notificaremos cuando vuelva a estar disponible.' },
+    { id: 'back-online',   label: 'Bot volvió en línea',       title: '¡El bot está disponible!',  message: '¡El bot ya está disponible nuevamente! Podés utilizarlo con normalidad.' },
+    { id: 'custom',        label: 'Mensaje personalizado',     title: '',                          message: '' },
+  ] as const;
+  const [broadcastPreset, setBroadcastPreset] = React.useState<string>('outage');
+  const [broadcastTitle, setBroadcastTitle] = React.useState<string>(OUTAGE_PRESETS[0].title);
+  const [broadcastMessage, setBroadcastMessage] = React.useState<string>(OUTAGE_PRESETS[0].message);
+  const [broadcastPriority, setBroadcastPriority] = React.useState<'normal' | 'high' | 'critical'>('normal');
+  const [broadcastSending, setBroadcastSending] = React.useState(false);
+  const [broadcastResult, setBroadcastResult] = React.useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [broadcastCount, setBroadcastCount] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    api.get('/api/email/broadcast-all').then((r: any) => setBroadcastCount(r.data?.count ?? null)).catch(() => {});
+  }, []);
+
+  const handleSelectPreset = (presetId: string) => {
+    setBroadcastPreset(presetId);
+    const p = OUTAGE_PRESETS.find(x => x.id === presetId);
+    if (p && presetId !== 'custom') { setBroadcastTitle(p.title); setBroadcastMessage(p.message); }
+  };
+
+  const handleBroadcastAll = async () => {
+    if (!broadcastMessage.trim()) return notify.error('El mensaje no puede estar vacío');
+    setBroadcastSending(true);
+    setBroadcastResult(null);
+    try {
+      const r = await api.post('/api/email/broadcast-all', {
+        title: broadcastTitle || 'Aviso del sistema',
+        message: broadcastMessage,
+        priority: broadcastPriority,
+      });
+      setBroadcastResult(r.data);
+      notify.success(`Enviado a ${r.data.sent} usuarios`);
+    } catch (e: any) {
+      notify.error(e.response?.data?.error || 'Error al enviar');
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
+
   const handleSendMaintenanceEmail = async () => {
     setMaintenanceEmailLoading(true);
     try {
@@ -902,6 +947,19 @@ export default function ConfiguracionPage() {
                 </Button>
               )}
               <Button
+                variant="secondary"
+                size="sm"
+                loading={broadcastSending}
+                onClick={() => {
+                  handleSelectPreset('outage');
+                  setTimeout(() => handleBroadcastAll(), 50);
+                }}
+                icon={<Bell className="h-3.5 w-3.5" />}
+                className="border-white/10 text-muted-foreground hover:bg-white/5"
+              >
+                Avisar a usuarios
+              </Button>
+              <Button
                 variant={systemConfig.maintenanceMode ? 'secondary' : 'glow'}
                 size="sm"
                 loading={maintenanceLoading}
@@ -912,6 +970,114 @@ export default function ConfiguracionPage() {
                 {systemConfig.maintenanceMode ? 'Desactivar' : 'Activar'}
               </Button>
             </div>
+          </div>
+        </Card>
+
+        {/* Comunicaciones globales */}
+        <Card className="p-6 border border-white/10 bg-white/[0.02]">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-muted-foreground">
+              <Bell className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-white">Comunicaciones globales</p>
+              <p className="text-xs text-muted-foreground">
+                Enviá un aviso por email a todos los usuarios
+                {broadcastCount !== null && <span className="ml-1 text-primary font-bold">({broadcastCount} destinatarios)</span>}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Preset selector */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo de aviso</label>
+              <div className="flex flex-wrap gap-2">
+                {OUTAGE_PRESETS.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelectPreset(p.id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border',
+                      broadcastPreset === p.id
+                        ? 'border-primary/60 bg-primary/15 text-primary'
+                        : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Priority + title */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Prioridad</label>
+              <div className="flex gap-2">
+                {(['normal', 'high', 'critical'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setBroadcastPriority(p)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border flex-1',
+                      broadcastPriority === p
+                        ? p === 'critical' ? 'border-red-500/60 bg-red-500/15 text-red-400'
+                          : p === 'high' ? 'border-amber-500/60 bg-amber-500/15 text-amber-400'
+                          : 'border-primary/60 bg-primary/15 text-primary'
+                        : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'
+                    )}
+                  >
+                    {p === 'normal' ? 'Normal' : p === 'high' ? 'Alta' : 'Crítica'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Title field */}
+          <div className="mb-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-1.5">Asunto</label>
+            <input
+              type="text"
+              value={broadcastTitle}
+              onChange={e => setBroadcastTitle(e.target.value)}
+              placeholder="Título del email..."
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-colors"
+            />
+          </div>
+
+          {/* Message textarea */}
+          <div className="mb-4">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-1.5">Mensaje</label>
+            <textarea
+              value={broadcastMessage}
+              onChange={e => setBroadcastMessage(e.target.value)}
+              rows={3}
+              placeholder="Escribí el mensaje para los usuarios..."
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-colors resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="glow"
+              size="sm"
+              loading={broadcastSending}
+              onClick={handleBroadcastAll}
+              icon={<Mail className="h-3.5 w-3.5" />}
+              disabled={!broadcastMessage.trim()}
+            >
+              {broadcastCount !== null ? `Enviar a ${broadcastCount} usuarios` : 'Enviar a todos'}
+            </Button>
+
+            {broadcastResult && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-emerald-400 font-bold">✓ {broadcastResult.sent} enviados</span>
+                {broadcastResult.failed > 0 && (
+                  <span className="text-red-400 font-bold">✗ {broadcastResult.failed} fallidos</span>
+                )}
+              </div>
+            )}
           </div>
         </Card>
 

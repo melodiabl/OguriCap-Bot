@@ -179,6 +179,57 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     }
   }
 
+  // ── /api/email/broadcast-all — envío masivo a todos los usuarios con email ──
+  if (pathname === '/api/email/broadcast-all' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Solo administradores pueden enviar emails masivos' })
+
+    let body
+    try { body = await readJson(req) } catch { return json(res, 400, { error: 'JSON inválido' }) }
+
+    const { title, message, priority = 'normal' } = body || {}
+    if (!message?.trim()) return json(res, 400, { error: 'message es requerido' })
+
+    try {
+      const { pgListUsers } = await import('../../api/lib/pg-usuarios.js')
+      const { sendNotificationEmail } = await import('../../lib/email/index.js')
+
+      const allUsers = await pgListUsers()
+      const targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
+
+      let sent = 0, failed = 0
+      for (const u of targets) {
+        try {
+          await sendNotificationEmail({
+            to: u.email,
+            title: String(title || 'Aviso del sistema').trim(),
+            message: String(message).trim(),
+            priority,
+          })
+          sent++
+        } catch { failed++ }
+      }
+
+      return json(res, 200, { success: true, sent, failed, total: targets.length })
+    } catch (err) {
+      return json(res, 500, { error: err?.message || 'Error al enviar emails' })
+    }
+  }
+
+  // ── /api/email/broadcast-all (GET) — contar destinatarios ────────────────
+  if (pathname === '/api/email/broadcast-all' && method === 'GET') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Acceso denegado' })
+    try {
+      const { pgListUsers } = await import('../../api/lib/pg-usuarios.js')
+      const allUsers = await pgListUsers()
+      const count = allUsers.filter(u => u.email && String(u.email).includes('@')).length
+      return json(res, 200, { count })
+    } catch { return json(res, 200, { count: 0 }) }
+  }
+
   // ── /api/scheduled-messages ───────────────────────────────────────────────
   if (pathname === '/api/scheduled-messages' && method === 'GET') {
     const auth = await getJwtAuth(req)
