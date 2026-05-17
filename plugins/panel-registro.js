@@ -125,9 +125,12 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
       try {
         const response = await fetch(`http://localhost:${process.env.PORT || 8080}/api/auth/auto-register`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Bot-Secret': process.env.INTERNAL_BOT_SECRET || '',
+          },
           body: JSON.stringify({
-            whatsapp_number: m.sender,
+            whatsapp_number: String(m.sender || '').split('@')[0].replace(/\D/g, '').replace(/^0+/, ''),
             username: username,
             grupo_jid: m.chat,
           }),
