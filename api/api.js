@@ -66,7 +66,7 @@ async function initSystems() {
 
   // Log rotation: keep max 5000 entries, drop entries older than 7 days
   const rotateLogs = () => {
-    if (!global.db?.data?.logs) return
+    if (!Array.isArray(global.db?.data?.logs)) return
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
     let logs = global.db.data.logs.filter(l => new Date(l?.timestamp || l?.fecha).getTime() > cutoff)
     if (logs.length > 5000) logs = logs.slice(logs.length - 5000)
@@ -101,20 +101,21 @@ function ensurePanelDb() {
     if (p.logs && !d.logs)                                            d.logs             = p.logs
   }
 
-  d.panelConfig        ??= {}
-  d.subbots            ??= {}
-  d.groups             ??= {}
-  d.usuarios           ??= {}
-  d.aportes            ??= {}
-  d.pedidos            ??= {}
-  d.notifications      ??= []
-  d.pushSubscriptions  ??= []
-  d.multimedia         ??= {}
-  d.systemConfig       ??= {}
-  d.botGlobalState     ??= { isOn: true }
-  d.disabledPlugins    ??= {}
-  d.dailyMetrics       ??= {}
-  if (!Array.isArray(d.logs)) d.logs ??= []
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v)
+  if (!isObj(d.panelConfig))    d.panelConfig    = {}
+  if (!isObj(d.subbots))        d.subbots        = {}
+  if (!isObj(d.groups))         d.groups         = {}
+  if (!isObj(d.usuarios))       d.usuarios       = {}
+  if (!isObj(d.aportes))        d.aportes        = {}
+  if (!isObj(d.pedidos))        d.pedidos        = {}
+  if (!Array.isArray(d.notifications))   d.notifications   = []
+  if (!Array.isArray(d.pushSubscriptions)) d.pushSubscriptions = []
+  if (!isObj(d.multimedia))     d.multimedia     = {}
+  if (!isObj(d.systemConfig))   d.systemConfig   = {}
+  if (!isObj(d.botGlobalState)) d.botGlobalState = { isOn: true }
+  if (!isObj(d.disabledPlugins))d.disabledPlugins= {}
+  if (!isObj(d.dailyMetrics))   d.dailyMetrics   = {}
+  if (!Array.isArray(d.logs))   d.logs           = []
 
   // Keep panel.subbots as a live alias so sockets-serbot.js writes are visible here
   if (d.panel && typeof d.panel === 'object') {
