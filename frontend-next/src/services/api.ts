@@ -66,15 +66,34 @@ class ApiService {
         const status = error?.response?.status
         const config = error?.config
 
-        // Auth: hard fail -> logout
-        if ((status === 401 || status === 403) && typeof window !== 'undefined') {
-          const msg = error?.response?.data?.error || ''
-          if (status === 401 || msg === 'Token inválido') {
+        // Auth: try silent refresh on 401, hard fail on 403
+        if (status === 401 && typeof window !== 'undefined' && config && !(config as any).__isRefresh) {
+          try {
+            const refreshRes = await this.api.post(
+              '/api/auth/refresh',
+              {},
+              { withCredentials: true, ...({ __isRefresh: true } as any) }
+            )
+            const newToken = refreshRes.data?.token
+            if (newToken) {
+              localStorage.setItem('token', newToken)
+              config.headers = config.headers || {}
+              config.headers['Authorization'] = `Bearer ${newToken}`
+              return this.api.request(config)
+            }
+          } catch {
+            // Refresh failed — clear and redirect to login
             localStorage.removeItem('token')
-            try {
-              const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-              document.cookie = `token=; Path=/; Max-Age=0; SameSite=Lax${secure}`
-            } catch {}
+            localStorage.removeItem('user')
+            if (window.location.pathname !== '/login') window.location.href = '/login'
+            return Promise.reject(error)
+          }
+        }
+        if (status === 403 && typeof window !== 'undefined') {
+          const msg = error?.response?.data?.error || ''
+          if (msg === 'Token inválido' || msg === 'Token revocado') {
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
             if (window.location.pathname !== '/login') window.location.href = '/login'
             return Promise.reject(error)
           }
