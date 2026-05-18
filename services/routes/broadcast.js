@@ -252,6 +252,10 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     try {
       const { pgListUsers } = await import('../lib/pg-usuarios.js')
       const { sendMaintenanceNoticeEmail } = await import('../email/index.js')
+      const { generateSystemReportHtml } = await import('../email/system-reporter.js')
+
+      // Generar el reporte UNA sola vez (Claude CLI) antes del loop de envíos
+      const reportHtml = await generateSystemReportHtml('notice', customSummary).catch(() => '')
 
       const allUsers = await pgListUsers()
       let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
@@ -268,7 +272,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
         try {
           await sendMaintenanceNoticeEmail({
             to: u.email, startTime, durationMinutes,
-            affectedServices, unaffectedServices, reason, contactEmail, customSummary,
+            affectedServices, unaffectedServices, reason, contactEmail, customSummary, reportHtml,
           })
           sent++
         } catch { failed++ }
@@ -301,6 +305,10 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     try {
       const { pgListUsers } = await import('../lib/pg-usuarios.js')
       const { sendMaintenanceCompletedEmail } = await import('../email/index.js')
+      const { generateSystemReportHtml } = await import('../email/system-reporter.js')
+
+      // Generar el reporte UNA sola vez (Claude CLI) antes del loop de envíos
+      const reportHtml = await generateSystemReportHtml('completed', customSummary).catch(() => '')
 
       const allUsers = await pgListUsers()
       let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
@@ -312,7 +320,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       let sent = 0, failed = 0
       for (const u of targets) {
         try {
-          await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note, customSummary })
+          await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note, customSummary, reportHtml })
           sent++
         } catch { failed++ }
       }
