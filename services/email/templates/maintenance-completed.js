@@ -1,8 +1,9 @@
 import { getBrandConfig } from '../config.js'
 import { renderPanelEmail, renderDataBlock, escapeHtml } from '../renderer.js'
 import { sendMail } from '../service.js'
+import { generateSystemReportHtml } from '../system-reporter.js'
 
-export function buildMaintenanceCompletedEmail({
+export async function buildMaintenanceCompletedEmail({
   completedAt = '',
   durationMinutes = '',
   restoredServices = [],
@@ -57,6 +58,8 @@ export function buildMaintenanceCompletedEmail({
     </div>`
   }
 
+  contentHtml += await generateSystemReportHtml('completed')
+
   const text =
     `Sistema restaurado — ${brand.name}\n\n` +
     `Restaurado: ${safeCompleted}\n` +
@@ -80,6 +83,6 @@ export function buildMaintenanceCompletedEmail({
 }
 
 export async function sendMaintenanceCompletedEmail({ to, completedAt, durationMinutes, restoredServices = [], note = '' }) {
-  const { subject, html, text } = buildMaintenanceCompletedEmail({ completedAt, durationMinutes, restoredServices, note })
+  const { subject, html, text } = await buildMaintenanceCompletedEmail({ completedAt, durationMinutes, restoredServices, note })
   return sendMail({ to, subject, html, text })
 }

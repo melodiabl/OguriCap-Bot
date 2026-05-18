@@ -18,7 +18,7 @@ import { buildSubbotDeletedEmail } from './templates/subbot-deleted.js'
 import { buildTwoFactorCodeEmail } from './templates/two-factor-code.js'
 import { buildSystemAlertEmail } from './templates/system-alert.js'
 
-function buildEmailPreview(template = 'test') {
+async function buildEmailPreview(template = 'test') {
   const brand = getBrandConfig()
   const previewTo = 'admin@ejemplo.com'
 
@@ -161,7 +161,7 @@ function buildEmailPreview(template = 'test') {
       return { template: 'aporte-pendiente', title: 'Aporte Pendiente', subject, recipient: previewTo, html }
     }
     case 'maintenance-completed': {
-      const { html, subject } = buildMaintenanceCompletedEmail({
+      const { html, subject } = await buildMaintenanceCompletedEmail({
         completedAt: new Date().toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
         durationMinutes: 42,
         restoredServices: ['Panel de administración', 'API REST', 'Sistema de notificaciones'],
@@ -170,7 +170,7 @@ function buildEmailPreview(template = 'test') {
       return { template: 'maintenance-completed', title: 'Mantenimiento completado', subject, recipient: previewTo, html }
     }
     case 'maintenance-notice': {
-      const { html, subject } = buildMaintenanceNoticeEmail({
+      const { html, subject } = await buildMaintenanceNoticeEmail({
         startTime: new Date(Date.now() + 3 * 3600000).toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
         durationMinutes: 45,
         affectedServices: ['Panel de administración', 'API REST', 'Sistema de notificaciones'],
@@ -269,7 +269,7 @@ function buildBroadcastPreview(type = 'announcement') {
   }
 }
 
-export function getEmailTemplatePreview(template = 'test') {
+export async function getEmailTemplatePreview(template = 'test') {
   if (template.startsWith('broadcast_')) {
     return buildBroadcastPreview(template.replace('broadcast_', ''))
   }

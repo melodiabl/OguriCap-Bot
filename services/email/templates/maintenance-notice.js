@@ -1,6 +1,7 @@
 import { getBrandConfig } from '../config.js'
 import { renderPanelEmail, renderDataBlock, escapeHtml } from '../renderer.js'
 import { sendMail } from '../service.js'
+import { generateSystemReportHtml } from '../system-reporter.js'
 
 function formatEndTime(startTime, durationMinutes) {
   try {
@@ -82,7 +83,7 @@ function buildServiceList(affectedServices, unaffectedServices) {
     </div>`
 }
 
-export function buildMaintenanceNoticeEmail({
+export async function buildMaintenanceNoticeEmail({
   startTime,
   durationMinutes,
   affectedServices = [],
@@ -117,6 +118,8 @@ export function buildMaintenanceNoticeEmail({
   }
 
   contentHtml += buildServiceList(affectedServices, unaffectedServices)
+
+  contentHtml += await generateSystemReportHtml('notice')
 
   contentHtml += `
     <div style="margin:20px 0;padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
@@ -163,6 +166,6 @@ export function buildMaintenanceNoticeEmail({
 }
 
 export async function sendMaintenanceNoticeEmail({ to, startTime, durationMinutes, affectedServices = [], unaffectedServices = [], reason = '', contactEmail = '' }) {
-  const { subject, html, text } = buildMaintenanceNoticeEmail({ startTime, durationMinutes, affectedServices, unaffectedServices, reason, contactEmail })
+  const { subject, html, text } = await buildMaintenanceNoticeEmail({ startTime, durationMinutes, affectedServices, unaffectedServices, reason, contactEmail })
   return sendMail({ to, subject, html, text })
 }

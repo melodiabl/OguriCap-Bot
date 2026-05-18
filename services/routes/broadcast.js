@@ -110,7 +110,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     try {
       const type = url.searchParams.get('template') || 'test'
       const { getEmailTemplatePreview } = await import('../email/index.js')
-      const preview = getEmailTemplatePreview?.(type)
+      const preview = await getEmailTemplatePreview?.(type)
       return json(res, 200, { html: preview?.html || '', subject: preview?.subject || '', recipient: preview?.recipient || '' })
     } catch { return json(res, 200, { html: '', subject: '', recipient: '' }) }
   }
