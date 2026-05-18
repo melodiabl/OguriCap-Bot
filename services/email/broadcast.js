@@ -1,6 +1,82 @@
 import { getBrandConfig } from './config.js'
-import { renderPanelEmail, escapeHtml } from './renderer.js'
+import { renderPanelEmail, renderDataBlock, escapeHtml } from './renderer.js'
 import { sendMail } from './service.js'
+
+const OUTAGE_PRESET_CFG = {
+  outage: {
+    type: 'danger', icon: 'x-circle',
+    statusLabel: 'FUERA DE LÍNEA', statusColor: 'pink',
+    ctaText: 'Ver estado',
+    footer: 'Te notificaremos cuando el servicio se restaure. Pedimos disculpas por las molestias.',
+  },
+  issues: {
+    type: 'warning', icon: 'exclamation-triangle',
+    statusLabel: 'DEGRADADO', statusColor: 'gold',
+    ctaText: 'Ver estado del sistema',
+    footer: 'Nuestro equipo está trabajando para resolver el problema lo antes posible.',
+  },
+  maintenance: {
+    type: 'warning', icon: 'cog',
+    statusLabel: 'EN MANTENIMIENTO', statusColor: 'gold',
+    ctaText: 'Ver estado',
+    footer: 'El sistema volverá a estar disponible una vez finalizado el mantenimiento.',
+  },
+  'back-online': {
+    type: 'success', icon: 'check-circle',
+    statusLabel: 'EN LÍNEA', statusColor: 'green',
+    ctaText: 'Usar el servicio',
+    footer: '¡Gracias por tu paciencia! Todo está funcionando con normalidad.',
+  },
+  custom: {
+    type: 'info', icon: 'bell',
+    statusLabel: null, statusColor: 'gray',
+    ctaText: 'Ver en el panel',
+    footer: null,
+  },
+}
+
+export function buildGlobalBroadcastEmail({ preset = 'custom', title, message, priority = 'normal' }) {
+  const brand = getBrandConfig()
+  const cfg = OUTAGE_PRESET_CFG[preset] || OUTAGE_PRESET_CFG.custom
+  const safeTitle   = escapeHtml(String(title || 'Aviso del sistema'))
+  const safeMessage = escapeHtml(String(message || '')).replace(/\n/g, '<br />')
+  const timestamp   = new Date().toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })
+
+  let emailType = cfg.type
+  if (preset === 'custom') {
+    emailType = priority === 'critical' ? 'danger' : priority === 'high' ? 'warning' : 'info'
+  }
+
+  let contentHtml = `<p style="margin:0 0 20px;font-size:15px;color:#374151;">${safeMessage}</p>`
+
+  if (cfg.statusLabel) {
+    contentHtml =
+      renderDataBlock({ label: 'Estado del servicio', value: brand.name, badge: cfg.statusLabel, badgeColor: cfg.statusColor }) +
+      renderDataBlock({ label: 'Fecha y hora', value: escapeHtml(timestamp), badgeColor: 'gray' }) +
+      `<p style="margin:16px 0 20px;font-size:15px;color:#374151;">${safeMessage}</p>`
+  }
+
+  if (cfg.footer) {
+    contentHtml += `<div style="margin:20px 0 0;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;"><p style="margin:0;font-size:13px;color:#6b7280;">${escapeHtml(cfg.footer)}</p></div>`
+  }
+
+  const subject = `${brand.name} — ${String(title || 'Aviso del sistema')}`
+  const text = `${String(title || 'Aviso del sistema')}\n\n${String(message || '')}\n\nFecha: ${timestamp}\nPanel: ${brand.panelUrl}`
+
+  const html = renderPanelEmail({
+    subject, preheader: String(message || '').slice(0, 100),
+    title: safeTitle, contentHtml,
+    ctaUrl: brand.panelUrl, ctaText: cfg.ctaText,
+    type: emailType, icon: cfg.icon,
+  })
+
+  return { subject, html, text }
+}
+
+export async function sendGlobalBroadcastEmail({ to, preset, title, message, priority }) {
+  const { subject, html, text } = buildGlobalBroadcastEmail({ preset, title, message, priority })
+  return sendMail({ to, subject, html, text })
+}
 
 export async function sendBroadcastEmail({ subject, preheader, title, contentHtml, recipients }) {
   const brand = getBrandConfig()

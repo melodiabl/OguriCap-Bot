@@ -413,6 +413,7 @@ export default function ConfiguracionPage() {
     setBroadcastResult(null);
     try {
       const r = await api.post('/api/email/broadcast-all', {
+        preset: broadcastPreset,
         title: broadcastTitle || 'Aviso del sistema',
         message: broadcastMessage,
         priority: broadcastPriority,

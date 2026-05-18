@@ -188,12 +188,12 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     let body
     try { body = await readJson(req) } catch { return json(res, 400, { error: 'JSON inválido' }) }
 
-    const { title, message, priority = 'normal' } = body || {}
+    const { title, message, priority = 'normal', preset = 'custom' } = body || {}
     if (!message?.trim()) return json(res, 400, { error: 'message es requerido' })
 
     try {
       const { pgListUsers } = await import('../lib/pg-usuarios.js')
-      const { sendNotificationEmail } = await import('../email/index.js')
+      const { sendGlobalBroadcastEmail } = await import('../email/broadcast.js')
 
       const allUsers = await pgListUsers()
       const targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
@@ -201,8 +201,9 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       let sent = 0, failed = 0
       for (const u of targets) {
         try {
-          await sendNotificationEmail({
+          await sendGlobalBroadcastEmail({
             to: u.email,
+            preset: String(preset || 'custom'),
             title: String(title || 'Aviso del sistema').trim(),
             message: String(message).trim(),
             priority,
