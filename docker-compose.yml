@@ -44,6 +44,7 @@ services:
       - PANEL_URL=https://melodiaauris.qzz.io
       - NO_PROMPT=1
       - TZ=${TZ:-America/Argentina/Buenos_Aires}
+      - CLAUDE_BIN=/usr/local/bin/claude
     volumes:
       - ./Sessions:/app/Sessions
       - ./storage:/app/storage
@@ -51,6 +52,9 @@ services:
       - ./tmp:/app/tmp
       - ./.monitoring:/app/.monitoring
       - ./.config:/app/.config
+      # Claude Code CLI (cuenta premium del host, sin API key separada)
+      - /root/.local/bin/claude:/usr/local/bin/claude:ro
+      - /root/.claude:/root/.claude:ro
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health" ]
       interval: 30s

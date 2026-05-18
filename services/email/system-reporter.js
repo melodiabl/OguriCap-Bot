@@ -1,17 +1,22 @@
 /**
- * system-reporter.js — snapshot del sistema + resumen IA para emails de mantenimiento
+ * system-reporter.js — snapshot del sistema + resumen completo via Claude Code CLI
  *
- * Recolecta métricas reales (bot, memoria, plugins, usuarios, grupos) y opcionalmente
- * genera un párrafo narrativo via Claude API (claude-haiku).
- * Si ANTHROPIC_API_KEY no está configurada, renderiza solo la tabla de datos.
+ * Recolecta métricas de runtime (bot, RAM, CPU, usuarios, grupos) y contexto
+ * del código (plugins, servicios, rutas del panel, dependencias) y llama a
+ * `claude --print` como subproceso autenticado (cuenta premium, sin API key).
+ *
+ * Fallback: si el CLI no está disponible, renderiza solo la tabla de datos.
  */
 
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
+import { spawn } from 'child_process'
 import { escapeHtml } from './renderer.js'
 
 const ROOT = process.cwd()
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatUptime(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -21,7 +26,13 @@ function formatUptime(seconds) {
   return `${Math.round(seconds)}s`
 }
 
-async function collectSnapshot() {
+function safeReadDir(p) {
+  try { return fs.readdirSync(p) } catch { return [] }
+}
+
+// ── Recolección de runtime ────────────────────────────────────────────────────
+
+async function collectRuntimeSnapshot() {
   const snap = {
     timestamp: new Date().toLocaleString('es-AR', {
       weekday: 'long', day: 'numeric', month: 'long',
@@ -38,17 +49,14 @@ async function collectSnapshot() {
       memFreeMB:  Math.round(os.freemem() / 1024 / 1024),
       memUsedPct: Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 100),
       cpuCount:   os.cpus().length,
-      cpuModel:   os.cpus()[0]?.model?.split(' ').slice(0, 3).join(' ') || '?',
       loadAvg:    Math.round(os.loadavg()[0] * 100) / 100,
       platform:   os.platform(),
     },
     plugins: { total: 0, categories: {}, list: [] },
     users:   { total: 0, byRole: {} },
     groups:  0,
-    version: '1.8.2',
   }
 
-  // Bot status
   try {
     if (global.conn?.user) {
       snap.bot.connected = true
@@ -56,10 +64,8 @@ async function collectSnapshot() {
     }
   } catch {}
 
-  // Plugins from filesystem (exclude internal _*.js and backups)
   try {
-    const dir = path.join(ROOT, 'plugins')
-    const files = fs.readdirSync(dir)
+    const files = safeReadDir(path.join(ROOT, 'plugins'))
       .filter(f => f.endsWith('.js') && !f.startsWith('_') && !f.includes('.bak') && !f.includes('.backup'))
     snap.plugins.total = files.length
     snap.plugins.list  = files.map(f => f.replace('.js', ''))
@@ -69,7 +75,6 @@ async function collectSnapshot() {
     }
   } catch {}
 
-  // Users from postgres
   try {
     const { pgListUsers } = await import('../lib/pg-usuarios.js')
     const users = await pgListUsers()
@@ -80,13 +85,191 @@ async function collectSnapshot() {
     }
   } catch {}
 
-  // Groups from in-memory panelDb
   try {
     snap.groups = Object.keys(global.db?.data?.groups || {}).length
   } catch {}
 
   return snap
 }
+
+// ── Recolección de contexto de código ────────────────────────────────────────
+
+function collectCodeContext() {
+  const ctx = {
+    version: '1.8.2',
+    services: [],
+    routes: [],
+    emailTemplates: [],
+    frontendPages: [],
+    pluginDetails: {},
+  }
+
+  // Services directory
+  ctx.services = safeReadDir(path.join(ROOT, 'services'))
+    .filter(f => f.endsWith('.js'))
+    .map(f => f.replace('.js', ''))
+
+  // Routes
+  ctx.routes = safeReadDir(path.join(ROOT, 'services', 'routes'))
+    .filter(f => f.endsWith('.js'))
+    .map(f => f.replace('.js', ''))
+
+  // Email templates
+  ctx.emailTemplates = safeReadDir(path.join(ROOT, 'services', 'email', 'templates'))
+    .filter(f => f.endsWith('.js'))
+    .map(f => f.replace('.js', ''))
+
+  // Frontend pages (Next.js app dir)
+  const appDir = path.join(ROOT, 'frontend-next', 'src', 'app')
+  function listPages(dir, prefix = '') {
+    const pages = []
+    try {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory() && !entry.name.startsWith('_') && entry.name !== 'api') {
+          pages.push(prefix + entry.name)
+          pages.push(...listPages(path.join(dir, entry.name), prefix + entry.name + '/'))
+        }
+      }
+    } catch {}
+    return pages
+  }
+  ctx.frontendPages = listPages(appDir)
+
+  // Plugin descriptions by category (hardcoded from code knowledge)
+  ctx.pluginDetails = {
+    anime:     'Búsqueda de anime/manga, personajes, info de series, Pokédex, reactions, waifu',
+    downloads: 'Descargador de TikTok, Spotify, YouTube, Twitter/X, Pinterest, Play Store, Mega, MediaFire, Instagram/Facebook',
+    fun:       'Tiempo AFK, comandos de entretenimiento general',
+    gacha:     'Sistema gacha: roll de waifus, harim, shop, trade, rankings, gift, delete, info de personajes',
+    group:     'Gestión de grupos: bienvenida, tagall, admins, kick, promote, demote, warns, antilink, banchat, link, configuración',
+    main:      'Menú principal, ping, info del bot, canal, status',
+    nsfw:      'Contenido adulto (role-gated: solo usuarios premium)',
+    owner:     'Gestión del bot: plugins, restart, update, prefix, config, savefiles, banned, exec, subbot-capacity',
+    panel:     'Integración con el panel web: registro, control, notificaciones, stats, info',
+    pedidos:   'Sistema de pedidos/solicitudes de usuarios',
+    profile:   'Perfil, sistema de niveles, matrimonio, leaderboards, foto de perfil, badge premium',
+    rpg:       'Economía y RPG completo: balance, coinflip, casino, roulette, slot, daily/weekly/monthly, work, crime, hunt, fish, mine, dungeon, adventure, heal, steal, givecoins, banco',
+    sockets:   'Gestión de sub-bots: lista, editar, configurar, iconos, banners, owner, prefix, nombre',
+    tools:     'Herramientas: stickers, traducción, búsqueda Google, letra de canciones, screenshot web, IP info, NPM info, syntax check, TenorGIF, HD, reconocimiento de música, uploader',
+  }
+
+  return ctx
+}
+
+// ── Llamada a Claude Code CLI ─────────────────────────────────────────────────
+
+const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude'
+
+function callClaudeCli(prompt, timeoutMs = 45000) {
+  return new Promise((resolve) => {
+    let proc
+    try {
+      proc = spawn(CLAUDE_BIN, ['--print'], {
+        env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
+        timeout: timeoutMs,
+      })
+    } catch {
+      return resolve(null)
+    }
+
+    let stdout = ''
+    let stderr = ''
+    let settled = false
+
+    const done = (val) => {
+      if (settled) return
+      settled = true
+      resolve(val)
+    }
+
+    const timer = setTimeout(() => done(null), timeoutMs)
+
+    proc.stdout.on('data', d => { stdout += d.toString() })
+    proc.stderr.on('data', d => { stderr += d.toString() })
+
+    proc.on('close', code => {
+      clearTimeout(timer)
+      const text = stdout.trim()
+      done(code === 0 && text ? text : null)
+    })
+
+    proc.on('error', () => {
+      clearTimeout(timer)
+      done(null)
+    })
+
+    try {
+      proc.stdin.write(prompt, 'utf8')
+      proc.stdin.end()
+    } catch {
+      clearTimeout(timer)
+      done(null)
+    }
+  })
+}
+
+// ── Construcción del prompt ───────────────────────────────────────────────────
+
+function buildPrompt(snap, ctx, context) {
+  const botState = snap.bot.connected
+    ? `CONECTADO${snap.bot.phone ? ` (+${snap.bot.phone})` : ''}, uptime ${formatUptime(snap.bot.uptimeSeconds)}`
+    : `DESCONECTADO (proceso activo ${formatUptime(snap.bot.uptimeSeconds)})`
+
+  const pluginCats = Object.entries(snap.plugins.categories)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `  - ${k} (${v} comandos): ${ctx.pluginDetails[k] || ''}`)
+    .join('\n')
+
+  const roleBreak = Object.entries(snap.users.byRole)
+    .map(([r, n]) => `${r}: ${n}`).join(', ') || 'sin datos'
+
+  const emailTpls = ctx.emailTemplates.slice(0, 20).join(', ')
+  const frontendPagesStr = ctx.frontendPages.filter(p => !p.includes('/')).join(', ')
+  const routesStr = ctx.routes.join(', ')
+
+  const contextLabel = context === 'completed'
+    ? 'MANTENIMIENTO COMPLETADO — el sistema ya está operativo y restaurado'
+    : 'INICIO DE MANTENIMIENTO — el sistema va a entrar en mantenimiento programado'
+
+  return `Sos el asistente de soporte técnico de OguriCap-Bot. Tu tarea es escribir el párrafo de diagnóstico del sistema para un email de mantenimiento enviado a los usuarios.
+
+=== CONTEXTO DEL EMAIL ===
+${contextLabel}
+
+=== PROYECTO: OguriCap-Bot v${ctx.version} ===
+Bot de WhatsApp Multi-Device (librería Baileys) con panel de administración Next.js.
+Infraestructura: Docker Compose — 4 contenedores: PostgreSQL, postgres-backup, whatsapp-bot (puerto 3001), admin-panel (puerto 3000).
+
+BACKEND (services/):
+- Servidor HTTP principal (api.js) + WebSocket (socket-io.js)
+- Rutas: ${routesStr}
+- Sistema de emails: ${emailTpls}
+- Otros: metrics-system, task-scheduler, backup-system, security-monitor, intelligent-alerts, resource-monitor, reporting-system
+
+FRONTEND (Next.js):
+- Páginas del dashboard: ${frontendPagesStr}
+- Funcionalidades: gestión de bot (QR, conexión), usuarios/roles, plugins, grupos WhatsApp, sub-bots (JadiBot), configuración del sistema, preview de emails, logs de actividad, sistema de aportes, alertas de seguridad
+
+PLUGINS DE WHATSAPP (${snap.plugins.total} comandos totales):
+${pluginCats}
+
+=== MÉTRICAS EN TIEMPO REAL ===
+Bot WhatsApp: ${botState}
+Node.js: ${snap.system.nodeVersion} · ${snap.system.platform}
+Memoria RAM: ${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres de ${snap.system.memTotalMB} MB
+CPU: ${snap.system.cpuCount} núcleos · carga promedio 1m: ${snap.system.loadAvg}
+Usuarios registrados: ${snap.users.total} (${roleBreak})
+Grupos de WhatsApp activos: ${snap.groups}
+
+=== INSTRUCCIONES DE ESCRITURA ===
+Escribí DOS párrafos cortos en español rioplatense, tono profesional y tranquilizador:
+1. Primer párrafo: estado general del sistema con las métricas más relevantes. Si el mantenimiento está completado, destacá que todo está operativo.
+2. Segundo párrafo: descripción breve de qué es el proyecto (bot + panel + plugins + funcionalidades clave). Mencioná algo interesante del ecosistema.
+
+IMPORTANTE: Solo texto plano corrido. Sin markdown, sin asteriscos, sin listas, sin títulos. Máximo 6 oraciones en total.`
+}
+
+// ── Render HTML ───────────────────────────────────────────────────────────────
 
 function renderDataTable(snap) {
   const botHtml = snap.bot.connected
@@ -103,29 +286,28 @@ function renderDataTable(snap) {
     .map(([r, n]) => `${escapeHtml(r)}: ${n}`).join(' · ') || 'sin datos'
 
   const rows = [
-    { label: 'Bot WhatsApp',     value: botHtml },
-    { label: 'Memoria RAM',      value: `${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres / ${snap.system.memTotalMB} MB` },
-    { label: 'CPU / Carga',      value: `${snap.system.cpuCount} núcleos · carga 1m: ${snap.system.loadAvg}` },
-    { label: 'Plugins activos',  value: `${snap.plugins.total} comandos` },
-    { label: 'Usuarios',         value: `${snap.users.total} registrados (${roleLines})` },
-    { label: 'Grupos WA',        value: `${snap.groups} activos` },
-    { label: 'Runtime',          value: `Node.js ${snap.system.nodeVersion} · ${snap.system.platform} · v${snap.version}` },
+    { label: 'Bot WhatsApp',    value: botHtml },
+    { label: 'Memoria RAM',     value: `${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres / ${snap.system.memTotalMB} MB` },
+    { label: 'CPU / Carga 1m',  value: `${snap.system.cpuCount} núcleos · ${snap.system.loadAvg}` },
+    { label: 'Plugins activos', value: `${snap.plugins.total} comandos` },
+    { label: 'Usuarios',        value: `${snap.users.total} registrados (${roleLines})` },
+    { label: 'Grupos WA',       value: `${snap.groups} activos` },
+    { label: 'Runtime',         value: `Node.js ${snap.system.nodeVersion} · ${snap.system.platform}` },
   ]
 
   const rowsHtml = rows.map((r, i) => {
-    const isLast = i === rows.length - 1
+    const border = i < rows.length - 1 ? '1px solid #f3f4f6' : 'none'
     return `<tr>
-      <td style="padding:7px 0;border-bottom:${isLast ? 'none' : '1px solid #f3f4f6'};font-size:12px;color:#9ca3af;width:36%;vertical-align:top;padding-right:12px;">${r.label}</td>
-      <td style="padding:7px 0;border-bottom:${isLast ? 'none' : '1px solid #f3f4f6'};font-size:13px;color:#374151;">${r.value}</td>
+      <td style="padding:7px 0;border-bottom:${border};font-size:12px;color:#9ca3af;width:36%;vertical-align:top;padding-right:12px;">${r.label}</td>
+      <td style="padding:7px 0;border-bottom:${border};font-size:13px;color:#374151;">${r.value}</td>
     </tr>`
   }).join('')
 
   return `
-    <div style="margin:24px 0 0;">
+    <div style="margin:20px 0 0;">
       <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">Estado del sistema</p>
       <div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-          style="padding:14px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:14px 16px;">
           <tr><td colspan="2">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               ${rowsHtml}
@@ -137,75 +319,17 @@ function renderDataTable(snap) {
     </div>`
 }
 
-async function callClaudeNarrative(snap, context) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return null
-
-  const categorySummary = Object.entries(snap.plugins.categories)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `${k}(${v})`)
-    .join(', ')
-
-  const roleBreakdown = Object.entries(snap.users.byRole)
-    .map(([r, n]) => `${r}: ${n}`).join(', ') || 'sin datos'
-
-  const contextLabel = context === 'completed'
-    ? 'mantenimiento completado, sistema restaurado'
-    : 'inicio de mantenimiento programado'
-
-  const systemData = `
-Bot WhatsApp: ${snap.bot.connected ? 'CONECTADO' : 'DESCONECTADO'}${snap.bot.phone ? ` (+${snap.bot.phone})` : ''}, uptime ${formatUptime(snap.bot.uptimeSeconds)}
-Versión: ${snap.version} — Node.js ${snap.system.nodeVersion}
-Memoria: ${snap.system.memUsedPct}% en uso (${snap.system.memFreeMB} MB libres de ${snap.system.memTotalMB} MB)
-CPU: ${snap.system.cpuCount} núcleos, carga 1m: ${snap.system.loadAvg}
-Plugins: ${snap.plugins.total} comandos — categorías: ${categorySummary}
-Usuarios registrados: ${snap.users.total} (${roleBreakdown})
-Grupos de WhatsApp: ${snap.groups} activos
-Contexto del email: ${contextLabel}
-`.trim()
-
-  const prompt = `Sos un asistente técnico que redacta el párrafo de "estado del sistema" para un email de mantenimiento de un bot de WhatsApp con panel de administración.
-
-Datos del sistema:
-${systemData}
-
-Escribí UN párrafo corto (3-4 oraciones) en español rioplatense, tono profesional y tranquilizador.
-- Mencioná el estado del bot, las métricas clave y el contexto del mantenimiento.
-- Si el contexto es "completado", destacá que el sistema está operativo.
-- No uses markdown, no uses asteriscos, no uses listas, solo texto plano corrido.
-- No empieces con "El sistema" ni con pronombres en primera persona.`
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 250,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    return data?.content?.[0]?.text?.trim() || null
-  } catch {
-    return null
-  }
-}
+// ── Export principal ──────────────────────────────────────────────────────────
 
 /**
- * Genera el bloque HTML del reporte del sistema.
+ * Genera el bloque HTML del reporte del sistema para incluir en emails de mantenimiento.
  * @param {'notice'|'completed'} context
- * @returns {Promise<string>} HTML listo para insertar en el email
+ * @returns {Promise<string>}
  */
 export async function generateSystemReportHtml(context = 'notice') {
-  let snap
+  let snap, ctx
   try {
-    snap = await collectSnapshot()
+    ;[snap, ctx] = await Promise.all([collectRuntimeSnapshot(), collectCodeContext()])
   } catch {
     return ''
   }
@@ -214,12 +338,21 @@ export async function generateSystemReportHtml(context = 'notice') {
 
   let narrativeHtml = ''
   try {
-    const text = await callClaudeNarrative(snap, context)
+    const prompt = buildPrompt(snap, ctx, context)
+    const text   = await callClaudeCli(prompt)
+
     if (text) {
+      // Split into paragraphs if Claude returned two
+      const paras = text.split(/\n{2,}/).filter(p => p.trim())
+      const parasHtml = paras
+        .map(p => `<p style="margin:0 0 10px;font-size:14px;color:#374151;line-height:1.75;">${escapeHtml(p.trim())}</p>`)
+        .join('')
+
       narrativeHtml = `
-        <div style="margin:24px 0 0;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-          <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">Diagnóstico generado por IA</p>
-          <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">${escapeHtml(text)}</p>
+        <div style="margin:24px 0 0;padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
+          <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">Diagnóstico del sistema</p>
+          ${parasHtml}
+          <p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;text-align:right;">Generado por Claude AI</p>
         </div>`
     }
   } catch {}
