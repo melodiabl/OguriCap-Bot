@@ -249,39 +249,43 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
 
     if (!startTime || !durationMinutes) return json(res, 400, { error: 'startTime y durationMinutes son requeridos' })
 
-    try {
-      const { pgListUsers } = await import('../lib/pg-usuarios.js')
-      const { sendMaintenanceNoticeEmail } = await import('../email/index.js')
-      const { generateSystemReportHtml } = await import('../email/system-reporter.js')
+    // Responder inmediatamente — el envío se hace en background
+    json(res, 202, { success: true, status: 'processing', message: 'Generando diagnóstico y enviando emails...' })
 
-      // Generar el reporte UNA sola vez (Claude CLI) antes del loop de envíos
-      const reportHtml = await generateSystemReportHtml('notice', customSummary).catch(() => '')
+    setImmediate(async () => {
+      try {
+        const { pgListUsers } = await import('../lib/pg-usuarios.js')
+        const { sendMaintenanceNoticeEmail } = await import('../email/index.js')
+        const { generateSystemReportHtml } = await import('../email/system-reporter.js')
+        const { getIO } = await import('../socket-io.js')
 
-      const allUsers = await pgListUsers()
-      let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
+        const reportHtml = await generateSystemReportHtml('notice', customSummary).catch(() => '')
 
-      if (recipients === 'admins') {
-        targets = targets.filter(u => ['owner', 'admin', 'administrador'].includes(safeString(u?.rol || '').toLowerCase()))
-      } else if (Array.isArray(recipients)) {
-        const allowed = new Set(recipients.map(e => String(e).toLowerCase().trim()))
-        targets = targets.filter(u => allowed.has(String(u.email).toLowerCase().trim()))
-      }
+        const allUsers = await pgListUsers()
+        let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
 
-      let sent = 0, failed = 0
-      for (const u of targets) {
-        try {
-          await sendMaintenanceNoticeEmail({
-            to: u.email, startTime, durationMinutes,
-            affectedServices, unaffectedServices, reason, contactEmail, customSummary, reportHtml,
-          })
-          sent++
-        } catch { failed++ }
-      }
+        if (recipients === 'admins') {
+          targets = targets.filter(u => ['owner', 'admin', 'administrador'].includes(safeString(u?.rol || '').toLowerCase()))
+        } else if (Array.isArray(recipients)) {
+          const allowed = new Set(recipients.map(e => String(e).toLowerCase().trim()))
+          targets = targets.filter(u => allowed.has(String(u.email).toLowerCase().trim()))
+        }
 
-      return json(res, 200, { success: true, sent, failed, total: targets.length })
-    } catch (err) {
-      return json(res, 500, { error: err?.message || 'Error al enviar emails de mantenimiento' })
-    }
+        let sent = 0, failed = 0
+        for (const u of targets) {
+          try {
+            await sendMaintenanceNoticeEmail({
+              to: u.email, startTime, durationMinutes,
+              affectedServices, unaffectedServices, reason, contactEmail, customSummary, reportHtml,
+            })
+            sent++
+          } catch { failed++ }
+        }
+
+        getIO()?.emit('email:maintenance:done', { type: 'notice', sent, failed, total: targets.length })
+      } catch {}
+    })
+    return
   }
 
   // ── /api/email/maintenance-completed-broadcast ────────────────────────────
@@ -302,33 +306,37 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       recipients = 'all', // 'all' | 'admins'
     } = body || {}
 
-    try {
-      const { pgListUsers } = await import('../lib/pg-usuarios.js')
-      const { sendMaintenanceCompletedEmail } = await import('../email/index.js')
-      const { generateSystemReportHtml } = await import('../email/system-reporter.js')
+    // Responder inmediatamente — el envío se hace en background
+    json(res, 202, { success: true, status: 'processing', message: 'Generando diagnóstico y enviando emails...' })
 
-      // Generar el reporte UNA sola vez (Claude CLI) antes del loop de envíos
-      const reportHtml = await generateSystemReportHtml('completed', customSummary).catch(() => '')
+    setImmediate(async () => {
+      try {
+        const { pgListUsers } = await import('../lib/pg-usuarios.js')
+        const { sendMaintenanceCompletedEmail } = await import('../email/index.js')
+        const { generateSystemReportHtml } = await import('../email/system-reporter.js')
+        const { getIO } = await import('../socket-io.js')
 
-      const allUsers = await pgListUsers()
-      let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
+        const reportHtml = await generateSystemReportHtml('completed', customSummary).catch(() => '')
 
-      if (recipients === 'admins') {
-        targets = targets.filter(u => ['owner', 'admin', 'administrador'].includes(safeString(u?.rol || '').toLowerCase()))
-      }
+        const allUsers = await pgListUsers()
+        let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
 
-      let sent = 0, failed = 0
-      for (const u of targets) {
-        try {
-          await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note, customSummary, reportHtml })
-          sent++
-        } catch { failed++ }
-      }
+        if (recipients === 'admins') {
+          targets = targets.filter(u => ['owner', 'admin', 'administrador'].includes(safeString(u?.rol || '').toLowerCase()))
+        }
 
-      return json(res, 200, { success: true, sent, failed, total: targets.length })
-    } catch (err) {
-      return json(res, 500, { error: err?.message || 'Error al enviar emails de mantenimiento completado' })
-    }
+        let sent = 0, failed = 0
+        for (const u of targets) {
+          try {
+            await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note, customSummary, reportHtml })
+            sent++
+          } catch { failed++ }
+        }
+
+        getIO()?.emit('email:maintenance:done', { type: 'completed', sent, failed, total: targets.length })
+      } catch {}
+    })
+    return
   }
 
   // ── /api/scheduled-messages ───────────────────────────────────────────────

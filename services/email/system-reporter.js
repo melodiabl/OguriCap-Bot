@@ -210,9 +210,17 @@ function callClaudeCli(prompt, timeoutMs = 45000) {
 
 // ── Construcción del prompt ───────────────────────────────────────────────────
 
+function maskPhone(phone) {
+  if (!phone) return null
+  const s = String(phone).replace(/\D/g, '')
+  // Muestra solo los primeros 3 dígitos y enmascara el resto
+  return s.length > 4 ? s.slice(0, 3) + '·'.repeat(Math.min(5, s.length - 3)) : '···'
+}
+
 function buildPrompt(snap, ctx, context) {
+  // ── Datos filtrados (sin info sensible) ──
   const botState = snap.bot.connected
-    ? `CONECTADO${snap.bot.phone ? ` (+${snap.bot.phone})` : ''}, uptime ${formatUptime(snap.bot.uptimeSeconds)}`
+    ? `CONECTADO (uptime ${formatUptime(snap.bot.uptimeSeconds)})`  // sin número de teléfono
     : `DESCONECTADO (proceso activo ${formatUptime(snap.bot.uptimeSeconds)})`
 
   const pluginCats = Object.entries(snap.plugins.categories)
@@ -220,10 +228,10 @@ function buildPrompt(snap, ctx, context) {
     .map(([k, v]) => `  - ${k} (${v} comandos): ${ctx.pluginDetails[k] || ''}`)
     .join('\n')
 
+  // Solo totales por rol, sin nombres ni emails
   const roleBreak = Object.entries(snap.users.byRole)
     .map(([r, n]) => `${r}: ${n}`).join(', ') || 'sin datos'
 
-  const emailTpls = ctx.emailTemplates.slice(0, 20).join(', ')
   const frontendPagesStr = ctx.frontendPages.filter(p => !p.includes('/')).join(', ')
   const routesStr = ctx.routes.join(', ')
 
@@ -231,49 +239,45 @@ function buildPrompt(snap, ctx, context) {
     ? 'MANTENIMIENTO COMPLETADO — el sistema ya está operativo y restaurado'
     : 'INICIO DE MANTENIMIENTO — el sistema va a entrar en mantenimiento programado'
 
-  return `Sos el asistente de soporte técnico de OguriCap-Bot. Tu tarea es escribir el párrafo de diagnóstico del sistema para un email de mantenimiento enviado a los usuarios.
+  return `Sos el asistente de soporte técnico de OguriCap-Bot. Escribí el párrafo de diagnóstico del sistema para un email de mantenimiento enviado a los usuarios.
 
-=== CONTEXTO DEL EMAIL ===
+=== CONTEXTO ===
 ${contextLabel}
 
 === PROYECTO: OguriCap-Bot v${ctx.version} ===
-Bot de WhatsApp Multi-Device (librería Baileys) con panel de administración Next.js.
-Infraestructura: Docker Compose — 4 contenedores: PostgreSQL, postgres-backup, whatsapp-bot (puerto 3001), admin-panel (puerto 3000).
+Bot de WhatsApp Multi-Device (Baileys) con panel de administración Next.js.
+Infraestructura: Docker Compose — PostgreSQL, whatsapp-bot (puerto 3001), admin-panel (puerto 3000).
 
-BACKEND (services/):
-- Servidor HTTP principal (api.js) + WebSocket (socket-io.js)
-- Rutas: ${routesStr}
-- Sistema de emails: ${emailTpls}
-- Otros: metrics-system, task-scheduler, backup-system, security-monitor, intelligent-alerts, resource-monitor, reporting-system
+BACKEND: Servidor HTTP + WebSocket, rutas: ${routesStr}
+Sistema de emails, métricas, scheduler, backups, monitor de seguridad, alertas inteligentes.
 
-FRONTEND (Next.js):
-- Páginas del dashboard: ${frontendPagesStr}
-- Funcionalidades: gestión de bot (QR, conexión), usuarios/roles, plugins, grupos WhatsApp, sub-bots (JadiBot), configuración del sistema, preview de emails, logs de actividad, sistema de aportes, alertas de seguridad
+FRONTEND (Next.js): ${frontendPagesStr}
+Funciones: gestión de bot (QR, conexión), usuarios/roles, plugins, grupos WA, sub-bots, configuración, preview de emails, logs, aportes, alertas de seguridad.
 
-PLUGINS DE WHATSAPP (${snap.plugins.total} comandos totales):
+PLUGINS (${snap.plugins.total} comandos):
 ${pluginCats}
 
-=== MÉTRICAS EN TIEMPO REAL ===
-Bot WhatsApp: ${botState}
-Node.js: ${snap.system.nodeVersion} · ${snap.system.platform}
-Memoria RAM: ${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres de ${snap.system.memTotalMB} MB
-CPU: ${snap.system.cpuCount} núcleos · carga promedio 1m: ${snap.system.loadAvg}
-Usuarios registrados: ${snap.users.total} (${roleBreak})
-Grupos de WhatsApp activos: ${snap.groups}
+=== MÉTRICAS (sin datos sensibles) ===
+Bot: ${botState}
+Runtime: Node.js ${snap.system.nodeVersion} · ${snap.system.platform}
+RAM: ${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres / ${snap.system.memTotalMB} MB total
+CPU: ${snap.system.cpuCount} núcleos · carga 1m: ${snap.system.loadAvg}
+Usuarios: ${snap.users.total} registrados (${roleBreak})
+Grupos activos: ${snap.groups}
 
-=== INSTRUCCIONES DE ESCRITURA ===
-Escribí DOS párrafos cortos en español rioplatense, tono profesional y tranquilizador:
-1. Primer párrafo: estado general del sistema con las métricas más relevantes. Si el mantenimiento está completado, destacá que todo está operativo.
-2. Segundo párrafo: descripción breve de qué es el proyecto (bot + panel + plugins + funcionalidades clave). Mencioná algo interesante del ecosistema.
-
-IMPORTANTE: Solo texto plano corrido. Sin markdown, sin asteriscos, sin listas, sin títulos. Máximo 6 oraciones en total.`
+=== INSTRUCCIONES ===
+DOS párrafos cortos en español rioplatense, tono profesional y tranquilizador.
+1. Estado del sistema con las métricas clave. Si está completado, destacá que todo es operativo.
+2. Breve descripción del proyecto y sus funcionalidades destacadas.
+Solo texto plano. Sin markdown, asteriscos, listas ni títulos. Máximo 6 oraciones.`
 }
 
 // ── Render HTML ───────────────────────────────────────────────────────────────
 
 function renderDataTable(snap) {
+  const maskedPhone = snap.bot.phone ? ` · +${escapeHtml(maskPhone(snap.bot.phone))}···` : ''
   const botHtml = snap.bot.connected
-    ? `<span style="color:#16a34a;font-weight:700;">CONECTADO</span>${snap.bot.phone ? ` · +${escapeHtml(snap.bot.phone)}` : ''} · uptime ${formatUptime(snap.bot.uptimeSeconds)}`
+    ? `<span style="color:#16a34a;font-weight:700;">CONECTADO</span>${maskedPhone} · uptime ${formatUptime(snap.bot.uptimeSeconds)}`
     : `<span style="color:#dc2626;font-weight:700;">DESCONECTADO</span> · proceso activo ${formatUptime(snap.bot.uptimeSeconds)}`
 
   const catTags = Object.entries(snap.plugins.categories)

@@ -122,7 +122,7 @@ export default function ConfiguracionPage() {
   // System stats removed as they are not currently used in the summary lanes
   // const { memoryUsage, uptime } = useSystemStats();
   const { isConnected } = useBotStatus();
-  const { isConnected: isSocketConnected } = useSocketConnection();
+  const { isConnected: isSocketConnected, on: socketOn, off: socketOff } = useSocketConnection();
   
   const { isGloballyOn: contextGlobalState, setGlobalState: contextSetGlobalState } = useBotGlobalStateContext();
   const { refreshAll } = useGlobalUpdate();
@@ -408,6 +408,25 @@ export default function ConfiguracionPage() {
     api.get('/api/email/broadcast-all').then((r: any) => setBroadcastCount(r.data?.count ?? null)).catch(() => {});
   }, []);
 
+  // Resultado async del broadcast de mantenimiento (llega por socket cuando Claude termina)
+  React.useEffect(() => {
+    const handler = (data: any) => {
+      const result = { sent: data.sent ?? 0, failed: data.failed ?? 0, total: data.total ?? 0 };
+      if (data.type === 'notice') {
+        setMaintenanceResult(result);
+        setMaintenanceEmailLoading(false);
+        notify.success(`Email de mantenimiento enviado a ${result.sent} usuarios`);
+      } else if (data.type === 'completed') {
+        setCompletionResult(result);
+        setCompletionEmailLoading(false);
+        notify.success(`Mantenimiento desactivado · Email enviado a ${result.sent} usuarios`);
+        setCompletionModalOpen(false);
+      }
+    };
+    socketOn('email:maintenance:done', handler);
+    return () => socketOff('email:maintenance:done', handler);
+  }, [socketOn, socketOff]);
+
   const handleSelectPreset = (presetId: string) => {
     setBroadcastPreset(presetId);
     const p = OUTAGE_PRESETS.find(x => x.id === presetId);
@@ -440,7 +459,8 @@ export default function ConfiguracionPage() {
     const affectedServices = maintenanceForm.affectedServices.split(',').map(s => s.trim()).filter(Boolean);
     const unaffectedServices = maintenanceForm.unaffectedServices.split(',').map(s => s.trim()).filter(Boolean);
     try {
-      const r = await api.post('/api/email/maintenance-broadcast', {
+      // El backend responde 202 inmediatamente; el resultado llega por socket (email:maintenance:done)
+      await api.post('/api/email/maintenance-broadcast', {
         startTime: maintenanceForm.startTime || new Date().toLocaleString('es-AR'),
         durationMinutes: Number(maintenanceForm.durationMinutes) || 30,
         affectedServices,
@@ -449,13 +469,12 @@ export default function ConfiguracionPage() {
         recipients: maintenanceForm.recipients,
         customSummary: maintenanceForm.customSummary,
       });
-      setMaintenanceResult(r.data);
-      notify.success(`Email de mantenimiento enviado a ${r.data.sent} usuarios`);
+      notify.info('Generando diagnóstico con Claude y enviando emails...');
       setMaintenanceModalOpen(false);
+      // loading se limpia cuando llega email:maintenance:done por socket
     } catch (e: any) {
-      notify.error(e.response?.data?.error || 'Error al enviar email de mantenimiento');
-    } finally {
       setMaintenanceEmailLoading(false);
+      notify.error(e.response?.data?.error || 'Error al enviar email de mantenimiento');
     }
   };
 
@@ -497,22 +516,23 @@ export default function ConfiguracionPage() {
     setCompletionResult(null);
     const restoredServices = completionForm.restoredServices.split(',').map((s: string) => s.trim()).filter(Boolean);
     try {
+      // Primero desactivar el modo mantenimiento (sincrónico)
       await api.updateSystemConfig({ maintenanceMode: false });
       setSystemConfig((prev: any) => ({ ...prev, maintenanceMode: false }));
-      const r = await api.post('/api/email/maintenance-completed-broadcast', {
+      // Luego lanzar el broadcast async (202 inmediato); resultado llega por socket
+      await api.post('/api/email/maintenance-completed-broadcast', {
         completedAt: new Date().toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
         durationMinutes: Number(completionForm.durationMinutes) || undefined,
         restoredServices,
         note: completionForm.note,
         customSummary: completionForm.customSummary,
       });
-      setCompletionResult(r.data);
-      notify.success(`Mantenimiento desactivado · Email enviado a ${r.data.sent} usuarios`);
+      notify.info('Mantenimiento desactivado · Generando diagnóstico con Claude...');
       setCompletionModalOpen(false);
+      // loading y resultado se actualizan cuando llega email:maintenance:done por socket
     } catch (e: any) {
-      notify.error(e.response?.data?.error || 'Error al enviar notificación');
-    } finally {
       setCompletionEmailLoading(false);
+      notify.error(e.response?.data?.error || 'Error al desactivar o notificar');
     }
   };
 
