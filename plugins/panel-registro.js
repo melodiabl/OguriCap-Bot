@@ -178,7 +178,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isOwner }) => {
       ].join('\n')
 
       try {
-        const { emitNotification } = await import('../api/socket-io.js')
+        const { emitNotification } = await import('../services/socket-io.js')
         emitNotification({
           type: 'success',
           title: 'Nuevo Registro',

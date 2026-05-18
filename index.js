@@ -145,7 +145,7 @@ try {
 
 
 // Initialize admin user for JWT system
-import('./api/init-admin.js').catch(err => {
+import('./services/init-admin.js').catch(err => {
   console.warn('Warning: Could not initialize admin user:', err.message);
 });
 
@@ -302,7 +302,7 @@ global.conn.ev.on("creds.update", saveCreds)
 // ============================================
 if (process.env.PANEL_API !== '0') {
   try {
-    const { startPanelApi } = await import('./api/api.js')
+    const { startPanelApi } = await import('./services/api.js')
     const apiPort = PORT
     await startPanelApi({ port: apiPort })
     
@@ -534,7 +534,7 @@ async function requestMainPairingCodeNow(phoneNumber, pairKey = null) {
     })
 
     try {
-      const { emitBotPairingCode } = await import('./api/socket-io.js')
+      const { emitBotPairingCode } = await import('./services/socket-io.js')
       if (typeof emitBotPairingCode === 'function') emitBotPairingCode(pairingCode, phoneNumber)
     } catch {}
 
@@ -647,7 +647,7 @@ global.getMainPairingCode = async function getMainPairingCode(options = {}) {
     global.panelPairingCode = cachedCode
     global.panelPairingPhone = phoneNumber
     try {
-      const { emitBotPairingCode } = await import('./api/socket-io.js')
+      const { emitBotPairingCode } = await import('./services/socket-io.js')
       if (typeof emitBotPairingCode === 'function') emitBotPairingCode(cachedCode, phoneNumber)
     } catch {}
     return {
@@ -1197,7 +1197,7 @@ const emitPanelLogEntry = (() => {
   let emitFn = null
   const pending = []
 
-  import('./api/socket-io.js')
+  import('./services/socket-io.js')
     .then((m) => {
       emitFn = m?.emitLogEntry
       if (typeof emitFn === 'function') {
@@ -1348,7 +1348,7 @@ async function connectionUpdate(update) {
 
     // Emitir QR via Socket.IO sólo cuando el panel lo haya solicitado
     try {
-      const { emitBotQR } = await import('./api/socket-io.js')
+      const { emitBotQR } = await import('./services/socket-io.js')
       emitBotQR(qr)
     } catch {}
   }
@@ -1378,12 +1378,12 @@ async function connectionUpdate(update) {
     global.panelPairingCode = null
     // Emitir conexión via Socket.IO
     try {
-      const { emitBotConnected, emitBotStatus } = await import('./api/socket-io.js')
+      const { emitBotConnected, emitBotStatus } = await import('./services/socket-io.js')
       emitBotConnected(global.conn.user?.id)
       emitBotStatus()
       
       // Notificación persistente
-      const { sendTemplateNotification } = await import('./api/notification/index.js')
+      const { sendTemplateNotification } = await import('./services/notification/index.js')
       sendTemplateNotification('bot_connected')
     } catch {}
 
@@ -1445,12 +1445,12 @@ async function connectionUpdate(update) {
     global.panelAllowQr = false
     // Emitir desconexión via Socket.IO
     try {
-      const { emitBotDisconnected, emitBotStatus } = await import('./api/socket-io.js')
+      const { emitBotDisconnected, emitBotStatus } = await import('./services/socket-io.js')
       emitBotDisconnected(reason)
       emitBotStatus()
 
       // Notificación persistente
-      const { sendTemplateNotification } = await import('./api/notification/index.js')
+      const { sendTemplateNotification } = await import('./services/notification/index.js')
       sendTemplateNotification('bot_disconnected', { reason })
     } catch {}
 
@@ -1488,7 +1488,7 @@ async function connectionUpdate(update) {
 process.on('uncaughtException', async (err) => {
   console.error('❌ Uncaught Exception:', err)
   try {
-    const { sendTemplateNotification } = await import('./api/notification/index.js')
+    const { sendTemplateNotification } = await import('./services/notification/index.js')
     await sendTemplateNotification('system_error', { 
       error: err?.message || String(err) 
     })
@@ -1498,7 +1498,7 @@ process.on('uncaughtException', async (err) => {
 process.on('unhandledRejection', async (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason)
   try {
-    const { sendTemplateNotification } = await import('./api/notification/index.js')
+    const { sendTemplateNotification } = await import('./services/notification/index.js')
     await sendTemplateNotification('system_error', { 
       error: reason?.message || String(reason) 
     })
@@ -1924,7 +1924,7 @@ console.log(chalk.cyan('🚀 Inicializando sistemas avanzados...'))
 try {
   console.log(chalk.cyan('🔧 Iniciando sistemas básicos...'))
   
-  const { default: realTimeData } = await import('./api/real-time-data.js')
+  const { default: realTimeData } = await import('./services/real-time-data.js')
   if (!realTimeData.isRunning) {
     realTimeData.start()
     console.log(chalk.green('✅ Sistema de Datos en Tiempo Real iniciado'))

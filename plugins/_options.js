@@ -34,7 +34,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, welcome: isEnable })
       } catch { }
 
@@ -54,7 +54,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, modoadmin: isEnable })
       } catch { }
 
@@ -74,7 +74,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, detect: isEnable })
       } catch { }
 
@@ -94,7 +94,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, antiLink: isEnable })
       } catch { }
 
@@ -114,7 +114,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, nsfw: isEnable })
       } catch { }
 
@@ -134,7 +134,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, economy: isEnable })
       } catch { }
 
@@ -154,7 +154,7 @@ const handler = async (m, { conn, usedPrefix, command, args, isOwner, isAdmin })
 
       // Emitir evento Socket.IO
       try {
-        const { emitGrupoUpdated } = await import('../api/socket-io.js')
+        const { emitGrupoUpdated } = await import('../services/socket-io.js')
         emitGrupoUpdated({ jid: m.chat, gacha: isEnable })
       } catch { }
 

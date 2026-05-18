@@ -40,7 +40,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
 
       // Emitir evento Socket.IO
       try {
-        const { emitNotification } = await import('../api/socket-io.js')
+        const { emitNotification } = await import('../services/socket-io.js')
         emitNotification({
           type: 'warning',
           title: 'Nuevo Reporte',
@@ -81,7 +81,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
 
       // Emitir evento Socket.IO
       try {
-        const { emitNotification } = await import('../api/socket-io.js')
+        const { emitNotification } = await import('../services/socket-io.js')
         emitNotification({
           type: 'info',
           title: 'Nueva Sugerencia',
@@ -121,7 +121,7 @@ let handler = async (m, { args, usedPrefix, command, conn }) => {
 
       // Emitir evento Socket.IO
       try {
-        const { emitNotification } = await import('../api/socket-io.js')
+        const { emitNotification } = await import('../services/socket-io.js')
         emitNotification({
           type: 'success',
           title: 'Nuevo Feedback',
