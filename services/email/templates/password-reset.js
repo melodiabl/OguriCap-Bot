@@ -21,7 +21,7 @@ export async function sendPasswordResetEmail({ to, username, token, expiresMinut
     subject, preheader: `Restablecé tu contraseña — vence en ${expiresMinutes} min`,
     title: 'Restablecer contraseña', contentHtml,
     ctaUrl: resetUrl, ctaText: 'Restablecer contraseña',
-    type: 'warning', icon: 'lock',
+    type: 'warning', icon: 'lock', securityFooter: true,
   })
 
   return sendMail({ to, subject, html, text })

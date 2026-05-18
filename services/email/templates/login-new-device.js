@@ -33,7 +33,7 @@ export function buildLoginNewDeviceEmail({ username, ip, location = '', device =
     subject, preheader: `Acceso desde IP ${String(ip || '')} en tu cuenta`,
     title: 'Acceso nuevo detectado', contentHtml,
     ctaUrl: `${brand.panelUrl}/configuracion`, ctaText: 'Revisar mi cuenta',
-    type: 'danger', icon: 'device-phone',
+    type: 'danger', icon: 'device-phone', securityFooter: true,
   })
 
   return { subject, html, text }

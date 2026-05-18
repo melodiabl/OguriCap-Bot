@@ -96,7 +96,7 @@ const TYPE_PALETTE = {
  * @param {'success'|'danger'|'warning'|'info'} [params.type='success'] - Color theme.
  * @param {string} [params.icon=''] - Emoji icon rendered in the header area.
  */
-export function renderPanelEmail({ subject, preheader, title, contentHtml, ctaUrl, ctaText, type = 'success', icon = '' }) {
+export function renderPanelEmail({ subject, preheader, title, contentHtml, ctaUrl, ctaText, type = 'success', icon = '', securityFooter = false }) {
   const brand = getBrandConfig()
   const p = TYPE_PALETTE[type] || TYPE_PALETTE.success
   const safePreheader = escapeHtml(preheader || '')
@@ -136,7 +136,7 @@ export function renderPanelEmail({ subject, preheader, title, contentHtml, ctaUr
             <div style="padding:0 40px 40px;">
               <div style="color:#374151;font-size:15px;line-height:1.7;">${contentHtml}</div>
               ${ctaHtml}
-              <p style="color:#9ca3af;font-size:12px;margin:24px 0 0;line-height:1.6;">Si no fuiste vos quien realizó esta acción, podés ignorar este email.</p>
+              ${securityFooter ? `<p style="color:#9ca3af;font-size:12px;margin:24px 0 0;line-height:1.6;">Si no fuiste vos quien realizó esta acción, podés ignorar este email.</p>` : ''}
             </div>
           </td></tr>
           <tr><td style="padding-top:24px;text-align:center;">
