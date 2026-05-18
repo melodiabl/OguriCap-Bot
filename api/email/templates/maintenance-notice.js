@@ -28,7 +28,7 @@ export function buildMaintenanceNoticeEmail({ startTime, durationMinutes, affect
     subject, preheader: `Mantenimiento programado — inicio: ${String(startTime || '')}`,
     title: 'Mantenimiento programado', contentHtml,
     ctaUrl: brand.panelUrl, ctaText: 'Ver estado del sistema',
-    type: 'warning', icon: '🛠️',
+    type: 'warning', icon: 'cog',
   })
 
   return { subject, html, text }

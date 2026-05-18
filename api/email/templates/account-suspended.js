@@ -25,7 +25,7 @@ export function buildAccountSuspendedEmail({ username, suspendedBy, reason = '',
     subject, preheader: 'Tu acceso al panel fue suspendido.',
     title: 'Cuenta suspendida', contentHtml,
     ctaUrl: contactUrl || '', ctaText: contactUrl ? 'Contactar soporte' : '',
-    type: 'danger', icon: '🔒',
+    type: 'danger', icon: 'lock',
   })
 
   return { subject, html, text }

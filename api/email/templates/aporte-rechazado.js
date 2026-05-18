@@ -30,7 +30,7 @@ export function buildAporteRechazadoEmail({ username, amount, reason = '', rejec
     subject, preheader: `Tu aporte de ${String(amount || '')} fue rechazado`,
     title: 'Aporte rechazado', contentHtml,
     ctaUrl: `${brand.panelUrl}/aportes`, ctaText: 'Ver mis aportes',
-    type: 'danger', icon: '❌',
+    type: 'danger', icon: 'x-circle',
   })
 
   return { subject, html, text }

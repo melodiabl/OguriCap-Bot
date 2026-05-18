@@ -28,7 +28,7 @@ export async function sendWelcomeEmail({ to, username, role = 'Usuario' }) {
     subject, preheader: 'Tu cuenta fue activada en el equipo.',
     title: '¡Bienvenido al equipo!', contentHtml,
     ctaUrl: brand.panelUrl, ctaText: 'Acceder al panel',
-    type: 'success', icon: '🚀',
+    type: 'success', icon: 'rocket',
   })
 
   return sendMail({ to, subject, html, text })

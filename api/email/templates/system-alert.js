@@ -27,7 +27,7 @@ export function buildSystemAlertEmail({ metric, value, threshold, since = '', le
     subject, preheader: `${String(metric || '')} superó el umbral de ${String(threshold || '')}`,
     title: `Alerta: ${safeMetric}`, contentHtml,
     ctaUrl: brand.panelUrl, ctaText: 'Ver diagnósticos',
-    type: isCritical ? 'danger' : 'warning', icon: isCritical ? '🚨' : '⚠️',
+    type: isCritical ? 'danger' : 'warning', icon: 'exclamation-triangle',
   })
 
   return { subject, html, text }

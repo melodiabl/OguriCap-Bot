@@ -22,7 +22,7 @@ export function buildSubbotDeletedEmail({ subbotName, deletedBy, reason = '' }) 
     subject, preheader: `Sub-bot ${String(subbotName || '')} fue eliminado`,
     title: 'Sub-bot eliminado', contentHtml,
     ctaUrl: '', ctaText: '',
-    type: 'danger', icon: '🤖',
+    type: 'danger', icon: 'cpu-chip',
   })
 
   return { subject, html, text }

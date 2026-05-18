@@ -21,7 +21,7 @@ export function buildSubbotCreatedEmail({ subbotName, subbotNumber, createdBy })
     subject, preheader: `Nuevo sub-bot ${String(subbotNumber || '')} creado`,
     title: 'Nuevo sub-bot creado', contentHtml,
     ctaUrl: `${brand.panelUrl}/subbots`, ctaText: 'Ver sub-bots',
-    type: 'success', icon: '🤖',
+    type: 'success', icon: 'cpu-chip',
   })
 
   return { subject, html, text }

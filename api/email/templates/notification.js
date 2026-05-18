@@ -3,10 +3,10 @@ import { renderPanelEmail, escapeHtml } from '../renderer.js'
 import { sendMail } from '../service.js'
 
 const PRIORITY_CFG = {
-  critical: { type: 'danger',  icon: '🚨' },
-  high:     { type: 'warning', icon: '⚠️' },
-  normal:   { type: 'info',    icon: '📢' },
-  low:      { type: 'info',    icon: 'ℹ️' },
+  critical: { type: 'danger',  icon: 'exclamation-triangle' },
+  high:     { type: 'warning', icon: 'exclamation-triangle' },
+  normal:   { type: 'info',    icon: 'bell' },
+  low:      { type: 'info',    icon: 'bell' },
 }
 
 export async function sendNotificationEmail({ to, title, message, priority = 'normal' }) {

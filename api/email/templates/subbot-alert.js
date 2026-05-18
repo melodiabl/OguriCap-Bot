@@ -3,9 +3,9 @@ import { renderPanelEmail, renderDataBlock, escapeHtml } from '../renderer.js'
 import { sendMail } from '../service.js'
 
 const STATUS_CFG = {
-  disconnected: { type: 'danger',  icon: '🔴', verb: 'se desconectó', badge: 'OFFLINE',   badgeColor: 'pink',  preheader: 'Un sub-bot se desconectó' },
-  reconnected:  { type: 'success', icon: '🟢', verb: 'reconectado',   badge: 'EN LÍNEA',  badgeColor: 'green', preheader: 'Sub-bot volvió en línea' },
-  error:        { type: 'warning', icon: '⚠️', verb: 'tuvo un error', badge: 'ERROR',     badgeColor: 'gold',  preheader: 'Error en sub-bot' },
+  disconnected: { type: 'danger',  icon: 'exclamation-triangle', verb: 'se desconectó', badge: 'OFFLINE',   badgeColor: 'pink',  preheader: 'Un sub-bot se desconectó' },
+  reconnected:  { type: 'success', icon: 'arrow-path',           verb: 'reconectado',   badge: 'EN LÍNEA',  badgeColor: 'green', preheader: 'Sub-bot volvió en línea' },
+  error:        { type: 'warning', icon: 'exclamation-triangle', verb: 'tuvo un error', badge: 'ERROR',     badgeColor: 'gold',  preheader: 'Error en sub-bot' },
 }
 
 export function buildSubbotAlertEmail({ subbotNumber, subbotName = '', status, reason = '' }) {

@@ -23,7 +23,7 @@ export function buildAporteAceptadoEmail({ username, amount, concept = '', accep
     subject, preheader: `Tu aporte de ${String(amount || '')} fue aceptado`,
     title: 'Aporte aceptado', contentHtml,
     ctaUrl: `${brand.panelUrl}/aportes`, ctaText: 'Ver mis aportes',
-    type: 'success', icon: '✅',
+    type: 'success', icon: 'check-circle',
   })
 
   return { subject, html, text }

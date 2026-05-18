@@ -26,7 +26,7 @@ export function buildAporteReceivedEmail({ username, amount, concept = '', date 
     subject, preheader: `${String(username || '')} te envió ${String(amount || '')}`,
     title: '¡Recibiste un aporte!', contentHtml,
     ctaUrl: `${brand.panelUrl}/aportes`, ctaText: 'Ver aportes',
-    type: 'success', icon: '💚',
+    type: 'success', icon: 'currency',
   })
 
   return { subject, html, text }

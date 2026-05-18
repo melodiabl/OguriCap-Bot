@@ -23,7 +23,7 @@ export function buildRoleChangedEmail({ username, oldRole, newRole, roleDescript
     subject, preheader: `Tu rol cambió de ${String(oldRole || '')} a ${String(newRole || '')}`,
     title: 'Tu rol fue actualizado', contentHtml,
     ctaUrl: brand.panelUrl, ctaText: 'Ver mi perfil',
-    type: 'info', icon: '🔄',
+    type: 'info', icon: 'user',
   })
 
   return { subject, html, text }

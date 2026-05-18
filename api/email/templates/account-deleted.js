@@ -28,7 +28,7 @@ export function buildAccountDeletedEmail({ username, deletedBy = 'el sistema', r
     subject, preheader: 'Tu cuenta fue eliminada del sistema.',
     title: 'Cuenta eliminada', contentHtml,
     ctaUrl: '', ctaText: '',
-    type: 'danger', icon: '🗑️',
+    type: 'danger', icon: 'trash',
   })
 
   return { subject, html, text }

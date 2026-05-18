@@ -26,7 +26,7 @@ export async function sendSecurityAlertEmail({ to, subject, title, message, deta
     subject: safeSubject, preheader: String(message || '').slice(0, 100),
     title: rawTitle, contentHtml,
     ctaUrl: ctaUrl || brand.panelUrl, ctaText: ctaText || 'Abrir panel',
-    type: 'danger', icon: '🛡️',
+    type: 'danger', icon: 'shield',
   })
 
   return sendMail({ to, subject: safeSubject, html, text })

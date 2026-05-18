@@ -20,7 +20,7 @@ export function buildAccountReactivatedEmail({ username, reactivatedBy, note = '
     subject, preheader: 'Tu acceso al panel fue restaurado.',
     title: 'Cuenta reactivada', contentHtml,
     ctaUrl: brand.panelUrl, ctaText: 'Acceder al panel',
-    type: 'success', icon: '✅',
+    type: 'success', icon: 'check-circle',
   })
 
   return { subject, html, text }

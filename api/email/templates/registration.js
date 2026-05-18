@@ -22,7 +22,7 @@ export async function sendRegistrationEmail({ to, username, role = 'Usuario' }) 
     subject, preheader: 'Tu cuenta fue creada correctamente.',
     title: `¡Bienvenido a ${brand.name}!`, contentHtml,
     ctaUrl: brand.panelUrl, ctaText: 'Ir al panel',
-    type: 'success', icon: '🎉',
+    type: 'success', icon: 'document',
   })
 
   return sendMail({ to, subject, html, text })

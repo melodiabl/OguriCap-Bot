@@ -24,7 +24,7 @@ export function buildTwoFactorCodeEmail({ username, code, expiresMinutes = 5 }) 
     subject, preheader: `Tu código de verificación es ${String(code || '')}`,
     title: 'Código de verificación', contentHtml,
     ctaUrl: '', ctaText: '',
-    type: 'info', icon: '🔑',
+    type: 'info', icon: 'shield',
   })
 
   return { subject, html, text }

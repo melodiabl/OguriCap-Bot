@@ -3,9 +3,9 @@ import { renderPanelEmail, renderDataBlock, escapeHtml } from '../renderer.js'
 import { sendMail } from '../service.js'
 
 const STATUS_CFG = {
-  disconnected: { type: 'danger',  icon: '🔴', verb: 'se desconectó', badge: 'DESCONECTADO', badgeColor: 'pink',  preheader: 'El bot se desconectó' },
-  reconnected:  { type: 'success', icon: '🟢', verb: 'está en línea', badge: 'EN LÍNEA',     badgeColor: 'green', preheader: 'El bot volvió en línea' },
-  error:        { type: 'warning', icon: '⚠️', verb: 'tuvo un error', badge: 'ERROR',        badgeColor: 'gold',  preheader: 'Error detectado en el bot' },
+  disconnected: { type: 'danger',  icon: 'exclamation-triangle', verb: 'se desconectó', badge: 'DESCONECTADO', badgeColor: 'pink',  preheader: 'El bot se desconectó' },
+  reconnected:  { type: 'success', icon: 'arrow-path',           verb: 'está en línea', badge: 'EN LÍNEA',     badgeColor: 'green', preheader: 'El bot volvió en línea' },
+  error:        { type: 'warning', icon: 'exclamation-triangle', verb: 'tuvo un error', badge: 'ERROR',        badgeColor: 'gold',  preheader: 'Error detectado en el bot' },
 }
 
 export function buildBotAlertEmail({ botName, status, reason = '', since = '' }) {

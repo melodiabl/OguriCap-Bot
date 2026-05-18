@@ -5,7 +5,7 @@ import { sendMail } from '../service.js'
 export function buildLoginNewDeviceEmail({ username, ip, location = '', device = '', time = '' }) {
   const brand = getBrandConfig()
   const safeUsername = escapeHtml(String(username || ''))
-  const subject = `🔐 Acceso nuevo detectado — ${brand.name}`
+  const subject = `Acceso nuevo detectado — ${brand.name}`
 
   let contentHtml =
     `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, detectamos un acceso desde un dispositivo que no reconocemos.</p>` +
@@ -33,7 +33,7 @@ export function buildLoginNewDeviceEmail({ username, ip, location = '', device =
     subject, preheader: `Acceso desde IP ${String(ip || '')} en tu cuenta`,
     title: 'Acceso nuevo detectado', contentHtml,
     ctaUrl: `${brand.panelUrl}/configuracion`, ctaText: 'Revisar mi cuenta',
-    type: 'danger', icon: '🔐',
+    type: 'danger', icon: 'device-phone',
   })
 
   return { subject, html, text }

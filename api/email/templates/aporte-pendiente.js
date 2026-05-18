@@ -24,7 +24,7 @@ export function buildAportePendienteEmail({ username, amount, concept = '', dueD
     subject, preheader: `Tu aporte de ${String(amount || '')} está siendo revisado`,
     title: 'Aporte en revisión', contentHtml,
     ctaUrl: `${brand.panelUrl}/aportes`, ctaText: 'Ver estado',
-    type: 'warning', icon: '⏳',
+    type: 'warning', icon: 'clock',
   })
 
   return { subject, html, text }
