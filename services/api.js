@@ -318,7 +318,7 @@ function startPeriodicTasks(io) {
     try {
       const db = ensurePanelDb()
       if (!db) return
-      const { cleanupDisconnectedSubbots, cleanupBrokenSubbotSymlinks } = await import('../api/lib/subbot-helpers.js')
+      const { cleanupDisconnectedSubbots, cleanupBrokenSubbotSymlinks } = await import('./lib/subbot-helpers.js')
       const { removed } = cleanupDisconnectedSubbots(db)
       cleanupBrokenSubbotSymlinks()
       if (removed.length > 0) {

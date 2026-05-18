@@ -370,6 +370,16 @@ export default function ConfiguracionPage() {
   // Support / System actions
   const [maintenanceLoading, setMaintenanceLoading] = React.useState(false);
   const [maintenanceEmailLoading, setMaintenanceEmailLoading] = React.useState(false);
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = React.useState(false);
+  const [maintenanceForm, setMaintenanceForm] = React.useState({
+    startTime: '',
+    durationMinutes: '30',
+    affectedServices: 'Panel, Bot',
+    unaffectedServices: '',
+    reason: '',
+    recipients: 'all' as 'all' | 'admins',
+  });
+  const [maintenanceResult, setMaintenanceResult] = React.useState<{ sent: number; failed: number; total: number } | null>(null);
 
   // Comunicaciones globales
   const OUTAGE_PRESETS = [
@@ -418,17 +428,23 @@ export default function ConfiguracionPage() {
 
   const handleSendMaintenanceEmail = async () => {
     setMaintenanceEmailLoading(true);
+    setMaintenanceResult(null);
+    const affectedServices = maintenanceForm.affectedServices.split(',').map(s => s.trim()).filter(Boolean);
+    const unaffectedServices = maintenanceForm.unaffectedServices.split(',').map(s => s.trim()).filter(Boolean);
     try {
-      await api.post('/api/email/send', {
-        template: 'maintenance-notice',
-        to: 'admin@admin.com',
-        startTime: new Date().toLocaleString('es-ES'),
-        durationMinutes: 30,
-        affectedServices: ['Panel', 'Bot'],
+      const r = await api.post('/api/email/maintenance-broadcast', {
+        startTime: maintenanceForm.startTime || new Date().toLocaleString('es-AR'),
+        durationMinutes: Number(maintenanceForm.durationMinutes) || 30,
+        affectedServices,
+        unaffectedServices,
+        reason: maintenanceForm.reason,
+        recipients: maintenanceForm.recipients,
       });
-      notify.success('Email de mantenimiento enviado');
-    } catch {
-      notify.error('Error al enviar email de mantenimiento');
+      setMaintenanceResult(r.data);
+      notify.success(`Email de mantenimiento enviado a ${r.data.sent} usuarios`);
+      setMaintenanceModalOpen(false);
+    } catch (e: any) {
+      notify.error(e.response?.data?.error || 'Error al enviar email de mantenimiento');
     } finally {
       setMaintenanceEmailLoading(false);
     }
@@ -938,8 +954,7 @@ export default function ConfiguracionPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  loading={maintenanceEmailLoading}
-                  onClick={handleSendMaintenanceEmail}
+                  onClick={() => { setMaintenanceResult(null); setMaintenanceModalOpen(true); }}
                   icon={<Mail className="h-3.5 w-3.5" />}
                   className="border-amber-500/20 text-amber-300 hover:bg-amber-500/10"
                 >
@@ -1257,6 +1272,102 @@ export default function ConfiguracionPage() {
                 {extractPlainTextFromHtml(emailPreviewData.html)}
               </pre>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Maintenance email modal */}
+      <Modal
+        isOpen={maintenanceModalOpen}
+        onClose={() => setMaintenanceModalOpen(false)}
+        title="Notificar mantenimiento por email"
+        className="max-w-lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Configurá los detalles del mantenimiento y elegí a quién notificar.</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Inicio del mantenimiento</label>
+              <input
+                type="text"
+                placeholder={new Date().toLocaleString('es-AR')}
+                value={maintenanceForm.startTime}
+                onChange={e => setMaintenanceForm(p => ({ ...p, startTime: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Duración estimada (min)</label>
+              <input
+                type="number"
+                min="1"
+                value={maintenanceForm.durationMinutes}
+                onChange={e => setMaintenanceForm(p => ({ ...p, durationMinutes: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Destinatarios</label>
+              <select
+                value={maintenanceForm.recipients}
+                onChange={e => setMaintenanceForm(p => ({ ...p, recipients: e.target.value as 'all' | 'admins' }))}
+                className="w-full rounded-lg border border-white/10 bg-[#1a1f2e] px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              >
+                <option value="all">Todos los usuarios</option>
+                <option value="admins">Solo admins</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Servicios afectados <span className="text-muted-foreground/60">(separados por coma)</span></label>
+              <input
+                type="text"
+                placeholder="Panel, Bot, API..."
+                value={maintenanceForm.affectedServices}
+                onChange={e => setMaintenanceForm(p => ({ ...p, affectedServices: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Servicios sin afectar <span className="text-muted-foreground/60">(opcional)</span></label>
+              <input
+                type="text"
+                placeholder="Base de datos, Backups..."
+                value={maintenanceForm.unaffectedServices}
+                onChange={e => setMaintenanceForm(p => ({ ...p, unaffectedServices: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Motivo <span className="text-muted-foreground/60">(opcional)</span></label>
+              <input
+                type="text"
+                placeholder="Actualización de base de datos, mejoras de rendimiento..."
+                value={maintenanceForm.reason}
+                onChange={e => setMaintenanceForm(p => ({ ...p, reason: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+
+          {maintenanceResult && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              Enviado a {maintenanceResult.sent}/{maintenanceResult.total} usuarios
+              {maintenanceResult.failed > 0 && ` · ${maintenanceResult.failed} fallidos`}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" onClick={() => setMaintenanceModalOpen(false)}>Cancelar</Button>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={maintenanceEmailLoading}
+              onClick={handleSendMaintenanceEmail}
+              icon={<Mail className="h-3.5 w-3.5" />}
+            >
+              Enviar notificación
+            </Button>
           </div>
         </div>
       </Modal>

@@ -192,7 +192,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!message?.trim()) return json(res, 400, { error: 'message es requerido' })
 
     try {
-      const { pgListUsers } = await import('../../api/lib/pg-usuarios.js')
+      const { pgListUsers } = await import('../lib/pg-usuarios.js')
       const { sendNotificationEmail } = await import('../email/index.js')
 
       const allUsers = await pgListUsers()
@@ -223,11 +223,59 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Acceso denegado' })
     try {
-      const { pgListUsers } = await import('../../api/lib/pg-usuarios.js')
+      const { pgListUsers } = await import('../lib/pg-usuarios.js')
       const allUsers = await pgListUsers()
       const count = allUsers.filter(u => u.email && String(u.email).includes('@')).length
       return json(res, 200, { count })
     } catch { return json(res, 200, { count: 0 }) }
+  }
+
+  // ── /api/email/maintenance-broadcast — envío selectivo de mantenimiento ────
+  if (pathname === '/api/email/maintenance-broadcast' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Solo administradores pueden enviar emails de mantenimiento' })
+
+    let body
+    try { body = await readJson(req) } catch { return json(res, 400, { error: 'JSON inválido' }) }
+
+    const {
+      startTime, durationMinutes, affectedServices = [], unaffectedServices = [],
+      reason = '', contactEmail = '',
+      recipients = 'all', // 'all' | 'admins' | array of emails
+    } = body || {}
+
+    if (!startTime || !durationMinutes) return json(res, 400, { error: 'startTime y durationMinutes son requeridos' })
+
+    try {
+      const { pgListUsers } = await import('../lib/pg-usuarios.js')
+      const { sendMaintenanceNoticeEmail } = await import('../email/index.js')
+
+      const allUsers = await pgListUsers()
+      let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
+
+      if (recipients === 'admins') {
+        targets = targets.filter(u => ['owner', 'admin', 'administrador'].includes(safeString(u?.rol || '').toLowerCase()))
+      } else if (Array.isArray(recipients)) {
+        const allowed = new Set(recipients.map(e => String(e).toLowerCase().trim()))
+        targets = targets.filter(u => allowed.has(String(u.email).toLowerCase().trim()))
+      }
+
+      let sent = 0, failed = 0
+      for (const u of targets) {
+        try {
+          await sendMaintenanceNoticeEmail({
+            to: u.email, startTime, durationMinutes,
+            affectedServices, unaffectedServices, reason, contactEmail,
+          })
+          sent++
+        } catch { failed++ }
+      }
+
+      return json(res, 200, { success: true, sent, failed, total: targets.length })
+    } catch (err) {
+      return json(res, 500, { error: err?.message || 'Error al enviar emails de mantenimiento' })
+    }
   }
 
   // ── /api/scheduled-messages ───────────────────────────────────────────────
