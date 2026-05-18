@@ -379,11 +379,12 @@ export default function ConfiguracionPage() {
     unaffectedServices: '',
     reason: '',
     recipients: 'all' as 'all' | 'admins',
+    customSummary: '',
   });
   const [maintenanceResult, setMaintenanceResult] = React.useState<{ sent: number; failed: number; total: number } | null>(null);
 
   const [completionModalOpen, setCompletionModalOpen] = React.useState(false);
-  const [completionForm, setCompletionForm] = React.useState({ durationMinutes: '30', restoredServices: 'Panel, Bot', note: '' });
+  const [completionForm, setCompletionForm] = React.useState({ durationMinutes: '30', restoredServices: 'Panel, Bot', note: '', customSummary: '' });
   const [completionEmailLoading, setCompletionEmailLoading] = React.useState(false);
   const [completionResult, setCompletionResult] = React.useState<{ sent: number; failed: number; total: number } | null>(null);
 
@@ -446,6 +447,7 @@ export default function ConfiguracionPage() {
         unaffectedServices,
         reason: maintenanceForm.reason,
         recipients: maintenanceForm.recipients,
+        customSummary: maintenanceForm.customSummary,
       });
       setMaintenanceResult(r.data);
       notify.success(`Email de mantenimiento enviado a ${r.data.sent} usuarios`);
@@ -502,6 +504,7 @@ export default function ConfiguracionPage() {
         durationMinutes: Number(completionForm.durationMinutes) || undefined,
         restoredServices,
         note: completionForm.note,
+        customSummary: completionForm.customSummary,
       });
       setCompletionResult(r.data);
       notify.success(`Mantenimiento desactivado · Email enviado a ${r.data.sent} usuarios`);
@@ -1367,6 +1370,24 @@ export default function ConfiguracionPage() {
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Resumen personalizado
+                <span className="ml-1.5 text-muted-foreground/50 font-normal">· si lo dejás vacío, Claude lo genera automáticamente</span>
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Ej: El mantenimiento concluyó exitosamente. Se actualizaron los módulos de seguridad y se mejoró el tiempo de respuesta del bot en un 20%..."
+                value={completionForm.customSummary}
+                onChange={e => setCompletionForm(p => ({ ...p, customSummary: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+              />
+              {!completionForm.customSummary && (
+                <p className="mt-1 text-xs text-primary/60 flex items-center gap-1">
+                  <span>✦</span> Claude analizará el código y métricas del sistema para generar el resumen
+                </p>
+              )}
+            </div>
           </div>
 
           {completionResult && (
@@ -1471,6 +1492,24 @@ export default function ConfiguracionPage() {
                 onChange={e => setMaintenanceForm(p => ({ ...p, reason: e.target.value }))}
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
               />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Resumen personalizado
+                <span className="ml-1.5 text-muted-foreground/50 font-normal">· si lo dejás vacío, Claude lo genera automáticamente</span>
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Ej: Realizaremos una actualización de seguridad en los módulos del backend. Durante el mantenimiento, el bot permanecerá sin servicio pero la base de datos permanecerá intacta..."
+                value={maintenanceForm.customSummary}
+                onChange={e => setMaintenanceForm(p => ({ ...p, customSummary: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+              />
+              {!maintenanceForm.customSummary && (
+                <p className="mt-1 text-xs text-primary/60 flex items-center gap-1">
+                  <span>✦</span> Claude analizará el código y métricas del sistema para generar el resumen
+                </p>
+              )}
             </div>
           </div>
 

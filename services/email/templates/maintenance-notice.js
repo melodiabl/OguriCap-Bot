@@ -90,6 +90,7 @@ export async function buildMaintenanceNoticeEmail({
   unaffectedServices = [],
   reason = '',
   contactEmail = '',
+  customSummary = '',
 }) {
   const brand = getBrandConfig()
   const safeDuration = escapeHtml(String(durationMinutes || ''))
@@ -119,7 +120,7 @@ export async function buildMaintenanceNoticeEmail({
 
   contentHtml += buildServiceList(affectedServices, unaffectedServices)
 
-  contentHtml += await generateSystemReportHtml('notice')
+  contentHtml += await generateSystemReportHtml('notice', customSummary)
 
   contentHtml += `
     <div style="margin:20px 0;padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
@@ -165,7 +166,7 @@ export async function buildMaintenanceNoticeEmail({
   return { subject, html, text }
 }
 
-export async function sendMaintenanceNoticeEmail({ to, startTime, durationMinutes, affectedServices = [], unaffectedServices = [], reason = '', contactEmail = '' }) {
-  const { subject, html, text } = await buildMaintenanceNoticeEmail({ startTime, durationMinutes, affectedServices, unaffectedServices, reason, contactEmail })
+export async function sendMaintenanceNoticeEmail({ to, startTime, durationMinutes, affectedServices = [], unaffectedServices = [], reason = '', contactEmail = '', customSummary = '' }) {
+  const { subject, html, text } = await buildMaintenanceNoticeEmail({ startTime, durationMinutes, affectedServices, unaffectedServices, reason, contactEmail, customSummary })
   return sendMail({ to, subject, html, text })
 }

@@ -321,12 +321,30 @@ function renderDataTable(snap) {
 
 // ── Export principal ──────────────────────────────────────────────────────────
 
+function renderNarrativeBlock(text, source = 'claude') {
+  const paras = text.split(/\n{2,}/).filter(p => p.trim())
+  const parasHtml = paras
+    .map(p => `<p style="margin:0 0 10px;font-size:14px;color:#374151;line-height:1.75;">${escapeHtml(p.trim())}</p>`)
+    .join('')
+
+  const label  = source === 'manual' ? 'Resumen del administrador' : 'Diagnóstico del sistema'
+  const footer = source === 'manual' ? '' : `<p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;text-align:right;">Generado por Claude AI</p>`
+
+  return `
+    <div style="margin:24px 0 0;padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
+      <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">${label}</p>
+      ${parasHtml}
+      ${footer}
+    </div>`
+}
+
 /**
  * Genera el bloque HTML del reporte del sistema para incluir en emails de mantenimiento.
  * @param {'notice'|'completed'} context
+ * @param {string} [customSummary] — Si se provee, se usa en lugar de llamar a Claude
  * @returns {Promise<string>}
  */
-export async function generateSystemReportHtml(context = 'notice') {
+export async function generateSystemReportHtml(context = 'notice', customSummary = '') {
   let snap, ctx
   try {
     ;[snap, ctx] = await Promise.all([collectRuntimeSnapshot(), collectCodeContext()])
@@ -336,25 +354,17 @@ export async function generateSystemReportHtml(context = 'notice') {
 
   const dataTable = renderDataTable(snap)
 
+  // Modo manual: el admin escribió el resumen, no llamamos a Claude
+  if (customSummary?.trim()) {
+    return `<div style="margin:24px 0;">${renderNarrativeBlock(customSummary.trim(), 'manual')}${dataTable}</div>`
+  }
+
+  // Modo Claude: generación automática
   let narrativeHtml = ''
   try {
     const prompt = buildPrompt(snap, ctx, context)
     const text   = await callClaudeCli(prompt)
-
-    if (text) {
-      // Split into paragraphs if Claude returned two
-      const paras = text.split(/\n{2,}/).filter(p => p.trim())
-      const parasHtml = paras
-        .map(p => `<p style="margin:0 0 10px;font-size:14px;color:#374151;line-height:1.75;">${escapeHtml(p.trim())}</p>`)
-        .join('')
-
-      narrativeHtml = `
-        <div style="margin:24px 0 0;padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-          <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">Diagnóstico del sistema</p>
-          ${parasHtml}
-          <p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;text-align:right;">Generado por Claude AI</p>
-        </div>`
-    }
+    if (text) narrativeHtml = renderNarrativeBlock(text, 'claude')
   } catch {}
 
   return `<div style="margin:24px 0;">${narrativeHtml}${dataTable}</div>`

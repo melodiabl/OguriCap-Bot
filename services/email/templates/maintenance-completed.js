@@ -8,6 +8,7 @@ export async function buildMaintenanceCompletedEmail({
   durationMinutes = '',
   restoredServices = [],
   note = '',
+  customSummary = '',
 }) {
   const brand = getBrandConfig()
   const safeCompleted = completedAt
@@ -58,7 +59,7 @@ export async function buildMaintenanceCompletedEmail({
     </div>`
   }
 
-  contentHtml += await generateSystemReportHtml('completed')
+  contentHtml += await generateSystemReportHtml('completed', customSummary)
 
   const text =
     `Sistema restaurado — ${brand.name}\n\n` +
@@ -82,7 +83,7 @@ export async function buildMaintenanceCompletedEmail({
   return { subject, html, text }
 }
 
-export async function sendMaintenanceCompletedEmail({ to, completedAt, durationMinutes, restoredServices = [], note = '' }) {
-  const { subject, html, text } = await buildMaintenanceCompletedEmail({ completedAt, durationMinutes, restoredServices, note })
+export async function sendMaintenanceCompletedEmail({ to, completedAt, durationMinutes, restoredServices = [], note = '', customSummary = '' }) {
+  const { subject, html, text } = await buildMaintenanceCompletedEmail({ completedAt, durationMinutes, restoredServices, note, customSummary })
   return sendMail({ to, subject, html, text })
 }

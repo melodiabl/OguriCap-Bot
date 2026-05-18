@@ -243,7 +243,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
 
     const {
       startTime, durationMinutes, affectedServices = [], unaffectedServices = [],
-      reason = '', contactEmail = '',
+      reason = '', contactEmail = '', customSummary = '',
       recipients = 'all', // 'all' | 'admins' | array of emails
     } = body || {}
 
@@ -268,7 +268,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
         try {
           await sendMaintenanceNoticeEmail({
             to: u.email, startTime, durationMinutes,
-            affectedServices, unaffectedServices, reason, contactEmail,
+            affectedServices, unaffectedServices, reason, contactEmail, customSummary,
           })
           sent++
         } catch { failed++ }
@@ -294,6 +294,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       durationMinutes = '',
       restoredServices = [],
       note = '',
+      customSummary = '',
       recipients = 'all', // 'all' | 'admins'
     } = body || {}
 
@@ -311,7 +312,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       let sent = 0, failed = 0
       for (const u of targets) {
         try {
-          await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note })
+          await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note, customSummary })
           sent++
         } catch { failed++ }
       }
