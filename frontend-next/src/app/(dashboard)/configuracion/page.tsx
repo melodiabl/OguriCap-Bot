@@ -100,6 +100,7 @@ const EMAIL_PREVIEW_TEMPLATES = [
   { id: 'broadcast_update',       label: 'Novedades' },
   { id: 'broadcast_alert',        label: 'Alerta broadcast' },
   { id: 'maintenance-notice',     label: 'Mantenimiento programado' },
+  { id: 'maintenance-completed',  label: 'Mantenimiento completado' },
   { id: 'account-suspended',      label: 'Cuenta suspendida' },
   { id: 'account-reactivated',    label: 'Cuenta reactivada' },
   { id: 'subbot-created',         label: 'Sub-bot creado' },
@@ -381,6 +382,11 @@ export default function ConfiguracionPage() {
   });
   const [maintenanceResult, setMaintenanceResult] = React.useState<{ sent: number; failed: number; total: number } | null>(null);
 
+  const [completionModalOpen, setCompletionModalOpen] = React.useState(false);
+  const [completionForm, setCompletionForm] = React.useState({ durationMinutes: '30', restoredServices: 'Panel, Bot', note: '' });
+  const [completionEmailLoading, setCompletionEmailLoading] = React.useState(false);
+  const [completionResult, setCompletionResult] = React.useState<{ sent: number; failed: number; total: number } | null>(null);
+
   // Comunicaciones globales
   const OUTAGE_PRESETS = [
     { id: 'outage',        label: 'Bot fuera de servicio',     title: 'Bot fuera de servicio',     message: 'El bot está temporalmente fuera de servicio. Estamos trabajando para restablecer el servicio lo antes posible.' },
@@ -452,16 +458,58 @@ export default function ConfiguracionPage() {
   };
 
   const toggleMaintenanceMode = async () => {
+    const newState = !systemConfig.maintenanceMode;
+    if (!newState) {
+      setCompletionResult(null);
+      setCompletionModalOpen(true);
+      return;
+    }
     setMaintenanceLoading(true);
     try {
-      const newState = !systemConfig.maintenanceMode;
-      await api.updateSystemConfig({ maintenanceMode: newState });
-      setSystemConfig((prev: any) => ({ ...prev, maintenanceMode: newState }));
-      notify.success(`Modo mantenimiento ${newState ? 'activado' : 'desactivado'}`);
+      await api.updateSystemConfig({ maintenanceMode: true });
+      setSystemConfig((prev: any) => ({ ...prev, maintenanceMode: true }));
+      notify.success('Modo mantenimiento activado');
     } catch {
-      notify.error('Error al cambiar modo mantenimiento');
+      notify.error('Error al activar modo mantenimiento');
     } finally {
       setMaintenanceLoading(false);
+    }
+  };
+
+  const doDeactivateMaintenance = async () => {
+    setMaintenanceLoading(true);
+    try {
+      await api.updateSystemConfig({ maintenanceMode: false });
+      setSystemConfig((prev: any) => ({ ...prev, maintenanceMode: false }));
+      notify.success('Modo mantenimiento desactivado');
+      setCompletionModalOpen(false);
+    } catch {
+      notify.error('Error al desactivar modo mantenimiento');
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  const handleDeactivateWithNotification = async () => {
+    setCompletionEmailLoading(true);
+    setCompletionResult(null);
+    const restoredServices = completionForm.restoredServices.split(',').map((s: string) => s.trim()).filter(Boolean);
+    try {
+      await api.updateSystemConfig({ maintenanceMode: false });
+      setSystemConfig((prev: any) => ({ ...prev, maintenanceMode: false }));
+      const r = await api.post('/api/email/maintenance-completed-broadcast', {
+        completedAt: new Date().toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+        durationMinutes: Number(completionForm.durationMinutes) || undefined,
+        restoredServices,
+        note: completionForm.note,
+      });
+      setCompletionResult(r.data);
+      notify.success(`Mantenimiento desactivado · Email enviado a ${r.data.sent} usuarios`);
+      setCompletionModalOpen(false);
+    } catch (e: any) {
+      notify.error(e.response?.data?.error || 'Error al enviar notificación');
+    } finally {
+      setCompletionEmailLoading(false);
     }
   };
 
@@ -1273,6 +1321,81 @@ export default function ConfiguracionPage() {
                 {extractPlainTextFromHtml(emailPreviewData.html)}
               </pre>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Maintenance completed modal — opens when turning OFF maintenance */}
+      <Modal
+        isOpen={completionModalOpen}
+        onClose={() => setCompletionModalOpen(false)}
+        title="Desactivar modo mantenimiento"
+        className="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            El sistema volverá a estar disponible. Podés enviar un resumen de restauración a los usuarios o simplemente desactivar el mantenimiento.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Duración real (min) <span className="text-muted-foreground/60">(opcional)</span></label>
+              <input
+                type="number"
+                min="1"
+                value={completionForm.durationMinutes}
+                onChange={e => setCompletionForm(p => ({ ...p, durationMinutes: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Servicios restaurados <span className="text-muted-foreground/60">(separados por coma)</span></label>
+              <input
+                type="text"
+                placeholder="Panel, Bot, API..."
+                value={completionForm.restoredServices}
+                onChange={e => setCompletionForm(p => ({ ...p, restoredServices: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Nota adicional <span className="text-muted-foreground/60">(opcional)</span></label>
+              <input
+                type="text"
+                placeholder="Mejoras incluidas, próximos cambios..."
+                value={completionForm.note}
+                onChange={e => setCompletionForm(p => ({ ...p, note: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+
+          {completionResult && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              Email enviado a {completionResult.sent}/{completionResult.total} usuarios
+              {completionResult.failed > 0 && ` · ${completionResult.failed} fallidos`}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" onClick={() => setCompletionModalOpen(false)}>Cancelar</Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={maintenanceLoading}
+              onClick={doDeactivateMaintenance}
+              icon={<Wrench className="h-3.5 w-3.5" />}
+            >
+              Solo desactivar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={completionEmailLoading}
+              onClick={handleDeactivateWithNotification}
+              icon={<Mail className="h-3.5 w-3.5" />}
+            >
+              Desactivar y notificar
+            </Button>
           </div>
         </div>
       </Modal>

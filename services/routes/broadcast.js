@@ -156,8 +156,9 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       const emailLib = await import('../email/index.js')
 
       const TEMPLATE_MAP = {
-        'maintenance-notice':  'sendMaintenanceNoticeEmail',
-        'account-suspended':   'sendAccountSuspendedEmail',
+        'maintenance-notice':     'sendMaintenanceNoticeEmail',
+        'maintenance-completed':  'sendMaintenanceCompletedEmail',
+        'account-suspended':      'sendAccountSuspendedEmail',
         'account-reactivated': 'sendAccountReactivatedEmail',
         'subbot-created':      'sendSubbotCreatedEmail',
         'subbot-deleted':      'sendSubbotDeletedEmail',
@@ -276,6 +277,48 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
       return json(res, 200, { success: true, sent, failed, total: targets.length })
     } catch (err) {
       return json(res, 500, { error: err?.message || 'Error al enviar emails de mantenimiento' })
+    }
+  }
+
+  // ── /api/email/maintenance-completed-broadcast ────────────────────────────
+  if (pathname === '/api/email/maintenance-completed-broadcast' && method === 'POST') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Solo administradores pueden enviar este email' })
+
+    let body
+    try { body = await readJson(req) } catch { return json(res, 400, { error: 'JSON inválido' }) }
+
+    const {
+      completedAt = '',
+      durationMinutes = '',
+      restoredServices = [],
+      note = '',
+      recipients = 'all', // 'all' | 'admins'
+    } = body || {}
+
+    try {
+      const { pgListUsers } = await import('../lib/pg-usuarios.js')
+      const { sendMaintenanceCompletedEmail } = await import('../email/index.js')
+
+      const allUsers = await pgListUsers()
+      let targets = allUsers.filter(u => u.email && String(u.email).includes('@'))
+
+      if (recipients === 'admins') {
+        targets = targets.filter(u => ['owner', 'admin', 'administrador'].includes(safeString(u?.rol || '').toLowerCase()))
+      }
+
+      let sent = 0, failed = 0
+      for (const u of targets) {
+        try {
+          await sendMaintenanceCompletedEmail({ to: u.email, completedAt, durationMinutes, restoredServices, note })
+          sent++
+        } catch { failed++ }
+      }
+
+      return json(res, 200, { success: true, sent, failed, total: targets.length })
+    } catch (err) {
+      return json(res, 500, { error: err?.message || 'Error al enviar emails de mantenimiento completado' })
     }
   }
 

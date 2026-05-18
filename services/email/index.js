@@ -18,6 +18,7 @@ export { sendAporteAceptadoEmail, buildAporteAceptadoEmail } from './templates/a
 export { sendAporteRechazadoEmail, buildAporteRechazadoEmail } from './templates/aporte-rechazado.js'
 export { sendAportePendienteEmail, buildAportePendienteEmail } from './templates/aporte-pendiente.js'
 export { sendMaintenanceNoticeEmail, buildMaintenanceNoticeEmail } from './templates/maintenance-notice.js'
+export { sendMaintenanceCompletedEmail, buildMaintenanceCompletedEmail } from './templates/maintenance-completed.js'
 export { sendAccountSuspendedEmail, buildAccountSuspendedEmail } from './templates/account-suspended.js'
 export { sendAccountReactivatedEmail, buildAccountReactivatedEmail } from './templates/account-reactivated.js'
 export { sendSubbotCreatedEmail, buildSubbotCreatedEmail } from './templates/subbot-created.js'

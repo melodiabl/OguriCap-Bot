@@ -10,6 +10,7 @@ import { buildAporteAceptadoEmail } from './templates/aporte-aceptado.js'
 import { buildAporteRechazadoEmail } from './templates/aporte-rechazado.js'
 import { buildAportePendienteEmail } from './templates/aporte-pendiente.js'
 import { buildMaintenanceNoticeEmail } from './templates/maintenance-notice.js'
+import { buildMaintenanceCompletedEmail } from './templates/maintenance-completed.js'
 import { buildAccountSuspendedEmail } from './templates/account-suspended.js'
 import { buildAccountReactivatedEmail } from './templates/account-reactivated.js'
 import { buildSubbotCreatedEmail } from './templates/subbot-created.js'
@@ -158,6 +159,15 @@ function buildEmailPreview(template = 'test') {
     case 'aporte-pendiente': {
       const { html, subject } = buildAportePendienteEmail({ username: 'María García', amount: '$1.000', concept: 'Cuota junio', dueDate: '31/05/2026' })
       return { template: 'aporte-pendiente', title: 'Aporte Pendiente', subject, recipient: previewTo, html }
+    }
+    case 'maintenance-completed': {
+      const { html, subject } = buildMaintenanceCompletedEmail({
+        completedAt: new Date().toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+        durationMinutes: 42,
+        restoredServices: ['Panel de administración', 'API REST', 'Sistema de notificaciones'],
+        note: 'Se aplicaron mejoras de rendimiento. El tiempo de respuesta mejoró un 15%.',
+      })
+      return { template: 'maintenance-completed', title: 'Mantenimiento completado', subject, recipient: previewTo, html }
     }
     case 'maintenance-notice': {
       const { html, subject } = buildMaintenanceNoticeEmail({
