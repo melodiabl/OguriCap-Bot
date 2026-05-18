@@ -160,7 +160,14 @@ function buildEmailPreview(template = 'test') {
       return { template: 'aporte-pendiente', title: 'Aporte Pendiente', subject, recipient: previewTo, html }
     }
     case 'maintenance-notice': {
-      const { html, subject } = buildMaintenanceNoticeEmail({ startTime: 'Hoy 03:00 AM', durationMinutes: 30, affectedServices: ['Panel', 'API', 'Bot'] })
+      const { html, subject } = buildMaintenanceNoticeEmail({
+        startTime: new Date(Date.now() + 3 * 3600000).toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+        durationMinutes: 45,
+        affectedServices: ['Panel de administración', 'API REST', 'Sistema de notificaciones'],
+        unaffectedServices: ['Bot de WhatsApp', 'Base de datos'],
+        reason: 'Actualización de seguridad y mejoras de rendimiento en el servidor.',
+        contactEmail: 'soporte@melodiaauris.qzz.io',
+      })
       return { template: 'maintenance-notice', title: 'Mantenimiento programado', subject, recipient: previewTo, html }
     }
     case 'account-suspended': {
