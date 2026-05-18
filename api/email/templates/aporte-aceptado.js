@@ -10,7 +10,7 @@ export function buildAporteAceptadoEmail({ username, amount, concept = '', accep
   const subject = `✅ Tu aporte fue aceptado — ${brand.name}`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, tu aporte fue revisado y aceptado.</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, tu aporte fue revisado y aceptado.</p>` +
     renderDataBlock({ label: 'Monto aceptado', value: safeAmount, badge: 'ACEPTADO', badgeColor: 'green' }) +
     renderDataBlock({ label: 'Revisado por', value: safeAcceptedBy, badgeColor: 'teal' })
 

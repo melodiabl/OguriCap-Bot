@@ -8,16 +8,16 @@ export function buildAccountDeletedEmail({ username, deletedBy = 'el sistema', r
   const subject = `Tu cuenta en ${brand.name} fue eliminada`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, lamentamos informarte que tu cuenta fue eliminada del sistema.</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, lamentamos informarte que tu cuenta fue eliminada del sistema.</p>` +
     renderDataBlock({ label: 'Acción realizada por', value: escapeHtml(String(deletedBy || 'el sistema')), badgeColor: 'gray' })
 
   if (reason) contentHtml += renderDataBlock({ label: 'Motivo', value: escapeHtml(String(reason)), badgeColor: 'gray' })
 
   const contactNote = contactEmail
-    ? `Si creés que fue un error, escribinos a <strong style="color:#f2f6f3;">${escapeHtml(contactEmail)}</strong>.`
+    ? `Si creés que fue un error, escribinos a <strong style="color:#111827;">${escapeHtml(contactEmail)}</strong>.`
     : 'Si creés que fue un error, contactá al equipo de soporte.'
 
-  contentHtml += `<p style="margin:20px 0 0;font-size:13px;color:#84968e;">${contactNote}</p>`
+  contentHtml += `<p style="margin:20px 0 0;font-size:13px;color:#6b7280;">${contactNote}</p>`
 
   const text =
     `Hola ${String(username || '')},\n\nTu cuenta en ${brand.name} fue eliminada.\nEliminado por: ${String(deletedBy || 'el sistema')}\n` +

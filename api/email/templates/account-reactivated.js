@@ -9,10 +9,10 @@ export function buildAccountReactivatedEmail({ username, reactivatedBy, note = '
   const subject = `✅ Tu cuenta fue reactivada — ${brand.name}`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, tu acceso al panel fue restaurado.</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, tu acceso al panel fue restaurado.</p>` +
     renderDataBlock({ label: 'Reactivado por', value: safeReactivatedBy, badge: 'ACTIVA', badgeColor: 'green' })
 
-  if (note) contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#b2c5ba;">${escapeHtml(String(note))}</p>`
+  if (note) contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#374151;">${escapeHtml(String(note))}</p>`
 
   const text = `Hola ${String(username || '')},\n\nTu cuenta en ${brand.name} fue reactivada.\nReactivado por: ${String(reactivatedBy || '')}\n\nPanel: ${brand.panelUrl}`
 

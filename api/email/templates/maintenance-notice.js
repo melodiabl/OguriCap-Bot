@@ -18,7 +18,7 @@ export function buildMaintenanceNoticeEmail({ startTime, durationMinutes, affect
     contentHtml += renderDataBlock({ label: 'Servicios afectados', value: list, badgeColor: 'gold' })
   }
 
-  contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#84968e;">Pedimos disculpas por las molestias. El sistema volverá a estar disponible lo antes posible.</p>`
+  contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Pedimos disculpas por las molestias. El sistema volverá a estar disponible lo antes posible.</p>`
 
   const text =
     `Mantenimiento programado en ${brand.name}.\n\nInicio: ${String(startTime || '')}\nDuración: ~${String(durationMinutes || '')} min\n` +

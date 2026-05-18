@@ -8,12 +8,12 @@ export function buildRoleChangedEmail({ username, oldRole, newRole, roleDescript
   const subject = `Tu rol fue actualizado — ${brand.name}`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, tu rol en el panel fue actualizado.</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, tu rol en el panel fue actualizado.</p>` +
     renderDataBlock({ label: 'Rol anterior', value: escapeHtml(String(oldRole || 'Usuario')), badgeColor: 'gray' }) +
     renderDataBlock({ label: 'Nuevo rol', value: escapeHtml(String(newRole || 'Usuario')), badge: '✓ ACTIVO', badgeColor: 'teal' })
 
   if (roleDescription) {
-    contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#84968e;">${escapeHtml(String(roleDescription))}</p>`
+    contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#6b7280;">${escapeHtml(String(roleDescription))}</p>`
   }
 
   const text =

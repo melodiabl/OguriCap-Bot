@@ -9,14 +9,14 @@ export function buildAportePendienteEmail({ username, amount, concept = '', dueD
   const subject = `⏳ Tu aporte está en revisión — ${brand.name}`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, recibimos tu aporte y está siendo revisado.</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, recibimos tu aporte y está siendo revisado.</p>` +
     renderDataBlock({ label: 'Monto', value: safeAmount, badge: 'EN REVISIÓN', badgeColor: 'gold' })
 
   if (concept)        contentHtml += renderDataBlock({ label: 'Concepto',           value: escapeHtml(String(concept)),        badgeColor: 'gray' })
   if (dueDate)        contentHtml += renderDataBlock({ label: 'Fecha límite',        value: escapeHtml(String(dueDate)),        badgeColor: 'gold' })
   if (estimatedHours) contentHtml += renderDataBlock({ label: 'Tiempo estimado',     value: `~${escapeHtml(String(estimatedHours))} horas`, badgeColor: 'gray' })
 
-  contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#84968e;">Te notificaremos cuando tu aporte sea procesado.</p>`
+  contentHtml += `<p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Te notificaremos cuando tu aporte sea procesado.</p>`
 
   const text = `Hola ${String(username || '')},\n\nTu aporte de ${String(amount || '')} está en revisión.\nPanel: ${brand.panelUrl}/aportes`
 

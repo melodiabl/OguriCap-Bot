@@ -10,10 +10,10 @@ export async function sendRegistrationEmail({ to, username, role = 'Usuario' }) 
   const date = new Date().toLocaleString('es-ES', { dateStyle: 'long' })
 
   const contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, ¡tu cuenta fue creada correctamente!</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, ¡tu cuenta fue creada correctamente!</p>` +
     renderDataBlock({ label: 'Rol asignado', value: safeRole, badge: 'ACTIVO', badgeColor: 'green' }) +
     renderDataBlock({ label: 'Fecha de registro', value: date, badgeColor: 'gray' }) +
-    `<p style="margin:20px 0 0;font-size:13px;color:#84968e;">Si vos no hiciste este registro, podés ignorar este email de forma segura.</p>`
+    `<p style="margin:20px 0 0;font-size:13px;color:#6b7280;">Si vos no hiciste este registro, podés ignorar este email de forma segura.</p>`
 
   const text =
     `Hola ${String(username || '')},\n\n¡Tu cuenta fue creada correctamente en ${brand.name}!\n\nRol: ${String(role || 'Usuario')}\n\nIngresá al panel: ${brand.panelUrl}`

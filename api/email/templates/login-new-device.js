@@ -8,7 +8,7 @@ export function buildLoginNewDeviceEmail({ username, ip, location = '', device =
   const subject = `🔐 Acceso nuevo detectado — ${brand.name}`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">Hola <strong style="color:#f2f6f3;">${safeUsername}</strong>, detectamos un acceso desde un dispositivo que no reconocemos.</p>` +
+    `<p style="margin:0 0 20px;">Hola <strong style="color:#111827;">${safeUsername}</strong>, detectamos un acceso desde un dispositivo que no reconocemos.</p>` +
     renderDataBlock({ label: 'IP de acceso', value: escapeHtml(String(ip || '')), badgeColor: 'pink' })
 
   if (location) contentHtml += renderDataBlock({ label: 'Ubicación', value: escapeHtml(String(location)), badgeColor: 'gray' })
@@ -16,10 +16,10 @@ export function buildLoginNewDeviceEmail({ username, ip, location = '', device =
   if (time)     contentHtml += renderDataBlock({ label: 'Hora', value: escapeHtml(String(time)), badgeColor: 'gray' })
 
   contentHtml += `
-    <div style="margin:20px 0 0;padding:14px;background:rgba(255,77,141,0.06);border:1px solid rgba(255,77,141,0.18);border-radius:10px;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#ff4d8d;">¿No fuiste vos?</p>
-      <p style="margin:0 0 4px;font-size:13px;color:#b2c5ba;">1. Cambiá tu contraseña de inmediato</p>
-      <p style="margin:0;font-size:13px;color:#b2c5ba;">2. Revisá los dispositivos activos en tu perfil</p>
+    <div style="margin:20px 0 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
+      <p style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">¿No fuiste vos?</p>
+      <p style="margin:0 0 8px;font-size:14px;color:#374151;">→ Cambiá tu contraseña de inmediato</p>
+      <p style="margin:0;font-size:14px;color:#374151;">→ Revisá los dispositivos activos en tu perfil</p>
     </div>`
 
   const text =

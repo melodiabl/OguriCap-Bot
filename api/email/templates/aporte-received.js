@@ -9,7 +9,7 @@ export function buildAporteReceivedEmail({ username, amount, concept = '', date 
   const subject = `💚 Recibiste un aporte de ${safeUsername} — ${brand.name}`
 
   let contentHtml =
-    `<p style="margin:0 0 20px;">¡Buenas noticias! <strong style="color:#f2f6f3;">${safeUsername}</strong> te envió un aporte.</p>` +
+    `<p style="margin:0 0 20px;">¡Buenas noticias! <strong style="color:#111827;">${safeUsername}</strong> te envió un aporte.</p>` +
     renderDataBlock({ label: 'De', value: safeUsername, badgeColor: 'teal' }) +
     renderDataBlock({ label: 'Monto', value: safeAmount, badge: 'RECIBIDO', badgeColor: 'green' })
 
