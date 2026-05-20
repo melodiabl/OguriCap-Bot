@@ -1,22 +1,18 @@
 /**
- * system-reporter.js — snapshot del sistema + resumen completo via Claude Code CLI
+ * system-reporter.js — reporte del sistema para emails de mantenimiento
  *
- * Recolecta métricas de runtime (bot, RAM, CPU, usuarios, grupos) y contexto
- * del código (plugins, servicios, rutas del panel, dependencias) y llama a
- * `claude --print` como subproceso autenticado (cuenta premium, sin API key).
- *
- * Fallback: si el CLI no está disponible, renderiza solo la tabla de datos.
+ * Recolecta métricas reales (bot, RAM, CPU, plugins, usuarios, grupos) y
+ * genera HTML estructurado sin dependencias externas. Sin IA, sin subprocess.
  */
 
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
-import { spawn } from 'child_process'
 import { escapeHtml } from './renderer.js'
 
 const ROOT = process.cwd()
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatUptime(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -30,17 +26,12 @@ function safeReadDir(p) {
   try { return fs.readdirSync(p) } catch { return [] }
 }
 
-// ── Recolección de runtime ────────────────────────────────────────────────────
+// ── Recolección de datos ───────────────────────────────────────────────────────
 
-async function collectRuntimeSnapshot() {
+async function collectSnapshot() {
   const snap = {
-    timestamp: new Date().toLocaleString('es-AR', {
-      weekday: 'long', day: 'numeric', month: 'long',
-      hour: '2-digit', minute: '2-digit',
-    }),
     bot: {
       connected: false,
-      phone: null,
       uptimeSeconds: process.uptime(),
     },
     system: {
@@ -52,24 +43,20 @@ async function collectRuntimeSnapshot() {
       loadAvg:    Math.round(os.loadavg()[0] * 100) / 100,
       platform:   os.platform(),
     },
-    plugins: { total: 0, categories: {}, list: [] },
+    plugins: { total: 0, categories: {} },
     users:   { total: 0, byRole: {} },
     groups:  0,
   }
 
   try {
-    if (global.conn?.user) {
-      snap.bot.connected = true
-      snap.bot.phone = global.conn.user.id?.split(':')[0] || null
-    }
+    if (global.conn?.user) snap.bot.connected = true
   } catch {}
 
   try {
     const files = safeReadDir(path.join(ROOT, 'plugins'))
       .filter(f => f.endsWith('.js') && !f.startsWith('_') && !f.includes('.bak') && !f.includes('.backup'))
     snap.plugins.total = files.length
-    snap.plugins.list  = files.map(f => f.replace('.js', ''))
-    for (const f of snap.plugins.list) {
+    for (const f of files) {
       const cat = f.split('-')[0]
       snap.plugins.categories[cat] = (snap.plugins.categories[cat] || 0) + 1
     }
@@ -92,284 +79,136 @@ async function collectRuntimeSnapshot() {
   return snap
 }
 
-// ── Recolección de contexto de código ────────────────────────────────────────
+// ── Indicadores de estado ──────────────────────────────────────────────────────
 
-function collectCodeContext() {
-  const ctx = {
-    version: '1.8.2',
-    services: [],
-    routes: [],
-    emailTemplates: [],
-    frontendPages: [],
-    pluginDetails: {},
-  }
-
-  // Services directory
-  ctx.services = safeReadDir(path.join(ROOT, 'services'))
-    .filter(f => f.endsWith('.js'))
-    .map(f => f.replace('.js', ''))
-
-  // Routes
-  ctx.routes = safeReadDir(path.join(ROOT, 'services', 'routes'))
-    .filter(f => f.endsWith('.js'))
-    .map(f => f.replace('.js', ''))
-
-  // Email templates
-  ctx.emailTemplates = safeReadDir(path.join(ROOT, 'services', 'email', 'templates'))
-    .filter(f => f.endsWith('.js'))
-    .map(f => f.replace('.js', ''))
-
-  // Frontend pages (Next.js app dir)
-  const appDir = path.join(ROOT, 'frontend-next', 'src', 'app')
-  function listPages(dir, prefix = '') {
-    const pages = []
-    try {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (entry.isDirectory() && !entry.name.startsWith('_') && entry.name !== 'api') {
-          pages.push(prefix + entry.name)
-          pages.push(...listPages(path.join(dir, entry.name), prefix + entry.name + '/'))
-        }
-      }
-    } catch {}
-    return pages
-  }
-  ctx.frontendPages = listPages(appDir)
-
-  // Plugin descriptions by category (hardcoded from code knowledge)
-  ctx.pluginDetails = {
-    anime:     'Búsqueda de anime/manga, personajes, info de series, Pokédex, reactions, waifu',
-    downloads: 'Descargador de TikTok, Spotify, YouTube, Twitter/X, Pinterest, Play Store, Mega, MediaFire, Instagram/Facebook',
-    fun:       'Tiempo AFK, comandos de entretenimiento general',
-    gacha:     'Sistema gacha: roll de waifus, harim, shop, trade, rankings, gift, delete, info de personajes',
-    group:     'Gestión de grupos: bienvenida, tagall, admins, kick, promote, demote, warns, antilink, banchat, link, configuración',
-    main:      'Menú principal, ping, info del bot, canal, status',
-    nsfw:      'Contenido adulto (role-gated: solo usuarios premium)',
-    owner:     'Gestión del bot: plugins, restart, update, prefix, config, savefiles, banned, exec, subbot-capacity',
-    panel:     'Integración con el panel web: registro, control, notificaciones, stats, info',
-    pedidos:   'Sistema de pedidos/solicitudes de usuarios',
-    profile:   'Perfil, sistema de niveles, matrimonio, leaderboards, foto de perfil, badge premium',
-    rpg:       'Economía y RPG completo: balance, coinflip, casino, roulette, slot, daily/weekly/monthly, work, crime, hunt, fish, mine, dungeon, adventure, heal, steal, givecoins, banco',
-    sockets:   'Gestión de sub-bots: lista, editar, configurar, iconos, banners, owner, prefix, nombre',
-    tools:     'Herramientas: stickers, traducción, búsqueda Google, letra de canciones, screenshot web, IP info, NPM info, syntax check, TenorGIF, HD, reconocimiento de música, uploader',
-  }
-
-  return ctx
+function ramColor(pct) {
+  if (pct >= 85) return { text: '#dc2626', bg: '#fee2e2', label: 'ALTO' }
+  if (pct >= 65) return { text: '#d97706', bg: '#fef3c7', label: 'MODERADO' }
+  return { text: '#16a34a', bg: '#dcfce7', label: 'NORMAL' }
 }
 
-// ── Llamada a Claude Code CLI ─────────────────────────────────────────────────
-
-const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude'
-
-function callClaudeCli(prompt, timeoutMs = 45000) {
-  return new Promise((resolve) => {
-    let proc
-    try {
-      proc = spawn(CLAUDE_BIN, ['--print'], {
-        env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
-        timeout: timeoutMs,
-      })
-    } catch {
-      return resolve(null)
-    }
-
-    let stdout = ''
-    let stderr = ''
-    let settled = false
-
-    const done = (val) => {
-      if (settled) return
-      settled = true
-      resolve(val)
-    }
-
-    const timer = setTimeout(() => done(null), timeoutMs)
-
-    proc.stdout.on('data', d => { stdout += d.toString() })
-    proc.stderr.on('data', d => { stderr += d.toString() })
-
-    proc.on('close', code => {
-      clearTimeout(timer)
-      const text = stdout.trim()
-      done(code === 0 && text ? text : null)
-    })
-
-    proc.on('error', () => {
-      clearTimeout(timer)
-      done(null)
-    })
-
-    try {
-      proc.stdin.write(prompt, 'utf8')
-      proc.stdin.end()
-    } catch {
-      clearTimeout(timer)
-      done(null)
-    }
-  })
+function cpuColor(load, cores) {
+  const pct = Math.round((load / cores) * 100)
+  if (pct >= 80) return { text: '#dc2626', bg: '#fee2e2', label: 'ALTO' }
+  if (pct >= 50) return { text: '#d97706', bg: '#fef3c7', label: 'MODERADO' }
+  return { text: '#16a34a', bg: '#dcfce7', label: 'NORMAL' }
 }
 
-// ── Construcción del prompt ───────────────────────────────────────────────────
-
-function maskPhone(phone) {
-  if (!phone) return null
-  const s = String(phone).replace(/\D/g, '')
-  // Muestra solo los primeros 3 dígitos y enmascara el resto
-  return s.length > 4 ? s.slice(0, 3) + '·'.repeat(Math.min(5, s.length - 3)) : '···'
+function badge(label, color, bg) {
+  return `<span style="font-size:10px;font-weight:700;color:${color};background:${bg};padding:2px 7px;border-radius:4px;letter-spacing:.5px;">${label}</span>`
 }
 
-function buildPrompt(snap, ctx, context) {
-  // ── Datos filtrados (sin info sensible) ──
-  const botState = snap.bot.connected
-    ? `CONECTADO (uptime ${formatUptime(snap.bot.uptimeSeconds)})`  // sin número de teléfono
-    : `DESCONECTADO (proceso activo ${formatUptime(snap.bot.uptimeSeconds)})`
+// ── Renderizado ────────────────────────────────────────────────────────────────
 
-  const pluginCats = Object.entries(snap.plugins.categories)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `  - ${k} (${v} comandos): ${ctx.pluginDetails[k] || ''}`)
-    .join('\n')
+function renderReport(snap, context) {
+  const isCompleted = context === 'completed'
 
-  // Solo totales por rol, sin nombres ni emails
+  // ── Fila bot ──
+  const botBadge = snap.bot.connected
+    ? badge('CONECTADO', '#16a34a', '#dcfce7')
+    : badge('DESCONECTADO', '#dc2626', '#fee2e2')
+  const botUptime = `uptime ${formatUptime(snap.bot.uptimeSeconds)}`
+
+  // ── Fila RAM ──
+  const ram   = ramColor(snap.system.memUsedPct)
+  const ramBadge = badge(ram.label, ram.text, ram.bg)
+  const ramVal = `${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres / ${snap.system.memTotalMB} MB`
+
+  // ── Fila CPU ──
+  const cpu     = cpuColor(snap.system.loadAvg, snap.system.cpuCount)
+  const cpuBadge = badge(cpu.label, cpu.text, cpu.bg)
+  const cpuVal  = `${snap.system.cpuCount} núcleos · carga ${snap.system.loadAvg}`
+
+  // ── Fila usuarios ──
   const roleBreak = Object.entries(snap.users.byRole)
-    .map(([r, n]) => `${r}: ${n}`).join(', ') || 'sin datos'
-
-  const frontendPagesStr = ctx.frontendPages.filter(p => !p.includes('/')).join(', ')
-  const routesStr = ctx.routes.join(', ')
-
-  const contextLabel = context === 'completed'
-    ? 'MANTENIMIENTO COMPLETADO — el sistema ya está operativo y restaurado'
-    : 'INICIO DE MANTENIMIENTO — el sistema va a entrar en mantenimiento programado'
-
-  return `Sos el asistente de soporte técnico de OguriCap-Bot. Escribí el párrafo de diagnóstico del sistema para un email de mantenimiento enviado a los usuarios.
-
-=== CONTEXTO ===
-${contextLabel}
-
-=== PROYECTO: OguriCap-Bot v${ctx.version} ===
-Bot de WhatsApp Multi-Device (Baileys) con panel de administración Next.js.
-Infraestructura: Docker Compose — PostgreSQL, whatsapp-bot (puerto 3001), admin-panel (puerto 3000).
-
-BACKEND: Servidor HTTP + WebSocket, rutas: ${routesStr}
-Sistema de emails, métricas, scheduler, backups, monitor de seguridad, alertas inteligentes.
-
-FRONTEND (Next.js): ${frontendPagesStr}
-Funciones: gestión de bot (QR, conexión), usuarios/roles, plugins, grupos WA, sub-bots, configuración, preview de emails, logs, aportes, alertas de seguridad.
-
-PLUGINS (${snap.plugins.total} comandos):
-${pluginCats}
-
-=== MÉTRICAS (sin datos sensibles) ===
-Bot: ${botState}
-Runtime: Node.js ${snap.system.nodeVersion} · ${snap.system.platform}
-RAM: ${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres / ${snap.system.memTotalMB} MB total
-CPU: ${snap.system.cpuCount} núcleos · carga 1m: ${snap.system.loadAvg}
-Usuarios: ${snap.users.total} registrados (${roleBreak})
-Grupos activos: ${snap.groups}
-
-=== INSTRUCCIONES ===
-DOS párrafos cortos en español rioplatense, tono profesional y tranquilizador.
-1. Estado del sistema con las métricas clave. Si está completado, destacá que todo es operativo.
-2. Breve descripción del proyecto y sus funcionalidades destacadas.
-Solo texto plano. Sin markdown, asteriscos, listas ni títulos. Máximo 6 oraciones.`
-}
-
-// ── Render HTML ───────────────────────────────────────────────────────────────
-
-function renderDataTable(snap) {
-  const maskedPhone = snap.bot.phone ? ` · +${escapeHtml(maskPhone(snap.bot.phone))}···` : ''
-  const botHtml = snap.bot.connected
-    ? `<span style="color:#16a34a;font-weight:700;">CONECTADO</span>${maskedPhone} · uptime ${formatUptime(snap.bot.uptimeSeconds)}`
-    : `<span style="color:#dc2626;font-weight:700;">DESCONECTADO</span> · proceso activo ${formatUptime(snap.bot.uptimeSeconds)}`
-
-  const catTags = Object.entries(snap.plugins.categories)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, n]) =>
-      `<span style="display:inline-block;margin:2px;padding:2px 7px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;font-size:11px;color:#374151;">${escapeHtml(cat)} <strong>${n}</strong></span>`)
-    .join('')
-
-  const roleLines = Object.entries(snap.users.byRole)
-    .map(([r, n]) => `${escapeHtml(r)}: ${n}`).join(' · ') || 'sin datos'
+    .map(([r, n]) => `${r}: ${n}`).join(' · ') || '—'
 
   const rows = [
-    { label: 'Bot WhatsApp',    value: botHtml },
-    { label: 'Memoria RAM',     value: `${snap.system.memUsedPct}% en uso · ${snap.system.memFreeMB} MB libres / ${snap.system.memTotalMB} MB` },
-    { label: 'CPU / Carga 1m',  value: `${snap.system.cpuCount} núcleos · ${snap.system.loadAvg}` },
-    { label: 'Plugins activos', value: `${snap.plugins.total} comandos` },
-    { label: 'Usuarios',        value: `${snap.users.total} registrados (${roleLines})` },
-    { label: 'Grupos WA',       value: `${snap.groups} activos` },
-    { label: 'Runtime',         value: `Node.js ${snap.system.nodeVersion} · ${snap.system.platform}` },
+    { label: 'Bot WhatsApp',    right: `${botBadge} &nbsp;${botUptime}` },
+    { label: 'Memoria RAM',     right: `${ramBadge} &nbsp;${escapeHtml(ramVal)}` },
+    { label: 'CPU / Carga',     right: `${cpuBadge} &nbsp;${escapeHtml(cpuVal)}` },
+    { label: 'Plugins activos', right: `<strong style="color:#111827;">${snap.plugins.total}</strong> comandos` },
+    { label: 'Usuarios',        right: `${snap.users.total} registrados &nbsp;<span style="color:#9ca3af;font-size:12px;">(${escapeHtml(roleBreak)})</span>` },
+    { label: 'Grupos WA',       right: `${snap.groups} activos` },
+    { label: 'Runtime',         right: `Node.js ${escapeHtml(snap.system.nodeVersion)} · ${escapeHtml(snap.system.platform)}` },
   ]
 
   const rowsHtml = rows.map((r, i) => {
     const border = i < rows.length - 1 ? '1px solid #f3f4f6' : 'none'
     return `<tr>
-      <td style="padding:7px 0;border-bottom:${border};font-size:12px;color:#9ca3af;width:36%;vertical-align:top;padding-right:12px;">${r.label}</td>
-      <td style="padding:7px 0;border-bottom:${border};font-size:13px;color:#374151;">${r.value}</td>
+      <td style="padding:8px 0;border-bottom:${border};font-size:12px;color:#9ca3af;width:34%;vertical-align:middle;padding-right:12px;">${r.label}</td>
+      <td style="padding:8px 0;border-bottom:${border};font-size:13px;color:#374151;vertical-align:middle;">${r.right}</td>
     </tr>`
   }).join('')
 
+  // ── Tags de categorías de plugins ──
+  const catTags = Object.entries(snap.plugins.categories)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, n]) =>
+      `<span style="display:inline-block;margin:2px;padding:2px 8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;font-size:11px;color:#374151;">${escapeHtml(cat)} <strong style="color:#111827;">${n}</strong></span>`)
+    .join('')
+
+  // ── Bloque contextual según tipo de mantenimiento ──
+  const contextColor   = isCompleted ? '#16a34a' : '#d97706'
+  const contextBg      = isCompleted ? '#f0fdf4' : '#fffbeb'
+  const contextBorder  = isCompleted ? '#bbf7d0' : '#fde68a'
+  const contextTitle   = isCompleted ? 'Sistema operativo' : 'Sistema en mantenimiento'
+  const contextMsg     = isCompleted
+    ? 'Todas las métricas fueron relevadas al momento de finalizar el mantenimiento. Los servicios están disponibles.'
+    : 'Estos datos corresponden al estado del sistema previo al inicio del mantenimiento programado.'
+
+  const contextBlock = `
+    <div style="margin:0 0 16px;padding:12px 14px;background:${contextBg};border:1px solid ${contextBorder};border-radius:6px;display:flex;align-items:flex-start;gap:10px;">
+      <div style="flex-shrink:0;width:18px;height:18px;border-radius:50%;background:${contextColor};text-align:center;line-height:18px;margin-top:1px;">
+        <span style="font-size:10px;font-weight:900;color:#fff;">${isCompleted ? '✓' : '!'}</span>
+      </div>
+      <div>
+        <p style="margin:0 0 3px;font-size:12px;font-weight:700;color:${contextColor};text-transform:uppercase;letter-spacing:.5px;">${contextTitle}</p>
+        <p style="margin:0;font-size:13px;color:#374151;line-height:1.5;">${contextMsg}</p>
+      </div>
+    </div>`
+
   return `
-    <div style="margin:20px 0 0;">
+    <div style="margin:24px 0;">
       <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">Estado del sistema</p>
       <div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:14px 16px;">
-          <tr><td colspan="2">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-              ${rowsHtml}
-            </table>
-          </td></tr>
-        </table>
-        ${catTags ? `<div style="padding:10px 16px 14px;border-top:1px solid #f3f4f6;">${catTags}</div>` : ''}
+        <div style="padding:14px 16px 0;">
+          ${contextBlock}
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            ${rowsHtml}
+          </table>
+        </div>
+        ${catTags ? `<div style="padding:10px 16px 14px;border-top:1px solid #f3f4f6;margin-top:8px;">${catTags}</div>` : ''}
       </div>
     </div>`
 }
 
-// ── Export principal ──────────────────────────────────────────────────────────
-
-function renderNarrativeBlock(text, source = 'claude') {
-  const paras = text.split(/\n{2,}/).filter(p => p.trim())
-  const parasHtml = paras
-    .map(p => `<p style="margin:0 0 10px;font-size:14px;color:#374151;line-height:1.75;">${escapeHtml(p.trim())}</p>`)
-    .join('')
-
-  const label  = source === 'manual' ? 'Resumen del administrador' : 'Diagnóstico del sistema'
-  const footer = source === 'manual' ? '' : `<p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;text-align:right;">Generado por Claude AI</p>`
-
-  return `
-    <div style="margin:24px 0 0;padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-      <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">${label}</p>
-      ${parasHtml}
-      ${footer}
-    </div>`
-}
+// ── Export ─────────────────────────────────────────────────────────────────────
 
 /**
- * Genera el bloque HTML del reporte del sistema para incluir en emails de mantenimiento.
+ * Genera el bloque HTML del reporte del sistema.
+ * Si customSummary está presente, lo muestra como bloque destacado encima.
  * @param {'notice'|'completed'} context
- * @param {string} [customSummary] — Si se provee, se usa en lugar de llamar a Claude
+ * @param {string} [customSummary]
  * @returns {Promise<string>}
  */
 export async function generateSystemReportHtml(context = 'notice', customSummary = '') {
-  let snap, ctx
+  let snap
   try {
-    ;[snap, ctx] = await Promise.all([collectRuntimeSnapshot(), collectCodeContext()])
+    snap = await collectSnapshot()
   } catch {
     return ''
   }
 
-  const dataTable = renderDataTable(snap)
+  const reportHtml = renderReport(snap, context)
 
-  // Modo manual: el admin escribió el resumen, no llamamos a Claude
-  if (customSummary?.trim()) {
-    return `<div style="margin:24px 0;">${renderNarrativeBlock(customSummary.trim(), 'manual')}${dataTable}</div>`
-  }
+  if (!customSummary?.trim()) return reportHtml
 
-  // Modo Claude: generación automática
-  let narrativeHtml = ''
-  try {
-    const prompt = buildPrompt(snap, ctx, context)
-    const text   = await callClaudeCli(prompt)
-    if (text) narrativeHtml = renderNarrativeBlock(text, 'claude')
-  } catch {}
+  const summaryBlock = `
+    <div style="margin:24px 0 0;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
+      <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;font-weight:700;">Nota del administrador</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">${escapeHtml(customSummary.trim())}</p>
+    </div>`
 
-  return `<div style="margin:24px 0;">${narrativeHtml}${dataTable}</div>`
+  return `${summaryBlock}${reportHtml}`
 }

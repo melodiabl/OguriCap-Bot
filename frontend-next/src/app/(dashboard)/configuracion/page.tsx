@@ -469,7 +469,7 @@ export default function ConfiguracionPage() {
         recipients: maintenanceForm.recipients,
         customSummary: maintenanceForm.customSummary,
       });
-      notify.info('Generando diagnóstico con Claude y enviando emails...');
+      notify.info('Preparando y enviando emails de mantenimiento...');
       setMaintenanceModalOpen(false);
       // loading se limpia cuando llega email:maintenance:done por socket
     } catch (e: any) {
@@ -527,7 +527,7 @@ export default function ConfiguracionPage() {
         note: completionForm.note,
         customSummary: completionForm.customSummary,
       });
-      notify.info('Mantenimiento desactivado · Generando diagnóstico con Claude...');
+      notify.info('Mantenimiento desactivado · Enviando notificaciones...');
       setCompletionModalOpen(false);
       // loading y resultado se actualizan cuando llega email:maintenance:done por socket
     } catch (e: any) {
@@ -1392,21 +1392,17 @@ export default function ConfiguracionPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Resumen personalizado
-                <span className="ml-1.5 text-muted-foreground/50 font-normal">· si lo dejás vacío, Claude lo genera automáticamente</span>
+                Nota adicional para el email
+                <span className="ml-1.5 text-muted-foreground/50 font-normal">(opcional)</span>
               </label>
               <textarea
                 rows={3}
-                placeholder="Ej: El mantenimiento concluyó exitosamente. Se actualizaron los módulos de seguridad y se mejoró el tiempo de respuesta del bot en un 20%..."
+                placeholder="Ej: Se actualizaron módulos de seguridad y se mejoró el tiempo de respuesta un 20%. No se requiere ninguna acción de tu parte."
                 value={completionForm.customSummary}
                 onChange={e => setCompletionForm(p => ({ ...p, customSummary: e.target.value }))}
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
               />
-              {!completionForm.customSummary && (
-                <p className="mt-1 text-xs text-primary/60 flex items-center gap-1">
-                  <span>✦</span> Claude analizará el código y métricas del sistema para generar el resumen
-                </p>
-              )}
+              <p className="mt-1 text-xs text-muted-foreground/50">El email incluye automáticamente métricas del sistema (bot, RAM, CPU, plugins, usuarios).</p>
             </div>
           </div>
 
@@ -1516,20 +1512,16 @@ export default function ConfiguracionPage() {
             <div className="col-span-2">
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                 Resumen personalizado
-                <span className="ml-1.5 text-muted-foreground/50 font-normal">· si lo dejás vacío, Claude lo genera automáticamente</span>
+                <span className="ml-1.5 text-muted-foreground/50 font-normal">(opcional)</span>
               </label>
               <textarea
                 rows={3}
-                placeholder="Ej: Realizaremos una actualización de seguridad en los módulos del backend. Durante el mantenimiento, el bot permanecerá sin servicio pero la base de datos permanecerá intacta..."
+                placeholder="Ej: Realizaremos una actualización de seguridad en los módulos del backend. La base de datos no se verá afectada."
                 value={maintenanceForm.customSummary}
                 onChange={e => setMaintenanceForm(p => ({ ...p, customSummary: e.target.value }))}
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
               />
-              {!maintenanceForm.customSummary && (
-                <p className="mt-1 text-xs text-primary/60 flex items-center gap-1">
-                  <span>✦</span> Claude analizará el código y métricas del sistema para generar el resumen
-                </p>
-              )}
+              <p className="mt-1 text-xs text-muted-foreground/50">El email incluye automáticamente métricas del sistema (bot, RAM, CPU, plugins, usuarios).</p>
             </div>
           </div>
 
