@@ -41,7 +41,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col relative z-10 w-full min-w-0 lg:pl-72 h-[100dvh] overflow-hidden">
+      <div className="flex-1 flex flex-col relative z-10 w-full min-w-0 lg:pl-64 h-[100dvh] overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
         <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-24">
