@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -35,11 +35,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;
 
-  const allowedItems = NAV_ITEMS.filter((item) => hasPermission(item.pageKey));
-  const sections = NAV_SECTIONS.map((sec) => ({
-    ...sec,
-    items: allowedItems.filter((i) => i.section === sec.key),
-  })).filter((sec) => sec.items.length > 0);
+  const sections = useMemo(() => {
+    const allowed = NAV_ITEMS.filter((item) => hasPermission(item.pageKey));
+    return NAV_SECTIONS.map((sec) => ({
+      ...sec,
+      items: allowed.filter((i) => i.section === sec.key),
+    })).filter((sec) => sec.items.length > 0);
+  }, [hasPermission]);
 
   const toggleSection = (key: NavSectionKey) => {
     setCollapsed((prev) => {
