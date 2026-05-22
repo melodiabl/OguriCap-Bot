@@ -136,6 +136,35 @@ const config: Config = {
           rose: '#ff4d8d',
           amber: '#f59e0b',
         },
+        // Zinc neutral palette (Dashboard Pro base)
+        zinc: {
+          50:  '#fafafa',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#71717a',
+          600: '#52525b',
+          700: '#3f3f46',
+          800: '#27272a',
+          900: '#18181b',
+          950: '#09090b',
+        },
+        // Single accent — green WhatsApp
+        'pro-accent': {
+          DEFAULT: '#25d366',
+          subtle:  'rgba(37,211,102,0.15)',
+          ghost:   'rgba(37,211,102,0.08)',
+          border:  'rgba(37,211,102,0.25)',
+          glow:    '0 0 14px rgba(37,211,102,0.25)',
+        },
+        // Semantic states (solo para alertas/estados, sin protagonismo visual)
+        semantic: {
+          danger:  '#f43f5e',
+          warning: '#f59e0b',
+          info:    '#38bdf8',
+          success: '#25d366',
+        },
         success: 'rgb(var(--success) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',
         danger: 'rgb(var(--danger) / <alpha-value>)',

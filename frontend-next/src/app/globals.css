@@ -27,6 +27,15 @@
   --oguri-phantom-light: 20 28 24;
   --bg-0: 8 10 9;
   --bg-1: 14 18 16;
+  /* Dashboard Pro — Zinc tokens */
+  --pro-base:     9 9 11;      /* zinc-950 */
+  --pro-surface:  12 12 14;    /* zinc-900 approx */
+  --pro-elevated: 24 24 27;    /* zinc-800 */
+  --pro-border:   39 39 42;    /* zinc-700 */
+  --pro-muted:    113 113 122; /* zinc-500 */
+  --pro-ghost:    63 63 70;    /* zinc-700 */
+  --pro-text:     250 250 250; /* zinc-50 */
+  --pro-accent:   37 211 102;  /* #25d366 */
   --grid-opacity: 0.12;
   --noise-opacity: 0.15;
   --chrome-blur: 20px;
