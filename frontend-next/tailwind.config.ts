@@ -156,7 +156,6 @@ const config: Config = {
           subtle:  'rgba(37,211,102,0.15)',
           ghost:   'rgba(37,211,102,0.08)',
           border:  'rgba(37,211,102,0.25)',
-          glow:    '0 0 14px rgba(37,211,102,0.25)',
         },
         // Semantic states (solo para alertas/estados, sin protagonismo visual)
         semantic: {
@@ -301,6 +300,7 @@ const config: Config = {
         },
       },
       boxShadow: {
+        'glow-pro-accent': '0 0 14px rgba(37,211,102,0.25)',
         'glow': '0 0 15px rgba(45, 212, 191, 0.5)',
         'glow-lg': '0 0 30px rgba(45, 212, 191, 0.6)',
         'glow-cyan': '0 0 20px rgba(45, 212, 191, 0.5)',
