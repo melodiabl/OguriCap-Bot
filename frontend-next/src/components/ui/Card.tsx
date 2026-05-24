@@ -19,7 +19,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     const cardClassName = cn(
       'group relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e]',
       hover && 'transition-all duration-300 hover:-translate-y-0.5 hover:border-[#3f3f46] hover:bg-[#18181b]',
-      glow && 'ring-1 ring-oguri-lavender/20 shadow-glow-oguri-mixed',
+      glow && 'ring-1 ring-[#25d366]/20 shadow-glow-pro-accent',
       className
     );
     const cardContent = (
