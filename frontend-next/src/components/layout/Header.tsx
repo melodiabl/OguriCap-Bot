@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useRef } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Bell, Menu, Search, X } from 'lucide-react';
 
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { ProfileAvatar } from '@/components/user/ProfileAvatar';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NAV_ITEMS, NAV_SECTIONS } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
@@ -19,6 +22,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
+  const { user } = useAuth();
   const { unreadCount, isOpen, setIsOpen, toggleOpen } = useNotifications();
   const reduceMotion = useReducedMotion();
 
@@ -101,6 +105,20 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
 
           <NotificationDropdown isOpen={isOpen} onClose={() => setIsOpen(false)} buttonRef={buttonRef} />
         </div>
+
+        {/* Profile link → /perfil */}
+        <Tooltip content="Mi perfil" side="bottom">
+          <Link
+            href="/perfil"
+            className="hidden sm:flex items-center gap-2 rounded-md border border-[#27272a] bg-transparent px-2 py-1 transition-colors hover:border-[#25d366]/30 hover:bg-[#25d366]/5"
+          >
+            <ProfileAvatar size="sm" />
+            <div className="hidden lg:block min-w-0 text-left">
+              <p className="truncate text-xs font-semibold text-zinc-200 leading-none">{user?.username || 'Usuario'}</p>
+              <p className="truncate text-[10px] uppercase tracking-wider text-zinc-600 mt-0.5">{user?.rol || 'admin'}</p>
+            </div>
+          </Link>
+        </Tooltip>
       </div>
     </header>
   );

@@ -4,9 +4,8 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
-import { ProfileAvatar } from '@/components/user/ProfileAvatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
@@ -24,7 +23,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus();
   const botStatus = useSocketBotStatus();
@@ -144,23 +143,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         })}
       </nav>
 
-      {/* User footer */}
-      <div className="border-t border-[#27272a] px-3 py-3">
-        <div className="flex items-center gap-2.5">
-          <ProfileAvatar size="sm" />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-zinc-200 truncate">{user?.username || 'Usuario'}</div>
-            <div className="text-[10px] text-zinc-600 uppercase tracking-wider truncate">{user?.rol || 'usuario'}</div>
-          </div>
-          <button
-            onClick={() => logout()}
-            className="p-1.5 rounded text-zinc-600 hover:text-zinc-300 hover:bg-[#27272a] transition-colors"
-            title="Cerrar sesión"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 
