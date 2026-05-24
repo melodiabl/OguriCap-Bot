@@ -52,6 +52,13 @@ export default function DashboardPage() {
   const { activities: recentActivity, isLoading: activitiesLoading } = useRecentActivity();
   const { unreadCount } = useNotifications();
 
+  // Progress bars animate from 0 on mount
+  const [barsMounted, setBarsMounted] = React.useState(false);
+  React.useEffect(() => {
+    const t = setTimeout(() => setBarsMounted(true), 120);
+    return () => clearTimeout(t);
+  }, []);
+
   const handleRefresh = React.useCallback(() => {
     refreshAll();
     refetchStats();
@@ -211,9 +218,9 @@ export default function DashboardPage() {
                     recentActivity?.slice(0, 6).map((activity: any, i: number) => (
                       <motion.div 
                         key={activity.id || i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
+                        initial={{ opacity: 0, x: -16, scale: 0.97 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        transition={{ delay: i * 0.06, type: 'spring', stiffness: 300, damping: 24 }}
                         className="group flex items-center gap-4 p-3 rounded-2xl transition-all duration-300 hover:bg-white/[0.03]"
                       >
                         <div className={cn(
@@ -264,8 +271,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="progress-bar h-2.5">
                     <div 
-                      className={cn("progress-bar-fill shadow-glow-sm", cpuUsage > 80 ? "bg-danger" : "bg-primary")} 
-                      style={{ transform: `scaleX(${cpuUsage / 100})` }} 
+                      className={cn("progress-bar-fill shadow-glow-sm", cpuUsage > 80 ? "bg-danger" : "bg-primary")}
+                      style={{ transform: `scaleX(${barsMounted ? cpuUsage / 100 : 0})` }}
                     />
                   </div>
                 </div>
@@ -277,8 +284,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="progress-bar h-2.5">
                     <div 
-                      className="progress-bar-fill bg-oguri-lavender shadow-glow-sm" 
-                      style={{ transform: `scaleX(${(memoryUsage?.systemPercentage || 0) / 100})` }} 
+                      className="progress-bar-fill bg-oguri-lavender shadow-glow-sm"
+                      style={{ transform: `scaleX(${barsMounted ? (memoryUsage?.systemPercentage || 0) / 100 : 0})` }}
                     />
                   </div>
                 </div>

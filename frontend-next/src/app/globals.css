@@ -736,7 +736,15 @@ body::before {
     radial-gradient(circle at 45% 85%, rgb(var(--page-c) / 0.10), transparent 52%);
   filter: blur(var(--aurora-blur));
   opacity: calc(var(--aurora-opacity) * var(--visual-layer-opacity));
-  /* Removed auroraShift infinite animation for performance */
+  will-change: transform;
+  animation: bgDriftPanel 50s ease-in-out infinite;
+}
+
+@keyframes bgDriftPanel {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  33%  { transform: translate(1.5%, 2%) scale(1.01); }
+  66%  { transform: translate(-1%, 1.5%) scale(0.99); }
+  100% { transform: translate(0%, 0%) scale(1); }
 }
 
 body::after {
