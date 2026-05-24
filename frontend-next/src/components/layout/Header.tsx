@@ -31,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
       <div className="lg:hidden mr-3">
         <button
           onClick={onMenuClick}
+          aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
           className="p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-[#27272a] transition-colors"
         >
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
