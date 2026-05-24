@@ -12,16 +12,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'btn-oguri bg-gradient-oguri-primary text-white shadow-glow-oguri-purple hover:shadow-glow-oguri-mixed',
-        secondary: 'border border-border/20 bg-card/72 text-foreground hover:bg-card/88 hover:border-border/40 hover:shadow-glow',
-        danger: 'border border-red-500/25 bg-red-500/12 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 hover:shadow-glow-red',
-        success: 'border border-oguri-cyan/25 bg-oguri-cyan/12 text-oguri-cyan hover:bg-oguri-cyan/20 hover:border-oguri-cyan/40 shadow-glow-oguri-cyan',
-        glow: 'btn-oguri bg-gradient-oguri-power text-white shadow-glow-oguri-mixed animate-oguri-aura',
-        ghost: [
-          'px-4 py-2',
-          'text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] hover:bg-white/10',
-        ],
-        accent: 'btn-oguri bg-gradient-oguri-accent text-white shadow-glow-oguri-accent',
+        primary: 'bg-[#25d366] text-black font-semibold hover:bg-[#22c55e] active:scale-95 transition-all',
+        secondary: 'bg-[#18181b] text-zinc-200 border border-[#27272a] hover:bg-[#27272a] hover:text-zinc-50 transition-colors',
+        danger: 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors',
+        success: 'bg-[#25d366]/15 text-[#25d366] border border-[#25d366]/25 hover:bg-[#25d366]/20 transition-colors',
+        glow: 'bg-[#25d366] text-black font-semibold hover:bg-[#22c55e] shadow-[0_0_24px_#25d36640] transition-all',
+        ghost: 'text-zinc-400 hover:bg-[#18181b] hover:text-zinc-200 transition-colors',
+        accent: 'bg-[#27272a] text-zinc-200 border border-[#3f3f46] hover:bg-[#3f3f46] hover:text-zinc-50 transition-colors',
       },
       size: {
         default: '!px-5 !py-2.5 text-sm',

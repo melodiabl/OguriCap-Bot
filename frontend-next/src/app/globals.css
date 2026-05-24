@@ -1453,33 +1453,38 @@ html[data-perf="full"] .aura-flow-layer::before {
   }
 
   .badge-success {
-    @apply badge border-emerald-400/30 shadow-glow-emerald;
-    background-color: rgb(var(--success) / 0.20);
-    color: rgb(var(--success) / 0.9);
+    @apply badge;
+    border-color: rgb(37 211 102 / 0.25);
+    background-color: rgb(37 211 102 / 0.15);
+    color: #25d366;
   }
 
   .badge-warning {
-    @apply badge border-amber-400/30;
-    background-color: rgb(var(--warning) / 0.20);
-    color: rgb(var(--warning) / 0.9);
+    @apply badge;
+    border-color: rgb(245 158 11 / 0.25);
+    background-color: rgb(245 158 11 / 0.15);
+    color: #fbbf24;
   }
 
   .badge-danger {
-    @apply badge border-red-400/30;
-    background-color: rgb(var(--danger) / 0.20);
-    color: rgb(var(--danger) / 0.9);
+    @apply badge;
+    border-color: rgb(239 68 68 / 0.25);
+    background-color: rgb(239 68 68 / 0.15);
+    color: #f87171;
   }
 
   .badge-info {
-    @apply badge border-cyan-400/30 shadow-glow-cyan;
-    background-color: rgb(var(--accent) / 0.20);
-    color: rgb(var(--accent) / 0.9);
+    @apply badge;
+    border-color: rgb(14 165 233 / 0.25);
+    background-color: rgb(14 165 233 / 0.15);
+    color: #38bdf8;
   }
 
   .badge-primary {
-    @apply badge border-primary-400/30 shadow-glow;
-    background-color: rgb(var(--primary) / 0.20);
-    color: rgb(var(--primary) / 0.9);
+    @apply badge;
+    border-color: rgb(37 211 102 / 0.25);
+    background-color: rgb(37 211 102 / 0.15);
+    color: #25d366;
   }
 
   .status-dot {
@@ -2498,39 +2503,39 @@ html[data-perf="full"] .aura-flow-layer::before {
   }
 
   .status-badge--neutral {
-    color: rgb(var(--text-primary) / 1);
-    border-color: rgb(var(--border) / 0.14);
-    background: rgb(var(--surface) / 0.55);
+    color: #71717a; /* zinc-500 */
+    border-color: #3f3f46; /* zinc-700 */
+    background: #27272a; /* zinc-800 */
   }
 
   .status-badge--info {
-    color: rgb(var(--accent) / 1);
-    border-color: rgb(var(--accent) / 0.25);
-    background: rgb(var(--accent) / 0.08);
+    color: #38bdf8; /* sky-400 */
+    border-color: rgb(14 165 233 / 0.25); /* sky-500/25 */
+    background: rgb(14 165 233 / 0.15); /* sky-500/15 */
   }
 
   .status-badge--success {
-    color: rgb(var(--success) / 1);
-    border-color: rgb(var(--success) / 0.25);
-    background: rgb(var(--success) / 0.08);
+    color: #25d366; /* pro-accent */
+    border-color: rgb(37 211 102 / 0.25); /* #25d366/25 */
+    background: rgb(37 211 102 / 0.15); /* #25d366/15 */
   }
 
   .status-badge--warning {
-    color: rgb(var(--warning) / 1);
-    border-color: rgb(var(--warning) / 0.25);
-    background: rgb(var(--warning) / 0.08);
+    color: #fbbf24; /* amber-400 */
+    border-color: rgb(245 158 11 / 0.25); /* amber-500/25 */
+    background: rgb(245 158 11 / 0.15); /* amber-500/15 */
   }
 
   .status-badge--danger {
-    color: rgb(var(--danger) / 1);
-    border-color: rgb(var(--danger) / 0.25);
-    background: rgb(var(--danger) / 0.08);
+    color: #f87171; /* red-400 */
+    border-color: rgb(239 68 68 / 0.25); /* red-500/25 */
+    background: rgb(239 68 68 / 0.15); /* red-500/15 */
   }
 
   .status-badge--terminal {
-    color: rgb(var(--success) / 1);
-    border-color: rgb(var(--success) / 0.25);
-    background: rgb(var(--shadow-rgb) / 0.68);
+    color: #25d366; /* pro-accent */
+    border-color: rgb(37 211 102 / 0.25);
+    background: rgb(9 9 11 / 0.68); /* zinc-950/68 */
   }
 
   .status-badge--pulse {
