@@ -111,25 +111,6 @@ const colorClasses = {
   cyan: 'text-oguri-cyan bg-oguri-cyan/15 border border-oguri-cyan/25 shadow-glow-oguri-cyan',
 };
 
-const colorGlowClasses = {
-  primary: 'bg-oguri-purple/18',
-  success: 'bg-oguri-cyan/18',
-  warning: 'bg-oguri-gold/18',
-  danger: 'bg-red-500/18',
-  info: 'bg-oguri-blue/18',
-  violet: 'bg-oguri-lavender/18',
-  cyan: 'bg-oguri-cyan/18',
-};
-
-const colorStreakClasses = {
-  primary: 'from-transparent via-oguri-purple/35 to-transparent',
-  success: 'from-transparent via-oguri-cyan/35 to-transparent',
-  warning: 'from-transparent via-oguri-gold/35 to-transparent',
-  danger: 'from-transparent via-red-400/35 to-transparent',
-  info: 'from-transparent via-oguri-blue/35 to-transparent',
-  violet: 'from-transparent via-oguri-lavender/35 to-transparent',
-  cyan: 'from-transparent via-oguri-cyan/35 to-transparent',
-};
 
 export const StatCard: React.FC<StatCardProps> = ({
   title, 
