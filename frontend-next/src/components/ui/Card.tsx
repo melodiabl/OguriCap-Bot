@@ -171,13 +171,6 @@ export const StatCard: React.FC<StatCardProps> = ({
       viewport={shouldAnimate ? { once: true, amount: 0.35 } : undefined}
       transition={shouldAnimate ? { duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] } : undefined}
     >
-      {/* Background Accent */}
-      <div className={cn('absolute -right-10 -top-10 h-28 w-28 blur-3xl transition-opacity duration-500 group-hover:opacity-100', colorGlowClasses[color])} />
-      <div
-        aria-hidden="true"
-        className={cn('absolute left-0 top-0 h-px w-1/2 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-500', colorStreakClasses[color])}
-      />
-      
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-black text-[rgb(var(--text-muted))] uppercase tracking-widest group-hover:text-[rgb(var(--text-secondary))] transition-colors">
@@ -252,8 +245,6 @@ export const GlowCard: React.FC<GlowCardProps> = ({
       <div className="relative z-10 p-6">
         {children}
       </div>
-      {/* Subtle glow animation */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse-slow" />
     </motion.div>
   );
 };
