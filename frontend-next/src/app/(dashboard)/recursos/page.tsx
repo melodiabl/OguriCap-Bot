@@ -145,13 +145,14 @@ export default function RecursosPage() {
       const stats = await api.getResourcesStats();
       const current = (stats as any)?.current || null;
 
+      // Always sync monitoring state regardless of whether metrics exist yet
+      setIsMonitoring(Boolean((stats as any)?.isMonitoring));
+      setUpdateInterval(Number((stats as any)?.updateInterval) || 5000);
+
       if (current) {
         setMetrics(current);
         setAlertStates((stats as any)?.alerts || null);
         setThresholds((stats as any)?.thresholds || null);
-        setIsMonitoring(Boolean((stats as any)?.isMonitoring));
-        setUpdateInterval(Number((stats as any)?.updateInterval) || 5000);
-        return;
       }
     } catch (error) {
       console.error('Error loading resource stats:', getErrorMessage(error));
@@ -226,6 +227,8 @@ export default function RecursosPage() {
   }, [socket, loadResourceStats]);
 
   const toggleMonitoring = async () => {
+    const next = !isMonitoring;
+    setIsMonitoring(next); // optimistic: flip immediately so UI responds at once
     try {
       if (isMonitoring) {
         await api.stopResourcesMonitoring();
@@ -234,8 +237,9 @@ export default function RecursosPage() {
         await api.startResourcesMonitoring(updateInterval);
         notify.success('Monitoreo iniciado');
       }
-      await loadResourceStats();
+      await loadResourceStats(); // sync real state from backend
     } catch (error) {
+      setIsMonitoring(!next); // revert on failure
       notify.error('Error al cambiar estado del monitoreo');
     }
   };

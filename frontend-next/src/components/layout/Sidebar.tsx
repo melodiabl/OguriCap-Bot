@@ -10,7 +10,6 @@ import { ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBotGlobalState } from '@/contexts/BotGlobalStateContext';
 import { useGlobalUpdate } from '@/contexts/GlobalUpdateContext';
-import { useNotifications } from '@/contexts/NotificationContext';
 import { useSocketBotStatus } from '@/contexts/SocketContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useBotStatus } from '@/hooks/useRealTime';
@@ -28,9 +27,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { hasPermission } = usePermissions();
   const { isConnected: pollingConnected, isConnecting } = useBotStatus();
   const botStatus = useSocketBotStatus();
-  const { unreadCount } = useNotifications();
+
   const { isGloballyOn } = useBotGlobalState();
-  const { dashboardStats, botStatus: globalBotStatus } = useGlobalUpdate();
+  const { dashboardStats, botStatus: globalBotStatus, activeAlertCount } = useGlobalUpdate();
   const [collapsed, setCollapsed] = useState<Set<NavSectionKey>>(new Set());
 
   const isConnected = botStatus?.connected ?? globalBotStatus?.connected ?? pollingConnected;
@@ -54,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const getBadge = (path: string): number | null => {
     if (path === '/subbots') return dashboardStats?.subbots?.total ?? null;
     if (path === '/pedidos') return dashboardStats?.pedidosPendientes ?? null;
-    if (path === '/alertas') return unreadCount > 0 ? unreadCount : null;
+    if (path === '/alertas') return activeAlertCount > 0 ? activeAlertCount : null;
     return null;
   };
 

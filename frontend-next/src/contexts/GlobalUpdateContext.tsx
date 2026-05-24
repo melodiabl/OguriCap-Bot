@@ -11,6 +11,7 @@ interface GlobalUpdateContextType {
   botStatus: any;
   systemStats: any;
   notifications: any[];
+  activeAlertCount: number;
 
   refreshAll: () => Promise<void>;
   refreshDashboard: () => Promise<any>;
@@ -37,6 +38,7 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [botStatus, setBotStatus] = React.useState<any>(null);
   const [systemStats, setSystemStats] = React.useState<any>(null);
   const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [activeAlertCount, setActiveAlertCount] = React.useState(0);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [lastUpdate, setLastUpdate] = React.useState<Date | null>(null);
 
@@ -46,13 +48,28 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const refreshDashboard = React.useCallback(async () => {
     try {
-      const stats = await api.getStats();
-      setDashboardStats(prev => {
-        // Only update if data changed
-        if (JSON.stringify(prev) === JSON.stringify(stats)) return prev;
-        return stats;
-      });
-      return stats;
+      const [stats, alertsRes] = await Promise.allSettled([
+        api.getStats(),
+        api.getAlerts(),
+      ]);
+
+      if (stats.status === 'fulfilled') {
+        setDashboardStats((prev: any) => {
+          // Only update if data changed
+          if (JSON.stringify(prev) === JSON.stringify(stats.value)) return prev;
+          return stats.value;
+        });
+      }
+
+      if (alertsRes.status === 'fulfilled') {
+        const alertList: any[] = (alertsRes.value as any)?.alerts ?? alertsRes.value ?? [];
+        const activeCount = Array.isArray(alertList)
+          ? alertList.filter((a: any) => a.state === 'active').length
+          : 0;
+        setActiveAlertCount(activeCount);
+      }
+
+      return stats.status === 'fulfilled' ? stats.value : null;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Error refreshing dashboard stats:', error);
@@ -359,6 +376,7 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
         botStatus,
         systemStats,
         notifications,
+        activeAlertCount,
         refreshAll,
         refreshDashboard,
         refreshBotStatus,
