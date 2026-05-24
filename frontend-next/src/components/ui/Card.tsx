@@ -17,55 +17,13 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, animated = false, delay = 0, hover = true, glow = false, children, ...props }, ref) => {
     const reduceMotion = useReducedMotion();
     const cardClassName = cn(
-      'group relative overflow-hidden rounded-[28px] border border-border/15 bg-card/58 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.28)] backdrop-blur-xl',
-      hover && 'transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_28px_80px_-34px_rgba(0,0,0,0.82),0_0_42px_rgba(127,180,255,0.10)]',
+      'group relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e]',
+      hover && 'transition-all duration-300 hover:-translate-y-0.5 hover:border-[#3f3f46] hover:bg-[#18181b]',
       glow && 'ring-1 ring-oguri-lavender/20 shadow-glow-oguri-mixed',
       className
     );
     const cardContent = (
-      <>
-        {/* Main Background Layers */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(var(--primary),0.12),transparent_50%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-primary/[0.05]"
-        />
-        
-        {/* Grid & Noise */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px]"
-        />
-        
-        {/* Simplified Border / Sheen for performance */}
-        <div
-          aria-hidden="true"
-          className={cn(
-            "pointer-events-none absolute inset-0 rounded-[inherit] border transition-opacity duration-300",
-            glow ? "border-primary/30" : "border-white/5 group-hover:border-white/10"
-          )}
-        />
-
-        {/* Top Shine */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
-        />
-
-        {/* Ambient Glows */}
-        <div
-          aria-hidden="true"
-          className={cn(
-            "pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full blur-3xl opacity-20 transition-opacity duration-500 group-hover:opacity-40",
-            glow ? "bg-primary/30" : "bg-primary/10"
-          )}
-        />
-        
-        <div className="relative z-10 h-full">{children as React.ReactNode}</div>
-      </>
+      <div className="relative z-10 h-full">{children as React.ReactNode}</div>
     );
 
 
@@ -96,7 +54,7 @@ Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 border-b border-border/10 p-6 pb-4', className)} {...props} />
+    <div ref={ref} className={cn('flex flex-col space-y-1.5 border-b border-[#27272a] p-6 pb-4', className)} {...props} />
   )
 );
 CardHeader.displayName = 'CardHeader';
@@ -124,7 +82,7 @@ CardContent.displayName = 'CardContent';
 
 const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex items-center border-t border-border/10 p-6 pt-0', className)} {...props} />
+    <div ref={ref} className={cn('flex items-center border-t border-[#27272a] p-6 pt-0', className)} {...props} />
   )
 );
 CardFooter.displayName = 'CardFooter';
@@ -190,7 +148,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   if (loading) {
     return (
-      <div className="relative overflow-hidden rounded-[28px] border border-border/15 bg-card/70 p-5 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] p-5">
         <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-4 w-24 rounded bg-white/5" />
           <Skeleton className="h-10 w-10 rounded-xl bg-white/5" />
@@ -204,8 +162,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'relative overflow-hidden rounded-[28px] border border-border/15 bg-card/70 p-5 group shadow-[0_24px_70px_-36px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-300',
-        'hover:border-primary/25 hover:shadow-[0_28px_80px_-34px_rgba(0,0,0,0.34)] hover:-translate-y-1',
+        'relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] p-5 group transition-all duration-300',
+        'hover:border-[#3f3f46] hover:bg-[#18181b] hover:-translate-y-1',
         active && 'animate-pulse-glow-oguri border-oguri-lavender/50 shadow-glow-oguri-mixed'
       )}
       initial={shouldAnimate ? { opacity: 0, y: 20, scale: 0.98 } : undefined}
@@ -283,7 +241,7 @@ export const GlowCard: React.FC<GlowCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'relative overflow-hidden rounded-[28px] border border-border/15 bg-card/70 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.28)] backdrop-blur-xl',
+        'relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e]',
         className
       )}
       initial={!reduceMotion && animated ? { opacity: 0, y: 20 } : undefined}
