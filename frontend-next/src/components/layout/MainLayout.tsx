@@ -49,10 +49,10 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
             <AnimatePresence mode="wait">
               <motion.div
                 key={pathname}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
+                initial={{ opacity: 0, y: 12, scale: 0.99, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -8, scale: 1.005, filter: 'blur(2px)' }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="relative min-h-full"
               >
                 {children}
