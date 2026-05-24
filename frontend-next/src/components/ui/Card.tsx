@@ -102,23 +102,45 @@ interface StatCardProps {
 }
 
 const colorClasses = {
-  primary: 'text-oguri-purple bg-oguri-purple/15 border border-oguri-purple/25 shadow-glow-oguri-purple',
-  success: 'text-oguri-cyan bg-oguri-cyan/15 border border-oguri-cyan/25 shadow-glow-oguri-cyan',
-  warning: 'text-oguri-gold bg-oguri-gold/15 border border-oguri-gold/25 shadow-glow-oguri-mixed',
+  primary: 'text-[#25d366] bg-[#25d366]/15 border border-[#25d366]/25 shadow-glow-pro-accent',
+  success: 'text-[#25d366] bg-[#25d366]/15 border border-[#25d366]/25 shadow-glow-pro-accent',
+  warning: 'text-amber-400 bg-amber-400/15 border border-amber-400/25',
   danger: 'text-red-400 bg-red-500/15 border border-red-500/25',
-  info: 'text-oguri-blue bg-oguri-blue/15 border border-oguri-blue/25 shadow-glow-oguri-blue',
-  violet: 'text-oguri-lavender bg-oguri-lavender/15 border border-oguri-lavender/25 shadow-glow-oguri-lavender',
-  cyan: 'text-oguri-cyan bg-oguri-cyan/15 border border-oguri-cyan/25 shadow-glow-oguri-cyan',
+  info: 'text-sky-400 bg-sky-400/15 border border-sky-400/25',
+  violet: 'text-violet-400 bg-violet-400/15 border border-violet-400/25',
+  cyan: 'text-[#25d366] bg-[#25d366]/15 border border-[#25d366]/25 shadow-glow-pro-accent',
+};
+
+// Subtle radial gradient tint at top-left per color
+const colorGradientStyle: Record<string, string> = {
+  primary: 'radial-gradient(circle at top left, rgba(37,211,102,0.07) 0%, transparent 60%)',
+  success: 'radial-gradient(circle at top left, rgba(37,211,102,0.07) 0%, transparent 60%)',
+  warning: 'radial-gradient(circle at top left, rgba(245,158,11,0.07) 0%, transparent 60%)',
+  danger:  'radial-gradient(circle at top left, rgba(244,63,94,0.07) 0%, transparent 60%)',
+  info:    'radial-gradient(circle at top left, rgba(56,189,248,0.07) 0%, transparent 60%)',
+  violet:  'radial-gradient(circle at top left, rgba(139,92,246,0.07) 0%, transparent 60%)',
+  cyan:    'radial-gradient(circle at top left, rgba(37,211,102,0.07) 0%, transparent 60%)',
+};
+
+// Hover border color per card type
+const colorHoverBorder: Record<string, string> = {
+  primary: 'rgba(37,211,102,0.25)',
+  success: 'rgba(37,211,102,0.25)',
+  warning: 'rgba(245,158,11,0.25)',
+  danger:  'rgba(244,63,94,0.25)',
+  info:    'rgba(56,189,248,0.25)',
+  violet:  'rgba(139,92,246,0.25)',
+  cyan:    'rgba(37,211,102,0.25)',
 };
 
 
 export const StatCard: React.FC<StatCardProps> = ({
-  title, 
-  value, 
-  subtitle, 
-  icon, 
-  color = 'primary', 
-  delay = 0, 
+  title,
+  value,
+  subtitle,
+  icon,
+  color = 'primary',
+  delay = 0,
   loading = false,
   trend,
   animated = true,
@@ -127,15 +149,28 @@ export const StatCard: React.FC<StatCardProps> = ({
   const reduceMotion = useReducedMotion();
   const shouldAnimate = animated && !reduceMotion;
 
+  // Flash ring when value updates
+  const prevValueRef = React.useRef<number | string>(value);
+  const [flashing, setFlashing] = React.useState(false);
+  React.useEffect(() => {
+    if (prevValueRef.current !== value && typeof value === 'number') {
+      setFlashing(true);
+      const t = setTimeout(() => setFlashing(false), 700);
+      prevValueRef.current = value;
+      return () => clearTimeout(t);
+    }
+    prevValueRef.current = value;
+  }, [value]);
+
   if (loading) {
     return (
       <div className="relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] p-5">
         <div className="flex items-center justify-between mb-4">
-          <Skeleton className="h-4 w-24 rounded bg-white/5" />
-          <Skeleton className="h-10 w-10 rounded-xl bg-white/5" />
+          <Skeleton className="h-4 w-24 rounded" />
+          <Skeleton className="h-10 w-10 rounded-xl" />
         </div>
-        <Skeleton className="h-8 w-20 rounded mb-2 bg-white/5" />
-        <Skeleton className="h-3 w-32 rounded bg-white/5" />
+        <Skeleton className="h-8 w-20 rounded mb-2" />
+        <Skeleton className="h-3 w-32 rounded" />
       </div>
     );
   }
@@ -143,10 +178,24 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] p-5 group transition-all duration-300',
-        'hover:border-[#3f3f46] hover:bg-[#18181b] hover:-translate-y-1',
-        active && 'animate-pulse-glow-oguri border-oguri-lavender/50 shadow-glow-oguri-mixed'
+        'relative overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] p-5 group',
+        'transition-all duration-300 cursor-default',
+        'hover:bg-[#18181b] hover:-translate-y-1.5',
+        active && 'animate-pulse border-[#25d366]/40 shadow-glow-pro-accent',
+        flashing && 'ring-1 ring-[#25d366]/50'
       )}
+      style={{
+        backgroundImage: colorGradientStyle[color] || colorGradientStyle.primary,
+        ['--hover-border' as string]: colorHoverBorder[color],
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = colorHoverBorder[color] || '#3f3f46';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 32px ${colorHoverBorder[color]?.replace('0.25', '0.12') || 'transparent'}`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = active ? 'rgba(37,211,102,0.4)' : '#27272a';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = active ? '' : 'none';
+      }}
       initial={shouldAnimate ? { opacity: 0, y: 20, scale: 0.98 } : undefined}
       whileInView={shouldAnimate ? { opacity: 1, y: 0, scale: 1 } : undefined}
       viewport={shouldAnimate ? { once: true, amount: 0.35 } : undefined}
@@ -154,37 +203,37 @@ export const StatCard: React.FC<StatCardProps> = ({
     >
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-black text-[rgb(var(--text-muted))] uppercase tracking-widest group-hover:text-[rgb(var(--text-secondary))] transition-colors">
+          <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest group-hover:text-zinc-300 transition-colors duration-200">
             {title}
           </h3>
           <motion.div
-            className={cn('p-2.5 rounded-xl transition-all duration-500 group-hover:scale-110 group-hover:shadow-glow-sm', colorClasses[color])}
+            className={cn('p-2.5 rounded-xl transition-all duration-300 group-hover:scale-110', colorClasses[color])}
             animate={shouldAnimate && active ? { y: [0, -2, 0], rotate: [0, 2, 0] } : { y: 0, rotate: 0 }}
             transition={shouldAnimate && active ? { repeat: Infinity, duration: 2.6, ease: 'easeInOut' } : { duration: 0 }}
           >
             {icon}
           </motion.div>
         </div>
-        
-        <div className="mb-1 text-2xl font-black tracking-tight text-foreground">
+
+        <div className="mb-1 text-2xl font-black tracking-tight text-zinc-50">
           {typeof value === 'number' ? (
             <AnimatedNumber value={value} duration={0.8} />
           ) : (
             value
           )}
         </div>
-        
+
         <div className="flex items-center justify-between mt-2">
           {subtitle && (
-            <p className="text-[11px] font-bold text-[rgb(var(--text-muted))] group-hover:text-[rgb(var(--text-secondary))] transition-colors">
+            <p className="text-[11px] font-semibold text-zinc-500 group-hover:text-zinc-400 transition-colors duration-200">
               {subtitle}
             </p>
           )}
-          
+
           {trend !== undefined && (
             <div className={cn(
               'flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md',
-              trend > 0 ? 'text-[rgb(var(--success))] bg-[rgb(var(--success)/0.1)]' : trend < 0 ? 'text-[rgb(var(--danger))] bg-[rgb(var(--danger)/0.1)]' : 'text-[rgb(var(--text-muted))] bg-white/5'
+              trend > 0 ? 'text-[#25d366] bg-[#25d366]/10' : trend < 0 ? 'text-red-400 bg-red-400/10' : 'text-zinc-500 bg-white/5'
             )}>
               {trend > 0 ? '+' : ''}{trend}%
             </div>

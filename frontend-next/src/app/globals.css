@@ -1588,9 +1588,15 @@ html[data-perf="full"] .aura-flow-layer::before {
   }
 
   .skeleton {
-    @apply bg-gradient-to-r from-white/5 via-white/10 to-white/5 rounded;
-    background-size: 200% 100%;
-    @apply animate-shimmer;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #18181b 25%, #2d2d30 50%, #18181b 75%);
+    background-size: 300% 100%;
+    animation: skeletonShimmer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes skeletonShimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -100% 0; }
   }
 
   .loading-spinner {
