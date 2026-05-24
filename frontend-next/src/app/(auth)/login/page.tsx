@@ -30,12 +30,12 @@ function FloatingSignal({ delay = 0, className = '' }: { delay?: number; classNa
 function FloatingCommandCloud() {
   const reduceMotion = useReducedMotion();
   const commands = [
-    { text: '/menu',      pos: 'left-[4%] top-[14%]',  delay: 0,   colors: 'border-primary/20 text-primary/70 bg-black/70' },
-    { text: '/daily',     pos: 'left-[56%] top-[9%]',  delay: 0.5, colors: 'border-secondary/20 text-secondary/70 bg-black/70' },
-    { text: '/sticker',   pos: 'right-[8%] top-[22%]', delay: 1,   colors: 'border-accent/20 text-accent/70 bg-black/70' },
-    { text: '/rollwaifu', pos: 'right-[5%] top-[60%]', delay: 1.5, colors: 'border-warning/20 text-warning/70 bg-black/70' },
-    { text: '/tagall',    pos: 'left-[3%] top-[68%]',  delay: 2,   colors: 'border-success/20 text-success/70 bg-black/70' },
-    { text: '/top',       pos: 'left-[52%] top-[78%]', delay: 2.5, colors: 'border-danger/20 text-danger/70 bg-black/70' },
+    { text: '/menu',      pos: 'left-[4%] top-[14%]',  delay: 0,   colors: 'border-[#25d366]/20 text-[#25d366]/70 bg-black/70' },
+    { text: '/daily',     pos: 'left-[56%] top-[9%]',  delay: 0.5, colors: 'border-zinc-700/40 text-zinc-500/70 bg-black/70' },
+    { text: '/sticker',   pos: 'right-[8%] top-[22%]', delay: 1,   colors: 'border-zinc-700/40 text-zinc-500/70 bg-black/70' },
+    { text: '/rollwaifu', pos: 'right-[5%] top-[60%]', delay: 1.5, colors: 'border-zinc-700/40 text-zinc-500/70 bg-black/70' },
+    { text: '/tagall',    pos: 'left-[3%] top-[68%]',  delay: 2,   colors: 'border-[#25d366]/20 text-[#25d366]/60 bg-black/70' },
+    { text: '/top',       pos: 'left-[52%] top-[78%]', delay: 2.5, colors: 'border-zinc-700/40 text-zinc-500/70 bg-black/70' },
   ];
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden xl:block">
@@ -417,7 +417,7 @@ export default function LoginPage() {
         {/* Secondary orb */}
         <motion.div
           aria-hidden="true"
-          className="absolute bottom-0 right-1/4 h-[440px] w-[440px] rounded-full bg-secondary/8 blur-[120px]"
+          className="absolute bottom-0 right-1/4 h-[440px] w-[440px] rounded-full bg-[#25d366]/[0.05] blur-[120px]"
           animate={enableBgMotion ? { scale: [1, 1.08, 1], opacity: [0.4, 0.75, 0.4] } : {}}
           transition={enableBgMotion ? { repeat: Infinity, duration: 18, ease: 'easeInOut', delay: 5 } : {}}
         />

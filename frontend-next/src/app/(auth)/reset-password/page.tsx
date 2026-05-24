@@ -3,7 +3,7 @@
 import React, { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Bot, Lock, ArrowLeft } from 'lucide-react';
 
 import api from '@/services/api';
@@ -16,8 +16,6 @@ import { notify } from '@/lib/notif';
 function ResetPasswordInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const reduceMotion = useReducedMotion();
-
   const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -55,16 +53,7 @@ function ResetPasswordInner() {
   return (
     <div className="auth-shell">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={reduceMotion ? { opacity: 1 } : { x: [0, 100, 0], y: [0, -50, 0] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 20, ease: 'linear' }}
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={reduceMotion ? { opacity: 1 } : { x: [0, -100, 0], y: [0, 50, 0] }}
-          transition={reduceMotion ? { duration: 0.12 } : { repeat: Infinity, duration: 25, ease: 'linear' }}
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl"
-        />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#25d366]/[0.06] rounded-full blur-3xl" />
       </div>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-md">

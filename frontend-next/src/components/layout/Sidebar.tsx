@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -63,8 +64,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <div className="relative flex h-full flex-col bg-[#0c0c0e] border-r border-[#27272a]">
       {/* Brand header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-[#27272a]">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#25d366] text-black font-black text-sm flex-shrink-0">
-          O
+        <div className="relative h-8 w-8 flex-shrink-0">
+          <Image
+            src="/oguricap-avatar.png"
+            alt="OguriCap"
+            width={32}
+            height={32}
+            className="rounded-lg object-cover"
+            priority
+          />
         </div>
         <div className="min-w-0">
           <div className="text-sm font-bold text-zinc-50 leading-none truncate">OguriCap Bot</div>

@@ -2075,11 +2075,10 @@ html[data-perf="full"] .aura-flow-layer::before {
     inset: -28%;
     pointer-events: none;
     background:
-      radial-gradient(880px 500px at 18% 10%, rgb(var(--accent) / 0.16), transparent 58%),
-      radial-gradient(760px 460px at 85% 16%, rgb(var(--warning) / 0.12), transparent 56%),
-      radial-gradient(720px 520px at 50% 92%, rgb(var(--success) / 0.1), transparent 60%);
-    filter: blur(52px) saturate(112%);
-    opacity: 0.44;
+      radial-gradient(ellipse 80% 55% at 50% -5%, rgba(37, 211, 102, 0.07), transparent 68%),
+      radial-gradient(600px 500px at 78% 102%, rgba(37, 211, 102, 0.04), transparent 58%);
+    filter: blur(52px);
+    opacity: 1;
     animation: ambientDriftAuth 20s ease-in-out infinite alternate;
   }
 
@@ -2095,12 +2094,34 @@ html[data-perf="full"] .aura-flow-layer::before {
   }
 
   .auth-card {
-    @apply panel-surface p-6 sm:p-8;
+    @apply rounded-xl p-6 sm:p-8;
+    position: relative;
+    overflow: hidden;
+    background: rgb(12 12 14);
+    border: 1px solid rgb(39 39 42);
+    border-top: 2px solid rgb(37 211 102);
     animation: authEnter 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: 50% 54%;
     box-shadow:
-      0 28px 90px rgb(var(--shadow-rgb) / 0.34),
-      inset 0 0 0 1px rgb(var(--shine) / 0.04);
+      0 28px 90px rgba(0, 0, 0, 0.5),
+      0 0 40px rgba(37, 211, 102, 0.04);
+  }
+
+  /* Input styles scoped to auth pages */
+  .auth-card .input-glass,
+  .auth-shell .input-glass {
+    background: rgb(24 24 27);
+    border-color: rgb(39 39 42);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    border-radius: 8px;
+  }
+
+  .auth-card .input-glass:focus,
+  .auth-shell .input-glass:focus {
+    border-color: rgba(37, 211, 102, 0.5);
+    box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.1);
   }
 
   .auth-back-link {
