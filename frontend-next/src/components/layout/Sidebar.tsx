@@ -117,10 +117,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                           href={item.path}
                           onClick={onClose}
                           className={cn(
-                            'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-100 group',
+                            'flex items-center gap-2.5 rounded-md py-2 text-sm transition-colors duration-100 group',
                             isActive
-                              ? 'bg-[#27272a] text-zinc-50 font-semibold'
-                              : 'text-zinc-500 hover:bg-[#18181b] hover:text-zinc-300'
+                              ? 'bg-[#27272a] text-zinc-50 font-semibold border-l-2 border-[#25d366] pl-[10px] pr-2.5'
+                              : 'text-zinc-500 hover:bg-[#18181b] hover:text-zinc-300 px-2.5'
                           )}
                         >
                           <Icon
