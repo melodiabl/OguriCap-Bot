@@ -649,25 +649,13 @@ function resolveBotType(conn, botSettings = {}) {
 
 async function sendSingleMenu(m, conn, text) {
   if (!text) return
+
   const mention = m?.sender ? [m.sender] : []
 
-  try {
-    const baseRcanal = global?.rcanal
-    if (baseRcanal?.contextInfo) {
-      const payload = {
-        ...baseRcanal,
-        contextInfo: {
-          ...baseRcanal.contextInfo,
-          mentionedJid: mention,
-        },
-      }
-      await conn.sendMessage(m.chat, { text, ...payload }, { quoted: m })
-    } else {
-      await conn.sendMessage(m.chat, { text, mentions: mention }, { quoted: m })
-    }
-  } catch {
-    await conn.sendMessage(m.chat, { text }, { quoted: m })
-  }
+  await conn.sendMessage(m.chat, {
+    text,
+    mentions: mention
+  }, { quoted: m })
 }
 
 const handler = async (m, { conn, usedPrefix }) => {
