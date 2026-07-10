@@ -27,6 +27,7 @@ import { handleBroadcast }     from './routes/broadcast.js'
 import { handleMultimedia }    from './routes/multimedia.js'
 import { handleSupport }       from './routes/support.js'
 import { handleProfile }         from './routes/profile.js'
+import { handleAlerts }          from './routes/alerts.js'
 
 // Re-exportar emitters de Socket.IO para compatibilidad con index.js
 export {
@@ -106,8 +107,8 @@ function ensurePanelDb() {
   if (!isObj(d.subbots))        d.subbots        = {}
   if (!isObj(d.groups))         d.groups         = {}
   if (!isObj(d.usuarios))       d.usuarios       = {}
-  if (!isObj(d.aportes))        d.aportes        = {}
-  if (!isObj(d.pedidos))        d.pedidos        = {}
+  if (d.aportes == null)         d.aportes        = {}
+  if (d.pedidos == null)         d.pedidos        = {}
   if (!Array.isArray(d.notifications))   d.notifications   = []
   if (!Array.isArray(d.pushSubscriptions)) d.pushSubscriptions = []
   if (!isObj(d.multimedia))     d.multimedia     = {}
@@ -115,6 +116,7 @@ function ensurePanelDb() {
   if (!isObj(d.botGlobalState)) d.botGlobalState = { isOn: true }
   if (!isObj(d.disabledPlugins))d.disabledPlugins= {}
   if (!isObj(d.dailyMetrics))   d.dailyMetrics   = {}
+  if (!isObj(d.broadcasts))     d.broadcasts     = {}
   if (!Array.isArray(d.logs))   d.logs           = []
 
   // Keep panel.subbots as a live alias so sockets-serbot.js writes are visible here
@@ -248,6 +250,10 @@ export async function startPanelApi({ port, host } = {}) {
       // /api/config tiene su propio router
       if (pathname.startsWith('/api/config')) {
         const handled = await handleConfig(ctx)
+        if (handled !== null) return handled
+      }
+      if (pathname.startsWith('/api/alerts')) {
+        const handled = await handleAlerts(ctx)
         if (handled !== null) return handled
       }
       return json(res, 404, { error: 'Ruta no encontrada' })
