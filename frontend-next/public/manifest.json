@@ -1,0 +1,22 @@
+{
+  "name": "Oguri Bot Panel",
+  "short_name": "Oguri Bot",
+  "description": "Panel de administración para WhatsApp Bot",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#8B5CF6",
+  "icons": [
+    {
+      "src": "/bot-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

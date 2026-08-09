@@ -1,0 +1,93 @@
+services:
+  # ============================================
+  # PostgreSQL (Docker dependency, no host/IP)
+  # ============================================
+  postgres:
+    image: postgres:16
+    container_name: oguricap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-oguribot}
+      POSTGRES_USER: ${POSTGRES_USER:-bot_user}
+      # IMPORTANT: define POSTGRES_PASSWORD in .env (no default in repo)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oguricap-network
+
+  # ============================================
+  # WhatsApp Bot (Backend)
+  # ============================================
+  whatsapp-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whatsapp-bot
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - PANEL_URL=https://melodiaauris.qzz.io
+      - NO_PROMPT=1
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
+    volumes:
+      - ./Sessions:/app/Sessions
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+      - ./tmp:/app/tmp
+      - ./.monitoring:/app/.monitoring
+      - ./.config:/app/.config
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - oguricap-network
+
+  # ============================================
+  # Panel Admin (Next.js Frontend)
+  # ============================================
+  admin-panel:
+    build:
+      context: ./frontend-next
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
+    container_name: admin-panel
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://melodiaauris.qzz.io
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - oguricap-network
+
+volumes:
+  postgres-data:
+
+networks:
+  oguricap-network:

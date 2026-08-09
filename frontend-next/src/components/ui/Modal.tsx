@@ -1,0 +1,261 @@
+'use client';
+
+import * as React from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { cn } from '@/lib/utils';
+
+const Dialog = DialogPrimitive.Root;
+const DialogTrigger = DialogPrimitive.Trigger;
+const DialogPortal = DialogPrimitive.Portal;
+const DialogClose = DialogPrimitive.Close;
+
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      'fixed inset-0 z-50 overlay-scrim',
+      className
+    )}
+    {...props}
+  />
+));
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+    <DialogPortal>
+      <DialogOverlay />
+        <DialogPrimitive.Content
+          ref={ref}
+          className={cn(
+          'fixed left-[50%] top-[50%] z-50 w-[min(calc(100vw-1rem),42rem)] max-h-[90vh] translate-x-[-50%] translate-y-[-50%] overflow-auto',
+          'panel-surface p-5 backdrop-blur-2xl sm:p-6',
+          'data-[state=open]:animate-scale-in',
+          className
+        )}
+        {...props}
+      >
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-2 text-muted hover:text-foreground hover:bg-card/40 transition-colors">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Cerrar</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
+DialogContent.displayName = DialogPrimitive.Content.displayName;
+
+const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left mb-6', className)} {...props} />
+);
+DialogHeader.displayName = 'DialogHeader';
+
+const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6', className)} {...props} />
+);
+DialogFooter.displayName = 'DialogFooter';
+
+const DialogTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    className={cn('text-xl font-semibold text-foreground', className)}
+    {...props}
+  />
+));
+DialogTitle.displayName = DialogPrimitive.Title.displayName;
+
+const DialogDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn('text-sm text-muted', className)}
+    {...props}
+  />
+));
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
+
+// Simple Modal component for easier use
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
+  const [mounted, setMounted] = React.useState(false);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => setMounted(true), []);
+
+  // Keep latest onClose without re-running focus effect
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Lock body scroll while open (supports nested modals)
+  React.useEffect(() => {
+    if (!mounted) return;
+    const body = document.body;
+    const prevCount = Number(body.dataset.modalCount || '0') || 0;
+    if (isOpen) {
+      body.dataset.modalCount = String(prevCount + 1);
+      body.classList.add('modal-open');
+      return () => {
+        const nextCount = Math.max(0, (Number(body.dataset.modalCount || '1') || 1) - 1);
+        body.dataset.modalCount = String(nextCount);
+        if (nextCount === 0) {
+          body.classList.remove('modal-open');
+          delete body.dataset.modalCount;
+        }
+      };
+    }
+    return;
+  }, [isOpen, mounted]);
+
+  const getFocusable = React.useCallback(() => {
+    const root = contentRef.current;
+    if (!root) return [] as HTMLElement[];
+    const candidates = root.querySelectorAll<HTMLElement>(
+      [
+        'a[href]',
+        'button:not([disabled])',
+        'textarea:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(',')
+    );
+    return Array.from(candidates).filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
+  }, []);
+
+  React.useEffect(() => {
+    if (!mounted) return;
+
+    if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const focusFirst = () => {
+      const root = contentRef.current;
+      if (!root) return;
+
+      // If the user already focused something in the modal, don't steal focus.
+      if (root.contains(document.activeElement)) return;
+       
+      const preferred = root.querySelector<HTMLElement>('[data-autofocus]');
+      if (preferred?.focus) return preferred.focus();
+      const focusables = getFocusable();
+      const target = focusables[0] ?? root;
+      target?.focus?.();
+    };
+    // Wait a tick so the portal content exists.
+    const t = window.setTimeout(focusFirst, 0);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCloseRef.current?.();
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable();
+      if (focusables.length === 0) {
+        e.preventDefault();
+        contentRef.current?.focus?.();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (e.shiftKey) {
+        if (!active || active === first || !contentRef.current?.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (!active || active === last || !contentRef.current?.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus?.();
+      previousFocusRef.current = null;
+    };
+  }, [getFocusable, isOpen, mounted]);
+
+  if (!mounted || !isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999]" role="presentation">
+      {/* Scrim */}
+      <div
+        className="absolute inset-0 overlay-scrim"
+        onClick={onClose}
+      />
+
+      {/* Centered content */}
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+        <div
+          className={cn('modal-content w-full flex flex-col max-h-full pointer-events-auto', className)}
+          onClick={(e) => e.stopPropagation()}
+          ref={contentRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+        >
+          {title && (
+            <div className="mb-6 flex items-center justify-between gap-3 text-left">
+              <h3 id={titleId} className="text-lg font-semibold text-foreground sm:text-xl">
+                {title}
+              </h3>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-xl text-muted hover:text-foreground hover:bg-card/20 transition-colors focus-ring-animated"
+              >
+                <X className="w-5 h-5" />
+                <span className="sr-only">Cerrar</span>
+              </button>
+            </div>
+          )}
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogClose,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  Modal,
+};

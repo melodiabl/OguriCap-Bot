@@ -1,0 +1,52 @@
+node_modules
+dist
+frontend-panel/dist
+frontend-panel/node_modules
+
+# Sesiones del bot
+Sessions/
+sessions/
+*.session
+*.session-journal
+
+# Base de datos local
+database.json
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+/logs/
+
+# IDE y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+frontend-next/package-lock.json
+
+# Docker y SSL
+certbot/
+*.backup
+
+# Entornos locales
+.env
+.env.*
+!.env.example
+.env.local
+frontend-next/.env.local
+
+# Storage y media
+storage/
+frontend-next/package-lock.json
+
+.monitoring
+database/backups
+package-lock.json
+
+# Config local runtime files
+.config/
