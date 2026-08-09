@@ -352,14 +352,21 @@ if (!hasMainSessionCreds) {
         try {
           console.log(chalk.cyan('[ ✿ ] Solicitando código de emparejamiento...'))
 
-          const response = typeof global.getMainPairingCode === 'function'
-            ? await global.getMainPairingCode({ force: true, phoneNumber: addNumber })
-            : null
-          const codeBot = response?.pairingCode || null
+          if (!global.conn || typeof global.conn.requestPairingCode !== 'function') {
+            throw new Error('Conexión no disponible para generar código de emparejamiento')
+          }
+
+          const rawCode = await global.conn.requestPairingCode(addNumber)
+          const codeBot = typeof rawCode === 'string' && rawCode.length > 4
+            ? (rawCode.match(/.{1,4}/g)?.join('-') || rawCode)
+            : rawCode
 
           if (!codeBot) {
-            throw new Error(response?.message || 'No se pudo generar código de emparejamiento')
+            throw new Error('No se pudo generar código de emparejamiento')
           }
+
+          global.panelPairingCode = codeBot
+          global.panelPairingPhone = addNumber
 
           console.log(chalk.bold.white(chalk.bgMagenta(`[ ✿ ] Código de Emparejamiento:`)), chalk.bold.white(chalk.white(codeBot)))
           console.log(chalk.cyan('[ ✿ ] Ingresa este código en WhatsApp: Dispositivos Vinculados > Vincular Dispositivo > Vincular con número de teléfono'))
