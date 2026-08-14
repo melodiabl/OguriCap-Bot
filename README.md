@@ -1,62 +1,103 @@
 <div align="center">
-  <img src="frontend-next/public/oguricap-avatar.png" width="180" alt="OguriCap Bot">
+  <img src="frontend-next/public/oguricap-avatar.png" width="220" alt="OguriCap Bot">
 
-  # OguriCap Bot
+  # 🌟 OGURICAP BOT 🌟
 
-  Bot modular para WhatsApp con administración de grupos, herramientas, entretenimiento, sub-bots y panel web.
+  ### Bot modular para WhatsApp con panel web en tiempo real
 
-  [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-  [![Linux](https://img.shields.io/badge/Linux-compatible-FCC624?logo=linux&logoColor=black)](#instalación-en-linux)
-  [![Termux](https://img.shields.io/badge/Termux-compatible-000000?logo=termux)](#instalación-en-termux)
-  [![License](https://img.shields.io/github/license/melodiabl/OguriCap-Bot)](LICENSE.txt)
+  Administración, automatización, descargas, juegos, inteligencia artificial y sub-bots desde una sola plataforma.
+
+  <p>
+    <a href="https://github.com/melodiabl/OguriCap-Bot/commits/post-test"><img src="https://img.shields.io/github/last-commit/melodiabl/OguriCap-Bot?style=for-the-badge&color=25d366&logo=github" alt="Último commit"></a>
+    <a href="https://github.com/melodiabl/OguriCap-Bot/stargazers"><img src="https://img.shields.io/github/stars/melodiabl/OguriCap-Bot?style=for-the-badge&color=2dd4bf&logo=apachespark" alt="Estrellas"></a>
+    <a href="https://github.com/melodiabl/OguriCap-Bot/network/members"><img src="https://img.shields.io/github/forks/melodiabl/OguriCap-Bot?style=for-the-badge&color=ff4d8d&logo=git" alt="Forks"></a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/Node.js-20%2B-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js 20+">
+    <img src="https://img.shields.io/badge/Termux-compatible-000000?style=flat-square&logo=termux" alt="Termux">
+    <img src="https://img.shields.io/badge/Linux-compatible-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">
+    <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL">
+    <img src="https://img.shields.io/badge/Panel-Next.js-000000?style=flat-square&logo=next.js" alt="Next.js">
+  </p>
+
+  <strong>Rápido de instalar · Fácil de administrar · Preparado para crecer</strong>
 </div>
+
+---
 
 > [!IMPORTANT]
-> Este proyecto no está afiliado con WhatsApp ni con Meta. Úsalo de forma responsable y respeta sus condiciones de servicio y la privacidad de los usuarios.
+> OguriCap Bot es un proyecto independiente y no está afiliado con WhatsApp ni Meta. Úsalo responsablemente, respeta la privacidad de los usuarios y las condiciones del servicio.
 
-## Contenido
+## 📖 Contenido
 
-- [Funciones](#funciones)
-- [Requisitos](#requisitos)
-- [Instalación rápida](#instalación-rápida)
-- [Instalación en Termux](#instalación-en-termux)
-- [Instalación en Linux](#instalación-en-linux)
-- [Conectar WhatsApp](#conectar-whatsapp)
-- [Panel web](#panel-web)
-- [Mantener el bot activo](#mantener-el-bot-activo)
-- [Actualizar sin perder datos](#actualizar-sin-perder-datos)
-- [Respaldar y restaurar](#respaldar-y-restaurar)
-- [Configuración](#configuración)
-- [Solución de problemas](#solución-de-problemas)
+- [¿Qué es OguriCap Bot?](#-qué-es-oguricap-bot)
+- [Características](#-características)
+- [Vista del panel](#-vista-del-panel)
+- [Requisitos](#-requisitos)
+- [Instalación automática](#-instalación-automática-recomendada)
+- [Guía para Termux](#-instalación-en-termux-android)
+- [Guía para Linux](#-instalación-en-linux)
+- [Conectar WhatsApp](#-conectar-whatsapp)
+- [Panel web](#-panel-web)
+- [Ejecución 24/7](#-mantener-el-bot-activo-247)
+- [Actualización y respaldos](#-actualización-segura)
+- [Configuración](#-configuración)
+- [Solución de problemas](#-solución-de-problemas)
+- [Seguridad](#-recomendaciones-de-seguridad)
+- [Comunidad](#-comunidad-y-soporte)
 
-## Funciones
+---
 
-- Administración de grupos, bienvenidas, anti-enlaces y respuestas automáticas.
-- Descargas, búsquedas, traducción y otras herramientas.
-- Juegos, economía, niveles y contenido de entretenimiento.
-- Sub-bots mediante JadiBot.
-- Integraciones de inteligencia artificial.
-- Panel web con estado y controles en tiempo real.
+## 🚀 ¿Qué es OguriCap Bot?
+
+OguriCap Bot es un asistente para WhatsApp construido sobre **Baileys Multi Device**. Combina un sistema de comandos por plugins con un backend de administración, PostgreSQL y un panel web moderno.
+
+El proyecto incluye un administrador universal llamado `oguricap.sh`. Este detecta automáticamente Termux o Linux y puede instalar, configurar, iniciar, actualizar, diagnosticar, respaldar y restaurar el bot.
+
+## ✨ Características
+
+| Área | Funciones |
+|---|---|
+| 🛡️ Administración | Gestión de grupos, anti-enlaces, bienvenidas, permisos y moderación |
+| 🧰 Herramientas | Búsquedas, traducción, letras, grupos y utilidades generales |
+| 📥 Descargas | Instagram, Facebook, Pinterest, Spotify y otros proveedores |
+| 🎮 Entretenimiento | Juegos, economía, niveles, personajes y contenido anime |
+| 🤖 Inteligencia artificial | Chat y proveedores configurables mediante APIs |
+| 👥 Sub-bots | Creación y administración de instancias JadiBot |
+| 📊 Panel web | Estado, plugins, usuarios, grupos, alertas y actividad en tiempo real |
+| 🔐 Seguridad | JWT, cifrado de información sensible, auditoría y control de dispositivos |
+| 📣 Operaciones | Broadcast, aportes, pedidos, proveedores y notificaciones |
+| 💾 Datos | PostgreSQL, migraciones, respaldos y restauración protegida |
+
+## 🖥️ Vista del panel
 
 <div align="center">
-  <img src="frontend-next/public/oguricap-login.png" width="760" alt="Pantalla de acceso del panel de OguriCap Bot">
+  <img src="frontend-next/public/oguricap-login.png" width="820" alt="Inicio de sesión del panel OguriCap Bot">
+  <br>
+  <sub>Panel administrativo adaptable a escritorio y dispositivos móviles.</sub>
 </div>
 
-## Requisitos
+> ¿Tienes un video de instalación o demostración? Añade su enlace en esta sección para que aparezca como guía oficial del proyecto.
 
-| Componente | Requisito |
-|---|---|
-| Sistema | Android con Termux o Linux de 64 bits |
-| Node.js | 20 o superior |
-| npm | 9 o superior |
-| Herramientas | Git, FFmpeg e ImageMagick |
-| Memoria | 2 GB como mínimo; 4 GB recomendados con panel |
+---
 
-En Android instala Termux desde [F-Droid](https://f-droid.org/packages/com.termux/) o [GitHub Releases](https://github.com/termux/termux-app/releases). Las versiones antiguas de Play Store no son compatibles.
+## 📋 Requisitos
 
-## Instalación rápida
+| Componente | Mínimo | Recomendado |
+|---|---:|---:|
+| Sistema | Termux o Linux de 64 bits | Ubuntu/Debian actualizado |
+| Node.js | 20 | Última versión LTS compatible |
+| npm | 9 | Incluido con Node.js |
+| RAM | 2 GB | 4 GB o más con panel |
+| Almacenamiento | 2 GB libres | 5 GB o más |
+| Base de datos | PostgreSQL local | PostgreSQL 16 |
 
-El instalador detecta automáticamente si se ejecuta en Termux o Linux, instala las dependencias del sistema, instala los paquetes npm y prepara los directorios de datos.
+El instalador prepara automáticamente Git, Node.js, npm, FFmpeg, ImageMagick, PostgreSQL, compiladores y las demás herramientas necesarias.
+
+## ⚡ Instalación automática recomendada
+
+Solo necesitas recordar un archivo: **`oguricap.sh`**.
 
 ```bash
 git clone https://github.com/melodiabl/OguriCap-Bot.git
@@ -65,80 +106,191 @@ chmod +x oguricap.sh
 ./oguricap.sh
 ```
 
-Ese es el único script que necesitas recordar. Abre un menú para instalar, iniciar, actualizar, respaldar, restaurar y diagnosticar. También acepta comandos, por ejemplo `./oguricap.sh install` y `./oguricap.sh start`.
+El menú central ofrece:
 
-Durante la instalación pregunta el usuario administrador, número owner y si quieres habilitar el panel web. Genera automáticamente contraseñas y claves seguras, configura PostgreSQL, crea sus tablas y, cuando habilitas la web, instala y compila el frontend. Al terminar queda listo para ejecutar `./oguricap.sh start`.
+```text
+1) Instalar o reparar dependencias
+2) Configurar bot y panel
+3) Iniciar bot y panel
+4) Actualizar bot
+5) Crear respaldo
+6) Restaurar respaldo
+7) Diagnosticar instalación
+0) Salir
+```
+
+También puedes ejecutar acciones directamente:
+
+```bash
+./oguricap.sh install
+./oguricap.sh configure
+./oguricap.sh start
+./oguricap.sh update
+./oguricap.sh backup
+./oguricap.sh doctor
+```
+
+<details>
+<summary><strong>🔍 ¿Qué hace automáticamente el instalador?</strong></summary>
+
+1. Detecta Termux o la distribución Linux.
+2. Actualiza el índice de paquetes.
+3. En Termux también ejecuta `pkg upgrade`.
+4. Instala Node.js 20+, npm, Git, FFmpeg e ImageMagick.
+5. Instala e inicia PostgreSQL.
+6. Instala las dependencias npm respetando la compatibilidad con Baileys.
+7. Solicita el usuario administrador y el número owner.
+8. Pregunta si quieres habilitar el panel web.
+9. Genera contraseñas y claves criptográficas seguras.
+10. Crea la base de datos y aplica el esquema.
+11. Instala y compila el frontend si habilitaste la web.
+12. Verifica la configuración y la conexión con PostgreSQL.
+
+</details>
 
 > [!NOTE]
-> Si Git no conserva el permiso ejecutable, usa `bash oguricap.sh`.
+> El instalador muestra la contraseña generada para el panel. Guárdala en un lugar seguro. También queda almacenada en el archivo privado `.env`.
 
-## Instalación en Termux
+---
 
-1. Abre Termux y, si necesitas enviar o descargar archivos desde el almacenamiento del teléfono, concede acceso:
+## 📱 Instalación en Termux (Android)
 
-   ```bash
-   termux-setup-storage
-   ```
+### 1. Instalar Termux
 
-2. Instala Git y clona el proyecto:
+Utiliza una versión reciente desde [F-Droid](https://f-droid.org/packages/com.termux/) o [GitHub Releases](https://github.com/termux/termux-app/releases). La versión antigua de Play Store no es compatible.
 
-   ```bash
-   pkg update -y
-   pkg install -y git
-   git clone https://github.com/melodiabl/OguriCap-Bot.git
-   cd OguriCap-Bot
-   ```
+### 2. Conceder acceso al almacenamiento
 
-3. Ejecuta el instalador automático:
+```bash
+termux-setup-storage
+```
 
-   ```bash
-   ./oguricap.sh install
-   ```
+Acepta el permiso solicitado por Android.
 
-4. Inicia el bot:
+### 3. Descargar OguriCap Bot
 
-   ```bash
-   ./oguricap.sh start
-   ```
+```bash
+pkg update -y
+pkg install -y git
+git clone https://github.com/melodiabl/OguriCap-Bot.git
+cd OguriCap-Bot
+chmod +x oguricap.sh
+```
 
-Durante la instalación se ejecutan `pkg update` y `pkg upgrade`. Al iniciar, el script activa `termux-wake-lock` cuando está disponible. Para que Android no cierre el proceso, desactiva también la optimización de batería para Termux.
+### 4. Instalar y configurar
 
-## Instalación en Linux
+```bash
+./oguricap.sh install
+```
 
-El instalador reconoce distribuciones basadas en APT, DNF, Pacman y APK:
+Durante el proceso:
+
+- escribe tu número con código de país y solo dígitos;
+- elige si quieres instalar el panel web;
+- guarda el usuario y la contraseña del panel;
+- espera a que termine la compilación.
+
+### 5. Iniciar
+
+```bash
+./oguricap.sh start
+```
+
+El script activa `termux-wake-lock` cuando está disponible. Desactiva además la optimización de batería de Android para evitar que el sistema cierre Termux.
+
+<details>
+<summary><strong>📟 Compatibilidad con el comando antiguo</strong></summary>
+
+`termux.sh` continúa disponible, pero ahora dirige al instalador universal seguro:
+
+```bash
+bash termux.sh
+```
+
+Ya no elimina la carpeta completa del bot durante una actualización.
+
+</details>
+
+---
+
+## 🐧 Instalación en Linux
+
+El instalador reconoce automáticamente sistemas basados en:
+
+- APT: Debian, Ubuntu y derivados.
+- DNF: Fedora y derivados.
+- Pacman: Arch Linux y derivados.
+- APK: Alpine Linux.
 
 ```bash
 git clone https://github.com/melodiabl/OguriCap-Bot.git
 cd OguriCap-Bot
+chmod +x oguricap.sh
 ./oguricap.sh install
 ./oguricap.sh start
 ```
 
-En servidores se recomienda ejecutar el bot con PM2 o Docker en lugar de dejar una terminal abierta.
+Cuando la distribución ofrece una versión de Node.js inferior a 20, el instalador configura NodeSource automáticamente en sistemas compatibles.
 
-## Conectar WhatsApp
+<details>
+<summary><strong>🐳 Alternativa con Docker</strong></summary>
 
-En el primer inicio, el bot permite elegir el método de autenticación cuando se ejecuta de forma interactiva.
+Docker levanta PostgreSQL, backend, respaldos y panel web:
 
-### Código QR
+```bash
+cp .env.example .env
+nano .env
+docker compose up -d --build
+docker compose ps
+```
+
+Registros en tiempo real:
+
+```bash
+docker compose logs -f whatsapp-bot admin-panel
+```
+
+Detener los servicios:
+
+```bash
+docker compose down
+```
+
+Los puertos se publican en `127.0.0.1` por seguridad. Para acceso externo utiliza un proxy inverso con HTTPS.
+
+</details>
+
+---
+
+## 🔗 Conectar WhatsApp
+
+Al iniciar sin una sesión guardada, selecciona uno de los métodos disponibles.
+
+### Opción 1: código QR
 
 1. Ejecuta `./oguricap.sh start`.
-2. Elige la opción de código QR.
-3. En WhatsApp abre **Dispositivos vinculados → Vincular un dispositivo**.
-4. Escanea el QR mostrado en la terminal.
+2. Selecciona la opción de QR.
+3. Abre WhatsApp en el teléfono principal.
+4. Entra en **Dispositivos vinculados → Vincular un dispositivo**.
+5. Escanea el QR mostrado en la terminal.
 
-### Código de vinculación
+### Opción 2: código de vinculación
 
 1. Ejecuta `./oguricap.sh start`.
-2. Elige la opción de código de teléfono.
-3. Escribe el número con código de país y solo dígitos, por ejemplo `595981234567`.
-4. En WhatsApp abre **Dispositivos vinculados → Vincular con número de teléfono** e introduce el código generado.
+2. Selecciona la opción de código telefónico.
+3. Introduce el número con código de país y sin `+`, espacios ni guiones.
+4. En WhatsApp entra en **Dispositivos vinculados → Vincular con número de teléfono**.
+5. Introduce el código generado por el bot.
 
-La sesión principal se guarda en `Sessions/Principal`. No compartas esa carpeta ni la publiques en Git.
+Ejemplo de formato:
 
-### Crear una sesión nueva
+```text
+595981234567
+```
 
-Primero detén el proceso. Conserva una copia de la sesión actual y vuelve a iniciar:
+La sesión principal se almacena en `Sessions/Principal` y está excluida de Git.
+
+### Crear una sesión nueva sin perder la anterior
 
 ```bash
 ./oguricap.sh backup
@@ -147,53 +299,53 @@ mkdir -p Sessions/Principal
 ./oguricap.sh start
 ```
 
-## Panel web
+> [!WARNING]
+> No compartas `Sessions/`, `.env`, archivos de respaldo ni códigos de vinculación. Permiten acceder al bot y a información privada.
 
-El backend escucha en el puerto `3001` y el frontend en el `3000` de forma predeterminada.
+---
 
-### Desarrollo local
+## 🌐 Panel web
 
-```bash
-npm run install:panel
-npm run build:panel
-npm start
+Durante la configuración aparece esta pregunta:
+
+```text
+¿Habilitar el panel web? [S/n]:
 ```
 
-En otra terminal:
+### Si respondes `S` o presionas Enter
+
+- se guarda `OGURI_WEB_ENABLED=1`;
+- se instalan las dependencias del frontend;
+- se compila Next.js para producción;
+- `./oguricap.sh start` inicia panel y bot juntos.
+
+Direcciones locales predeterminadas:
+
+| Servicio | Dirección |
+|---|---|
+| Panel web | `http://127.0.0.1:3000` |
+| API del bot | `http://127.0.0.1:3001` |
+| Salud de la API | `http://127.0.0.1:3001/api/health` |
+
+### Si respondes `n`
+
+- se guarda `OGURI_WEB_ENABLED=0`;
+- no se descargan ni compilan dependencias del frontend;
+- se inicia únicamente el bot.
+
+Puedes cambiar la elección posteriormente:
 
 ```bash
-npm run start:panel
+./oguricap.sh configure
 ```
 
-### Docker con PostgreSQL
+El configurador volverá a preguntar y preparará o deshabilitará la web según tu respuesta.
 
-1. Copia y configura el entorno:
+---
 
-   ```bash
-   cp .env.example .env
-   nano .env
-   ```
+## ♾️ Mantener el bot activo 24/7
 
-2. Define como mínimo contraseñas seguras para `POSTGRES_PASSWORD`, `PANEL_ADMIN_PASS`, `JWT_SECRET`, `DB_ENCRYPTION_KEY` e `INTERNAL_BOT_SECRET`.
-
-3. Construye e inicia los servicios:
-
-   ```bash
-   docker compose up -d --build
-   docker compose ps
-   ```
-
-4. Consulta los registros:
-
-   ```bash
-   docker compose logs -f whatsapp-bot admin-panel
-   ```
-
-Por seguridad, Docker publica los puertos solamente en `127.0.0.1`. Usa un proxy inverso con HTTPS si el panel será accesible desde Internet.
-
-## Mantener el bot activo
-
-### PM2
+### PM2 en Linux o Termux
 
 ```bash
 npm install -g pm2
@@ -202,119 +354,237 @@ pm2 save
 pm2 logs oguricap-bot
 ```
 
-Comandos habituales:
+Comandos útiles:
 
-```bash
-pm2 restart oguricap-bot
-pm2 stop oguricap-bot
-pm2 delete oguricap-bot
-```
+| Acción | Comando |
+|---|---|
+| Ver registros | `pm2 logs oguricap-bot` |
+| Reiniciar | `pm2 restart oguricap-bot` |
+| Detener | `pm2 stop oguricap-bot` |
+| Eliminar de PM2 | `pm2 delete oguricap-bot` |
+| Ver procesos | `pm2 status` |
 
-En Termux ejecuta `termux-wake-lock` y desactiva la optimización de batería. PM2 no puede evitar que Android fuerce el cierre de Termux.
+> PM2 mantiene el proceso, pero Android todavía puede cerrar Termux. Usa `termux-wake-lock` y desactiva la optimización de batería.
 
-## Actualizar sin perder datos
+---
+
+## 🔄 Actualización segura
 
 ```bash
 cd OguriCap-Bot
 ./oguricap.sh update
 ```
 
-El actualizador:
+El actualizador sigue este flujo:
 
-1. Comprueba que no haya cambios locales sin guardar.
-2. Crea un respaldo de seguridad.
-3. Descarga únicamente la rama actual.
-4. Acepta solo una actualización `fast-forward`; nunca fuerza ni borra archivos.
-5. Sincroniza las dependencias npm.
+```text
+Comprobar cambios locales
+        ↓
+Crear respaldo preventivo
+        ↓
+Descargar la rama actual
+        ↓
+Aceptar solo fast-forward
+        ↓
+Sincronizar dependencias
+```
 
-Si existen cambios locales, el script se detiene. Guárdalos con un commit antes de volver a ejecutarlo:
+Nunca ejecuta `reset --hard`, no reemplaza la carpeta completa y no borra sesiones ni `.env`.
+
+Si hay cambios locales, se detiene sin modificar nada:
 
 ```bash
 git status
 git add -A
-git commit -m "Guardar mi configuración"
+git commit -m "Guardar mis cambios"
 ./oguricap.sh update
 ```
 
-## Respaldar y restaurar
+## 💾 Respaldos y restauración
 
-El respaldo incluye, cuando existen, `.env`, `database.json`, `settings.js`, `Sessions`, `storage` y `.config`:
+### Crear respaldo
 
 ```bash
 ./oguricap.sh backup
 ```
 
-Los archivos se guardan en `backups/oguricap-data_FECHA.tar.gz`.
+Incluye, cuando existen:
 
-Para restaurar, detén primero el bot y ejecuta:
+- `.env`;
+- `database.json`;
+- `settings.js`;
+- sesiones principales y sub-bots;
+- almacenamiento;
+- configuración local.
+
+El resultado se guarda como:
+
+```text
+backups/oguricap-data_YYYYMMDD_HHMMSS.tar.gz
+```
+
+### Restaurar respaldo
+
+Detén primero el bot:
 
 ```bash
 ./oguricap.sh restore backups/oguricap-data_FECHA.tar.gz
 ```
 
-El restaurador valida el archivo, crea un respaldo preventivo y exige escribir `RESTAURAR` antes de sobrescribir datos.
+El restaurador valida las rutas del archivo, crea un respaldo preventivo y exige escribir `RESTAURAR` antes de sobrescribir datos.
 
-## Configuración
+Los respaldos `*.sql.gz` y los datos privados están excluidos de Git.
 
-- `.env`: puertos, base de datos, seguridad, correo, APIs y panel.
-- `settings.js`: nombre, propietario y comportamiento general del bot.
-- `plugins/`: comandos y funciones modulares.
-- `Sessions/`: credenciales de WhatsApp; es privada y está ignorada por Git.
-- `database.json`: almacenamiento local cuando no se utiliza PostgreSQL.
+---
 
-Antes de usar producción:
+## ⚙️ Configuración
+
+### Archivos principales
+
+| Ruta | Contenido | ¿Se publica? |
+|---|---|---:|
+| `.env` | Contraseñas, puertos, claves y servicios | ❌ No |
+| `.env.example` | Plantilla sin secretos | ✅ Sí |
+| `settings.js` | Nombre, enlaces y comportamiento del bot | ✅ Sí |
+| `plugins/` | Comandos del bot | ✅ Sí |
+| `Sessions/` | Credenciales de WhatsApp | ❌ No |
+| `backups/` | Copias de seguridad | ❌ No |
+| `frontend-next/` | Panel administrativo | ✅ Sí |
+
+### Configuración automática
 
 ```bash
-cp .env.example .env
-nano .env
-npm run verify:config
+./oguricap.sh configure
 ```
 
-Nunca publiques `.env`, `database.json` ni el contenido de `Sessions/`.
+Este comando:
 
-## Solución de problemas
+- configura el administrador;
+- establece el número owner mediante `BOT_OWNER`;
+- habilita o deshabilita la web;
+- genera JWT y claves de cifrado;
+- configura PostgreSQL;
+- prepara el panel cuando corresponde.
 
-### `node: command not found` o versión antigua
-
-Vuelve a ejecutar `./oguricap.sh install`. También puedes ejecutar el diagnóstico integrado:
+### Verificar la instalación
 
 ```bash
 ./oguricap.sh doctor
+npm run verify:config
 ```
 
-Comprueba la versión con:
+El diagnóstico comprueba sistema, arquitectura, Git, Node.js, npm, FFmpeg, ImageMagick, `.env` y dependencias.
+
+---
+
+## 🧯 Solución de problemas
+
+<details>
+<summary><strong>Node.js no está instalado o la versión es menor que 20</strong></summary>
 
 ```bash
+./oguricap.sh install
 node --version
 npm --version
 ```
 
-Node.js debe ser 20 o superior.
+El instalador configura NodeSource en Debian, Ubuntu o Fedora cuando los repositorios del sistema ofrecen una versión antigua.
 
-### Fallan módulos después de actualizar
+</details>
+
+<details>
+<summary><strong>Error ERESOLVE relacionado con Baileys y Jimp</strong></summary>
+
+El proyecto incluye `.npmrc` con la compatibilidad necesaria. Instala con:
 
 ```bash
-npm ci
+npm install --legacy-peer-deps
 ```
 
-Si el repositorio no contiene `package-lock.json`, utiliza `npm install`.
+No reduzcas Jimp manualmente sin probar los plugins multimedia.
 
-### No aparece el QR
+</details>
 
-- Comprueba que `Sessions/Principal` no contenga una sesión ya vinculada.
-- Ejecuta el bot directamente en una terminal interactiva, no con `NO_PROMPT=1`.
-- Si quieres reemplazar la sesión, sigue [Crear una sesión nueva](#crear-una-sesión-nueva).
+<details>
+<summary><strong>PostgreSQL no conecta</strong></summary>
 
-### FFmpeg o ImageMagick no funcionan
+```bash
+./oguricap.sh configure
+npm run verify:config
+```
+
+En Linux también puedes revisar:
+
+```bash
+sudo systemctl status postgresql
+sudo systemctl restart postgresql
+```
+
+En Termux:
+
+```bash
+pg_ctl -D "$PREFIX/var/lib/postgresql" status
+```
+
+</details>
+
+<details>
+<summary><strong>No aparece el QR</strong></summary>
+
+- Ejecuta el bot directamente en una terminal interactiva.
+- Comprueba si ya existe `Sessions/Principal/creds.json`.
+- No uses `NO_PROMPT=1` para la primera vinculación.
+- Para reemplazar la sesión, crea antes un respaldo y sigue la guía de sesión nueva.
+
+</details>
+
+<details>
+<summary><strong>El panel está habilitado pero no está compilado</strong></summary>
+
+```bash
+./oguricap.sh install
+```
+
+O prepara únicamente la configuración y el panel:
+
+```bash
+./oguricap.sh configure
+```
+
+</details>
+
+<details>
+<summary><strong>El panel no abre</strong></summary>
+
+```bash
+curl http://127.0.0.1:3001/api/health
+./oguricap.sh doctor
+```
+
+Con Docker:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 whatsapp-bot admin-panel
+```
+
+Revisa `OGURI_WEB_ENABLED`, `PANEL_URL`, `NEXT_PUBLIC_API_URL`, los puertos y el proxy inverso.
+
+</details>
+
+<details>
+<summary><strong>FFmpeg o ImageMagick no funcionan</strong></summary>
 
 ```bash
 ffmpeg -version
 magick -version || convert -version
+./oguricap.sh install
 ```
 
-Si falta alguno, vuelve a ejecutar el instalador del proyecto.
+</details>
 
-### El proceso se cierra en Termux
+<details>
+<summary><strong>El bot se cierra en Termux</strong></summary>
 
 ```bash
 termux-wake-lock
@@ -322,30 +592,99 @@ pm2 restart oguricap-bot
 pm2 logs oguricap-bot
 ```
 
-Revisa además los permisos y la optimización de batería de Android.
+Desactiva la optimización de batería para Termux desde los ajustes de Android.
 
-### El panel no abre
+</details>
+
+---
+
+## 🔐 Recomendaciones de seguridad
+
+- Nunca publiques `.env`, `Sessions/` ni los respaldos.
+- Utiliza HTTPS si expones el panel a Internet.
+- No abras PostgreSQL directamente a Internet.
+- Cambia inmediatamente una clave si aparece en un registro o captura.
+- Mantén Node.js y las dependencias actualizadas.
+- Revisa vulnerabilidades con `npm audit`.
+- Limita el acceso al panel mediante firewall o proxy seguro.
+- Realiza respaldos antes de actualizar o modificar la base de datos.
+
+> [!CAUTION]
+> El acceso a `Sessions/Principal` equivale al acceso a la sesión vinculada de WhatsApp. Trátala como una contraseña.
+
+---
+
+## 🧪 Desarrollo y pruebas
 
 ```bash
-curl http://127.0.0.1:3001/api/health
-docker compose ps
-docker compose logs --tail=100 whatsapp-bot admin-panel
+npm install --legacy-peer-deps
+npm test
 ```
 
-Verifica los puertos, `PANEL_URL`, `NEXT_PUBLIC_API_URL` y la configuración del proxy inverso.
+Panel en desarrollo:
 
-## Ayuda y comunidad
+```bash
+npm --prefix frontend-next install
+npm --prefix frontend-next run dev
+```
 
-| Canal | Enlace |
+Build de producción:
+
+```bash
+npm --prefix frontend-next run build
+```
+
+La rama actual cuenta con pruebas para cifrado, JWT, correo, plantillas, PostgreSQL y utilidades internas.
+
+---
+
+## 🌐 Comunidad y soporte
+
+| Comunidad | Enlace |
 |---|---|
-| Canal oficial | [WhatsApp](https://whatsapp.com/channel/0029VbBZ4YX4inoqvA74nA20) |
-| Grupo oficial | [WhatsApp](https://chat.whatsapp.com/FN0YVTZwLWM3lOqKPjTutR?mode=gi_t) |
-| Comunidad | [WhatsApp](https://chat.whatsapp.com/EYi0JuSqDj3LYJ83ohRdMm) |
-| Soporte | [Contacto](https://wa.me/595974154768) |
-| Correo | <melodiayaoivv@gmail.com> |
+| 📢 Canal oficial | [Unirse al canal](https://whatsapp.com/channel/0029VbBZ4YX4inoqvA74nA20) |
+| 💬 Grupo oficial | [Unirse al grupo](https://chat.whatsapp.com/FN0YVTZwLWM3lOqKPjTutR?mode=gi_t) |
+| 🌍 Comunidad general | [Abrir comunidad](https://chat.whatsapp.com/EYi0JuSqDj3LYJ83ohRdMm) |
+| 📱 Soporte por WhatsApp | [Contactar](https://wa.me/595974154768) |
+| 📧 Correo | <melodiayaoivv@gmail.com> |
+| 🐛 Reportar errores | [GitHub Issues](https://github.com/melodiabl/OguriCap-Bot/issues) |
 
-¿Encontraste un error? Abre un [issue en GitHub](https://github.com/melodiabl/OguriCap-Bot/issues) e incluye el sistema, la versión de Node.js y el registro del error sin credenciales.
+Al reportar un problema incluye:
 
-## Licencia y créditos
+- Termux o distribución Linux;
+- versión de Node.js;
+- comando ejecutado;
+- mensaje completo del error;
+- pasos para reproducirlo.
 
-Proyecto mantenido por [@melodiabl](https://github.com/melodiabl). Consulta [LICENSE.txt](LICENSE.txt) antes de redistribuir o modificar el código.
+Elimina siempre números, contraseñas, tokens, códigos y sesiones antes de compartir registros o capturas.
+
+---
+
+## 🤝 Equipo y créditos
+
+<div align="center">
+  <a href="https://github.com/melodiabl">
+    <img src="https://github.com/melodiabl.png" width="100" height="100" alt="melodiabl">
+  </a>
+
+  **Desarrollador principal:** [@melodiabl](https://github.com/melodiabl)
+
+  <br>
+
+  <a href="https://github.com/melodiabl/OguriCap-Bot/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=melodiabl/OguriCap-Bot" alt="Contribuidores">
+  </a>
+</div>
+
+## 📄 Licencia
+
+Consulta [LICENSE.txt](LICENSE.txt) antes de copiar, modificar o redistribuir el proyecto.
+
+---
+
+<div align="center">
+  <strong>Gracias por usar OguriCap Bot 💚</strong>
+  <br>
+  Si el proyecto te ayuda, considera dejar una ⭐ en GitHub.
+</div>
