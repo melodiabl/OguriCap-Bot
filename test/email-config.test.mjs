@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { getSmtpMode, getSmtpWarnings, getSmtpTransportHint, getBrandConfig } from '../api/email/config.js'
+import { getSmtpMode, getSmtpWarnings, getSmtpTransportHint, getBrandConfig } from '../services/email/config.js'
 
 describe('getSmtpMode', () => {
   test('puerto 465 → implicit-tls', () => {

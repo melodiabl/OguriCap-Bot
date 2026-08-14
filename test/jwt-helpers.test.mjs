@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 process.env.JWT_SECRET = 'test-secret-for-jwt-tests-minimum-32-chars-long'
 
 const { createAccessToken, verifyAccessToken, createRefreshToken, hashRefreshToken } =
-  await import('../api/jwt/index.js')
+  await import('../services/jwt/index.js')
 
 describe('createAccessToken', () => {
   test('returns token, jti, expiresIn', () => {

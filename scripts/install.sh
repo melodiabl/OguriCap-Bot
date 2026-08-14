@@ -78,7 +78,7 @@ fi
 
 cd "$root"
 info "Instalando dependencias del bot con npm ci..."
-if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+if [[ -f package-lock.json ]]; then npm ci --legacy-peer-deps; else npm install --legacy-peer-deps; fi
 
 mkdir -p Sessions/Principal Sessions/SubBot backups logs storage tmp
 "$SCRIPT_DIR/configure.sh"

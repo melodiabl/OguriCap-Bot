@@ -27,7 +27,6 @@ temp/
 *.swp
 *.swo
 *~
-frontend-next/package-lock.json
 
 # Docker y SSL
 certbot/
@@ -42,12 +41,10 @@ frontend-next/.env.local
 
 # Storage y media
 storage/
-frontend-next/package-lock.json
 
 .monitoring
 database/backups
 backups/*.sql.gz
-package-lock.json
 
 # Herramientas locales de agentes/diseño
 .claude/

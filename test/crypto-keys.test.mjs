@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 process.env.DB_ENCRYPTION_KEY = 'a'.repeat(64) // 32 bytes as hex
 
-const { getEncryptionKey, getHmacKey } = await import('../api/crypto/keys.js')
+const { getEncryptionKey, getHmacKey } = await import('../services/crypto/keys.js')
 
 describe('getEncryptionKey', () => {
   test('returns a 32-byte Buffer', () => {

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { escapeHtml, renderPanelEmail, renderDataBlock } from '../api/email/renderer.js'
+import { escapeHtml, renderPanelEmail, renderDataBlock } from '../services/email/renderer.js'
 
 describe('escapeHtml', () => {
   test('escapa &', () => assert.equal(escapeHtml('a & b'), 'a &amp; b'))
@@ -34,14 +34,14 @@ describe('renderPanelEmail', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 't', contentHtml: 'c', ctaUrl: 'javascript:alert(1)', ctaText: 'click' })
     assert.ok(!h.includes('javascript:'))
   })
-  test('paleta: contiene verde #25d366', () => assert.ok(html.includes('#25d366')))
-  test('paleta: contiene teal #2dd4bf', () => assert.ok(html.includes('#2dd4bf')))
-  test('paleta: type=danger contiene rosa #ff4d8d', () => {
+  test('paleta: contiene verde #16a34a', () => assert.ok(html.includes('#16a34a')))
+  test('paleta: contiene fondo verde #dcfce7', () => assert.ok(html.includes('#dcfce7')))
+  test('paleta: type=danger contiene rojo #dc2626', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'danger' })
-    assert.ok(h.includes('#ff4d8d'))
+    assert.ok(h.includes('#dc2626'))
   })
-  test('branding: contiene El Monstruo de las Cenizas', () => assert.ok(html.includes('El Monstruo de las Cenizas')))
-  test('branding: contiene Powered by Oguri Power System', () => assert.ok(html.includes('Powered by Oguri Power System')))
+  test('branding: contiene Oguri Bot', () => assert.ok(html.includes('Oguri Bot')))
+  test('branding: contiene Oguri Power System', () => assert.ok(html.includes('Oguri Power System')))
 })
 
 describe('renderDataBlock', () => {
@@ -70,48 +70,48 @@ describe('renderDataBlock', () => {
   })
   test('usa color teal cuando badgeColor=teal', () => {
     const block = renderDataBlock({ label: 'X', value: 'Y', badge: 'B', badgeColor: 'teal' })
-    assert.ok(block.includes('#2dd4bf'))
+    assert.ok(block.includes('#0f766e'))
   })
   test('usa color pink cuando badgeColor=pink', () => {
     const block = renderDataBlock({ label: 'X', value: 'Y', badge: 'B', badgeColor: 'pink' })
-    assert.ok(block.includes('#ff4d8d'))
+    assert.ok(block.includes('#be185d'))
   })
-  test('default badgeColor=green contiene #25d366', () => {
+  test('default badgeColor=green contiene #15803d', () => {
     const block = renderDataBlock({ label: 'X', value: 'Y', badge: 'B' })
-    assert.ok(block.includes('#25d366'))
+    assert.ok(block.includes('#15803d'))
   })
 })
 
 describe('renderPanelEmail — type/icon', () => {
-  test('type=danger genera header con color rosa', () => {
+  test('type=danger genera header con color rojo', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'danger' })
-    assert.ok(h.includes('#ff4d8d'))
+    assert.ok(h.includes('#dc2626'))
   })
   test('type=warning genera header con color dorado', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'warning' })
-    assert.ok(h.includes('#fbbf24'))
+    assert.ok(h.includes('#d97706'))
   })
-  test('type=info genera header con color teal', () => {
+  test('type=info genera header con color azul', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', type: 'info' })
-    assert.ok(h.includes('#2dd4bf'))
+    assert.ok(h.includes('#2563eb'))
   })
   test('type=success (default) genera header verde', () => {
     const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '' })
-    assert.ok(h.includes('#25d366'))
+    assert.ok(h.includes('#16a34a'))
   })
-  test('icon se renderiza en el header', () => {
-    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', icon: '🚀' })
-    assert.ok(h.includes('🚀'))
+  test('icon conocido se renderiza como SVG', () => {
+    const h = renderPanelEmail({ subject: 's', preheader: '', title: 'T', contentHtml: 'c', ctaUrl: '', ctaText: '', icon: 'rocket' })
+    assert.ok(h.includes('<svg'))
   })
 })
 
 describe('renderDataBlock — gold y lavender', () => {
   test('badgeColor=gold contiene #fbbf24', () => {
     const b = renderDataBlock({ label: 'X', value: 'Y', badge: 'B', badgeColor: 'gold' })
-    assert.ok(b.includes('#fbbf24'))
+    assert.ok(b.includes('#b45309'))
   })
   test('badgeColor=lavender contiene #818cf8', () => {
     const b = renderDataBlock({ label: 'X', value: 'Y', badge: 'B', badgeColor: 'lavender' })
-    assert.ok(b.includes('#818cf8'))
+    assert.ok(b.includes('#6d28d9'))
   })
 })

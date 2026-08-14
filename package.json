@@ -42,11 +42,11 @@
     "@hapi/boom": "^10.0.1",
     "@vitalets/google-translate-api": "^8.0.0",
     "acrcloud": "^1.4.0",
-    "adm-zip": "^0.5.12",
+    "adm-zip": "^0.6.0",
     "aptoide-scraper": "^1.0.1",
     "archiver": "^6.0.1",
     "awesome-phonenumber": "^3.4.0",
-    "axios": "^1.1.2",
+    "axios": "^1.19.0",
     "baileys": "github:GataNina-Li/Baileys",
     "bcryptjs": "^2.4.3",
     "cfonts": "^3.3.0",
@@ -94,18 +94,18 @@
     "qrcode-terminal": "^0.12.0",
     "remove-accents": "^0.5.0",
     "rotating-file-stream": "^3.1.1",
-    "sharp": "^0.34.1",
+    "sharp": "^0.35.3",
     "socket.io": "^4.8.1",
     "syntax-error": "^1.4.0",
-    "systeminformation": "^5.21.22",
-    "tar": "^6.2.0",
+    "systeminformation": "^5.33.1",
+    "tar": "^7.5.22",
     "terminal-image": "^2.0.0",
     "twilio": "^4.19.3",
     "ua-parser-js": "^1.0.37",
     "url-regex-safe": "^3.0.0",
     "validator": "^13.11.0",
     "web-push": "^3.6.7",
-    "ws": "^8.18.3",
+    "ws": "^8.21.3",
     "xregexp": "^5.1.2",
     "xstate": "^5.21.0",
     "yargs": "^17.3.1",
@@ -149,5 +149,9 @@
   "config": {
     "memory_limit": "512",
     "max_old_space_size": "512"
+  },
+  "overrides": {
+    "basic-ftp": "^6.2.0",
+    "tar": "^7.5.22"
   }
 }

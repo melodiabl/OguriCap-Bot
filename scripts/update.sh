@@ -17,5 +17,5 @@ info "Descargando la rama $branch..."
 git fetch origin "$branch"
 git merge --ff-only "origin/$branch" || die "La rama local se separó de origin/$branch; actualización cancelada sin sobrescribir archivos."
 
-if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+if [[ -f package-lock.json ]]; then npm ci --legacy-peer-deps; else npm install --legacy-peer-deps; fi
 ok "OguriCap-Bot actualizado de forma segura."
