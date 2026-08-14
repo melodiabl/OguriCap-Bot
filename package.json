@@ -10,6 +10,10 @@
   },
   "scripts": {
     "start": "node index.js",
+    "manager": "bash ./oguricap.sh",
+    "setup": "bash ./oguricap.sh install",
+    "configure": "bash ./oguricap.sh configure",
+    "doctor": "bash ./oguricap.sh doctor",
     "dev": "node --inspect index.js",
     "prod": "NODE_ENV=production node index.js",
     "postinstall": "node --input-type=module -e 'import fs from \"fs\"; import path from \"path\"; const pkg=path.join(process.cwd(),\"node_modules\",\"file_size_url\"); const entry=path.join(pkg,\"index.js\"); const src=path.join(pkg,\"src\",\"index.js\"); try { if (fs.existsSync(pkg) && !fs.existsSync(entry) && fs.existsSync(src)) { fs.writeFileSync(entry, \"export { default } from \\\"./src/index.js\\\"\\nexport * from \\\"./src/index.js\\\"\\n\", \"utf8\"); } } catch {}'",

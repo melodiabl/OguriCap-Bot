@@ -5,20 +5,61 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/common.sh
 source "$ROOT_DIR/scripts/lib/common.sh"
 
-usage() {
-  cat <<'EOF'
-OguriCap Bot — administrador universal para Termux y Linux
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  readonly C_RESET='\033[0m'
+  readonly C_BOLD='\033[1m'
+  readonly C_DIM='\033[2m'
+  readonly C_PURPLE='\033[1;35m'
+  readonly C_CYAN='\033[1;36m'
+  readonly C_GREEN='\033[1;32m'
+  readonly C_YELLOW='\033[1;33m'
+  readonly C_RED='\033[1;31m'
+else
+  readonly C_RESET='' C_BOLD='' C_DIM='' C_PURPLE='' C_CYAN=''
+  readonly C_GREEN='' C_YELLOW='' C_RED=''
+fi
 
+project_version() {
+  node -p "require('$ROOT_DIR/package.json').version" 2>/dev/null || printf 'desconocida\n'
+}
+
+platform_label() {
+  case "$(detect_platform)" in
+    termux) printf '📱 Termux / Android' ;;
+    linux) printf '🐧 Linux' ;;
+    *) printf '⚠️  Sistema no compatible' ;;
+  esac
+}
+
+banner() {
+  printf '\n%b' "$C_PURPLE"
+  cat <<'EOF'
+   ╭──────────────────────────────────────────────╮
+   │          ✦  O G U R I C A P  B O T  ✦       │
+   │       Instalador y administrador universal   │
+   ╰──────────────────────────────────────────────╯
+EOF
+  printf '%b   %-20s %s\n' "$C_RESET$C_DIM" 'Sistema detectado:' "$(platform_label)"
+  printf '   %-20s v%s%b\n\n' 'Versión:' "$(project_version)" "$C_RESET"
+}
+
+section() {
+  printf '\n%b━━ %s ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%b\n' "$C_CYAN" "$1" "$C_RESET"
+}
+
+usage() {
+  banner
+  cat <<'EOF'
 Uso: ./oguricap.sh [comando]
 
-  install          Detectar sistema, actualizar paquetes e instalar el bot
-  configure        Configurar owner, panel, claves y base de datos
-  start            Iniciar el bot
-  update           Actualizar código y dependencias sin borrar datos
-  backup           Respaldar configuración, base de datos y sesiones
-  restore ARCHIVO  Restaurar un respaldo
-  doctor           Revisar sistema, programas y configuración
-  help             Mostrar esta ayuda
+  📦 install          Detectar sistema e instalar todo
+  ⚙️  configure        Configurar bot, panel y base de datos
+  🚀 start            Iniciar el bot y el panel habilitado
+  🔄 update           Actualizar sin borrar datos
+  💾 backup           Respaldar configuración y sesiones
+  ♻️  restore ARCHIVO  Restaurar un respaldo
+  🩺 doctor           Revisar la instalación
+  ❓ help             Mostrar esta ayuda
 
 Sin argumentos abre el menú interactivo.
 EOF
@@ -27,25 +68,27 @@ EOF
 doctor() {
   local platform status=0
   platform="$(detect_platform)"
-  printf 'Sistema:       %s\n' "$platform"
-  printf 'Arquitectura:  %s\n' "$(uname -m)"
-  printf 'Proyecto:      %s\n' "$ROOT_DIR"
+  banner
+  section 'DIAGNÓSTICO DEL SISTEMA'
+  printf '  %-18s %s\n' '🖥️  Plataforma' "$platform"
+  printf '  %-18s %s\n' '🧩 Arquitectura' "$(uname -m)"
+  printf '  %-18s %s\n\n' '📁 Proyecto' "$ROOT_DIR"
 
   for command_name in git node npm ffmpeg; do
     if has "$command_name"; then
-      printf '%-14s %s\n' "$command_name:" "$($command_name --version 2>&1 | head -n 1)"
+      printf '  %b✔%b %-14s %s\n' "$C_GREEN" "$C_RESET" "$command_name" "$($command_name --version 2>&1 | head -n 1)"
     else
-      printf '%-14s %s\n' "$command_name:" 'NO INSTALADO'
+      printf '  %b✘%b %-14s %bNO INSTALADO%b\n' "$C_RED" "$C_RESET" "$command_name" "$C_RED" "$C_RESET"
       status=1
     fi
   done
 
   if has magick; then
-    printf '%-14s %s\n' 'ImageMagick:' "$(magick --version | head -n 1)"
+    printf '  %b✔%b %-14s %s\n' "$C_GREEN" "$C_RESET" 'ImageMagick' "$(magick --version | head -n 1)"
   elif has convert; then
-    printf '%-14s %s\n' 'ImageMagick:' "$(convert --version | head -n 1)"
+    printf '  %b✔%b %-14s %s\n' "$C_GREEN" "$C_RESET" 'ImageMagick' "$(convert --version | head -n 1)"
   else
-    printf '%-14s %s\n' 'ImageMagick:' 'NO INSTALADO'
+    printf '  %b✘%b %-14s %bNO INSTALADO%b\n' "$C_RED" "$C_RESET" 'ImageMagick' "$C_RED" "$C_RESET"
     status=1
   fi
 
@@ -83,19 +126,17 @@ run_action() {
 
 menu() {
   while true; do
-    printf '\n\033[1;35mOguriCap Bot\033[0m — sistema detectado: %s\n' "$(detect_platform)"
+    banner
+    printf '%b   ¿Qué deseas hacer?%b\n\n' "$C_BOLD" "$C_RESET"
     cat <<'EOF'
-  1) Instalar o reparar dependencias
-  2) Configurar bot y panel
-  3) Iniciar bot y panel
-  4) Actualizar bot
-  5) Crear respaldo
-  6) Restaurar respaldo
-  7) Diagnosticar instalación
-  0) Salir
+   [1] 📦 Instalar o reparar       [5] 💾 Crear respaldo
+   [2] ⚙️  Configurar bot y web    [6] ♻️  Restaurar respaldo
+   [3] 🚀 Iniciar servicios        [7] 🩺 Diagnosticar instalación
+   [4] 🔄 Actualizar               [0] 👋 Salir
 EOF
-    printf 'Selecciona una opción: '
+    printf '\n%b   Selecciona una opción › %b' "$C_PURPLE" "$C_RESET"
     read -r choice
+    printf '\n'
     case "$choice" in
       1) bash "$ROOT_DIR/scripts/install.sh" ;;
       2) bash "$ROOT_DIR/scripts/configure.sh" && bash "$ROOT_DIR/scripts/setup-postgres.sh" && bash "$ROOT_DIR/scripts/setup-panel.sh" ;;
@@ -108,7 +149,7 @@ EOF
         bash "$ROOT_DIR/scripts/restore.sh" "$archive"
         ;;
       7) doctor || true ;;
-      0) exit 0 ;;
+      0) printf '%b   👋 Hasta pronto.%b\n' "$C_GREEN" "$C_RESET"; exit 0 ;;
       *) warn "Opción inválida." ;;
     esac
   done
