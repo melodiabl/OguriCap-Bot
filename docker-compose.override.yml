@@ -1,0 +1,17 @@
+services:
+  postgres:
+    labels:
+      com.docker.compose.oneoff: "False"
+      com.docker.compose.config-hash: "managed-by-podman-compose"
+  whatsapp-bot:
+    labels:
+      com.docker.compose.oneoff: "False"
+      com.docker.compose.config-hash: "managed-by-podman-compose"
+  postgres-backup:
+    labels:
+      com.docker.compose.oneoff: "False"
+      com.docker.compose.config-hash: "managed-by-podman-compose"
+  admin-panel:
+    labels:
+      com.docker.compose.oneoff: "False"
+      com.docker.compose.config-hash: "managed-by-podman-compose"

@@ -5,6 +5,7 @@ export interface Device {
   ip: string;
   browser: string;
   os: string;
+  model?: string | null;
   first_seen: string;
   last_seen: string;
 }
@@ -31,6 +32,19 @@ export const profileApi = {
   getMe: (): Promise<ProfileMe> =>
     api.get('/api/profile/me').then(r => r.data),
 
+  heartbeatDevice: async (): Promise<{ ok: boolean; hash: string }> => {
+    const body: Record<string, string> = {};
+    try {
+      const nav = navigator as any;
+      if (nav.userAgentData?.getHighEntropyValues) {
+        const hints = await nav.userAgentData.getHighEntropyValues(['model', 'platform']);
+        if (hints.model && hints.model !== 'K') body.uaHintModel = hints.model;
+        if (hints.platform) body.uaHintPlatform = hints.platform;
+      }
+    } catch {}
+    return api.post('/api/profile/devices/heartbeat', body).then(r => r.data);
+  },
+
   getDevices: (): Promise<{ devices: Device[] }> =>
     api.get('/api/profile/devices').then(r => r.data),
 
@@ -42,4 +56,7 @@ export const profileApi = {
 
   updateNotifications: (prefs: Partial<NotifPrefs>): Promise<{ prefs: NotifPrefs }> =>
     api.put('/api/profile/notifications', prefs).then(r => r.data),
+
+  changePassword: (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> =>
+    api.post('/api/auth/change-password', { currentPassword, newPassword }).then(r => r.data),
 };

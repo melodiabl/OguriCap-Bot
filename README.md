@@ -67,6 +67,8 @@ chmod +x oguricap.sh
 
 Ese es el único script que necesitas recordar. Abre un menú para instalar, iniciar, actualizar, respaldar, restaurar y diagnosticar. También acepta comandos, por ejemplo `./oguricap.sh install` y `./oguricap.sh start`.
 
+Durante la instalación pregunta el usuario administrador, número owner y si quieres habilitar el panel web. Genera automáticamente contraseñas y claves seguras, configura PostgreSQL, crea sus tablas y, cuando habilitas la web, instala y compila el frontend. Al terminar queda listo para ejecutar `./oguricap.sh start`.
+
 > [!NOTE]
 > Si Git no conserva el permiso ejecutable, usa `bash oguricap.sh`.
 

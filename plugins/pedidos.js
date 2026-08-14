@@ -25,7 +25,7 @@ const clampInt = (value, { min, max, fallback }) => {
 }
 
 const normalizeSeason = (value) => {
-  const raw = safeString(value).trim()
+  const raw = safeString(value).trim().normalize('NFKC')
   if (!raw) return null
   const m = raw.match(/(\d{1,2})/)
   if (!m) return null
@@ -35,7 +35,7 @@ const normalizeSeason = (value) => {
 }
 
 const normalizeChapter = (value) => {
-  const raw = safeString(value).trim()
+  const raw = safeString(value).trim().normalize('NFKC')
   if (!raw) return null
   const m = raw.match(/(\d{1,4})/)
   if (!m) return null
@@ -694,7 +694,26 @@ const extractInteractiveSelectionId = (m) => {
 
 const ensureStore = () => {
   if (!global.db.data.panel) global.db.data.panel = {}
-  if (!global.db.data.panel.pedidos) global.db.data.panel.pedidos = {}
+
+  // Keep panel.pedidos aliased to global.db.data.pedidos so the web panel API and
+  // the bot plugin always read/write the same object regardless of init order.
+  const topPedidos = global.db.data.pedidos
+  const panPedidos = global.db.data.panel.pedidos
+  if (!panPedidos && !topPedidos) {
+    global.db.data.panel.pedidos = {}
+    global.db.data.pedidos = global.db.data.panel.pedidos
+  } else if (!panPedidos) {
+    global.db.data.panel.pedidos = topPedidos
+  } else if (!topPedidos) {
+    global.db.data.pedidos = panPedidos
+  } else if (panPedidos !== topPedidos) {
+    // Merge plugin-side entries into the API-canonical object, then alias
+    for (const [k, v] of Object.entries(panPedidos)) {
+      if (!topPedidos[k]) topPedidos[k] = v
+    }
+    global.db.data.panel.pedidos = topPedidos
+  }
+
   if (!global.db.data.panel.pedidosCounter) global.db.data.panel.pedidosCounter = 0
   if (!global.db.data.panel.proveedores) global.db.data.panel.proveedores = {}
   if (!global.db.data.panel.contentLibrary) global.db.data.panel.contentLibrary = {}
@@ -966,26 +985,19 @@ const buildContentBucketsForTitle = (items, classifier) => {
 const FLOW_ID_PREFIX = 'PEDIDO:'
 
 const FLOW_STEPS = {
-  // Nuevos estados obligatorios
-  idle: 'idle',
-  parsing_title: 'parsing_title',
-  searching_aportes: 'searching_aportes',
-  searching_providers_groups: 'searching_providers_groups',
-  merging_results: 'merging_results',
-  presenting_interactives: 'presenting_interactives',
-  awaiting_confirmation: 'awaiting_confirmation',
-  delivering: 'delivering',
-  completed: 'completed',
-  error: 'error',
-  // Estados legacy para compatibilidad (no usados en el nuevo flujo)
-  parsing_input: 'parsing_input',
-  normalized: 'normalized',
-  classified: 'classified',
-  browsing_titles: 'browsing_titles',
-  browsing_seasons: 'browsing_seasons',
-  browsing_ranges: 'browsing_ranges',
-  browsing_extras: 'browsing_extras',
-  sending_file: 'sending_file',
+  // Estados del flujo interactivo del bot (usados por setPedidoFlow y handler.before)
+  RESUMEN: 'RESUMEN',
+  DETALLE: 'DETALLE',
+  SELECT_TIPO: 'SELECT_TIPO',
+  SELECT_TITULO: 'SELECT_TITULO',
+  SELECT_TEMP: 'SELECT_TEMP',
+  SELECT_CAP: 'SELECT_CAP',
+  SELECT_VARIANTE: 'SELECT_VARIANTE',
+  CONFIRM_EXTRA: 'CONFIRM_EXTRA',
+  EN_PROCESO: 'EN_PROCESO',
+  COMPLETADO: 'completado',
+  CANCELADO: 'cancelado',
+  ERROR: 'ERROR',
 }
 
 const createPedidoMachine = (ctxInit) => createMachine({
@@ -1225,6 +1237,7 @@ const buildAvailabilityFromItems = (items) => {
   let hasSide = false
   let hasIllus = false
   let anyBL = false
+  let unknownFilesCount = 0
   const packs = {
     completePack: 0,
     fullSeries: 0,
@@ -1298,6 +1311,8 @@ const buildAvailabilityFromItems = (items) => {
         if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
       } else if (cov.coverageType === COVERAGE_TYPES.VOLUME) {
         packs.volume += 1
+      } else {
+        unknownFilesCount += 1
       }
     }
     else if (type === 'illustration') hasIllus = true
@@ -1339,6 +1354,8 @@ const buildAvailabilityFromItems = (items) => {
         if (cov.chapterFrom && cov.chapterTo) pushInterval(cov.season, cov.chapterFrom, cov.chapterTo)
       } else if (cov.coverageType === COVERAGE_TYPES.VOLUME) {
         packs.volume += 1
+      } else {
+        unknownFilesCount += 1
       }
     }
     else if (type === 'illustration') hasIllus = true
@@ -1389,6 +1406,7 @@ const buildAvailabilityFromItems = (items) => {
     packs,
     complete,
     anyBL,
+    unknownFiles: unknownFilesCount,
   }
 }
 
@@ -1396,7 +1414,9 @@ const renderAvailabilitySummaryText = (pedido, availability) => {
   const title = waSafeInline(pedido?.titulo || '')
   const fmt = availability?.formats?.length ? availability.formats.join(', ') : '-'
   const origin = availability?.origin?.length ? availability.origin.map((x) => (x === 'biblioteca' ? 'Biblioteca' : 'Aportes')).join(' + ') : '-'
-  const stateLabel = availability?.complete ? 'Completo' : (availability?.chaptersAvailable ? 'Parcial' : 'Vacío')
+  const unknownFiles = Number(availability?.unknownFiles || 0)
+  const hasAnyContent = Boolean(availability?.chaptersAvailable || availability?.packs && Object.values(availability.packs).some(n => n > 0) || unknownFiles)
+  const stateLabel = availability?.complete ? 'Completo' : (availability?.chaptersAvailable ? 'Parcial' : (hasAnyContent ? 'Sin clasificar' : 'Vacío'))
   const packs = availability?.packs || {}
   const packsTotal =
     Number(packs.completePack || 0) +
@@ -1413,6 +1433,7 @@ const renderAvailabilitySummaryText = (pedido, availability) => {
   lines.push(`• Temporadas: *${Number(availability?.seasonsCount || 0)}*`)
   lines.push(`• Capítulos totales: *${Number(availability?.chaptersTotal || 0)}*`)
   lines.push(`• Capítulos disponibles: *${Number(availability?.chaptersAvailable || 0)}*`)
+  if (unknownFiles) lines.push(`• Archivos disponibles: *${unknownFiles}*`)
   lines.push(`• Packs completos: *${hasCompletePack ? 'Sí' : 'No'}*`)
   lines.push(`• Extras BL: *${availability?.hasExtras ? 'Sí' : 'No'}*`)
   lines.push(`• Side stories: *${availability?.hasSide ? 'Sí' : 'No'}*`)
@@ -1844,8 +1865,13 @@ const renderCandidatesMenu = async (m, conn, panel, pedido) => {
     sections: [{ title: 'Títulos', rows }],
   })
   if (!ok) {
-    const lines = rows.map((r, i) => `${i + 1}. ${waSafeInline(r.title)}`).join('\n')
-    await m.reply(`🔎 *Títulos candidatos*\n\n${lines}`)
+    const candBtns = rows.slice(0, 9).map((r) => [truncateText(r.title, 24), r.rowId])
+    candBtns.push(['❌ Cancelar', makeFlowId(pid, 'AVAIL_CANCEL')])
+    await trySendFlowButtons(m, conn, {
+      text: `🔎 *Títulos candidatos*\n> _Selecciona el título correcto._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: candBtns,
+    })
   }
   return true
 }
@@ -1954,7 +1980,16 @@ const renderMainSeasonsMenu = async (m, conn, panel, pedido, index) => {
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona una temporada._`,
     sections,
   })
-  if (!ok) await m.reply('📘 *Temporadas*')
+  if (!ok) {
+    const allRows = sections.flatMap((s) => s.rows || [])
+    const seasBtns = allRows.slice(0, 9).map((r) => [truncateText(r.title, 24), r.rowId])
+    seasBtns.push(['❌ Cancelar', makeFlowId(pid, 'AVAIL_CANCEL')])
+    await trySendFlowButtons(m, conn, {
+      text: `📘 *Temporadas*\n> *Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona una temporada._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: seasBtns,
+    })
+  }
   return true
 }
 
@@ -1980,8 +2015,54 @@ const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, pag
       })
     }
     if (!fallbackRows.length) {
+      // Show mainUnknown items (aportes without chapter numbers) as a last resort
+      let unknownForSeason = (index?.mainUnknown || []).filter((u) =>
+        safeString(u?.coverage?.season || '0') === seasonKey
+      )
+      if (unknownForSeason.length) {
+        let unknownRows = unknownForSeason.slice(0, 10).map((u) => {
+          let name = u.source === 'lib'
+            ? (u?.it?.originalName || u?.it?.title || `Archivo #${u.id}`)
+            : (u?.it?.archivoNombre || u?.it?.titulo || `Aporte #${u.id}`)
+          let fmt = getFileExtUpper(name) || 'DOC'
+          return {
+            title: truncateText(`📄 ${waSafeInline(name) || `Archivo (${fmt})`}`, 44),
+            description: truncateText(`${fmt} · Disponible`, 60),
+            rowId: makeFlowId(pid, 'SEND', u.source, String(u.id)),
+          }
+        })
+        let unknownSeasonLabel = seasonKey === '0' ? 'Sin temporada' : `Temporada ${String(seasonKey).padStart(2, '0')}`
+        setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_VARIANTE, data: { ...(pedido.flow?.data || {}), season: seasonKey, lastMenu: 'SEASON_UNKNOWN' } })
+        await savePedidoAndEmit(panel, pedido, 'menu_season_unknown')
+        let unknownSections = [
+          { title: 'Archivos', rows: unknownRows },
+          { title: 'Navegación', rows: [{ title: '🔙 Volver', description: 'Volver', rowId: makeFlowId(pid, 'BACK', 'MAIN_SEASONS') }] },
+        ]
+        let okUnknown = await trySendInteractiveList(m, conn, {
+          title: '📘 Archivos disponibles',
+          text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${unknownSeasonLabel}_\n> _Selecciona un archivo._`,
+          sections: unknownSections,
+        })
+        if (!okUnknown) {
+          let btnList = unknownForSeason.slice(0, 9).map((u) => {
+            let name = u.source === 'lib'
+              ? (u?.it?.originalName || u?.it?.title || `Archivo #${u.id}`)
+              : (u?.it?.archivoNombre || u?.it?.titulo || `Aporte #${u.id}`)
+            return [truncateText(waSafeInline(name) || `Archivo #${u.id}`, 24), makeFlowId(pid, 'SEND', u.source, String(u.id))]
+          })
+          btnList.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'MAIN_SEASONS')])
+          await trySendFlowButtons(m, conn, {
+            text: `📘 *Archivos disponibles*\n> *Temporada:* _${unknownSeasonLabel}_\n> _Selecciona un archivo._`,
+            footer: '🛡️ Oguri Bot',
+            buttons: btnList,
+          })
+        }
+        return true
+      }
       await m.reply('📘 *Capítulos*\n\n🛡️ _No encontré capítulos ni packs para esta temporada._')
-      return renderMainSeasonsMenu(m, conn, panel, pedido, index)
+      // Do NOT call renderMainSeasonsMenu here — if auto-selected (1 season) it creates
+      // an infinite renderMainSeasonsMenu ↔ renderMainChaptersPage recursive loop.
+      return renderContentTypeMenu(m, conn, panel, pedido, index)
     }
     const seasonLabel = seasonKey === '0' ? 'Sin temporada' : `Temporada ${String(seasonKey).padStart(2, '0')}`
     setPedidoFlow(pedido, { step: FLOW_STEPS.SELECT_VARIANTE, data: { ...(pedido.flow?.data || {}), season: seasonKey, lastMenu: 'SEASON_PACKS' } })
@@ -1991,7 +2072,15 @@ const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, pag
       text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${seasonLabel}_\n> _Selecciona un pack/rango._`,
       sections: [{ title: 'Packs', rows: fallbackRows }, { title: 'Navegación', rows: [{ title: '🔙 Volver', description: 'Volver a temporadas', rowId: makeFlowId(pid, 'BACK', 'MAIN_SEASONS') }] }],
     })
-    if (!ok) await m.reply('📦 *Packs*')
+    if (!ok) {
+      let packBtns = fallbackRows.slice(0, 9).map((r) => [truncateText(r.description || r.title || 'Pack', 24), r.rowId])
+      packBtns.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'MAIN_SEASONS')])
+      await trySendFlowButtons(m, conn, {
+        text: `📦 *Packs disponibles*\n> *Temporada:* _${seasonLabel}_\n> _Selecciona un pack/rango._`,
+        footer: '🛡️ Oguri Bot',
+        buttons: packBtns,
+      })
+    }
     return true
   }
 
@@ -2020,7 +2109,17 @@ const renderMainChaptersPage = async (m, conn, panel, pedido, index, season, pag
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Temporada:* _${seasonLabel}_\n> *Página:* _${p}/${maxPage}_\n> _Selecciona un capítulo._`,
     sections: [{ title: 'Capítulos', rows }, { title: 'Navegación', rows: nav }],
   })
-  if (!ok) await m.reply('📘 *Capítulos*')
+  if (!ok) {
+    const chBtns = rows.slice(0, 9).map((r) => [truncateText(r.title, 24), r.rowId])
+    if (p > 1) chBtns.push([`⬅️ Pág ${p - 1}`, makeFlowId(pid, 'MAIN_PAGE', seasonKey, String(p - 1))])
+    if (p < maxPage) chBtns.push([`➡️ Pág ${p + 1}`, makeFlowId(pid, 'MAIN_PAGE', seasonKey, String(p + 1))])
+    chBtns.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'MAIN_SEASONS')])
+    await trySendFlowButtons(m, conn, {
+      text: `📘 *Capítulos* — ${seasonLabel} — Pág ${p}/${maxPage}\n> _Selecciona un capítulo._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: chBtns.slice(0, 10),
+    })
+  }
   return true
 }
 
@@ -2097,8 +2196,15 @@ const renderVariantsForChapter = async (m, conn, panel, pedido, index, seasonKey
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Capítulo:* _${String(chapterNum)}_\n> _Selecciona una opción._`,
     sections: [{ title: 'Opciones', rows }],
   })
-  if (ok) return true
-  await m.reply('📦 *Opciones*\n\n🛡️ _No pude mostrar el menú._')
+  if (!ok) {
+    const varBtns = rows.slice(0, 9).map((r) => [truncateText(r.title, 24), r.rowId])
+    varBtns.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'MAIN_CHAPTERS')])
+    await trySendFlowButtons(m, conn, {
+      text: `📦 *Opciones* — Cap ${chapterNum}\n> _Selecciona una opción._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: varBtns,
+    })
+  }
   return true
 }
 
@@ -2127,8 +2233,15 @@ const renderExtraTypesMenu = async (m, conn, panel, pedido, index) => {
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un tipo._`,
     sections: [{ title: 'Tipos', rows }],
   })
-  if (ok) return true
-  await m.reply('✨ *Contenido adicional*\n\n🛡️ _No pude mostrar el menú._')
+  if (!ok) {
+    const typeBtns = rows.slice(0, 9).map((r) => [truncateText(r.title, 24), r.rowId])
+    typeBtns.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'CONTENT_TYPE')])
+    await trySendFlowButtons(m, conn, {
+      text: `✨ *Contenido adicional*\n> _Selecciona un tipo._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: typeBtns,
+    })
+  }
   return true
 }
 
@@ -2169,8 +2282,17 @@ const renderExtraItemsPage = async (m, conn, panel, pedido, index, type, page) =
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> *Tipo:* _${CONTENT_TYPE_LABEL[t] || t}_\n> *Página:* _${p}/${maxPage}_\n> _Selecciona un item._`,
     sections: [{ title: 'Items', rows }, { title: 'Navegación', rows: nav }],
   })
-  if (ok) return true
-  await m.reply('✨ *Extras*\n\n🛡️ _No pude mostrar el menú._')
+  if (!ok) {
+    const extBtns = rows.slice(0, 8).map((r) => [truncateText(r.title, 24), r.rowId])
+    if (p > 1) extBtns.push([`⬅️ Pág ${p - 1}`, makeFlowId(pid, 'EXTRA_PAGE', t, String(p - 1))])
+    if (p < maxPage) extBtns.push([`➡️ Pág ${p + 1}`, makeFlowId(pid, 'EXTRA_PAGE', t, String(p + 1))])
+    extBtns.push(['🔙 Tipos', makeFlowId(pid, 'BACK', 'EXTRA_TYPES')])
+    await trySendFlowButtons(m, conn, {
+      text: `✨ *Extras* — ${CONTENT_TYPE_LABEL[t] || t} — Pág ${p}/${maxPage}\n> _Selecciona un item._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: extBtns.slice(0, 10),
+    })
+  }
   return true
 }
 
@@ -2197,8 +2319,15 @@ const renderIllustrationsMenu = async (m, conn, panel, pedido, index) => {
     text: `*Título:* ${waSafeInline(pedido?.titulo || '')}\n> _Selecciona un item._`,
     sections: [{ title: 'Ilustraciones', rows }],
   })
-  if (ok) return true
-  await m.reply('🎨 *Ilustraciones*\n\n🛡️ _No pude mostrar el menú._')
+  if (!ok) {
+    const illusBtns = rows.slice(0, 9).map((r) => [truncateText(r.title, 24), r.rowId])
+    illusBtns.push(['🔙 Volver', makeFlowId(pid, 'BACK', 'CONTENT_TYPE')])
+    await trySendFlowButtons(m, conn, {
+      text: `🎨 *Ilustraciones*\n> _Selecciona un item._`,
+      footer: '🛡️ Oguri Bot',
+      buttons: illusBtns,
+    })
+  }
   return true
 }
 
@@ -4468,7 +4597,15 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       if (!libId) return m.reply(`📚 *Info de biblioteca*\n\n> \`\`\`${usedPrefix}infolib <id>\`\`\``)
 
       const item = panel?.contentLibrary?.[libId] || null
-      if (!item) return m.reply(`❌ *Error*\n\n> _Archivo #${libId} no encontrado en biblioteca._`)
+      if (!item) {
+        // contentLibrary is empty — redirect to infoaporte for aportes-based ids
+        const aportesDirect = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+        const byId = aportesDirect.find((a) => Number(a?.id) === libId) || null
+        if (byId && isAporteVisibleToUser(byId, { m, isBotOwner, isAdmin })) {
+          return m.reply(`💡 *Info aporte* \`\`\`#${libId}\`\`\`\n\n> _Usa_ \`\`\`${usedPrefix}infoaporte ${libId}\`\`\` _para ver este aporte._`)
+        }
+        return m.reply(`❌ *Error*\n\n> _Archivo #${libId} no encontrado en biblioteca._`)
+      }
 
       if (m.isGroup && !isBotOwner && String(item?.proveedorJid || '') !== String(m.chat || '')) {
         return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
@@ -4844,7 +4981,15 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
       const libId = parseInt(args[0])
       if (!libId) return m.reply(`📥 *Enviar archivo de biblioteca*\n\n> \`\`\`${usedPrefix}enviarlib <id>\`\`\``)
       const item = panel?.contentLibrary?.[libId] || null
-      if (!item) return m.reply(`❌ *Error*\n\n> _Archivo #${libId} no encontrado en biblioteca._`)
+      if (!item) {
+        // contentLibrary is empty — redirect to enviaraporte for aportes-based ids
+        const aportesDirect = Array.isArray(global.db?.data?.aportes) ? global.db.data.aportes : []
+        const byId = aportesDirect.find((a) => Number(a?.id) === libId) || null
+        if (byId && isAporteVisibleToUser(byId, { m, isBotOwner, isAdmin })) {
+          return m.reply(`💡 *Enviar aporte* \`\`\`#${libId}\`\`\`\n\n> _Usa_ \`\`\`${usedPrefix}enviaraporte ${libId}\`\`\` _para enviar este aporte._`)
+        }
+        return m.reply(`❌ *Error*\n\n> _Archivo #${libId} no encontrado en biblioteca._`)
+      }
 
       if (m.isGroup && !isBotOwner && String(item?.proveedorJid || '') !== String(m.chat || '')) {
         return m.reply('❌ *No permitido*\n\n> _Este archivo pertenece a otro proveedor._')
@@ -4868,6 +5013,7 @@ let handler = async (m, { args, usedPrefix, command, conn, isAdmin, isOwner }) =
 // Capturar clicks de botones/listas sin comandos visibles.
 handler.before = async function (m, { conn, isAdmin, isOwner } = {}) {
   try {
+    if (m?.fromMe) return  // Ignore bot's own messages to prevent reply loops
     ensureStore()
     const panel = global.db.data.panel
     const isBotOwner = Boolean(isOwner) || global.owner.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)

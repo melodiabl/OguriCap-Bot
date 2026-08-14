@@ -12,6 +12,7 @@ OguriCap Bot — administrador universal para Termux y Linux
 Uso: ./oguricap.sh [comando]
 
   install          Detectar sistema, actualizar paquetes e instalar el bot
+  configure        Configurar owner, panel, claves y base de datos
   start            Iniciar el bot
   update           Actualizar código y dependencias sin borrar datos
   backup           Respaldar configuración, base de datos y sesiones
@@ -62,6 +63,11 @@ doctor() {
 run_action() {
   case "${1:-}" in
     install) exec bash "$ROOT_DIR/scripts/install.sh" ;;
+    configure)
+      bash "$ROOT_DIR/scripts/configure.sh"
+      bash "$ROOT_DIR/scripts/setup-postgres.sh"
+      exec bash "$ROOT_DIR/scripts/setup-panel.sh"
+      ;;
     start) exec bash "$ROOT_DIR/scripts/start.sh" ;;
     update) exec bash "$ROOT_DIR/scripts/update.sh" ;;
     backup) exec bash "$ROOT_DIR/scripts/backup.sh" ;;
@@ -80,26 +86,28 @@ menu() {
     printf '\n\033[1;35mOguriCap Bot\033[0m — sistema detectado: %s\n' "$(detect_platform)"
     cat <<'EOF'
   1) Instalar o reparar dependencias
-  2) Iniciar bot
-  3) Actualizar bot
-  4) Crear respaldo
-  5) Restaurar respaldo
-  6) Diagnosticar instalación
+  2) Configurar bot y panel
+  3) Iniciar bot y panel
+  4) Actualizar bot
+  5) Crear respaldo
+  6) Restaurar respaldo
+  7) Diagnosticar instalación
   0) Salir
 EOF
     printf 'Selecciona una opción: '
     read -r choice
     case "$choice" in
       1) bash "$ROOT_DIR/scripts/install.sh" ;;
-      2) bash "$ROOT_DIR/scripts/start.sh" ;;
-      3) bash "$ROOT_DIR/scripts/update.sh" ;;
-      4) bash "$ROOT_DIR/scripts/backup.sh" ;;
-      5)
+      2) bash "$ROOT_DIR/scripts/configure.sh" && bash "$ROOT_DIR/scripts/setup-postgres.sh" && bash "$ROOT_DIR/scripts/setup-panel.sh" ;;
+      3) bash "$ROOT_DIR/scripts/start.sh" ;;
+      4) bash "$ROOT_DIR/scripts/update.sh" ;;
+      5) bash "$ROOT_DIR/scripts/backup.sh" ;;
+      6)
         printf 'Ruta del respaldo: '
         read -r archive
         bash "$ROOT_DIR/scripts/restore.sh" "$archive"
         ;;
-      6) doctor || true ;;
+      7) doctor || true ;;
       0) exit 0 ;;
       *) warn "Opción inválida." ;;
     esac

@@ -23,7 +23,8 @@ return null
   const res0 = await fetch(`${mel}/search/lyrics?q=${encodeURIComponent(text)}`, { headers: melHeaders })
   if (!res0.ok) throw new Error(`MelodyApi HTTP: ${res0.status}`)
   const json0 = await res0.json()
-  if (json0 && json0.status && typeof json0.result === 'string') {
+  // MelodyApi devuelve status:true con un mensaje "Letra no encontrada"; no tratarlo como letra.
+  if (json0 && json0.status && typeof json0.result === 'string' && json0.result.length > 80 && !/letra no encontrada/i.test(json0.result)) {
    primaryRes = { title: text, artists: 'Desconocido', lyrics: json0.result, image: null, url: null }
   }
   }
@@ -40,16 +41,6 @@ return null
  if (!primaryRes) primaryRes = null
  }
 let final = primaryRes
-if (!final) {
-try {
-const adonixUrl = `${global.APIs.adonix.url}/search/lyrics?apikey=${global.APIs.adonix.key}&q=${encodeURIComponent(text)}`
-const res2 = await fetch(adonixUrl)
-if (!res2.ok) throw new Error(`Adonix HTTP: ${res2.status}`)
-const json2 = await res2.json()
-final = normalize(json2)
-} catch (e) {
-final = null
-}}
 if (!final || !final.lyrics) {
 await m.react('✖️')
 return m.reply('ꕥ No se encontró la letra de la canción')

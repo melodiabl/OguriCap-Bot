@@ -44,8 +44,16 @@ export const BroadcastTool: React.FC = () => {
     setLoadingGroups(true);
     try {
       const res = await api.getBroadcastTargets();
-      if (res.items) {
-        setGroups(res.items);
+      if (res.targets) {
+        const mapped = res.targets.map((t: any) => ({
+          wa_jid: t.jid || t.wa_jid,
+          nombre: t.nombre || t.name || t.jid,
+          tipo: t.tipo || 'group',
+          isCommunity: !!t.isCommunity,
+          participantes: t.participants || t.participantes || 0,
+          bot_enabled: t.bot_enabled !== false,
+        }));
+        setGroups(mapped);
       }
     } catch (error) {
       console.error('Error cargando grupos:', error);
@@ -61,7 +69,10 @@ export const BroadcastTool: React.FC = () => {
       notify.info('Sincronizando con WhatsApp...');
       const res = await api.syncWhatsAppGroups({ clearOld: false });
       if (res.success) {
-        notify.success(`Sincronización completa: ${res.totalGroups} destinos encontrados`);
+        const parts = []
+        if (res.synced) parts.push(`${res.synced} grupos`)
+        if (res.channelsSynced) parts.push(`${res.channelsSynced} canales`)
+        notify.success(parts.length ? `Sincronización completa: ${parts.join(', ')}` : 'Sincronización completada');
         await loadGroups();
       }
     } catch (error: any) {
@@ -109,12 +120,6 @@ export const BroadcastTool: React.FC = () => {
       newSelected.add(jid);
     }
     setSelectedJids(newSelected);
-
-    // If user is picking specific targets, avoid accidentally broadcasting to all
-    // groups/channels/communities via category toggles.
-    if (newSelected.size > 0) {
-      setTargets({ groups: false, channels: false, communities: false });
-    }
   };
 
   const toggleSection = (section: 'groups' | 'channels' | 'communities') => {

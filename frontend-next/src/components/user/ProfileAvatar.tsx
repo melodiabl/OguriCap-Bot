@@ -62,10 +62,10 @@ export function ProfileAvatar({ editable = false, size = 'md', className, showRe
 
   return (
     <div className={cn('relative shrink-0', className)}>
-      <motion.button
-        type="button"
+      <motion.div
+        role={editable ? 'button' : undefined}
+        tabIndex={editable ? 0 : undefined}
         onClick={handlePickAvatar}
-        disabled={!editable || isSaving}
         aria-label={editable ? 'Cambiar foto de perfil' : 'Foto de perfil'}
         className={cn(
           'group relative isolate flex items-center justify-center overflow-hidden rounded-lg border border-white/12 bg-gradient-to-br from-[#25d366]/25 via-[#2dd4bf]/14 to-[#ff4d8d]/16 font-black text-white shadow-[0_16px_42px_rgba(0,0,0,0.24)] ring-1 ring-[#25d366]/20',
@@ -93,7 +93,7 @@ export function ProfileAvatar({ editable = false, size = 'md', className, showRe
             Guardando
           </span>
         )}
-      </motion.button>
+      </motion.div>
 
       {editable && showRemove && avatarDataUrl && (
         <button

@@ -20,7 +20,7 @@ const clampInt = (value, { min, max, fallback }) => {
 }
 
 const normalizeSeason = (value) => {
-  const raw = safeString(value).trim()
+  const raw = safeString(value).trim().normalize('NFKC')
   if (!raw) return null
   const m = raw.match(/(\d{1,2})/)
   if (!m) return null
@@ -30,7 +30,7 @@ const normalizeSeason = (value) => {
 }
 
 const normalizeChapter = (value) => {
-  const raw = safeString(value).trim()
+  const raw = safeString(value).trim().normalize('NFKC')
   if (!raw) return null
   const m = raw.match(/(\d{1,4})/)
   if (!m) return null

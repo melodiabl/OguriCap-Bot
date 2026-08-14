@@ -72,7 +72,7 @@ export interface Pedido {
   titulo: string;
   descripcion?: string;
   contenido_solicitado: string;
-  estado: 'pendiente' | 'en_proceso' | 'resuelto' | 'cancelado' | 'rechazado';
+  estado: 'pendiente' | 'en_proceso' | 'completado' | 'cancelado' | 'rechazado';
   prioridad: string;
   grupo_id?: number;
   usuario_id?: number;

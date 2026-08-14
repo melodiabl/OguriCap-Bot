@@ -19,6 +19,7 @@ import * as ws from 'ws'
 import { spawn, exec } from 'child_process'
 const { CONNECTING } = ws
 import { makeWASocket } from '../lib/simple.js'
+import { getWAVersion } from '../lib/wa-version.js'
 import { getSubbotCapacityInfo } from '../lib/subbot-capacity.js'
 import { fileURLToPath } from 'url'
 import { sendTemplateNotification } from '../services/notification/index.js'
@@ -458,7 +459,8 @@ export async function yukiJadiBot(options) {
     }
     try {
       const drmer = Buffer.from(drm1 + drm2, `base64`)
-      let { version, isLatest } = await fetchLatestBaileysVersion()
+      // fetchLatestBaileysVersion del fork está roto (versión vieja → 405); usar resolver propio.
+      let version = await getWAVersion()
       const msgRetry = (MessageRetryMap) => { }
       const msgRetryCache = new NodeCache()
       const { state, saveState, saveCreds } = await useMultiFileAuthState(pathYukiJadiBot)
@@ -679,7 +681,9 @@ export async function yukiJadiBot(options) {
         if (connection === 'close') {
           sock.isInit = false
           const reasonCode = Number(reason)
-          if ([401, 403, 405, 440].includes(reasonCode)) {
+          // 405 NO está acá: suele ser rechazo transitorio (versión WA Web / handshake),
+          // se reintenta con backoff en vez de resetear el contador y borrar la sesión.
+          if ([401, 403, 440].includes(reasonCode)) {
             clearReconnectTimer()
             reconnectInProgress = false
             reconnectAttempts = 0
@@ -708,12 +712,44 @@ export async function yukiJadiBot(options) {
               console.error(chalk.bold.yellow(`⚠︎ Error 440 no se pudo enviar mensaje a: +${path.basename(pathYukiJadiBot)}`))
             }
           }
-          if (reason == 405 || reason == 401) {
+          if (reason == 405) {
+            // 405 = WhatsApp rechazó la conexión (típicamente versión WA Web vieja o handshake).
+            // NO borrar la sesión: las credenciales siguen siendo válidas. Reintentar con backoff
+            // y solo marcar inactivo tras agotar intentos (la carpeta queda para reintentar al reiniciar).
+            const MAX_405_RETRIES = 6
+            if (reconnectAttempts < MAX_405_RETRIES) {
+              console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ (+${path.basename(pathYukiJadiBot)}) rechazada por WhatsApp (405). Reintentando con backoff (${reconnectAttempts + 1}/${MAX_405_RETRIES})...\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
+              queueReconnect()
+              return
+            }
+            console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ (+${path.basename(pathYukiJadiBot)}) sigue rechazada (405) tras ${MAX_405_RETRIES} intentos. Marcada inactiva; la sesión se conserva.\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
+            const subbotCode405 = stableKey
+            try { sock.ws?.close() } catch { }
+            sock.ev.removeAllListeners()
+            removeSubbotConn(sock)
+            try {
+              const { emitSubbotDisconnected, emitSubbotUpdated } = await import('../services/socket-io.js')
+              const subbotsMap405 = global.db?.data?.subbots || global.db?.data?.panel?.subbots
+              const rec = subbotsMap405?.[subbotCode405]
+              if (rec) {
+                rec.estado = 'inactivo'
+                rec.isOnline = false
+                rec.connected = false
+                rec.ultima_actividad = new Date().toISOString()
+                rec.last_disconnect_reason = String(reason)
+                emitSubbotUpdated(rec)
+                global.db?.write?.().catch(() => {})
+              }
+              emitSubbotDisconnected(subbotCode405, reason)
+            } catch { }
+            return
+          }
+          if (reason == 401) {
             console.log(chalk.bold.magentaBright(`\n╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡\n┆ La sesión (+${path.basename(pathYukiJadiBot)}) fue cerrada. Credenciales no válidas o dispositivo desconectado manualmente.\n╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄ • • • ┄┄┄┄┄┄┄┄┄┄┄┄┄┄⟡`))
             try {
               if (notifyJid && options.fromCommand) m?.chat ? await conn.sendMessage(notifyJid, { text: '⚠︎ Sesión pendiente.\n\n> ☁︎ Vuelva a intentar nuevamente volver a ser *SUB-BOT*.' }, { quoted: m || null }) : ""
             } catch (error) {
-              console.error(chalk.bold.yellow(`⚠︎ Error 405 no se pudo enviar mensaje a: +${path.basename(pathYukiJadiBot)}`))
+              console.error(chalk.bold.yellow(`⚠︎ Error 401 no se pudo enviar mensaje a: +${path.basename(pathYukiJadiBot)}`))
             }
             const subbotCode = stableKey
             try {

@@ -13,7 +13,7 @@ interface GlobalUpdateContextType {
   notifications: any[];
   activeAlertCount: number;
 
-  refreshAll: () => Promise<void>;
+  refreshAll: () => void;
   refreshDashboard: () => Promise<any>;
   refreshBotStatus: () => Promise<any>;
   refreshSystemStats: () => Promise<any>;
@@ -26,11 +26,41 @@ interface GlobalUpdateContextType {
 const GlobalUpdateContext = React.createContext<GlobalUpdateContextType | undefined>(undefined);
 
 function emitGlobalDataUpdated() {
-  window.dispatchEvent(
-    new CustomEvent('globalDataUpdated', {
-      detail: { timestamp: Date.now() },
-    })
-  );
+  window.dispatchEvent(new CustomEvent('globalDataUpdated', { detail: { timestamp: Date.now() } }));
+}
+
+const shallowEqual = (a: any, b: any) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+};
+
+function useStableRefresh(fn: () => Promise<any>, deps: any[]) {
+  const ref = React.useRef({ inFlight: false, pending: false, fn, mounted: true });
+  ref.current.fn = fn;
+
+  const throttled = React.useCallback(() => {
+    if (ref.current.inFlight) { ref.current.pending = true; return; }
+    ref.current.inFlight = true;
+    ref.current.fn().finally(() => {
+      if (!ref.current.mounted) return;
+      ref.current.inFlight = false;
+      if (ref.current.pending) {
+        ref.current.pending = false;
+        window.setTimeout(() => throttled(), 100);
+      }
+    });
+  }, deps);
+
+  React.useEffect(() => () => { ref.current.mounted = false; }, []);
+
+  return throttled;
 }
 
 export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,32 +78,21 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const refreshDashboard = React.useCallback(async () => {
     try {
-      const [stats, alertsRes] = await Promise.allSettled([
-        api.getStats(),
-        api.getAlerts(),
-      ]);
+      const [stats, alertsRes] = await Promise.allSettled([api.getStats(), api.getAlerts()]);
 
       if (stats.status === 'fulfilled') {
-        setDashboardStats((prev: any) => {
-          // Only update if data changed
-          if (JSON.stringify(prev) === JSON.stringify(stats.value)) return prev;
-          return stats.value;
-        });
+        setDashboardStats(prev => shallowEqual(prev, stats.value) ? prev : stats.value);
       }
 
       if (alertsRes.status === 'fulfilled') {
         const alertList: any[] = (alertsRes.value as any)?.alerts ?? alertsRes.value ?? [];
         const activeCount = Array.isArray(alertList)
-          ? alertList.filter((a: any) => a.state === 'active').length
-          : 0;
+          ? alertList.filter((a: any) => a.state === 'active').length : 0;
         setActiveAlertCount(activeCount);
       }
 
       return stats.status === 'fulfilled' ? stats.value : null;
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error refreshing dashboard stats:', error);
-      }
+    } catch {
       return null;
     }
   }, []);
@@ -81,16 +100,9 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refreshBotStatus = React.useCallback(async () => {
     try {
       const status = await api.getMainBotStatus();
-      setBotStatus(prev => {
-        // Only update if status changed
-        if (JSON.stringify(prev) === JSON.stringify(status)) return prev;
-        return status;
-      });
+      setBotStatus(prev => shallowEqual(prev, status) ? prev : status);
       return status;
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error refreshing bot status:', error);
-      }
+    } catch {
       return null;
     }
   }, []);
@@ -98,16 +110,9 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refreshSystemStats = React.useCallback(async () => {
     try {
       const stats = await api.getSystemStats();
-      setSystemStats(prev => {
-        // Only update if stats changed
-        if (JSON.stringify(prev) === JSON.stringify(stats)) return prev;
-        return stats;
-      });
+      setSystemStats(prev => shallowEqual(prev, stats) ? prev : stats);
       return stats;
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error refreshing system stats:', error);
-      }
+    } catch {
       return null;
     }
   }, []);
@@ -116,113 +121,77 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const response = await api.getNotificaciones(1, 10);
       const newNotifications = response?.notificaciones || [];
-      setNotifications(prev => {
-        // Only update if notifications changed
-        if (JSON.stringify(prev) === JSON.stringify(newNotifications)) return prev;
-        return newNotifications;
-      });
+      setNotifications(prev => shallowEqual(prev, newNotifications) ? prev : newNotifications);
       return response;
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error refreshing notifications:', error);
-      }
+    } catch {
       return null;
     }
   }, []);
 
-  // Cola simple para evitar overlap de refreshAll (crítico en móvil)
-  const inFlightRef = React.useRef(false);
-  const pendingRef = React.useRef(false);
-
-  const refreshAll = React.useCallback(async () => {
+  const doRefreshAll = React.useCallback(async () => {
     if (authLoading || !isAuthenticated) {
-      setIsRefreshing(false);
-      setLastUpdate(null);
-      setDashboardStats(null);
-      setBotStatus(null);
-      setSystemStats(null);
-      setNotifications([]);
-      return;
-    }
-    if (inFlightRef.current) {
-      pendingRef.current = true;
+      setIsRefreshing(false); setLastUpdate(null);
+      setDashboardStats(null); setBotStatus(null); setSystemStats(null); setNotifications([]);
       return;
     }
 
-    inFlightRef.current = true;
     setIsRefreshing(true);
-
     try {
       await Promise.all([refreshDashboard(), refreshBotStatus(), refreshSystemStats(), refreshNotifications()]);
       setLastUpdate(new Date());
       emitGlobalDataUpdated();
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error in refreshAll:', error);
-      }
+    } catch {
+      // ignore
     } finally {
       setIsRefreshing(false);
-      inFlightRef.current = false;
-
-      if (pendingRef.current) {
-        pendingRef.current = false;
-        queueMicrotask(() => refreshAll());
-      }
     }
   }, [authLoading, isAuthenticated, refreshBotStatus, refreshDashboard, refreshNotifications, refreshSystemStats]);
 
-  // Inicial: 1 refresh fuerte
-  React.useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
+  const refreshAll = useStableRefresh(doRefreshAll, [doRefreshAll]);
 
-  // Estado global del bot: refrescar (pero sin polling duplicado)
+  React.useEffect(() => { refreshAll(); }, []);
+
+  const prevGloballyOn = React.useRef(isGloballyOn);
   React.useEffect(() => {
     if (authLoading || !isAuthenticated) return;
+    if (isGloballyOn === prevGloballyOn.current) return;
+    prevGloballyOn.current = isGloballyOn;
     refreshAll();
   }, [isGloballyOn, authLoading, isAuthenticated, refreshAll]);
 
-  // Socket reconnect: refrescar
+  const prevConnected = React.useRef(isConnected);
   React.useEffect(() => {
-    if (!isConnected) return;
-    if (authLoading || !isAuthenticated) return;
+    if (!isConnected || authLoading || !isAuthenticated) return;
+    if (isConnected === prevConnected.current) return;
+    prevConnected.current = isConnected;
     refreshAll();
   }, [isConnected, authLoading, isAuthenticated, refreshAll]);
 
-  // Realtime: listeners con throttling + updates parciales (no full refresh por evento)
   React.useEffect(() => {
     if (!socket) return;
 
-    const scheduledFullRef = { id: 0 as any };
-    const scheduleFullRefresh = (delayMs = 650) => {
-      if (scheduledFullRef.id) window.clearTimeout(scheduledFullRef.id);
-      scheduledFullRef.id = window.setTimeout(() => refreshAll(), delayMs);
-    };
-
-    const lastBotRef = { v: null as any };
-    const lastNotificationIdRef = { v: null as string | null };
-    const lastLogIdRef = { v: null as string | null };
-    const lastGroupRefreshAtRef = { v: 0 };
-    const lastSubbotRefreshAtRef = { v: 0 };
-
     let raf = 0;
     let pendingStats: any = null;
+    const scheduledFullRef = { id: 0 as any };
+
+    const cooldownTimers = { group: 0, subbot: 0 };
+    const idCache = { notification: null as string | null, log: null as string | null };
 
     const flushStats = () => {
       if (!pendingStats) return;
       const next = pendingStats;
       pendingStats = null;
-      setDashboardStats((prev: any) => ({ ...(prev || {}), ...(next as any) }));
+      setDashboardStats(prev => {
+        const merged = { ...(prev || {}), ...next };
+        return shallowEqual(prev, merged) ? prev : merged;
+      });
       setLastUpdate(new Date());
       emitGlobalDataUpdated();
     };
 
     const handleStatsUpdate = (data: any) => {
       if (!data || typeof data !== 'object') return;
-      const newData = { ...(pendingStats || {}), ...(data as any) };
-      // Skip if no actual change
-      if (JSON.stringify(pendingStats) === JSON.stringify(newData)) return;
-      pendingStats = newData;
+      pendingStats = { ...(pendingStats || {}), ...data };
       if (!raf) {
         raf = window.requestAnimationFrame(() => {
           raf = 0;
@@ -233,159 +202,79 @@ export const GlobalUpdateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const handleBotStatusChange = (data: any) => {
       if (!data || typeof data !== 'object') return;
-      const prev = lastBotRef.v;
-      const hasChanges =
-        !prev ||
-        prev.connected !== data.connected ||
-        prev.isConnected !== data.isConnected ||
-        prev.connecting !== data.connecting ||
-        prev.status !== data.status ||
-        prev.phone !== data.phone ||
-        prev.qrCode !== data.qrCode ||
-        prev.pairingCode !== data.pairingCode;
-
-      if (!hasChanges) return;
-
-      lastBotRef.v = { ...(data as any) };
-      setBotStatus((p: any) => {
-        const next = { ...(p || {}), ...(data as any) };
-        // Only update if actually changed
-        if (JSON.stringify(p) === JSON.stringify(next)) return p;
-        return next;
+      setBotStatus(prev => {
+        const next = { ...(prev || {}), ...data };
+        return shallowEqual(prev, next) ? prev : next;
       });
       setLastUpdate(new Date());
-      emitGlobalDataUpdated();
     };
 
     const handleNotificationUpdate = (data: any) => {
       const id = String((data as any)?.id || '').trim();
-      if (!id) return;
-      if (id === lastNotificationIdRef.v) return;
-      lastNotificationIdRef.v = id;
-      setNotifications((prev) => [data, ...prev.slice(0, 9)]);
-      setLastUpdate(new Date());
-      emitGlobalDataUpdated();
-    };
-
-    const handleGlobalStateChange = () => {
-      // Cambio global: refresco fuerte, pero debounce para evitar tormenta
-      scheduleFullRefresh(500);
-    };
-
-    const handleGroupUpdate = () => {
-      const now = Date.now();
-      if (now - lastGroupRefreshAtRef.v < 5_000) return;
-      lastGroupRefreshAtRef.v = now;
-      // Dashboard suele reflejar recuentos relevantes
-      refreshDashboard();
+      if (!id || id === idCache.notification) return;
+      idCache.notification = id;
+      setNotifications(prev => [data, ...prev.slice(0, 9)]);
       setLastUpdate(new Date());
     };
 
-    const handleSubbotUpdate = () => {
+    const handleCooldown = (key: 'group' | 'subbot') => {
       const now = Date.now();
-      if (now - lastSubbotRefreshAtRef.v < 5_000) return;
-      lastSubbotRefreshAtRef.v = now;
+      if (now - cooldownTimers[key] < 5_000) return;
+      cooldownTimers[key] = now;
       refreshDashboard();
       setLastUpdate(new Date());
     };
 
     const handleLogEntry = (data: any) => {
       const id = String((data as any)?.id || '').trim();
-      if (!id) return;
-      if (id === lastLogIdRef.v) return;
-      lastLogIdRef.v = id;
-      window.dispatchEvent(
-        new CustomEvent('newLogEntry', {
-          detail: { log: data, timestamp: Date.now() },
-        })
-      );
+      if (!id || id === idCache.log) return;
+      idCache.log = id;
+      window.dispatchEvent(new CustomEvent('newLogEntry', { detail: { log: data, timestamp: Date.now() } }));
     };
 
     socket.on('bot:statusChanged', handleBotStatusChange);
     socket.on('bot:connected', handleBotStatusChange);
     socket.on('bot:disconnected', handleBotStatusChange);
-    socket.on('bot:globalStateChanged', handleGlobalStateChange);
+    socket.on('bot:globalStateChanged', () => {
+      if (scheduledFullRef.id) window.clearTimeout(scheduledFullRef.id);
+      scheduledFullRef.id = window.setTimeout(() => refreshAll(), 500);
+    });
 
     socket.on('stats:updated', handleStatsUpdate);
     socket.on('stats:update', handleStatsUpdate);
 
-    socket.on('group:updated', handleGroupUpdate);
-
-    socket.on('subbot:created', handleSubbotUpdate);
-    socket.on('subbot:connected', handleSubbotUpdate);
-    socket.on('subbot:disconnected', handleSubbotUpdate);
-    socket.on('subbot:deleted', handleSubbotUpdate);
+    socket.on('group:updated', () => handleCooldown('group'));
+    socket.on('subbot:created', () => handleCooldown('subbot'));
+    socket.on('subbot:connected', () => handleCooldown('subbot'));
+    socket.on('subbot:disconnected', () => handleCooldown('subbot'));
+    socket.on('subbot:deleted', () => handleCooldown('subbot'));
 
     socket.on('log:entry', handleLogEntry);
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
       if (scheduledFullRef.id) window.clearTimeout(scheduledFullRef.id);
-
       socket.off('bot:statusChanged', handleBotStatusChange);
       socket.off('bot:connected', handleBotStatusChange);
       socket.off('bot:disconnected', handleBotStatusChange);
-      socket.off('bot:globalStateChanged', handleGlobalStateChange);
-
+      socket.off('bot:globalStateChanged', refreshAll);
       socket.off('stats:updated', handleStatsUpdate);
       socket.off('stats:update', handleStatsUpdate);
-
-      socket.off('group:updated', handleGroupUpdate);
-
-      socket.off('subbot:created', handleSubbotUpdate);
-      socket.off('subbot:connected', handleSubbotUpdate);
-      socket.off('subbot:disconnected', handleSubbotUpdate);
-      socket.off('subbot:deleted', handleSubbotUpdate);
-
+      socket.off('group:updated', () => handleCooldown('group'));
+      socket.off('subbot:created', () => handleCooldown('subbot'));
+      socket.off('subbot:connected', () => handleCooldown('subbot'));
+      socket.off('subbot:disconnected', () => handleCooldown('subbot'));
+      socket.off('subbot:deleted', () => handleCooldown('subbot'));
       socket.off('log:entry', handleLogEntry);
     };
   }, [socket, refreshAll, refreshDashboard]);
 
-  // Fallback: focus/online solo si NO hay Socket.IO
-  React.useEffect(() => {
-    if (isConnected) return;
-
-    const onFocus = () => {
-      if (document.visibilityState !== 'visible') return;
-      refreshAll();
-    };
-    const onOnline = () => {
-      if (document.visibilityState !== 'visible') return;
-      refreshAll();
-    };
-
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('online', onOnline);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('online', onOnline);
-    };
-  }, [isConnected, refreshAll]);
-
-  // Evento manual: forzar refresh
-  React.useEffect(() => {
-    const handleCustomUpdate = () => refreshAll();
-    window.addEventListener('forceGlobalUpdate', handleCustomUpdate);
-    return () => window.removeEventListener('forceGlobalUpdate', handleCustomUpdate);
-  }, [refreshAll]);
-
   return (
-    <GlobalUpdateContext.Provider
-      value={{
-        dashboardStats,
-        botStatus,
-        systemStats,
-        notifications,
-        activeAlertCount,
-        refreshAll,
-        refreshDashboard,
-        refreshBotStatus,
-        refreshSystemStats,
-        refreshNotifications,
-        isRefreshing,
-        lastUpdate,
-      }}
-    >
+    <GlobalUpdateContext.Provider value={{
+      dashboardStats, botStatus, systemStats, notifications, activeAlertCount,
+      refreshAll, refreshDashboard, refreshBotStatus, refreshSystemStats, refreshNotifications,
+      isRefreshing, lastUpdate,
+    }}>
       {children}
     </GlobalUpdateContext.Provider>
   );

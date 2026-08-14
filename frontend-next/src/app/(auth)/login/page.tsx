@@ -14,6 +14,7 @@ import { notify } from '@/lib/notif';
 import { useDevicePerformance } from '@/contexts/DevicePerformanceContext';
 import { cn } from '@/lib/utils';
 import { LoginRolesSelector, type LoginRoleOption } from '@/components/auth/LoginRolesSelector';
+import apiService from '@/services/api';
 
 function FloatingSignal({ delay = 0, className = '' }: { delay?: number; className?: string }) {
   const reduceMotion = useReducedMotion();
@@ -165,8 +166,7 @@ export default function LoginPage() {
   const checkMaintenanceStatus = useCallback(async () => {
     try {
       setIsCheckingMaintenance(true);
-      const response = await fetch('/api/health');
-      const data = await response.json();
+      const data = await apiService.getSystemHealth();
       const siteKey = typeof data?.turnstileSiteKey === 'string' && data.turnstileSiteKey.trim() ? data.turnstileSiteKey.trim() : null;
       setTurnstileSiteKey(siteKey);
       if (typeof data?.turnstileRequired === 'boolean') setTurnstileRequired(data.turnstileRequired);
@@ -190,7 +190,7 @@ export default function LoginPage() {
       setDetectedIP(null);
       setShowMaintenanceLogin(true);
       setTurnstileSiteKey(null);
-      setTurnstileRequired(true);
+      setTurnstileRequired(false);
     } finally {
       setIsCheckingMaintenance(false);
     }

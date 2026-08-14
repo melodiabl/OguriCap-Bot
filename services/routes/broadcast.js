@@ -23,7 +23,38 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!message) return json(res, 400, { error: 'message es requerido' })
     const conn = global.conn
     if (!conn) return json(res, 503, { error: 'Bot no conectado' })
-    const jids = Array.isArray(targets) ? targets : Object.values(panelDb?.groups || {}).map(g => g?.wa_jid).filter(Boolean)
+    const allGroups = Object.values(panelDb?.groups || {}).filter(Boolean)
+    let jids = []
+    let stats = { groups: 0, channels: 0, communities: 0 }
+    if (Array.isArray(targets)) {
+      jids = targets
+    } else if (targets && typeof targets === 'object') {
+      const hasSpecific = targets.specific && Array.isArray(targets.specific) && targets.specific.length > 0
+      if (hasSpecific) {
+        jids = targets.specific
+      } else {
+        if (targets.groups) {
+          for (const g of allGroups) {
+            const jid = g?.wa_jid || g?.jid
+            if (!jid) continue
+            if (!jid.includes('@newsletter') && !jid.includes('@broadcast')) {
+              jids.push(jid); stats.groups++
+            }
+          }
+        }
+        if (targets.channels) {
+          for (const g of allGroups) {
+            const jid = g?.wa_jid || g?.jid
+            if (!jid) continue
+            if (jid.includes('@newsletter') || jid.includes('@broadcast')) {
+              jids.push(jid); stats.channels++
+            }
+          }
+        }
+      }
+    } else {
+      jids = allGroups.map(g => g?.wa_jid || g?.jid).filter(Boolean)
+    }
     const results = []
     for (const jid of jids) {
       try {
@@ -32,7 +63,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
         await new Promise(r => setTimeout(r, 300))
       } catch (err) { results.push({ jid, success: false, error: err?.message }) }
     }
-    return json(res, 200, { success: true, sent: results.filter(r => r.success).length, total: jids.length, results })
+    return json(res, 200, { success: true, sent: results.filter(r => r.success).length, total: jids.length, stats, results })
   }
 
   // ── /api/broadcast/full ───────────────────────────────────────────────────
@@ -46,7 +77,38 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     if (!message) return json(res, 400, { error: 'message es requerido' })
     const conn = global.conn
     if (!conn) return json(res, 503, { error: 'Bot no conectado' })
-    const jids = Array.isArray(targets) ? targets : Object.values(panelDb?.groups || {}).map(g => g?.wa_jid).filter(Boolean)
+    const allGroups = Object.values(panelDb?.groups || {}).filter(Boolean)
+    let jids = []
+    let stats = { groups: 0, channels: 0, communities: 0 }
+    if (Array.isArray(targets)) {
+      jids = targets
+    } else if (targets && typeof targets === 'object') {
+      const hasSpecific = targets.specific && Array.isArray(targets.specific) && targets.specific.length > 0
+      if (hasSpecific) {
+        jids = targets.specific
+      } else {
+        if (targets.groups) {
+          for (const g of allGroups) {
+            const jid = g?.wa_jid || g?.jid
+            if (!jid) continue
+            if (!jid.includes('@newsletter') && !jid.includes('@broadcast')) {
+              jids.push(jid); stats.groups++
+            }
+          }
+        }
+        if (targets.channels) {
+          for (const g of allGroups) {
+            const jid = g?.wa_jid || g?.jid
+            if (!jid) continue
+            if (jid.includes('@newsletter') || jid.includes('@broadcast')) {
+              jids.push(jid); stats.channels++
+            }
+          }
+        }
+      }
+    } else {
+      jids = allGroups.map(g => g?.wa_jid || g?.jid).filter(Boolean)
+    }
     const results = []
     for (const jid of jids) {
       try {
@@ -55,7 +117,7 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
         await new Promise(r => setTimeout(r, 300))
       } catch (err) { results.push({ jid, success: false, error: err?.message }) }
     }
-    return json(res, 200, { success: true, sent: results.filter(r => r.success).length, total: jids.length, results })
+    return json(res, 200, { success: true, sent: results.filter(r => r.success).length, total: jids.length, stats, results })
   }
 
   // ── /api/broadcast/email ──────────────────────────────────────────────────

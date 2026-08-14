@@ -99,8 +99,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
         setIsLoading(false);
-      } catch (error) {
-        console.error('Error initializing auth:', error);
+      } catch (error: any) {
+        // 401/403 = sesión expirada o token inválido — flujo normal, no loguear como error
+        if (error?.response?.status !== 401 && error?.response?.status !== 403) {
+          console.error('Error initializing auth:', error);
+        }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         clearTokenCookie();

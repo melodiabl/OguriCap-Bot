@@ -41,7 +41,14 @@ await m.react('🕒')
      const direct = out?.url
      if (r.data?.status && typeof direct === 'string' && direct) {
      try {
-      await conn.sendMessage(m.chat, { audio: { url: direct }, fileName: `play.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
+      if (out?.title) {
+       const bannerBuffer = out?.thumbnail ? await (await fetch(out.thumbnail)).arrayBuffer().then(b => Buffer.from(b)).catch(() => null) : null
+       await conn.sendMessage(m.chat, {
+        text: `「✦」Descargando *<${out.title}>*`,
+        contextInfo: { externalAdReply: { title: '✧ s⍴᥆𝗍і𝖿ᥡ • mᥙsіᥴ ✧', body: dev, mediaType: 1, thumbnail: bannerBuffer, renderLargerThumbnail: true } }
+       }, { quoted: m }).catch(() => {})
+      }
+      await conn.sendMessage(m.chat, { audio: { url: direct }, fileName: `${out?.title || 'play'}.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
       await m.react('✔️')
       return
      } catch (e) {
@@ -51,10 +58,21 @@ await m.react('🕒')
     }
    } catch {}
 
-const res = await axios.get(`${global.APIs.adonix.url}/download/spotify?apikey=${global.APIs.adonix.key}&q=${encodeURIComponent(text)}`)
-if (!res.data?.status || !res.data?.song || !res.data?.downloadUrl) throw new Error("No se encontró la canción en Adonix.")
-const s = res.data.song
-const data = { title: s.title || "Desconocido", artist: s.artist || "Desconocido", duration: s.duration || "Desconocido", image: s.thumbnail || null, download: res.data.downloadUrl, url: s.spotifyUrl || text }
+// Respaldo: Delirius (adonix murió). Buscar el track y descargarlo.
+const isUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
+let trackUrl = text
+let s = {}
+if (!isUrl) {
+const search = await axios.get(`${global.APIs.delirius.url}/search/spotify?q=${encodeURIComponent(text)}&limit=1`)
+const first = search.data?.data?.[0]
+if (!first?.url) throw new Error("No se encontró la canción.")
+trackUrl = first.url
+s = first
+}
+const res = await axios.get(`${global.APIs.delirius.url}/download/spotifydl?url=${encodeURIComponent(trackUrl)}`)
+const d = res.data?.data
+if (!res.data?.status || !d?.download) throw new Error("No se pudo descargar la canción.")
+const data = { title: d.title || s.title || "Desconocido", artist: d.author || s.artist || "Desconocido", duration: s.duration || "Desconocido", image: d.image || null, download: d.download, url: trackUrl }
 const caption = `「✦」Descargando *<${data.title}>*\n\nꕥ Autor » *${data.artist}*\nⴵ Duración » *${data.duration}*\n🜸 Enlace » ${data.url}`
 const bannerBuffer = data.image ? await (await fetch(data.image)).arrayBuffer().then(b => Buffer.from(b)) : null
 await conn.sendMessage(m.chat, {

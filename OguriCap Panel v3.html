@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OguriCap Panel v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════
+   TOKENS
+════════════════════════════════════════════════════════ */
+:root {
+  --bg:   #080a09;
+  --bg1:  #0c1009;
+  --bg2:  #0e120b;
+  --card: rgba(12,16,11,.76);
+  --b0:   rgba(37,211,102,.05);
+  --b1:   rgba(37,211,102,.10);
+  --b2:   rgba(37,211,102,.20);
+  --b3:   rgba(37,211,102,.35);
+  --g:    #25d366;
+  --t:    #2dd4bf;
+  --r:    #ff4d8d;
+  --a:    #f59e0b;
+  --v:    #8b5cf6;
+  --m:    #a7f3c7;
+  --tx:   #f2f6f3;
+  --tx2:  #b4ccbc;
+  --mu:   #7a9086;
+  --mu2:  #3e5448;
+  --r0:5px; --r1:10px; --r2:14px; --r3:20px; --r4:28px;
+  --sh0: 0 2px 12px rgba(0,0,0,.3);
+  --sh1: 0 20px 60px -32px rgba(0,0,0,.5);
+  --sh2: 0 28px 80px -28px rgba(0,0,0,.8), 0 0 0 1px rgba(37,211,102,.06);
+  --sg:  0 0 22px rgba(37,211,102,.5),  0 0 44px rgba(37,211,102,.22);
+  --sm:  0 0 16px rgba(37,211,102,.42), 0 0 32px rgba(45,212,191,.28), 0 0 52px rgba(255,77,141,.14);
+  --sc:  0 0 26px rgba(37,211,102,.32), 0 0 60px rgba(45,212,191,.18), 0 0 100px rgba(255,77,141,.10);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESET + BASE
+════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+html, body { height: 100%; overflow: hidden }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--tx);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+input, button, textarea { font-family: inherit }
+a { text-decoration: none; color: inherit }
+.mono { font-family: 'JetBrains Mono', monospace }
+
+/* ═══════════════════════════════════════════════════════
+   GLOBAL BACKGROUND
+════════════════════════════════════════════════════════ */
+#canvas-bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+.orb {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+  filter: blur(120px);
+}
+.orb-1 { width:700px;height:700px;top:-280px;left:-200px;  background:radial-gradient(circle,rgba(37,211,102,.055) 0%,transparent 65%) }
+.orb-2 { width:600px;height:600px;bottom:-200px;right:-150px; background:radial-gradient(circle,rgba(45,212,191,.04)  0%,transparent 65%) }
+.orb-3 { width:500px;height:500px;top:35%;right:18%;        background:radial-gradient(circle,rgba(255,77,141,.025) 0%,transparent 65%) }
+
+/* ═══════════════════════════════════════════════════════
+   SCREEN SYSTEM
+════════════════════════════════════════════════════════ */
+.screen {
+  position: fixed; inset: 0; z-index: 1;
+  opacity: 0; pointer-events: none;
+  transition: opacity .5s cubic-bezier(.4,0,.2,1), transform .5s cubic-bezier(.4,0,.2,1);
+  transform: translateY(12px) scale(.994);
+}
+.screen.on {
+  opacity: 1; pointer-events: all;
+  transform: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TWEAKS / SCREEN SWITCHER
+════════════════════════════════════════════════════════ */
+#tweaks {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  z-index: 999;
+  display: flex; align-items: center; gap: 3px;
+  padding: 4px; border-radius: 999px;
+  background: rgba(6,8,7,.92);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--b2);
+  box-shadow: 0 8px 40px rgba(0,0,0,.6), var(--sg);
+}
+#tweaks button {
+  padding: 7px 20px; border: none; border-radius: 999px; cursor: pointer;
+  font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase;
+  transition: all .22s; background: transparent; color: var(--mu);
+}
+#tweaks button:hover { color: var(--tx); background: rgba(255,255,255,.06) }
+#tweaks button.on { background: linear-gradient(135deg, var(--g), var(--t)); color: #fff; box-shadow: var(--sg) }
+#tweaks .div { width: 1px; height: 16px; background: var(--b1); flex-shrink: 0 }
+
+/* ═══════════════════════════════════════════════════════
+   GLASS CARD COMPONENT
+════════════════════════════════════════════════════════ */
+.gc {
+  background: var(--card);
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
+  border: 1px solid var(--b1);
+  border-radius: var(--r4);
+  box-shadow: var(--sh1);
+  position: relative; overflow: hidden;
+}
+/* Top shine line */
+.gc::before {
+  content: '';
+  position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
+  z-index: 1;
+}
+/* Grid texture */
+.gc::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.gc > * { position: relative; z-index: 2 }
+.gc:hover { border-color: var(--b2); box-shadow: var(--sh2) }
+
+/* ═══════════════════════════════════════════════════════
+   STATUS + BADGE COMPONENTS
+════════════════════════════════════════════════════════ */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 9px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+}
+.badge-g { background: rgba(37,211,102,.1);  color: var(--g); border: 1px solid rgba(37,211,102,.22) }
+.badge-t { background: rgba(45,212,191,.1);  color: var(--t); border: 1px solid rgba(45,212,191,.22) }
+.badge-r { background: rgba(255,77,141,.1);  color: var(--r); border: 1px solid rgba(255,77,141,.22) }
+.badge-a { background: rgba(245,158,11,.1);  color: var(--a); border: 1px solid rgba(245,158,11,.22) }
+.badge-v { background: rgba(139,92,246,.1);  color: var(--v); border: 1px solid rgba(139,92,246,.22) }
+
+.pulse {
+  width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+}
+.pulse-g { background: var(--g); animation: pg 2.4s ease-in-out infinite }
+.pulse-r { background: var(--r); animation: pr 2.4s ease-in-out infinite }
+.pulse-a { background: var(--a); animation: pa 2.4s ease-in-out infinite }
+@keyframes pg { 0%,100%{ box-shadow:0 0 0 2px rgba(37,211,102,.22) } 50%{ box-shadow:0 0 0 5px rgba(37,211,102,.07) } }
+@keyframes pr { 0%,100%{ box-shadow:0 0 0 2px rgba(255,77,141,.22) } 50%{ box-shadow:0 0 0 5px rgba(255,77,141,.07) } }
+@keyframes pa { 0%,100%{ box-shadow:0 0 0 2px rgba(245,158,11,.22)  } 50%{ box-shadow:0 0 0 5px rgba(245,158,11,.07)  } }
+
+/* Sidebar online dot */
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--g);
+  box-shadow: 0 0 8px var(--g);
+  animation: pg 2.4s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════
+   BUTTONS
+════════════════════════════════════════════════════════ */
+.btn-primary {
+  padding: 13px 28px; border: none; border-radius: var(--r2);
+  background: linear-gradient(135deg, var(--g), var(--t));
+  color: #fff; font-weight: 800; font-size: 14px; cursor: pointer;
+  transition: all .22s; box-shadow: var(--sg); display: inline-flex;
+  align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
+}
+.btn-primary:hover { transform: translateY(-2px) scale(1.015); box-shadow: var(--sm) }
+.btn-primary:active { transform: scale(.985) }
+
+.btn-ghost {
+  padding: 9px 18px; border: 1px solid var(--b1); border-radius: var(--r2);
+  background: transparent; color: var(--mu); font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-ghost:hover { border-color: var(--b2); color: var(--tx2); background: rgba(255,255,255,.04) }
+
+.btn-icon {
+  width: 36px; height: 36px; border: 1px solid var(--b1); border-radius: var(--r1);
+  background: rgba(12,16,11,.5); color: var(--mu); cursor: pointer;
+  transition: all .18s; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0; position: relative;
+}
+.btn-icon:hover { border-color: var(--b2); background: rgba(37,211,102,.06); color: var(--g) }
+
+
+/* ═══════════════════════════════════════════════════════
+   ██ SCREEN 1 — LOGIN
+════════════════════════════════════════════════════════ */
+#sc-login { display: grid; grid-template-columns: 1.1fr 1fr }
+
+/* ── Left brand panel ─────────────────────────── */
+.login-brand {
+  position: relative; overflow: hidden;
+  padding: 56px 60px;
+  display: flex; flex-direction: column; gap: 44px; justify-content: center;
+  border-right: 1px solid var(--b1);
+}
+/* Atmospheric glow */
+.login-brand::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 25% 40%, rgba(37,211,102,.09) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 70% 65%, rgba(45,212,191,.06) 0%, transparent 70%);
+}
+/* Decorative corner brackets */
+.corner-tl, .corner-br {
+  position: absolute; width: 22px; height: 22px;
+  opacity: .35;
+}
+.corner-tl { top: 28px; left: 28px;
+  border-top: 1.5px solid var(--g); border-left: 1.5px solid var(--g) }
+.corner-br { bottom: 28px; right: 28px;
+  border-bottom: 1.5px solid var(--g); border-right: 1.5px solid var(--g) }
+
+/* Brand identity */
+.brand-row { display: flex; align-items: center; gap: 16px; position: relative }
+.brand-icon {
+  width: 54px; height: 54px; border-radius: 15px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(37,211,102,.18), rgba(45,212,191,.1));
+  border: 1px solid var(--b2);
+  display: flex; align-items: center; justify-content: center; font-size: 26px;
+  box-shadow: 0 0 0 8px rgba(37,211,102,.04), var(--sh0);
+}
+.brand-name { font-size: 28px; font-weight: 900; letter-spacing: -.025em; line-height: 1 }
+.brand-name b { color: var(--g) }
+.brand-ver {
+  font-size: 10px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--mu); margin-top: 5px;
+}
+
+/* Hero text */
+.brand-hero { position: relative }
+.brand-hero h1 {
+  font-size: clamp(2.2rem, 3.4vw, 3.1rem);
+  font-weight: 900; letter-spacing: -.03em; line-height: 1.02;
+}
+.brand-hero h1 em {
+  font-style: normal;
+  background: linear-gradient(125deg, var(--g) 0%, var(--t) 45%, var(--g) 100%);
+  background-size: 200%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: grad 5s ease-in-out infinite;
+}
+@keyframes grad { 0%,100%{background-position:0%} 50%{background-position:100%} }
+.brand-hero p {
+  margin-top: 16px; font-size: 14px; font-weight: 500;
+  color: var(--mu); line-height: 1.65; max-width: 42ch;
+}
+
+/* Signal cards (live stats) */
+.signal-cards { display: flex; flex-direction: column; gap: 10px; position: relative }
+.signal-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border-radius: var(--r3);
+  border: 1px solid var(--b1); background: rgba(12,16,11,.65);
+  backdrop-filter: blur(8px);
+  position: relative; overflow: hidden;
+  animation: slide-in .55s cubic-bezier(.16,1,.3,1) backwards;
+}
+.signal-card:nth-child(2) { animation-delay: .1s }
+.signal-card:nth-child(3) { animation-delay: .2s }
+@keyframes slide-in { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:none} }
+/* Left accent bar */
+.signal-card::before {
+  content: ''; position: absolute; left: 0; top: 10%; bottom: 10%;
+  width: 2px; border-radius: 2px;
+}
+.signal-card.sg::before { background: linear-gradient(180deg, transparent, var(--g), transparent) }
+.signal-card.st::before { background: linear-gradient(180deg, transparent, var(--t), transparent) }
+.signal-card.sa::before { background: linear-gradient(180deg, transparent, var(--a), transparent) }
+
+.sc-icon {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.sc-icon.sg { background: rgba(37,211,102,.1) }
+.sc-icon.st { background: rgba(45,212,191,.1) }
+.sc-icon.sa { background: rgba(245,158,11,.1) }
+.sc-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 500; line-height: 1 }
+.sc-lbl { font-size: 12px; font-weight: 600; color: var(--mu); margin-top: 2px }
+
+/* Live status */
+.brand-status {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 9px 18px; border-radius: 999px;
+  background: rgba(37,211,102,.07); border: 1px solid rgba(37,211,102,.22);
+  font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--g); width: fit-content; position: relative;
+}
+
+/* ── Right form panel ─────────────────────────── */
+.login-form-wrap {
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 50px;
+  background: rgba(8,10,9,.25);
+}
+.login-form {
+  width: 100%; max-width: 390px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+
+/* Form header */
+.fhead h2 { font-size: 23px; font-weight: 900; letter-spacing: -.02em }
+.fhead h2 span { color: var(--g) }
+.fhead p { margin-top: 6px; font-size: 13px; color: var(--mu); font-weight: 500 }
+
+/* Divider */
+.fdiv {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 9px; font-weight: 900; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--mu2);
+}
+.fdiv::before, .fdiv::after {
+  content: ''; flex: 1; height: 1px; background: var(--b0);
+}
+
+/* Role selector */
+.role-tabs {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
+  padding: 5px; border-radius: var(--r3);
+  background: rgba(8,10,9,.6); border: 1px solid var(--b1);
+}
+.rtab {
+  padding: 10px 4px; border: 1px solid transparent; border-radius: var(--r2);
+  background: transparent; cursor: pointer; transition: all .2s;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.rtab .ico { font-size: 16px }
+.rtab .lbl { font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--mu) }
+.rtab:hover .lbl { color: var(--tx2) }
+.rtab:hover { background: rgba(255,255,255,.04) }
+.rtab.on {
+  background: rgba(37,211,102,.09); border-color: var(--b2);
+  box-shadow: 0 0 14px rgba(37,211,102,.12);
+}
+.rtab.on .lbl { color: var(--g) }
+
+/* Form inputs */
+.finput { display: flex; flex-direction: column; gap: 7px }
+.finput label {
+  font-size: 9px; font-weight: 900; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--mu);
+}
+.finput-wrap { position: relative }
+.finput input {
+  width: 100%; padding: 13px 16px;
+  background: rgba(12,16,11,.9); border: 1px solid var(--b1);
+  border-radius: var(--r2); color: var(--tx); font-size: 14px; font-weight: 500;
+  outline: none; transition: all .22s;
+}
+.finput input:focus {
+  border-color: rgba(37,211,102,.32);
+  box-shadow: 0 0 0 3px rgba(37,211,102,.08), 0 10px 28px rgba(37,211,102,.08);
+}
+.finput input::placeholder { color: var(--mu2) }
+.finput .eye-btn {
+  position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--mu);
+  font-size: 15px; padding: 4px; transition: color .18s;
+}
+.finput .eye-btn:hover { color: var(--tx2) }
+
+/* Form row */
+.frow { display: flex; align-items: center; justify-content: space-between }
+.fcheck {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; color: var(--mu); cursor: pointer;
+}
+.fcheck input { accent-color: var(--g) }
+.flink { font-size: 12px; font-weight: 700; color: var(--g) }
+
+/* Form footer */
+.ffoot { text-align: center; font-size: 12px; font-weight: 500; color: var(--mu) }
+.ffoot a { color: var(--g); font-weight: 700 }
+
+
+/* ═══════════════════════════════════════════════════════
+   ██ SCREEN 2 — DASHBOARD
+════════════════════════════════════════════════════════ */
+#sc-dash { display: flex }
+
+/* ── Sidebar ──────────────────────────────────── */
+.sidebar {
+  width: 252px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--b0);
+  background: rgba(7,9,8,.78);
+  backdrop-filter: blur(24px);
+  overflow-y: auto;
+  padding: 16px 10px;
+}
+.sidebar::-webkit-scrollbar { display: none }
+
+.sb-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 18px; margin-bottom: 2px;
+  border-bottom: 1px solid var(--b0);
+}
+.sb-avatar {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(37,211,102,.18), rgba(45,212,191,.08));
+  border: 1px solid var(--b2);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.sb-name { font-size: 15px; font-weight: 900; letter-spacing: -.01em }
+.sb-name span { color: var(--g) }
+.sb-live-dot { margin-left: auto; flex-shrink: 0 }
+
+.nav-group {
+  font-size: 8px; font-weight: 900; letter-spacing: .25em;
+  text-transform: uppercase; color: var(--mu2);
+  padding: 16px 12px 5px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border-radius: var(--r2);
+  font-size: 13px; font-weight: 600; color: var(--mu);
+  cursor: pointer; transition: all .18s; user-select: none;
+  position: relative;
+}
+.nav-item:hover { background: rgba(255,255,255,.04); color: var(--tx2) }
+.nav-item.active { background: rgba(37,211,102,.07); color: var(--g); font-weight: 700 }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 22%; bottom: 22%;
+  width: 2px; border-radius: 2px; background: var(--g);
+}
+.nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0 }
+.nav-badge {
+  margin-left: auto; padding: 1px 7px; border-radius: 999px;
+  font-size: 9px; font-weight: 900;
+}
+.nb-g { background: rgba(37,211,102,.12); color: var(--g) }
+.nb-r { background: rgba(255,77,141,.12); color: var(--r) }
+
+/* Sidebar bot card */
+.sb-bot {
+  margin-top: auto; padding-top: 14px;
+  border-top: 1px solid var(--b0);
+}
+.sb-bot-card {
+  padding: 11px 12px; border-radius: var(--r3);
+  border: 1px solid var(--b1); background: rgba(12,16,11,.5);
+}
+.sbbot-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px }
+.sbbot-name { font-size: 13px; font-weight: 800 }
+.sbbot-phone {
+  font-size: 11px; color: var(--mu);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Main area ────────────────────────────────── */
+.dash-main { flex: 1; display: flex; flex-direction: column; overflow: hidden }
+
+/* Header bar */
+.dash-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 26px;
+  border-bottom: 1px solid var(--b0);
+  background: rgba(7,9,8,.65); backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+.dh-title { font-size: 18px; font-weight: 900; letter-spacing: -.015em }
+.dh-sub {
+  font-size: 11px; color: var(--mu); margin-top: 2px;
+  display: flex; align-items: center; gap: 7px;
+}
+.dh-live { color: var(--g); font-weight: 700 }
+.dh-right { display: flex; align-items: center; gap: 8px }
+.dh-user {
+  display: flex; align-items: center; gap: 9px;
+  padding: 5px 12px 5px 5px; border-radius: 999px;
+  border: 1px solid var(--b1); background: rgba(12,16,11,.5);
+  cursor: pointer; transition: all .18s;
+}
+.dh-user:hover { border-color: var(--b2) }
+.user-av {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--g), var(--t));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #fff;
+}
+.user-name { font-size: 12px; font-weight: 800 }
+.user-role { font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--g) }
+.notif-btn { position: relative }
+.notif-pip {
+  position: absolute; top: 5px; right: 5px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--r); border: 1.5px solid var(--bg);
+}
+
+/* Content */
+.dash-content {
+  flex: 1; overflow-y: auto;
+  padding: 22px 26px;
+}
+.dash-content::-webkit-scrollbar { width: 4px }
+.dash-content::-webkit-scrollbar-track { background: transparent }
+.dash-content::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 2px }
+
+/* ── Stat cards ───────────────────────────────── */
+.stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 13px; margin-bottom: 16px }
+
+.stat-card { padding: 18px 20px; transition: all .22s; cursor: default }
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--sh2) }
+.stat-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px }
+.stat-icon {
+  width: 36px; height: 36px; border-radius: var(--r2);
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.stat-badge { font-size: 8px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px }
+.stat-lbl { font-size: 9px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; color: var(--mu); margin-bottom: 6px }
+.stat-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.15rem; font-weight: 500; line-height: 1;
+  margin-bottom: 6px;
+}
+.stat-trend { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 3px; margin-bottom: 14px }
+.trend-up { color: var(--g) } .trend-dn { color: var(--r) } .trend-fl { color: var(--mu) }
+
+/* SVG Sparkline */
+.sparkline { width: 100%; height: 30px; display: block; overflow: visible }
+.spark-line { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke }
+.spark-fill { stroke: none }
+
+/* ── Mid row ──────────────────────────────────── */
+.mid-row { display: grid; grid-template-columns: 1.7fr 1fr; gap: 13px; margin-bottom: 16px }
+
+/* Bot status card */
+.bot-card { padding: 22px; transition: all .22s }
+.bot-card:hover { transform: translateY(-2px) }
+.bcard-hdr { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px }
+.bcard-av {
+  width: 56px; height: 56px; border-radius: var(--r3); flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(37,211,102,.14), rgba(45,212,191,.09));
+  border: 1px solid var(--b2);
+  display: flex; align-items: center; justify-content: center; font-size: 24px;
+  position: relative;
+}
+.bcard-av::after {
+  content: ''; position: absolute; bottom: -2px; right: -2px;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--g); border: 2.5px solid var(--bg);
+  box-shadow: 0 0 10px var(--g);
+}
+.bcard-name { font-size: 19px; font-weight: 900; letter-spacing: -.02em }
+.bcard-phone { font-size: 12px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin: 2px 0 8px }
+.bcard-badges { display: flex; gap: 6px; flex-wrap: wrap }
+.bcard-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 16px }
+.bstat {
+  padding: 13px; border-radius: var(--r3);
+  background: rgba(255,255,255,.026); border: 1px solid var(--b0);
+}
+.bstat-v { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 500; line-height: 1 }
+.bstat-l { font-size: 9px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; color: var(--mu); margin-top: 5px }
+/* Health bars */
+.health-section { display: flex; flex-direction: column; gap: 10px }
+.hrow { display: flex; flex-direction: column; gap: 5px }
+.hrow-hdr { display: flex; justify-content: space-between; align-items: center }
+.hrow-hdr span { font-size: 11px; font-weight: 700; color: var(--mu) }
+.hrow-hdr strong { font-size: 11px; font-weight: 800 }
+.hbar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.06); overflow: hidden }
+.hbar-fill { height: 100%; border-radius: 2px; transition: width 1.2s cubic-bezier(.16,1,.3,1) }
+
+/* Subbots card */
+.subbots-card { padding: 18px; display: flex; flex-direction: column; gap: 12px; transition: all .22s }
+.subbots-card:hover { transform: translateY(-2px) }
+.subbots-hdr { display: flex; align-items: center; justify-content: space-between }
+.subbots-hdr h3 { font-size: 14px; font-weight: 800 }
+.subbot-list { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto }
+.subbot-list::-webkit-scrollbar { display: none }
+.sub-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--r2);
+  border: 1px solid var(--b0); background: rgba(255,255,255,.016);
+  cursor: default; transition: all .15s;
+}
+.sub-item:hover { border-color: var(--b1); background: rgba(255,255,255,.03) }
+.sub-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0 }
+.sub-dot.on { background: var(--g); box-shadow: 0 0 5px var(--g) }
+.sub-dot.off { background: var(--mu2) }
+.sub-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.sub-up { font-size: 10px; color: var(--mu); font-family: 'JetBrains Mono', monospace; flex-shrink: 0 }
+
+/* ── Bottom row ───────────────────────────────── */
+.bottom-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 13px }
+
+/* Activity feed */
+.activity-card { padding: 20px; transition: all .22s }
+.activity-card:hover { transform: translateY(-2px) }
+.act-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px }
+.act-hdr h3 { font-size: 14px; font-weight: 800 }
+.act-sub { font-size: 11px; font-weight: 600; color: var(--mu) }
+.act-feed { display: flex; flex-direction: column; gap: 9px; max-height: 210px; overflow-y: auto }
+.act-feed::-webkit-scrollbar { width: 3px }
+.act-feed::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 2px }
+.act-item { display: flex; align-items: flex-start; gap: 10px }
+.act-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex-shrink: 0 }
+.act-body { flex: 1 }
+.act-text { font-size: 12px; font-weight: 600; color: var(--tx2); line-height: 1.4 }
+.act-meta { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--mu); margin-top: 2px }
+
+/* Quick actions */
+.qa-card { padding: 20px; transition: all .22s }
+.qa-card:hover { transform: translateY(-2px) }
+.qa-card > h3 { font-size: 14px; font-weight: 800; margin-bottom: 14px }
+.qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.qa-btn {
+  padding: 14px 8px; border-radius: var(--r3);
+  border: 1px solid var(--b1); background: rgba(255,255,255,.022);
+  cursor: pointer; transition: all .2s; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+}
+.qa-btn:hover { border-color: var(--b2); background: rgba(37,211,102,.05); transform: translateY(-2px); box-shadow: var(--sh0) }
+.qa-btn:hover .qa-ico { transform: scale(1.15) }
+.qa-ico { font-size: 20px; transition: transform .2s }
+.qa-lbl { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--tx2) }
+
+
+/* ═══════════════════════════════════════════════════════
+   ██ SCREEN 3 — SUBBOTS
+════════════════════════════════════════════════════════ */
+#sc-subbots { overflow-y: auto }
+.page-wrap { max-width: 1080px; margin: 0 auto; padding: 36px 32px }
+.page-back {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700; color: var(--mu);
+  cursor: pointer; margin-bottom: 20px; width: fit-content;
+  transition: color .18s;
+}
+.page-back:hover { color: var(--tx2) }
+.page-title { font-size: 1.65rem; font-weight: 900; letter-spacing: -.025em }
+.page-desc { font-size: 13px; color: var(--mu); margin-top: 5px }
+.page-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; margin-bottom: 26px }
+
+.bots-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 13px }
+.bot-grid-card { padding: 20px; transition: all .22s; cursor: default }
+.bot-grid-card:hover { transform: translateY(-4px); box-shadow: var(--sh2) }
+.bgc-hdr { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px }
+.bgc-av {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: rgba(37,211,102,.08); border: 1px solid var(--b1);
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.bgc-name { font-size: 14px; font-weight: 800 }
+.bgc-phone { font-size: 11px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin-top: 2px }
+.bgc-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px }
+.bgc-m {
+  padding: 10px 12px; border-radius: var(--r2);
+  background: rgba(255,255,255,.026); border: 1px solid var(--b0);
+}
+.bgc-mv { font-family: 'JetBrains Mono', monospace; font-size: .95rem; font-weight: 500 }
+.bgc-ml { font-size: 8px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; color: var(--mu); margin-top: 3px }
+.bgc-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 13px; border-top: 1px solid var(--b0);
+}
+.bgc-up { font-size: 12px; color: var(--mu) }
+.bgc-up b { color: var(--tx2) }
+
+/* ══════════════════ ANIMATIONS ══════════════════════ */
+@keyframes fade-up {
+  from { opacity:0; transform:translateY(18px) }
+  to   { opacity:1; transform:none }
+}
+.a1 { animation: fade-up .5s cubic-bezier(.16,1,.3,1) backwards }
+.a2 { animation: fade-up .5s .07s cubic-bezier(.16,1,.3,1) backwards }
+.a3 { animation: fade-up .5s .14s cubic-bezier(.16,1,.3,1) backwards }
+.a4 { animation: fade-up .5s .21s cubic-bezier(.16,1,.3,1) backwards }
+</style>
+</head>
+<body>
+
+<!-- ══════ GLOBAL BACKGROUND ══════════════════════════════ -->
+<canvas id="canvas-bg"></canvas>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+
+<!-- ══════ SCREEN 1 — LOGIN ════════════════════════════════ -->
+<div id="sc-login" class="screen on">
+
+  <!-- Left brand panel -->
+  <div class="login-brand">
+    <div class="corner-tl"></div>
+    <div class="corner-br"></div>
+
+    <div class="brand-row">
+      <div class="brand-icon">🐾</div>
+      <div>
+        <div class="brand-name">OguriCap<b>.</b></div>
+        <div class="brand-ver">Panel de control v3.0</div>
+      </div>
+    </div>
+
+    <div class="brand-hero">
+      <h1>El control room<br>de tu <em>WhatsApp</em>.</h1>
+      <p>Monitorea y comanda tus bots en tiempo real. Cada color es una señal. Cada número, un pulso vivo del sistema.</p>
+    </div>
+
+    <div class="signal-cards">
+      <div class="signal-card sg">
+        <div class="sc-icon sg">🤖</div>
+        <div>
+          <div class="sc-val">7 / 7</div>
+          <div class="sc-lbl">Subbots conectados ahora</div>
+        </div>
+        <div class="badge badge-g" style="margin-left:auto"><span class="pulse pulse-g"></span>Live</div>
+      </div>
+      <div class="signal-card st">
+        <div class="sc-icon st">⚡</div>
+        <div>
+          <div class="sc-val">29,108</div>
+          <div class="sc-lbl">Comandos procesados hoy</div>
+        </div>
+        <div class="badge badge-t" style="margin-left:auto">↑ 14%</div>
+      </div>
+      <div class="signal-card sa">
+        <div class="sc-icon sa">⏱</div>
+        <div>
+          <div class="sc-val">14d 6h</div>
+          <div class="sc-lbl">Uptime continuo del sistema</div>
+        </div>
+        <div class="badge badge-a" style="margin-left:auto">99.8%</div>
+      </div>
+    </div>
+
+    <div class="brand-status">
+      <span class="pulse pulse-g"></span>
+      Sistema operativo y estable
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="login-form-wrap">
+    <div class="login-form">
+
+      <div class="fhead">
+        <h2>Bienvenido <span>de vuelta</span></h2>
+        <p>Selecciona tu rol e ingresa tus credenciales de acceso</p>
+      </div>
+
+      <div>
+        <div class="fdiv" style="margin-bottom:11px">Rol de acceso</div>
+        <div class="role-tabs">
+          <button class="rtab on" onclick="selRole(this)">
+            <span class="ico">👑</span>
+            <span class="lbl">Owner</span>
+          </button>
+          <button class="rtab" onclick="selRole(this)">
+            <span class="ico">🛡️</span>
+            <span class="lbl">Admin</span>
+          </button>
+          <button class="rtab" onclick="selRole(this)">
+            <span class="ico">⚖️</span>
+            <span class="lbl">Mod</span>
+          </button>
+          <button class="rtab" onclick="selRole(this)">
+            <span class="ico">🧩</span>
+            <span class="lbl">User</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="finput">
+        <label>Identificador</label>
+        <div class="finput-wrap">
+          <input type="text" placeholder="usuario" value="admin@oguricap" autocomplete="username">
+        </div>
+      </div>
+
+      <div class="finput">
+        <label>Contraseña</label>
+        <div class="finput-wrap">
+          <input type="password" id="pwd-field" placeholder="••••••••" autocomplete="current-password">
+          <button class="eye-btn" onclick="togglePwd()" type="button">👁</button>
+        </div>
+      </div>
+
+      <div class="frow">
+        <label class="fcheck">
+          <input type="checkbox" checked> Recordarme
+        </label>
+        <a href="#" class="flink">¿Olvidaste tu contraseña?</a>
+      </div>
+
+      <button class="btn-primary" style="width:100%" onclick="goScreen('dash')">
+        Ingresar al panel <span>→</span>
+      </button>
+
+      <p class="ffoot">¿No tienes cuenta? <a href="#" class="flink">Crear cuenta</a></p>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════ SCREEN 2 — DASHBOARD ═══════════════════════════ -->
+<div id="sc-dash" class="screen">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="sb-avatar">🐾</div>
+      <div>
+        <div class="sb-name">OguriCap<span>.</span></div>
+      </div>
+      <div class="sb-live-dot live-dot"></div>
+    </div>
+
+    <span class="nav-group">General</span>
+    <div class="nav-item active"><span class="nav-icon">⊞</span>Dashboard</div>
+    <div class="nav-item" onclick="goScreen('subbots')"><span class="nav-icon">🤖</span>Subbots<span class="nav-badge nb-g">7</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span>Usuarios</div>
+    <div class="nav-item"><span class="nav-icon">💬</span>Grupos</div>
+    <div class="nav-item"><span class="nav-icon">📢</span>Broadcast</div>
+
+    <span class="nav-group">Control</span>
+    <div class="nav-item"><span class="nav-icon">🔌</span>Plugins</div>
+    <div class="nav-item"><span class="nav-icon">🧠</span>IA Chat</div>
+    <div class="nav-item"><span class="nav-icon">🎵</span>Multimedia</div>
+    <div class="nav-item"><span class="nav-icon">🔔</span>Alertas<span class="nav-badge nb-r">3</span></div>
+
+    <span class="nav-group">Sistema</span>
+    <div class="nav-item"><span class="nav-icon">📊</span>Analytics</div>
+    <div class="nav-item"><span class="nav-icon">📋</span>Logs</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>Configuración</div>
+
+    <div class="sb-bot">
+      <div class="sb-bot-card">
+        <div class="sbbot-row">
+          <span class="sbbot-name">𝐿𝓊𝓁𝓊𝓏☆</span>
+          <span class="badge badge-g"><span class="pulse pulse-g"></span>Online</span>
+        </div>
+        <div class="sbbot-phone">+52 55 •••• ••78</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="dash-main">
+
+    <!-- Header -->
+    <header class="dash-header">
+      <div>
+        <div class="dh-title">Panel de control</div>
+        <div class="dh-sub">
+          Actualizado hace <span class="mono">12s</span>
+          <span>·</span>
+          <span class="dh-live">● Socket conectado</span>
+        </div>
+      </div>
+      <div class="dh-right">
+        <button class="btn-ghost">↻ Refrescar</button>
+        <button class="btn-primary" style="padding:9px 18px;font-size:12px">+ Broadcast</button>
+        <button class="btn-icon notif-btn">
+          🔔
+          <span class="notif-pip"></span>
+        </button>
+        <div class="dh-user">
+          <div class="user-av">A</div>
+          <div>
+            <div class="user-name">admin</div>
+            <div class="user-role">Owner</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="dash-content">
+
+      <!-- Stats row -->
+      <div class="stat-row">
+
+        <div class="gc stat-card a1">
+          <div class="stat-top">
+            <div>
+              <div class="stat-lbl">Usuarios panel</div>
+              <div class="stat-val" data-target="1284" style="color:var(--g)">0</div>
+              <div class="stat-trend trend-up">↑ +23 esta semana</div>
+            </div>
+            <div class="stat-icon" style="background:rgba(37,211,102,.1)">👤</div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 80 30" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="fill1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#25d366" stop-opacity=".3"/>
+                <stop offset="100%" stop-color="#25d366" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <polygon class="spark-fill" fill="url(#fill1)" points="0,30 0,22 10,19 20,20 30,14 40,16 50,11 60,13 70,7 80,9 80,30"/>
+            <polyline class="spark-line" stroke="#25d366" points="0,22 10,19 20,20 30,14 40,16 50,11 60,13 70,7 80,9"/>
+          </svg>
+        </div>
+
+        <div class="gc stat-card a2">
+          <div class="stat-top">
+            <div>
+              <div class="stat-lbl">Grupos activos</div>
+              <div class="stat-val" data-target="347" style="color:var(--t)">0</div>
+              <div class="stat-trend trend-up">↑ +8 nuevos hoy</div>
+            </div>
+            <div class="stat-icon" style="background:rgba(45,212,191,.1)">💬</div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 80 30" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="fill2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2dd4bf" stop-opacity=".3"/>
+                <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <polygon class="spark-fill" fill="url(#fill2)" points="0,30 0,24 10,22 20,25 30,20 40,21 50,17 60,18 70,14 80,15 80,30"/>
+            <polyline class="spark-line" stroke="#2dd4bf" points="0,24 10,22 20,25 30,20 40,21 50,17 60,18 70,14 80,15"/>
+          </svg>
+        </div>
+
+        <div class="gc stat-card a3">
+          <div class="stat-top">
+            <div>
+              <div class="stat-lbl">Mensajes / hora</div>
+              <div class="stat-val" data-target="8431" style="color:var(--v)">0</div>
+              <div class="stat-trend trend-fl">→ Flujo estable</div>
+            </div>
+            <div class="stat-icon" style="background:rgba(139,92,246,.1)">⚡</div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 80 30" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="fill3" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#8b5cf6" stop-opacity=".3"/>
+                <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <polygon class="spark-fill" fill="url(#fill3)" points="0,30 0,16 10,18 20,13 30,16 40,12 50,15 60,11 70,14 80,10 80,30"/>
+            <polyline class="spark-line" stroke="#8b5cf6" points="0,16 10,18 20,13 30,16 40,12 50,15 60,11 70,14 80,10"/>
+          </svg>
+        </div>
+
+        <div class="gc stat-card a4">
+          <div class="stat-top">
+            <div>
+              <div class="stat-lbl">Comandos hoy</div>
+              <div class="stat-val" data-target="29108" style="color:var(--a)">0</div>
+              <div class="stat-trend trend-up">↑ +14% vs ayer</div>
+            </div>
+            <div class="stat-icon" style="background:rgba(245,158,11,.1)">🔧</div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 80 30" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="fill4" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f59e0b" stop-opacity=".3"/>
+                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <polygon class="spark-fill" fill="url(#fill4)" points="0,30 0,22 10,20 20,18 30,16 40,15 50,13 60,11 70,10 80,8 80,30"/>
+            <polyline class="spark-line" stroke="#f59e0b" points="0,22 10,20 20,18 30,16 40,15 50,13 60,11 70,10 80,8"/>
+          </svg>
+        </div>
+
+      </div>
+
+      <!-- Mid row -->
+      <div class="mid-row">
+
+        <!-- Bot card -->
+        <div class="gc bot-card">
+          <div class="bcard-hdr">
+            <div class="bcard-av">🐾</div>
+            <div>
+              <div class="bcard-name">𝐿𝓊𝓁𝓊𝓏☆</div>
+              <div class="bcard-phone">+52 55 1234 5678</div>
+              <div class="bcard-badges">
+                <span class="badge badge-g"><span class="pulse pulse-g"></span>Conectado</span>
+                <span class="badge badge-t">WA 2.3000</span>
+                <span class="badge badge-v">Baileys v7</span>
+                <span class="badge badge-a">v3.0.0</span>
+              </div>
+            </div>
+          </div>
+          <div class="bcard-stats">
+            <div class="bstat">
+              <div class="bstat-v">14d 6h</div>
+              <div class="bstat-l">Uptime</div>
+            </div>
+            <div class="bstat">
+              <div class="bstat-v">7 / 7</div>
+              <div class="bstat-l">Subbots</div>
+            </div>
+            <div class="bstat">
+              <div class="bstat-v">218 MB</div>
+              <div class="bstat-l">Memoria</div>
+            </div>
+          </div>
+          <div class="health-section">
+            <div class="hrow">
+              <div class="hrow-hdr">
+                <span>Salud del sistema</span>
+                <strong style="color:var(--g)">98.4%</strong>
+              </div>
+              <div class="hbar">
+                <div class="hbar-fill" data-w="98.4" style="width:0%;background:linear-gradient(90deg,var(--g),var(--t))"></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="hrow">
+                <div class="hrow-hdr">
+                  <span>CPU</span><strong style="color:var(--t)">34%</strong>
+                </div>
+                <div class="hbar">
+                  <div class="hbar-fill" data-w="34" style="width:0%;background:linear-gradient(90deg,var(--t),var(--g))"></div>
+                </div>
+              </div>
+              <div class="hrow">
+                <div class="hrow-hdr">
+                  <span>RAM</span><strong style="color:var(--v)">64%</strong>
+                </div>
+                <div class="hbar">
+                  <div class="hbar-fill" data-w="64" style="width:0%;background:linear-gradient(90deg,var(--v),var(--t))"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subbots mini -->
+        <div class="gc subbots-card">
+          <div class="subbots-hdr">
+            <h3>Subbots</h3>
+            <span class="badge badge-g">7 online</span>
+          </div>
+          <div class="subbot-list">
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">Calvin</span><span class="sub-up">2h 14m</span></div>
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">Michi_fun</span><span class="sub-up">1h 58m</span></div>
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">ENRRIQUE_AP</span><span class="sub-up">3h 02m</span></div>
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">GNE_sonek</span><span class="sub-up">44m</span></div>
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">Icegood_GD</span><span class="sub-up">1h 31m</span></div>
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">Min</span><span class="sub-up">5h 17m</span></div>
+            <div class="sub-item"><div class="sub-dot on"></div><span class="sub-name">Subbot 7</span><span class="sub-up">22m</span></div>
+          </div>
+          <button class="btn-ghost" style="width:100%;justify-content:center" onclick="goScreen('subbots')">Ver detalle →</button>
+        </div>
+
+      </div>
+
+      <!-- Bottom row -->
+      <div class="bottom-row">
+
+        <!-- Activity -->
+        <div class="gc activity-card">
+          <div class="act-hdr">
+            <h3>Actividad reciente</h3>
+            <span class="act-sub">Últimos 30 min</span>
+          </div>
+          <div class="act-feed">
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--g)"></div>
+              <div class="act-body">
+                <div class="act-text">Subbot <b>Calvin</b> reconectado exitosamente</div>
+                <div class="act-meta">hace 2 min · WA 2.3000.1035194821</div>
+              </div>
+            </div>
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--t)"></div>
+              <div class="act-body">
+                <div class="act-text">Broadcast enviado a <b>47 grupos</b></div>
+                <div class="act-meta">hace 8 min · por admin</div>
+              </div>
+            </div>
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--a)"></div>
+              <div class="act-body">
+                <div class="act-text">Plugin <b>downloads-play</b> — fallback delirius OK</div>
+                <div class="act-meta">hace 14 min · delirius API ● live</div>
+              </div>
+            </div>
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--g)"></div>
+              <div class="act-body">
+                <div class="act-text"><b>1,200</b> comandos procesados en 5 min</div>
+                <div class="act-meta">hace 15 min · throughput nominal</div>
+              </div>
+            </div>
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--v)"></div>
+              <div class="act-body">
+                <div class="act-text">Nuevo usuario registrado — Rol: Usuario</div>
+                <div class="act-meta">hace 19 min · romario@••••</div>
+              </div>
+            </div>
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--r)"></div>
+              <div class="act-body">
+                <div class="act-text">Pico CPU al <b>78%</b> — normalizado en 45s</div>
+                <div class="act-meta">hace 23 min · alerta resuelta</div>
+              </div>
+            </div>
+            <div class="act-item">
+              <div class="act-dot" style="background:var(--g)"></div>
+              <div class="act-body">
+                <div class="act-text">Bot principal reconectado — sesión restaurada</div>
+                <div class="act-meta">hace 28 min · 𝐿𝓊𝓁𝓊𝓏☆</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="gc qa-card">
+          <h3>Acciones rápidas</h3>
+          <div class="qa-grid">
+            <div class="qa-btn"><div class="qa-ico">📢</div><div class="qa-lbl">Broadcast</div></div>
+            <div class="qa-btn"><div class="qa-ico">🔌</div><div class="qa-lbl">Plugins</div></div>
+            <div class="qa-btn"><div class="qa-ico">🤖</div><div class="qa-lbl">Subbots</div></div>
+            <div class="qa-btn"><div class="qa-ico">📋</div><div class="qa-lbl">Logs</div></div>
+            <div class="qa-btn"><div class="qa-ico">🧠</div><div class="qa-lbl">IA Chat</div></div>
+            <div class="qa-btn"><div class="qa-ico">⚙️</div><div class="qa-lbl">Config</div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════ SCREEN 3 — SUBBOTS ══════════════════════════════ -->
+<div id="sc-subbots" class="screen">
+  <div class="page-wrap">
+    <div class="page-back" onclick="goScreen('dash')">← Volver al dashboard</div>
+    <div class="page-title">Gestión de subbots</div>
+    <div class="page-desc">7 subbots activos · todos conectados · WA 2.3000.1035194821</div>
+    <div class="page-meta">
+      <span class="badge badge-g"><span class="pulse pulse-g"></span>7 / 7 online</span>
+      <span class="badge badge-t">Uptime promedio: 2h 38m</span>
+      <span class="badge badge-v">Baileys v7.0.5</span>
+    </div>
+    <div class="bots-grid" id="bots-grid"></div>
+  </div>
+</div>
+
+
+<!-- ══════ TWEAKS ══════════════════════════════════════════ -->
+<nav id="tweaks">
+  <button class="on" data-target="login">Login</button>
+  <div class="div"></div>
+  <button data-target="dash">Dashboard</button>
+  <div class="div"></div>
+  <button data-target="subbots">Subbots</button>
+</nav>
+
+
+<script>
+/* ══════════════════════════════════════════════════
+   PARTICLE SYSTEM
+══════════════════════════════════════════════════ */
+const cvs = document.getElementById('canvas-bg')
+const ctx = cvs.getContext('2d')
+let W, H
+const mouse = { x: -9999, y: -9999 }
+
+const COLORS = ['#25d366','#25d366','#25d366','#2dd4bf','#2dd4bf','rgba(167,243,199,.7)','rgba(242,246,243,.5)']
+let pts = []
+
+function mkPt() {
+  return {
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: (Math.random() - .5) * .18,
+    vy: (Math.random() - .5) * .18,
+    r: Math.random() * 1.3 + .3,
+    a: Math.random() * .28 + .06,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)]
+  }
+}
+
+function resize() {
+  W = cvs.width = innerWidth
+  H = cvs.height = innerHeight
+  pts = []
+  for (let i = 0; i < 70; i++) pts.push(mkPt())
+}
+resize()
+addEventListener('resize', resize)
+addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY })
+
+function drawFrame() {
+  ctx.clearRect(0, 0, W, H)
+
+  // Lines between close particles
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j++) {
+      const dx = pts[i].x - pts[j].x
+      const dy = pts[i].y - pts[j].y
+      const d = Math.sqrt(dx * dx + dy * dy)
+      if (d < 110) {
+        ctx.beginPath()
+        ctx.moveTo(pts[i].x, pts[i].y)
+        ctx.lineTo(pts[j].x, pts[j].y)
+        ctx.strokeStyle = `rgba(37,211,102,${(1 - d / 110) * .09})`
+        ctx.lineWidth = .6
+        ctx.stroke()
+      }
+    }
+  }
+
+  pts.forEach(p => {
+    // Mouse repulsion
+    const dx = p.x - mouse.x, dy = p.y - mouse.y
+    const d2 = dx * dx + dy * dy
+    if (d2 < 12000) {
+      const f = (1 - d2 / 12000) * .0008
+      p.vx += dx * f; p.vy += dy * f
+    }
+    // Speed limit
+    const spd = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
+    if (spd > .5) { p.vx = p.vx / spd * .5; p.vy = p.vy / spd * .5 }
+
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+    ctx.fillStyle = p.color
+    ctx.globalAlpha = p.a
+    ctx.fill()
+    ctx.globalAlpha = 1
+
+    p.x += p.vx; p.y += p.vy
+    if (p.x < -10) p.x = W + 10
+    if (p.x > W + 10) p.x = -10
+    if (p.y < -10) p.y = H + 10
+    if (p.y > H + 10) p.y = -10
+  })
+
+  requestAnimationFrame(drawFrame)
+}
+drawFrame()
+
+/* ══════════════════════════════════════════════════
+   SCREEN SWITCHING
+══════════════════════════════════════════════════ */
+function goScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'))
+  document.getElementById('sc-' + id)?.classList.add('on')
+  document.querySelectorAll('#tweaks button').forEach(b => {
+    b.classList.toggle('on', b.dataset.target === id)
+  })
+  if (id === 'dash') {
+    setTimeout(() => {
+      runCounters()
+      animateHealthBars()
+    }, 280)
+  }
+}
+
+document.querySelectorAll('#tweaks button').forEach(b => {
+  b.addEventListener('click', () => goScreen(b.dataset.target))
+})
+
+/* ══════════════════════════════════════════════════
+   COUNTER ANIMATION
+══════════════════════════════════════════════════ */
+function runCounters() {
+  document.querySelectorAll('[data-target]').forEach(el => {
+    const target = parseInt(el.dataset.target)
+    if (isNaN(target)) return
+    const dur = 1600
+    const start = Date.now()
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / dur, 1)
+      const ease = 1 - Math.pow(1 - p, 4)
+      el.textContent = Math.round(target * ease).toLocaleString('es-MX')
+      if (p < 1) requestAnimationFrame(tick)
+    }
+    tick()
+  })
+}
+
+/* ══════════════════════════════════════════════════
+   HEALTH BAR ANIMATION
+══════════════════════════════════════════════════ */
+function animateHealthBars() {
+  document.querySelectorAll('.hbar-fill[data-w]').forEach(el => {
+    const w = parseFloat(el.dataset.w)
+    setTimeout(() => { el.style.width = w + '%' }, 100)
+  })
+}
+
+/* ══════════════════════════════════════════════════
+   LOGIN INTERACTIONS
+══════════════════════════════════════════════════ */
+function selRole(el) {
+  document.querySelectorAll('.rtab').forEach(b => b.classList.remove('on'))
+  el.classList.add('on')
+}
+
+function togglePwd() {
+  const f = document.getElementById('pwd-field')
+  f.type = f.type === 'password' ? 'text' : 'password'
+}
+
+/* ══════════════════════════════════════════════════
+   SUBBOTS GRID
+══════════════════════════════════════════════════ */
+const BOTS = [
+  { n:'Calvin',     p:'+52 55 0000 0001', msg:'14,230', cmd:'3,841', up:'2h 14m' },
+  { n:'Michi_fun',  p:'+52 55 0000 0002', msg:'9,871',  cmd:'2,190', up:'1h 58m' },
+  { n:'ENRRIQUE_AP',p:'+52 55 0000 0003', msg:'21,004', cmd:'5,320', up:'3h 02m' },
+  { n:'GNE_sonek',  p:'+52 55 0000 0004', msg:'6,443',  cmd:'1,077', up:'44m'    },
+  { n:'Icegood_GD', p:'+52 55 0000 0005', msg:'11,290', cmd:'2,988', up:'1h 31m' },
+  { n:'Min',        p:'+52 55 0000 0006', msg:'18,732', cmd:'4,501', up:'5h 17m' },
+  { n:'Subbot 7',   p:'+52 55 0000 0007', msg:'3,219',  cmd:'741',   up:'22m'    },
+]
+
+document.getElementById('bots-grid').innerHTML = BOTS.map(b => `
+  <div class="gc bot-grid-card">
+    <div class="bgc-hdr">
+      <div class="bgc-av">🤖</div>
+      <div style="flex:1">
+        <div class="bgc-name">${b.n}</div>
+        <div class="bgc-phone">${b.p}</div>
+      </div>
+      <span class="badge badge-g"><span class="pulse pulse-g"></span>Online</span>
+    </div>
+    <div class="bgc-metrics">
+      <div class="bgc-m"><div class="bgc-mv">${b.msg}</div><div class="bgc-ml">Mensajes</div></div>
+      <div class="bgc-m"><div class="bgc-mv">${b.cmd}</div><div class="bgc-ml">Comandos</div></div>
+    </div>
+    <div class="bgc-footer">
+      <span class="bgc-up">Uptime: <b>${b.up}</b></span>
+      <span class="badge badge-t">WA 2.3000</span>
+    </div>
+  </div>
+`).join('')
+</script>
+</body>
+</html>

@@ -42,23 +42,44 @@ export async function handleSupport({ req, res, url, panelDb }) {
   }
 
   // ── /api/proveedores ──────────────────────────────────────────────────────
+  function normProveedor(p) {
+    if (!p) return p
+    // Derive 'estado' from 'activo' boolean if not explicitly stored
+    const estado = p.estado || (p.activo === false ? 'inactivo' : 'activo')
+    return { ...p, estado, activo: estado === 'activo' }
+  }
+
+  function findProveedor(id) {
+    const raw = panelDb?.proveedores || {}
+    // Try direct key lookup first (jid or numeric id as string)
+    if (raw[id]) return { key: id, record: raw[id] }
+    // Fallback: scan by .id or .jid field
+    const entry = Object.entries(raw).find(([, p]) => safeString(p?.id) === safeString(id) || safeString(p?.jid) === safeString(id))
+    return entry ? { key: entry[0], record: entry[1] } : null
+  }
+
   if (pathname === '/api/proveedores/stats' && method === 'GET') {
-    const proveedores = Object.values(panelDb?.proveedores || {})
-    return json(res, 200, { total: proveedores.length, activos: proveedores.filter(p => p?.activo !== false).length })
+    const proveedores = Object.values(panelDb?.proveedores || {}).map(normProveedor)
+    return json(res, 200, {
+      total: proveedores.length,
+      activos: proveedores.filter(p => p?.estado === 'activo').length,
+      inactivos: proveedores.filter(p => p?.estado === 'inactivo').length,
+      suspendidos: proveedores.filter(p => p?.estado === 'suspendido').length,
+    })
   }
 
   if (pathname === '/api/proveedores/me' && method === 'GET') {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     const mine = Object.values(panelDb?.proveedores || {}).find(p => p?.usuario === auth.user.username || p?.jid === auth.user.jid)
-    return json(res, 200, { proveedor: mine || null })
+    return json(res, 200, { proveedor: mine ? normProveedor(mine) : null })
   }
 
   if (pathname === '/api/proveedores' && method === 'GET') {
     const auth = await getJwtAuth(req)
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
-    const proveedores = Object.values(panelDb?.proveedores || {})
-    const list = isAdmin(auth.user) ? proveedores : proveedores.filter(p => p?.activo !== false)
+    const proveedores = Object.values(panelDb?.proveedores || {}).map(normProveedor)
+    const list = isAdmin(auth.user) ? proveedores : proveedores.filter(p => p?.estado === 'activo')
     return json(res, 200, { proveedores: list, total: list.length })
   }
 
@@ -67,11 +88,51 @@ export async function handleSupport({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     const body = await readJson(req)
     const id = safeString(body?.jid || body?.id || Date.now())
-    const record = { id, ...body, usuario: auth.user.username, activo: true, createdAt: new Date().toISOString() }
+    const record = { id, jid: id, nombre: '', descripcion: '', tipo: 'general', contacto: '', rating: 0, total_aportes: 0, total_pedidos: 0, grupos_monitoreados: [], ...body, usuario: auth.user.username, estado: 'activo', activo: true, fecha_registro: new Date().toISOString(), createdAt: new Date().toISOString() }
     panelDb.proveedores ||= {}
     panelDb.proveedores[id] = record
-    if (global.db?.write) await global.db.write()
-    return json(res, 201, { success: true, proveedor: record })
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
+    return json(res, 201, { success: true, proveedor: normProveedor(record) })
+  }
+
+  const proveedorMatch = pathname.match(/^\/api\/proveedores\/([^/]+)$/)
+
+  if (proveedorMatch && method === 'GET') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    const id = decodeURIComponent(proveedorMatch[1])
+    const found = findProveedor(id)
+    if (!found) return json(res, 404, { error: 'Proveedor no encontrado' })
+    return json(res, 200, { proveedor: normProveedor(found.record) })
+  }
+
+  if (proveedorMatch && (method === 'PATCH' || method === 'PUT')) {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    const id = decodeURIComponent(proveedorMatch[1])
+    const found = findProveedor(id)
+    if (!found) return json(res, 404, { error: 'Proveedor no encontrado' })
+    const body = await readJson(req)
+    // Map 'estado' to 'activo' boolean
+    const estadoMap = { activo: true, inactivo: false, suspendido: false }
+    const updates = { ...body }
+    if (updates.estado !== undefined) updates.activo = estadoMap[updates.estado] ?? found.record.activo
+    Object.assign(found.record, updates, { updatedAt: new Date().toISOString() })
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
+    return json(res, 200, { success: true, proveedor: normProveedor(found.record) })
+  }
+
+  if (proveedorMatch && method === 'DELETE') {
+    const auth = await getJwtAuth(req)
+    if (!auth.ok) return json(res, auth.status, { error: auth.error })
+    if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
+    const id = decodeURIComponent(proveedorMatch[1])
+    const found = findProveedor(id)
+    if (!found) return json(res, 404, { error: 'Proveedor no encontrado' })
+    delete panelDb.proveedores[found.key]
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
+    return json(res, 200, { success: true })
   }
 
   // ── /api/community ────────────────────────────────────────────────────────

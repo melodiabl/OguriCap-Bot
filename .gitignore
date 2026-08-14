@@ -46,7 +46,14 @@ frontend-next/package-lock.json
 
 .monitoring
 database/backups
+backups/*.sql.gz
 package-lock.json
+
+# Herramientas locales de agentes/diseño
+.claude/
+.impeccable/
+.playwright-mcp/
+.superpowers/
 
 # Config local runtime files
 .config/

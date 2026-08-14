@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Monitor, Bell, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AccountTab } from '@/components/profile/AccountTab';
@@ -7,6 +8,10 @@ import { DevicesTab } from '@/components/profile/DevicesTab';
 import { NotificationsTab } from '@/components/profile/NotificationsTab';
 import { SecurityTab } from '@/components/profile/SecurityTab';
 import { cn } from '@/lib/utils';
+
+// Module-level flag survives across concurrent React renders and re-mounts
+// within the same page visit. Reset on unmount so direct-URL attempts still redirect.
+let __perfilAccessGranted = false;
 
 const TABS = [
   { id: 'cuenta',          label: 'Cuenta',          icon: User,    Component: AccountTab },
@@ -19,7 +24,32 @@ type TabId = typeof TABS[number]['id'];
 
 export default function PerfilPage() {
   const [activeTab, setActiveTab] = React.useState<TabId>('cuenta');
+  const router = useRouter();
+
+  // Check access synchronously during first render (lazy useState initializer)
+  // so the page never flashes or redirects on valid visits.
+  const [allowed] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    if (__perfilAccessGranted) return true;
+    const flag = sessionStorage.getItem('canViewPerfil');
+    if (flag) {
+      sessionStorage.removeItem('canViewPerfil');
+      __perfilAccessGranted = true;
+      return true;
+    }
+    return false;
+  });
+
   const ActiveComponent = TABS.find(t => t.id === activeTab)?.Component ?? AccountTab;
+
+  React.useEffect(() => {
+    if (!allowed) {
+      router.replace('/dashboard');
+    }
+    return () => { __perfilAccessGranted = false; };
+  }, [allowed, router]);
+
+  if (!allowed) return null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6">

@@ -145,12 +145,14 @@ export default function ProveedoresPage() {
 
   const updateProveedorStatus = async (jid: string, estado: string) => {
     try {
-      await api.updateProveedor(parseInt(jid) || 0, { estado } as any);
+      // Use jid (string) as the identifier, not parseInt
+      await api.updateProveedor(jid as any, { estado } as any);
       setProveedores(prev => prev.map(p => p.jid === jid ? { ...p, estado: estado as any } : p));
       setSuccess('Estado actualizado');
       notify.success('Estado actualizado');
     } catch (err) {
       setError('Error al actualizar estado');
+      notify.error('Error al actualizar estado');
     }
   };
 
@@ -163,6 +165,7 @@ export default function ProveedoresPage() {
       notify.success('Proveedor eliminado');
     } catch (err) {
       setError('Error al eliminar proveedor');
+      notify.error('Error al eliminar proveedor');
     }
   };
 

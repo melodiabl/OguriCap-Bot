@@ -30,7 +30,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
   const reduceMotion = useReducedMotion();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 8 });
+  const [coords, setCoords] = useState({ top: 0, left: 8, maxHeight: 480 });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -43,11 +43,16 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
     if (isOpen && buttonRef?.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const gap = 8;
-      const width = Math.min(28 * 16, Math.max(0, window.innerWidth - 16)); // max-w-md(28rem) vs w-[calc(100vw-1rem)]
-      const desiredLeft = rect.right - width;
-      const maxLeft = Math.max(gap, window.innerWidth - width - gap);
-      const left = Math.min(Math.max(gap, desiredLeft), maxLeft);
-      setCoords({ top: rect.bottom + gap, left });
+      const isMobile = window.innerWidth < 640;
+      // w-72=288px mobile, w-80=320px sm+ — match CSS classes exactly
+      const cssWidth = isMobile ? 18 * 16 : 20 * 16;
+      const width = Math.min(cssWidth, window.innerWidth - gap * 2);
+      // Mobile: anchor to right edge of viewport; Desktop: right-align with button
+      const left = isMobile
+        ? window.innerWidth - width - gap
+        : Math.min(Math.max(gap, rect.right - width), window.innerWidth - width - gap);
+      const availableHeight = window.innerHeight - rect.bottom - gap * 2;
+      setCoords({ top: rect.bottom + gap, left, maxHeight: Math.max(200, availableHeight) });
     }
   }, [isOpen, buttonRef]);
 
@@ -72,11 +77,14 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
       if (buttonRef?.current) {
         const rect = buttonRef.current.getBoundingClientRect();
         const gap = 8;
-        const width = Math.min(28 * 16, Math.max(0, window.innerWidth - 16));
-        const desiredLeft = rect.right - width;
-        const maxLeft = Math.max(gap, window.innerWidth - width - gap);
-        const left = Math.min(Math.max(gap, desiredLeft), maxLeft);
-        setCoords({ top: rect.bottom + gap, left });
+        const isMobile = window.innerWidth < 640;
+        const cssWidth = isMobile ? 18 * 16 : 20 * 16;
+        const width = Math.min(cssWidth, window.innerWidth - gap * 2);
+        const left = isMobile
+          ? window.innerWidth - width - gap
+          : Math.min(Math.max(gap, rect.right - width), window.innerWidth - width - gap);
+        const availableHeight = window.innerHeight - rect.bottom - gap * 2;
+        setCoords({ top: rect.bottom + gap, left, maxHeight: Math.max(200, availableHeight) });
       }
     };
 
@@ -158,7 +166,7 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
                 top: `${coords.top}px`,
                 left: `${coords.left}px`,
               }}
-              className="z-[9999] flex w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] shadow-glow-pro-accent"
+              className="z-[9999] flex w-72 sm:w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-[#27272a] bg-[#0c0c0e] shadow-glow-pro-accent"
             >
               {/* Header */}
               <div className="border-b border-[#27272a] bg-[#18181b] px-4 py-3">
@@ -203,8 +211,8 @@ export function NotificationDropdown({ isOpen, onClose, buttonRef }: Notificatio
               {/* List */}
                 <div
                   ref={scrollRef}
-                  className="max-h-[calc(100vh-12rem)] md:max-h-[32rem] overflow-y-auto overscroll-contain scroll-smooth"
-                  style={{ scrollbarWidth: 'thin' }}
+                  className="overflow-y-auto overscroll-contain scroll-smooth"
+                  style={{ maxHeight: `${coords.maxHeight}px`, scrollbarWidth: 'thin' }}
                 >
                 {isLoading && notifications.length === 0 ? (
                   <div className="p-8 flex flex-col items-center justify-center gap-3">

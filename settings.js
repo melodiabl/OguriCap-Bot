@@ -12,6 +12,9 @@ global.botNumber = undefined //Ejemplo: 573218138672
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
 global.owner = ['595974154768', '51900373696', '51921826291']
+if (process.env.BOT_OWNER) {
+  global.owner = process.env.BOT_OWNER.split(',').map(number => number.replace(/[^0-9]/g, '')).filter(Boolean)
+}
 global.suittag = '595974154768'
 global.prems = []
 
@@ -54,13 +57,10 @@ global.APIs = {
   // IMPORTANTE: usa la API key COMPLETA (se muestra solo al crear/rotar).
   // Lo que ves como "Prefix" en el panel NO siempre funciona como key.
   MelodyApi: { url: 'https://api.melodiaauris.qzz.io', key: 'OguriCap-Bot' },
-  xyro: { url: "https://api.xyro.site", key: null },
   yupra: { url: "https://api.yupra.my.id", key: null },
-  vreden: { url: "https://api.vreden.web.id", key: null },
   delirius: { url: "https://api.delirius.store", key: null },
-  zenzxz: { url: "https://api.zenzxz.my.id", key: null },
-  siputzx: { url: "https://api.siputzx.my.id", key: null },
-  adonix: { url: "https://api-adonix.ultraplus.click", key: 'Yuki-WaBot' }
+  siputzx: { url: "https://api.siputzx.my.id", key: null }
+  // Eliminadas 2026-06-12 por estar caídas: xyro, vreden, zenzxz, adonix.
 }
 
 // Download progress bar (for streaming downloads that send Content-Length).

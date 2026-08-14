@@ -41,40 +41,25 @@ await m.react('🕒')
   }
  }
 
-if (/(instagram\.com)/i.test(args[0])) {
-try {
-const api = `${global.APIs.adonix.url}/download/instagram?apikey=${global.APIs.adonix.key}&url=${url}`
-const res = await fetch(api)
-const json = await res.json()
-if (json.status && json.data?.length) {
-data = json.data.map(v => v.url)
-}} catch (e) {}
-}
-if (/(facebook\.com|fb\.watch)/i.test(args[0]) && !data.length) {
-try {
-const api = `${global.APIs.adonix.url}/download/facebook?apikey=${global.APIs.adonix.key}&url=${url}`
-const res = await fetch(api)
-const json = await res.json()
-if (json.status && json.result?.media?.video_hd) {
-data = [json.result.media.video_hd]
-}} catch (e) {}
-}
-if (!data.length) {
-try {
-const api = `${global.APIs.vreden.url}/api/igdownload?url=${url}`
-const res = await fetch(api)
-const json = await res.json()
-if (json.resultado?.respuesta?.datos?.length) {
-data = json.resultado.respuesta.datos.map(v => v.url)
-}} catch (e) {}
-}
-if (!data.length) {
+// adonix y vreden (muertos) eliminados; Delirius es el respaldo activo.
+if (!data.length && /(instagram\.com)/i.test(args[0])) {
 try {
 const api = `${global.APIs.delirius.url}/download/instagram?url=${url}`
 const res = await fetch(api)
 const json = await res.json()
 if (json.status && json.data?.length) {
 data = json.data.map(v => v.url)
+}} catch (e) {}
+}
+if (!data.length && /(facebook\.com|fb\.watch)/i.test(args[0])) {
+try {
+const api = `${global.APIs.delirius.url}/download/facebook?url=${url}`
+const res = await fetch(api)
+const json = await res.json()
+const r = json?.data || json?.result
+const direct = r?.video_hd || r?.hd || r?.video_sd || r?.sd || (Array.isArray(r) ? (r[0]?.url || r[0]) : r?.url)
+if (json?.status && typeof direct === 'string' && direct) {
+data = [direct]
 }} catch (e) {}
 }
 if (!data.length) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido.`, m)

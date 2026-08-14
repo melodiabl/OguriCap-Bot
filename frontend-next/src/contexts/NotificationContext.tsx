@@ -573,60 +573,65 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [socket, authLoading, isAuthenticated, user, shouldShowNotification, settings, preferences, cleanupRecentHashes, generateContentHash, shouldShowBrowserPush, openNotificationTarget, showBrowserPushNotification]);
 
   const markAsRead = useCallback(async (id: number) => {
+    // Optimistic update
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, leida: true } : n)));
+    setUnreadCount(prev => Math.max(0, prev - 1));
     try {
       await api.markNotificationRead(id);
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, leida: true } : n))
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
-      console.error('Error marking as read:', err);
+      // Revert
+      setNotifications(prev => prev.map(n => (n.id === id ? { ...n, leida: false } : n)));
+      setUnreadCount(prev => prev + 1);
     }
   }, []);
 
   const markAllAsRead = useCallback(async () => {
+    // Optimistic update
+    setNotifications(prev => prev.map(n => ({ ...n, leida: true })));
+    setUnreadCount(0);
     try {
       await api.markAllNotificationsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, leida: true })));
-      setUnreadCount(0);
       notify.success('Todas las notificaciones marcadas como leídas');
     } catch (err) {
+      await loadNotifications(1, false);
       notify.error('Error al marcar como leídas');
     }
-  }, []);
+  }, [loadNotifications]);
 
   const deleteNotification = useCallback(async (id: number) => {
+    // Optimistic update
+    let wasUnread = false;
+    setNotifications(prev => {
+      const found = prev.find(n => n.id === id);
+      wasUnread = found ? !found.leida : false;
+      return prev.filter(n => n.id !== id);
+    });
+    if (wasUnread) setUnreadCount(c => Math.max(0, c - 1));
     try {
       await api.deleteNotification(id);
-      setNotifications(prev => {
-        const removed = prev.find(n => n.id === id);
-        if (removed && !removed.leida) {
-          setUnreadCount(c => Math.max(0, c - 1));
-        }
-        return prev.filter(n => n.id !== id);
-      });
     } catch (err) {
+      await loadNotifications(1, false);
       notify.error('Error al eliminar notificación');
     }
-  }, []);
+  }, [loadNotifications]);
 
   const deleteAllNotifications = useCallback(async (scope: 'all' | 'read' | 'unread' = 'all') => {
+    // Optimistic update
+    if (scope === 'all') {
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(false);
+      setPage(1);
+      seenNotificationsRef.current.clear();
+      recentContentHashesRef.current.clear();
+    } else if (scope === 'read') {
+      setNotifications(prev => prev.filter(n => !n.leida));
+    } else {
+      setNotifications(prev => prev.filter(n => n.leida));
+      setUnreadCount(0);
+    }
     try {
       await api.deleteAllNotifications(scope);
-
-      if (scope === 'all') {
-        setNotifications([]);
-        setUnreadCount(0);
-        setHasMore(false);
-        setPage(1);
-
-        seenNotificationsRef.current.clear();
-        recentContentHashesRef.current.clear();
-      } else {
-        // For partial clears, refresh state from server.
-        await loadNotifications(1, false);
-      }
-
       notify.success(
         scope === 'all'
           ? 'Todas las notificaciones fueron eliminadas'
@@ -635,6 +640,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             : 'Notificaciones no leídas eliminadas'
       );
     } catch (err) {
+      await loadNotifications(1, false);
       notify.error('Error al eliminar notificaciones');
     }
   }, [loadNotifications]);

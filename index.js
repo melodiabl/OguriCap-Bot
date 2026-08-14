@@ -152,7 +152,10 @@ import('./services/init-admin.js').catch(err => {
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
 const msgRetryCounterCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 })
 const userDevicesCache = new NodeCache({ stdTTL: 1800, checkperiod: 300 })
-const { version } = await fetchLatestBaileysVersion()
+// fetchLatestBaileysVersion del fork está roto (devuelve versión vieja → 405); usar resolver propio.
+const { getWAVersion } = await import('./lib/wa-version.js')
+const version = await getWAVersion()
+console.log(chalk.cyan(`[ ✿ ] WhatsApp Web version: ${version.join('.')}`))
 let phoneNumber = global.botNumber
 const methodCodeQR = process.argv.includes("qr")
 const methodCode = !!phoneNumber || process.argv.includes("code")
@@ -1357,6 +1360,7 @@ async function connectionUpdate(update) {
   if (connection === 'open') {
     global.panelApiLastSeen = new Date().toISOString()
     global.stopped = 'open'
+    global.__mainReconnectAttempts = 0
     // Ya no necesitamos mostrar QR cuando la conexión está abierta
     global.panelAllowQr = false
 
@@ -1413,11 +1417,12 @@ async function connectionUpdate(update) {
     } catch {}
   }
 
+  // NOTA: antes aquí había un reloadHandler(true) extra que duplicaba la reconexión
+  // del branch connection === "close" (dos sockets por cada cierre). Eliminado.
   if (code && code !== DisconnectReason.loggedOut && !conn?.isConnected) {
-    await global.reloadHandler(true).catch(console.error)
     global.timestamp.connect = new Date()
   }
-  
+
   if (global.db.data == null) loadDatabase()
   
   if (update.qr != 0 && update.qr != undefined || methodCodeQR) {
@@ -1477,8 +1482,14 @@ async function connectionUpdate(update) {
     if ([401, 440, 428, 405].includes(reason)) {
       console.log(chalk.red(`→ (${code}) › Cierra la session Principal.`))
     }
-    
-    console.log(chalk.yellow("→ Reconectando el Bot Principal..."))
+
+    // Reconexión con backoff exponencial para no martillar a WhatsApp
+    // (cientos de intentos seguidos con 405 pueden derivar en bloqueo temporal).
+    global.__mainReconnectAttempts = (global.__mainReconnectAttempts || 0) + 1
+    const attempt = global.__mainReconnectAttempts
+    const delayMs = Math.min(60000, 2000 * (2 ** Math.min(attempt - 1, 5))) + Math.floor(Math.random() * 1000)
+    console.log(chalk.yellow(`→ Reconectando el Bot Principal en ${Math.round(delayMs / 1000)}s (intento ${attempt})...`))
+    await new Promise((r) => setTimeout(r, delayMs))
     await global.reloadHandler(true).catch(console.error)
   }
 
@@ -1528,6 +1539,11 @@ global.reloadHandler = async function (restatConn) {
     
     // Recargar configuración del panel antes de reconectar (preferir in-memory/DB)
     let currentOptions = { ...connectionOptions }
+    // Refrescar versión de WA Web en cada reconexión (si WhatsApp la sube en caliente, evita 405).
+    try {
+      const { getWAVersion } = await import('./lib/wa-version.js')
+      currentOptions.version = await getWAVersion()
+    } catch {}
     try {
       const inMemoryWhatsapp = global.db?.data?.panel?.whatsapp || null
       const method = inMemoryWhatsapp?.authMethod === 'pairing' ? 'pairing' : 'qr'
@@ -1775,6 +1791,60 @@ if (global.yukiJadibts) {
       }
     }
   }
+
+  // ── WATCHDOG DE SUBBOTS ─────────────────────────────────────────
+  // Revive sesiones con creds.json en disco pero sin conexión activa.
+  // Espera 2 ticks (10 min) antes de revivir para no pisar los reintentos
+  // internos de sockets-serbot, y aplica cooldown de 15 min por sesión.
+  const WATCHDOG_TICK_MS = 5 * 60 * 1000
+  const WATCHDOG_COOLDOWN_MS = 15 * 60 * 1000
+  const watchdogMissingSince = new Map()
+  const watchdogLastRevival = new Map()
+
+  setInterval(() => {
+    try {
+      if (!existsSync(global.rutaJadiBot)) return
+      const activeBases = new Set(
+        (Array.isArray(global.conns) ? global.conns : [])
+          .filter((c) => c && c.user)
+          .map((c) => {
+            try { return path.basename(String(c.sessionPath || '')) } catch { return '' }
+          })
+          .filter(Boolean)
+      )
+
+      const now = Date.now()
+      for (const ent of readdirSync(global.rutaJadiBot, { withFileTypes: true })) {
+        if (!ent?.isDirectory?.() || ent?.isSymbolicLink?.()) continue
+        const base = ent.name
+        const botPath = join(global.rutaJadiBot, base)
+        if (!existsSync(join(botPath, creds))) {
+          watchdogMissingSince.delete(base)
+          continue
+        }
+        if (activeBases.has(base)) {
+          watchdogMissingSince.delete(base)
+          continue
+        }
+
+        const missingSince = watchdogMissingSince.get(base) || now
+        if (!watchdogMissingSince.has(base)) watchdogMissingSince.set(base, now)
+        if (now - missingSince < WATCHDOG_TICK_MS * 2 - 1000) continue
+
+        const lastRevival = watchdogLastRevival.get(base) || 0
+        if (now - lastRevival < WATCHDOG_COOLDOWN_MS) continue
+
+        watchdogLastRevival.set(base, now)
+        watchdogMissingSince.delete(base)
+        console.log(chalk.cyan(`🩺 Watchdog: reviviendo SubBot ${base} (sin conexión activa)`))
+        try {
+          yukiJadiBot({ pathYukiJadiBot: botPath, m: null, conn: global.conn, args: '', usedPrefix: '/', command: 'serbot' })
+        } catch (e) {
+          console.error(`Watchdog: fallo al revivir ${base}:`, e?.message || e)
+        }
+      }
+    } catch { }
+  }, WATCHDOG_TICK_MS)
 }
 
 // ============================================
@@ -1880,14 +1950,24 @@ async function _quickTest() {
 setInterval(async () => {
   const tmpDir = join(__dirname, 'tmp')
   try {
-    const filenames = readdirSync(tmpDir)
-    filenames.forEach(file => {
-      const filePath = join(tmpDir, file)
-      unlinkSync(filePath)
-    })
-    console.log(chalk.gray(`→ Archivos de la carpeta TMP eliminados`))
-  } catch {
-    console.log(chalk.gray(`→ Los archivos de la carpeta TMP no se pudieron eliminar`))
+    let removed = 0
+    const cleanTmp = (dir, depth = 0) => {
+      for (const file of readdirSync(dir)) {
+        const filePath = join(dir, file)
+        const stat = statSync(filePath)
+        if (stat.isDirectory()) {
+          cleanTmp(filePath, depth + 1)
+          try { rmSync(filePath, { recursive: false }) } catch {}
+          continue
+        }
+        unlinkSync(filePath)
+        removed += 1
+      }
+    }
+    cleanTmp(tmpDir)
+    if (removed) console.log(chalk.gray(`→ Archivos TMP eliminados: ${removed}`))
+  } catch (error) {
+    console.log(chalk.gray(`→ Limpieza TMP parcial: ${error?.message || error}`))
   }
 }, 30 * 1000)
 

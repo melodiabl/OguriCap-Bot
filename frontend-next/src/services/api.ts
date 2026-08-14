@@ -355,10 +355,7 @@ class ApiService {
   }
   
   async getBroadcastTargets() {
-    const params = new URLSearchParams();
-    params.append('forBroadcast', 'true');
-    
-    const response = await this.api.get(`/api/grupos?${params}`);
+    const response = await this.api.get('/api/grupos/broadcast-targets');
     return response.data;
   }
   
@@ -510,8 +507,8 @@ class ApiService {
     return response.data;
   }
 
-  async updateProveedor(id: number, data: Partial<Proveedor>) {
-    const response = await this.api.patch(`/api/proveedores/${id}`, data);
+  async updateProveedor(id: number | string, data: Partial<Proveedor>) {
+    const response = await this.api.patch(`/api/proveedores/${encodeURIComponent(String(id))}`, data);
     return response.data;
   }
 
@@ -741,7 +738,7 @@ class ApiService {
   }
 
   async toggleGroupBot(groupId: string, action: 'on' | 'off') {
-    const response = await this.api.post(`/api/grupos/${groupId}/toggle`, { action });
+    const response = await this.api.post(`/api/grupos/${encodeURIComponent(String(groupId))}/toggle`, { action });
     return response.data;
   }
 

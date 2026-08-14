@@ -22,6 +22,7 @@ interface Plugin {
   disabledAt: string | null;
   tags: string[];
   help: string[];
+  description?: string | null;
 }
 
 // Normalize tags: merge duplicates like 'download'/'downloader'/'descargas'
@@ -257,6 +258,13 @@ function PluginCard({
                   </span>
                 ))}
               </div>
+
+              {/* Description */}
+              {!plugin.disabled && plugin.description && (
+                <p className="mt-1.5 text-[11px] leading-snug text-muted/70">
+                  {plugin.description}
+                </p>
+              )}
 
               {/* Disable reason */}
               {plugin.disabled && plugin.message && (

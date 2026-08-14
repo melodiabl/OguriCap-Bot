@@ -115,18 +115,33 @@ export async function pgUpdateUserMetadata(username, patch) {
 }
 
 export async function pgAddKnownDevice(username, device) {
+  const client = await pool().connect()
   try {
-    const meta = await pgGetUserMetadata(username)
+    await client.query('BEGIN')
+    const { rows } = await client.query(
+      'SELECT metadata FROM usuarios WHERE username = $1 LIMIT 1 FOR UPDATE',
+      [username]
+    )
+    if (!rows[0]) { await client.query('ROLLBACK'); return }
+    const meta = typeof rows[0].metadata === 'object' ? (rows[0].metadata || {}) : {}
     const devices = Array.isArray(meta.known_devices) ? meta.known_devices : []
     const idx = devices.findIndex(d => d.hash === device.hash)
     if (idx >= 0) {
-      devices[idx] = { ...devices[idx], ...device }
+      devices[idx] = { ...devices[idx], ...device, first_seen: devices[idx].first_seen }
     } else {
       devices.push(device)
     }
     if (devices.length > 20) devices.splice(0, devices.length - 20)
-    await pgUpdateUserMetadata(username, { known_devices: devices })
-  } catch {}
+    await client.query(
+      'UPDATE usuarios SET metadata = $1::jsonb WHERE username = $2',
+      [JSON.stringify({ ...meta, known_devices: devices }), username]
+    )
+    await client.query('COMMIT')
+  } catch {
+    await client.query('ROLLBACK').catch(() => {})
+  } finally {
+    client.release()
+  }
 }
 
 export async function pgRevokeDevice(username, hash) {

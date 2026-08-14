@@ -41,7 +41,7 @@ import { useSocketConnection } from '@/contexts/SocketContext';
 import { formatUptime, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-export default function DashboardPage() {
+const DashboardPage = React.memo(function DashboardPage() {
   const { stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
   const { status: botStatus, isConnected, isConnecting, refetch: refetchBot } = useBotStatus();
   const { isGloballyOn } = useBotGlobalState();
@@ -65,9 +65,12 @@ export default function DashboardPage() {
     refetchBot();
   }, [refreshAll, refetchStats, refetchBot]);
 
-  const botStatusText = !isGloballyOn ? 'Desactivado' : isConnecting ? 'Sincronizando' : isConnected ? 'Conectado' : 'Desconectado';
+  const botStatusText = React.useMemo(() =>
+    !isGloballyOn ? 'Desactivado' : isConnecting ? 'Sincronizando' : isConnected ? 'Conectado' : 'Desconectado',
+    [isGloballyOn, isConnecting, isConnected]
+  );
 
-  const topStats = [
+  const topStats = React.useMemo(() => [
     {
       title: 'Usuarios Panel',
       value: stats?.totalUsuarios || 0,
@@ -108,7 +111,7 @@ export default function DashboardPage() {
       color: 'info' as const,
       active: onlineCount > 0,
     },
-  ];
+  ], [stats, totalCount, onlineCount]);
 
   return (
     <div className="relative space-y-8 p-4 sm:p-8 lg:p-10 min-h-[100dvh] overflow-hidden">
@@ -374,4 +377,6 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
+});
+
+export default DashboardPage;

@@ -364,38 +364,44 @@ export default function PedidosPage() {
   };
 
   const getEstadoBadge = (estado: string) => {
+    const safeEstado = estado || 'pendiente';
     const config: Record<string, { class: string; icon: React.ReactNode }> = {
-      pendiente: { class: 'badge-warning', icon: <Clock className="w-3 h-3" /> },
-      en_proceso: { class: 'badge-info', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+      pendiente:  { class: 'badge-warning', icon: <Clock className="w-3 h-3" /> },
+      en_proceso: { class: 'badge-info',    icon: <Loader2 className="w-3 h-3 animate-spin" /> },
       completado: { class: 'badge-success', icon: <CheckCircle className="w-3 h-3" /> },
-      cancelado: { class: 'badge-danger', icon: <XCircle className="w-3 h-3" /> },
+      cancelado:  { class: 'badge-danger',  icon: <XCircle className="w-3 h-3" /> },
+      rechazado:  { class: 'badge-danger',  icon: <XCircle className="w-3 h-3" /> },
     };
-    const c = config[estado] || config.pendiente;
+    const c = config[safeEstado] || config.pendiente;
     return (
       <span className={`badge ${c.class}`}>
         {c.icon}
-        <span className="ml-1">{estado.replace('_', ' ').charAt(0).toUpperCase() + estado.slice(1).replace('_', ' ')}</span>
+        <span className="ml-1">{safeEstado.replace('_', ' ').charAt(0).toUpperCase() + safeEstado.slice(1).replace('_', ' ')}</span>
       </span>
     );
   };
 
   const getPrioridadBadge = (prioridad: string) => {
+    const safePrioridad = prioridad || 'media';
     const config: Record<string, { class: string; icon: React.ReactNode }> = {
       alta: { class: 'bg-danger/20 text-danger border-danger/30', icon: <ArrowUp className="w-3 h-3" /> },
       media: { class: 'bg-warning/20 text-warning border-warning/30', icon: <Minus className="w-3 h-3" /> },
       baja: { class: 'bg-success/20 text-success border-success/30', icon: <ArrowDown className="w-3 h-3" /> },
     };
-    const c = config[prioridad] || config.media;
+    const c = config[safePrioridad] || config.media;
     return (
       <span className={`badge border ${c.class}`}>
         {c.icon}
-        <span className="ml-1 capitalize">{prioridad}</span>
+        <span className="ml-1 capitalize">{safePrioridad}</span>
       </span>
     );
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (!dateString) return '—';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   const actionButtonClass = 'flex h-10 w-10 items-center justify-center rounded-xl border border-border/15 bg-card/60 transition-all hover:border-border/25 hover:bg-card/80';
@@ -967,28 +973,38 @@ export default function PedidosPage() {
               ))}
             </div>
 
-            <div className="panel-modal-actions">
-              <Button variant="secondary" className="flex-1" icon={<Heart className="w-4 h-4" />} onClick={() => { voteForPedido(selectedPedido.id); setSelectedPedido(null); }}>
+            <div className="panel-modal-actions flex-wrap">
+              <Button variant="secondary" icon={<Heart className="w-4 h-4" />} onClick={() => { voteForPedido(selectedPedido.id); }}>
                 Votar ({(selectedPedido as any).votos || 0})
               </Button>
               {(isAdmin || isModerator) && (
-                <Button
-                  variant="danger"
-                  className="flex-1"
-                  icon={<Trash2 className="w-4 h-4" />}
-                  onClick={() => setDeleteTarget(selectedPedido)}
-                >
+                <Button variant="danger" icon={<Trash2 className="w-4 h-4" />} onClick={() => setDeleteTarget(selectedPedido)}>
                   Eliminar
                 </Button>
               )}
               {(isAdmin || isModerator) && selectedPedido.estado === 'pendiente' && (
-                <Button variant="primary" className="flex-1" onClick={() => { updateEstado(selectedPedido.id, 'en_proceso'); setSelectedPedido(null); }}>
-                  Iniciar Proceso
-                </Button>
+                <>
+                  <Button variant="primary" className="flex-1" onClick={() => { updateEstado(selectedPedido.id, 'en_proceso'); setSelectedPedido(null); }}>
+                    Iniciar
+                  </Button>
+                  <Button variant="danger" className="flex-1" icon={<XCircle className="w-4 h-4" />} onClick={() => { updateEstado(selectedPedido.id, 'cancelado'); setSelectedPedido(null); }}>
+                    Cancelar
+                  </Button>
+                </>
               )}
               {(isAdmin || isModerator) && selectedPedido.estado === 'en_proceso' && (
-                <Button variant="primary" className="flex-1" onClick={() => { updateEstado(selectedPedido.id, 'completado'); setSelectedPedido(null); }}>
-                  Completar
+                <>
+                  <Button variant="primary" className="flex-1" onClick={() => { updateEstado(selectedPedido.id, 'completado'); setSelectedPedido(null); }}>
+                    Completar
+                  </Button>
+                  <Button variant="danger" className="flex-1" icon={<XCircle className="w-4 h-4" />} onClick={() => { updateEstado(selectedPedido.id, 'cancelado'); setSelectedPedido(null); }}>
+                    Cancelar
+                  </Button>
+                </>
+              )}
+              {(isAdmin || isModerator) && selectedPedido.estado === 'cancelado' && (
+                <Button variant="secondary" className="flex-1" icon={<Clock className="w-4 h-4" />} onClick={() => { updateEstado(selectedPedido.id, 'pendiente'); setSelectedPedido(null); }}>
+                  Reabrir
                 </Button>
               )}
             </div>

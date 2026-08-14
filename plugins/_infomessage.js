@@ -31,23 +31,11 @@ const newlink = `> ❀ El enlace del grupo ha sido restablecido.\n> ✦ Acción 
 const status = `> ❀ El grupo ha sido ${stubParams[0] == 'on' ? '*cerrado*' : '*abierto*'} Por ${actorTag}\n> ✦ Ahora ${stubParams[0] == 'on' ? '*solo admins*' : '*todos*'} pueden enviar mensaje.`
 const admingp = `> ❀ ${targetTag} Ahora es admin del grupo.\n> ✦ Acción hecha por:\n> » ${actorTag}`
 const noadmingp = `> ❀ ${targetTag} Deja de ser admin del grupo.\n> ✦ Acción hecha por:\n> » ${actorTag}`
-if (chat.detect && m.messageStubType == 2) {
-const uniqid = (m.isGroup ? m.chat : m.sender).split('@')[0]
-const sessionPath = conn.isSubBot ? (conn.sessionPath || `./${global.jadi}/${conn.user.jid.split('@')[0]}`) : `./${sessions}/`
-if (fs.existsSync(sessionPath)) {
-try {
-const files = await fs.promises.readdir(sessionPath)
-for (const file of files) {
-if (file.includes(uniqid)) {
-await fs.promises.unlink(path.join(sessionPath, file))
-console.log(`${chalk.yellow.bold('✎ Delete!')} ${chalk.greenBright(`'${file}'`)} en ${sessionPath}\n${chalk.redBright('Que provoca el "undefined" en el chat.')}`)
-}
-}
-} catch (e) {
-console.error('Error en limpieza de sesión:', e)
-}
-}
-} if (chat.detect && m.messageStubType == 21) {
+// NOTA (2026-06-12): aquí había un "fix" que ante stubType 2 (fallo de descifrado)
+// borraba TODAS las sender-keys del grupo en la sesión. Eso causaba una espiral de
+// errores "Bad MAC"/mensajes perdidos y desestabilizaba los subbots. Baileys ya
+// gestiona los reintentos de descifrado por sí solo; no borrar claves de sesión.
+if (chat.detect && m.messageStubType == 21) {
 rcanal.contextInfo.mentionedJid = [actorJid, ...groupAdmins.map(v => v.id)].filter(Boolean)
 await this.sendMessage(m.chat, { text: nombre, ...rcanal }, { quoted: null })
 } if (chat.detect && m.messageStubType == 22) {

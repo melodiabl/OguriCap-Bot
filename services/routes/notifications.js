@@ -92,7 +92,7 @@ export async function handleNotifications({ req, res, url, panelDb }) {
     panelDb.notifications ||= []
     panelDb.notifications.unshift(notif)
     if (panelDb.notifications.length > 500) panelDb.notifications = panelDb.notifications.slice(0, 500)
-    if (global.db?.write) await global.db.write()
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
     sseBroadcast('notificaciones', notif)
     try { const { emitNotification } = await import('../socket-io.js'); emitNotification(notif) } catch {}
     try {
@@ -108,7 +108,7 @@ export async function handleNotifications({ req, res, url, panelDb }) {
     if (!auth.ok) return json(res, auth.status, { error: auth.error })
     if (!isAdmin(auth.user)) return json(res, 403, { error: 'Permisos insuficientes' })
     panelDb.notifications = []
-    if (global.db?.write) await global.db.write()
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
     return json(res, 200, { success: true, message: 'Notificaciones eliminadas' })
   }
 
@@ -123,7 +123,7 @@ export async function handleNotifications({ req, res, url, panelDb }) {
         n.read = true; n.leida = true; count++
       }
     }
-    if (global.db?.write) await global.db.write()
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
     return json(res, 200, { success: true, marked: count })
   }
 
@@ -138,7 +138,7 @@ export async function handleNotifications({ req, res, url, panelDb }) {
     if (!notif) return json(res, 404, { error: 'Notificación no encontrada' })
     const body = await readJson(req)
     if ('read' in body) { notif.read = body.read; notif.leida = body.read }
-    if (global.db?.write) await global.db.write()
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
     return json(res, 200, { success: true, notification: notif })
   }
 
@@ -153,7 +153,7 @@ export async function handleNotifications({ req, res, url, panelDb }) {
     const before = (panelDb?.notifications || []).length
     if (panelDb) panelDb.notifications = (panelDb.notifications || []).filter(n => !ids.has(n?.id))
     const deleted = before - (panelDb?.notifications || []).length
-    if (global.db?.write) await global.db.write()
+    if (global.db?.savePanel) global.db.savePanel().catch(() => {})
     return json(res, 200, { success: true, deleted })
   }
 

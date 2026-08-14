@@ -14,9 +14,10 @@ if (!args[0]) return conn.reply(m.chat, `❀ Por favor, proporciona una descripc
 const promptDalle = args.join(' ')
 if (promptDalle.length < 5) return conn.reply(m.chat, `ꕥ La descripción es demasiado corta.`, m)
 await m.react('🕒')
-const dalleURL = `https://eliasar-yt-api.vercel.app/api/ai/text2img?prompt=${encodeURIComponent(promptDalle)}`
-const dalleRes = await axios.get(dalleURL, { responseType: 'arraybuffer' })
-await conn.sendMessage(m.chat, { image: Buffer.from(dalleRes.data) }, { quoted: m })
+// eliasar-yt-api murió (500); usar el mismo generador que /flux (funciona).
+const dalleResult = await fluximg.create(promptDalle)
+if (!dalleResult?.imageLink) throw new Error('No se pudo generar la imagen')
+await conn.sendMessage(m.chat, { image: { url: dalleResult.imageLink }, caption: `❀ *Resultados de:* ${promptDalle}` }, { quoted: m })
 await m.react('✔️')
 break
 }
@@ -44,12 +45,9 @@ break
 case 'luminai': case 'gemini': case 'bard': {
 if (!text) return conn.reply(m.chat, `❀ Ingrese una petición.`, m)
 await m.react('🕒')
-const apiMap = { luminai: 'qwen-qwq-32b', gemini: 'gemini', bard: 'grok-3-mini' }
-const endpoint = apiMap[command]
-const url = `${global.APIs.zenzxz.url}/ai/${endpoint}?text=${encodeURIComponent(text)}`
-const res = await axios.get(url)
-const output = res.data?.response || res.data?.assistant
-if (!res.data?.status || !output) throw new Error(`Respuesta inválida de ${command}`)
+// zenzxz murió; usar MelodiaAPI (venicechat) con fallback a Delirius
+const output = await askAI(text)
+if (!output) throw new Error(`Respuesta inválida de ${command}`)
 await conn.sendMessage(m.chat, { text: output }, { quoted: m })
 await m.react('✔️')
 break
@@ -57,9 +55,13 @@ break
 case 'iavoz': case 'aivoz': case 'vozia': {
 if (!text) return conn.reply(m.chat, `❀ Ingrese lo que desea decirle a la inteligencia artificial con voz`, m)
 await m.react('🕒')
-const apiURL = `${global.APIs.adonix.url}/ai/iavoz?apikey=${global.APIs.adonix.key}&q=${encodeURIComponent(text)}&voice=Jorge`
-const response = await axios.get(apiURL, { responseType: 'arraybuffer' })
-await conn.sendMessage(m.chat, { audio: Buffer.from(response.data), mimetype: 'audio/mpeg' }, { quoted: m })
+// adonix murió: respuesta vía MelodiaAPI/Delirius + voz con Google TTS
+const answer = await askAI(`Responde en español, breve (máximo 2 frases): ${text}`)
+if (!answer) throw new Error('La IA no respondió')
+const ttsText = answer.slice(0, 190)
+const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(ttsText)}&tl=es&client=tw-ob`
+const response = await axios.get(ttsUrl, { responseType: 'arraybuffer', headers: { 'User-Agent': 'Mozilla/5.0' } })
+await conn.sendMessage(m.chat, { audio: Buffer.from(response.data), mimetype: 'audio/mpeg', ptt: true }, { quoted: m })
 await m.react('✔️')
 break
 }
@@ -74,6 +76,24 @@ handler.tags = ['tools']
 handler.group = true
 
 export default handler
+
+// IA compartida: MelodiaAPI venicechat primero, Delirius como respaldo.
+async function askAI(text) {
+try {
+const mel = (global.APIs?.MelodyApi?.url || '').replace(/\/+$/, '')
+const melKey = global.APIs?.MelodyApi?.key || ''
+if (mel) {
+const r = await axios.get(`${mel}/ai/venicechat?text=${encodeURIComponent(text)}`, { timeout: 45000, headers: melKey ? { 'x-api-key': melKey } : {} })
+if (r.data?.status && typeof r.data?.result === 'string' && r.data.result.trim()) return r.data.result.trim()
+}
+} catch {}
+try {
+const r = await axios.get(`${global.APIs.delirius.url}/ia/gptweb?text=${encodeURIComponent(text)}`, { timeout: 45000 })
+const out = r.data?.data || r.data?.result || r.data?.response
+if (typeof out === 'string' && out.trim()) return out.trim()
+} catch {}
+return null
+}
 
 const fluximg = { defaultRatio: "2:3", create: async (query) => {
 const config = { headers: { accept: "*/*", authority: "1yjs1yldj7.execute-api.us-east-1.amazonaws.com", "user-agent": "Postify/1.0.0" }}

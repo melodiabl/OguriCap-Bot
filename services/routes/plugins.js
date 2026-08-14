@@ -15,14 +15,20 @@ export async function handlePlugins({ req, res, url }) {
   if (pathname === '/api/plugins' && method === 'GET') {
     const plugins = global.plugins || {}
     const disabled = global.db?.data?.disabledPlugins || global.db?.data?.panel?.disabledPlugins || {}
+    // Re-sync in-memory disabled flags from persistent store (fixes state after restart)
+    for (const [key, state] of Object.entries(disabled)) {
+      if (plugins[key]) plugins[key].disabled = !!state?.disabled
+    }
     const list = Object.entries(plugins).map(([name, p]) => ({
       name,
-      label: name.replace('.js', ''),
-      disabled: !!p?.disabled,
+      label: p?.label || name.replace(/\.js$/, ''),
+      // persistent store wins over in-memory flag (in-memory resets on restart)
+      disabled: !!disabled[name]?.disabled || !!p?.disabled,
       message: disabled[name]?.message || null,
       disabledAt: disabled[name]?.disabledAt || null,
-      tags: p?.tags || [],
-      help: p?.help || [],
+      tags: Array.isArray(p?.tags) ? p.tags : [],
+      help: Array.isArray(p?.help) ? p.help : [],
+      description: p?.description || p?.desc || null,
     }))
     return json(res, 200, { plugins: list, total: list.length })
   }

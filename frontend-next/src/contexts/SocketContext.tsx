@@ -1,12 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 
-// SOCKET_EVENTS debe mantenerse sincronizado con lib/socket-io.js del backend
 export const SOCKET_EVENTS = {
-  // Bot principal
   BOT_STATUS: 'bot:status',
   BOT_QR: 'bot:qr',
   BOT_PAIRING_CODE: 'bot:pairingCode',
@@ -16,7 +14,6 @@ export const SOCKET_EVENTS = {
   BOT_GLOBAL_STATE_CHANGED: 'bot:globalStateChanged',
   BOT_GLOBAL_SHUTDOWN: 'bot:globalShutdown',
   BOT_GLOBAL_STARTUP: 'bot:globalStartup',
-  // Subbots
   SUBBOT_CREATED: 'subbot:created',
   SUBBOT_QR: 'subbot:qr',
   SUBBOT_PAIRING_CODE: 'subbot:pairingCode',
@@ -25,34 +22,25 @@ export const SOCKET_EVENTS = {
   SUBBOT_DELETED: 'subbot:deleted',
   SUBBOT_UPDATED: 'subbot:updated',
   SUBBOT_STATUS: 'subbot:status',
-  // Dashboard
   STATS_UPDATE: 'stats:update',
-  // Aportes
   APORTE_CREATED: 'aporte:created',
   APORTE_UPDATED: 'aporte:updated',
   APORTE_DELETED: 'aporte:deleted',
-  // Pedidos
   PEDIDO_CREATED: 'pedido:created',
   PEDIDO_UPDATED: 'pedido:updated',
   PEDIDO_DELETED: 'pedido:deleted',
-  // Grupos
   GRUPO_UPDATED: 'grupo:updated',
   GRUPO_SYNCED: 'grupo:synced',
-  // Usuarios
   USUARIO_CREATED: 'usuario:created',
   USUARIO_UPDATED: 'usuario:updated',
-  // Notificaciones
   NOTIFICATION: 'notification',
-  // Sistema
   SYSTEM_STATS: 'system:stats',
   LOG_ENTRY: 'log:entry',
   TERMINAL_LINE: 'terminal:line',
-  // Tasks (scheduler)
   TASK_CREATED: 'task:created',
   TASK_UPDATED: 'task:updated',
   TASK_DELETED: 'task:deleted',
   TASK_EXECUTED: 'task:executed',
-  // Sistema
   SYSTEM_MAINTENANCE: 'system:maintenance',
 } as const;
 
@@ -104,8 +92,21 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  const botStatusRef = useRef<BotStatus | null>(null);
   const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
   const [lastSubbotEvent, setLastSubbotEvent] = useState<SubbotEvent | null>(null);
+
+  const updateBotStatus = useCallback((updater: BotStatus | ((prev: BotStatus | null) => BotStatus | null)) => {
+    setBotStatus(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const prevStr = JSON.stringify(prev);
+      const nextStr = JSON.stringify(next);
+      if (prevStr === nextStr) return prev;
+      botStatusRef.current = next;
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
@@ -122,11 +123,11 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       transports: ['polling', 'websocket'],
       upgrade: true,
       reconnection: true,
-      reconnectionAttempts: 20,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 8000,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
       randomizationFactor: 0.5,
-      timeout: 20000,
+      timeout: 15000,
       autoConnect: true,
       auth: { token },
     });
@@ -145,7 +146,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setIsConnected(true);
       setConnectionError(null);
       requestData();
-      setTimeout(requestData, 1500);
     });
 
     newSocket.on('disconnect', () => setIsConnected(false));
@@ -158,37 +158,48 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setIsConnected(false);
     });
 
-    const handleOnline = () => {
-      if (!newSocket.connected) newSocket.connect();
-    };
+    const handleOnline = () => { if (!newSocket.connected) newSocket.connect(); };
     const handleOffline = () => setIsConnected(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    newSocket.on(SOCKET_EVENTS.BOT_STATUS, (data: BotStatus) => setBotStatus(data));
-    newSocket.on(SOCKET_EVENTS.BOT_QR, (data: any) => setBotStatus(prev => ({
-      ...(prev ?? {} as BotStatus),
-      qrCode: data?.qr ?? null,
-      connecting: true,
-    })));
+    newSocket.on(SOCKET_EVENTS.BOT_STATUS, (data: BotStatus) => updateBotStatus(data));
+
+    newSocket.on(SOCKET_EVENTS.BOT_QR, (data: any) => {
+      updateBotStatus(prev => ({
+        ...(prev ?? {} as BotStatus),
+        qrCode: data?.qr ?? null,
+        connecting: true,
+      }));
+    });
+
     newSocket.on(SOCKET_EVENTS.BOT_CONNECTED, (data: any) => {
-      setBotStatus(prev => ({
+      updateBotStatus(prev => ({
         ...(prev ?? {} as BotStatus),
         connected: true, isConnected: true, connecting: false,
         phone: data?.phone ?? null, qrCode: null,
       }));
     });
-    newSocket.on(SOCKET_EVENTS.BOT_DISCONNECTED, (data: any) => {
-      setBotStatus(prev => ({
+
+    newSocket.on(SOCKET_EVENTS.BOT_DISCONNECTED, () => {
+      updateBotStatus(prev => ({
         ...(prev ?? {} as BotStatus),
         connected: false, isConnected: false, connecting: false, qrCode: null,
       }));
     });
 
-    newSocket.on(SOCKET_EVENTS.SUBBOT_STATUS, (data: any) => setLastSubbotEvent(data));
-    newSocket.on(SOCKET_EVENTS.SUBBOT_QR, (data: SubbotEvent) => setLastSubbotEvent(data));
-    newSocket.on(SOCKET_EVENTS.SUBBOT_CONNECTED, (data: SubbotEvent) => setLastSubbotEvent(data));
-    newSocket.on(SOCKET_EVENTS.SUBBOT_DISCONNECTED, (data: SubbotEvent) => setLastSubbotEvent(data));
+    newSocket.on(SOCKET_EVENTS.SUBBOT_STATUS, (data: any) => setLastSubbotEvent(prev =>
+      JSON.stringify(prev) === JSON.stringify(data) ? prev : data
+    ));
+    newSocket.on(SOCKET_EVENTS.SUBBOT_QR, (data: SubbotEvent) => setLastSubbotEvent(prev =>
+      JSON.stringify(prev) === JSON.stringify(data) ? prev : data
+    ));
+    newSocket.on(SOCKET_EVENTS.SUBBOT_CONNECTED, (data: SubbotEvent) => setLastSubbotEvent(prev =>
+      JSON.stringify(prev) === JSON.stringify(data) ? prev : data
+    ));
+    newSocket.on(SOCKET_EVENTS.SUBBOT_DISCONNECTED, (data: SubbotEvent) => setLastSubbotEvent(prev =>
+      JSON.stringify(prev) === JSON.stringify(data) ? prev : data
+    ));
 
     setSocket(newSocket);
 
@@ -197,48 +208,21 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       window.removeEventListener('offline', handleOffline);
       newSocket.disconnect();
     };
-  }, [token]);
+  }, [token, updateBotStatus]);
 
-  const subscribe = useCallback((channels: string[]) => {
-    socket?.emit('subscribe', channels);
-  }, [socket]);
-
-  const unsubscribe = useCallback((channels: string[]) => {
-    socket?.emit('unsubscribe', channels);
-  }, [socket]);
-
-  const requestBotStatus = useCallback(() => {
-    socket?.emit('request:botStatus');
-  }, [socket]);
-
-  const requestSubbotStatus = useCallback(() => {
-    socket?.emit('request:subbotStatus');
-  }, [socket]);
-
-  const requestStats = useCallback(() => {
-    socket?.emit('request:stats');
-  }, [socket]);
-
-  const on = useCallback((event: string, callback: (data: any) => void) => {
-    socket?.on(event, callback);
-  }, [socket]);
-
-  const off = useCallback((event: string, callback: (data: any) => void) => {
-    socket?.off(event, callback);
-  }, [socket]);
+  const subscribe = useCallback((channels: string[]) => { socket?.emit('subscribe', channels); }, [socket]);
+  const unsubscribe = useCallback((channels: string[]) => { socket?.emit('unsubscribe', channels); }, [socket]);
+  const requestBotStatus = useCallback(() => { socket?.emit('request:botStatus'); }, [socket]);
+  const requestSubbotStatus = useCallback(() => { socket?.emit('request:subbotStatus'); }, [socket]);
+  const requestStats = useCallback(() => { socket?.emit('request:stats'); }, [socket]);
+  const on = useCallback((event: string, callback: (data: any) => void) => { socket?.on(event, callback); }, [socket]);
+  const off = useCallback((event: string, callback: (data: any) => void) => { socket?.off(event, callback); }, [socket]);
 
   const connectionValue = React.useMemo<SocketConnectionContextType>(() => ({
-    socket,
-    isConnected,
-    connectionError,
-    subscribe,
-    unsubscribe,
-    requestBotStatus,
-    requestSubbotStatus,
-    requestStats,
-    on,
-    off,
-  }), [socket, isConnected, connectionError, subscribe, unsubscribe, requestBotStatus, requestSubbotStatus, requestStats, on, off]);
+    socket, isConnected, connectionError, subscribe, unsubscribe,
+    requestBotStatus, requestSubbotStatus, requestStats, on, off,
+  }), [socket, isConnected, connectionError, subscribe, unsubscribe,
+      requestBotStatus, requestSubbotStatus, requestStats, on, off]);
 
   return (
     <SocketConnectionContext.Provider value={connectionValue}>

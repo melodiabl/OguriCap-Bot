@@ -315,7 +315,7 @@ export default function AiChatPage() {
 
         {/* Input */}
         <div className={`relative overflow-hidden rounded-2xl border bg-[#0d1012]/80 backdrop-blur-sm transition-all duration-300 ${
-          modelColorMap[activeColor].replace('text-', 'focus-within:border-').split(' ')[0]
+          modelColorMap[activeColor]?.replace('text-', 'focus-within:border-').split(' ')[0] ?? ''
         } border-white/15 focus-within:shadow-[0_0_0_1px_rgba(var(--page-a),0.2)]`}>
           <textarea
             ref={textareaRef}
