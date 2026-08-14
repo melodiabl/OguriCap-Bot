@@ -21,7 +21,7 @@ global.prems = []
 //*─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─⭒─ׄ─ׅ─ׄ─*
 
 global.libreria = "Baileys Multi Device"
-global.vs = "^2.0.1|Update"
+global.vs = "^2.1.0|Update"
 global.sessions = "Sessions/Principal"
 global.jadi = "Sessions/SubBot"
 global.yukiJadibts = true

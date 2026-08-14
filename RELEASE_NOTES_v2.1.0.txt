@@ -1,7 +1,7 @@
 OGURICAP BOT v2.1.0 — NUEVA GENERACIÓN
 =======================================
 
-Tag sugerido: v2.1.0
+Tag: OFICIALv2.1.0
 Título sugerido: OguriCap Bot v2.1.0 — Instalador universal, nuevo panel y seguridad avanzada
 Comparación: rama post-test frente a main
 

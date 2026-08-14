@@ -1,6 +1,6 @@
 {
   "name": "OguriCap-botMD",
-  "version": "1.8.2",
+  "version": "2.1.0",
   "description": "WhatsApp Bot Multi Device with Admin Panel",
   "main": "index.js",
   "type": "module",
