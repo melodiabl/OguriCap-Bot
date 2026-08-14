@@ -1,0 +1,296 @@
+OGURICAP BOT v2.1.0 — NUEVA GENERACIÓN
+=======================================
+
+Tag sugerido: v2.1.0
+Título sugerido: OguriCap Bot v2.1.0 — Instalador universal, nuevo panel y seguridad avanzada
+Comparación: rama post-test frente a main
+
+Esta versión representa una renovación profunda de OguriCap Bot. Incluye un
+nuevo sistema de instalación automática, panel modernizado, autenticación más
+segura, protección de datos personales, nuevas herramientas administrativas y
+mejoras generales de rendimiento, estabilidad y experiencia de usuario.
+
+
+🌟 NOVEDADES PRINCIPALES
+------------------------
+
+• Nuevo administrador universal mediante ./oguricap.sh.
+• Detección automática de Termux y distribuciones Linux.
+• Instalación y configuración automática de PostgreSQL.
+• Opción real para habilitar o deshabilitar el panel web.
+• Panel completamente renovado y adaptable a dispositivos móviles.
+• Nuevo sistema de autenticación con access token y refresh token.
+• Cifrado de información personal mediante AES-256-GCM.
+• Mejor administración de usuarios, perfiles, dispositivos y sesiones.
+• Sistema ampliado de alertas, notificaciones y correos electrónicos.
+• Mejoras importantes para sub-bots, grupos, aportes y proveedores.
+• Dependencias actualizadas y suite de 165 pruebas aprobadas.
+
+
+⚡ INSTALADOR UNIVERSAL
+----------------------
+
+El nuevo archivo oguricap.sh centraliza todas las operaciones:
+
+• install: instala o repara dependencias.
+• configure: configura owner, panel, secretos y PostgreSQL.
+• start: inicia el bot y, si está habilitado, también el panel.
+• update: actualiza sin borrar sesiones ni configuración.
+• backup: crea una copia de seguridad de los datos privados.
+• restore: valida y restaura un respaldo con confirmación.
+• doctor: diagnostica el sistema y las dependencias.
+
+El instalador reconoce:
+
+• Termux en Android.
+• Debian y Ubuntu mediante APT.
+• Fedora mediante DNF.
+• Arch Linux mediante Pacman.
+• Alpine Linux mediante APK.
+
+También instala Node.js 20+, npm, Git, FFmpeg, ImageMagick, PostgreSQL,
+compiladores y las dependencias necesarias. En Termux actualiza los paquetes y
+activa termux-wake-lock cuando el bot inicia.
+
+
+🌐 PANEL WEB RENOVADO
+---------------------
+
+• Diseño visual moderno basado en superficies zinc y acentos profesionales.
+• Navegación, sidebar y encabezado rediseñados.
+• Transiciones de página más suaves.
+• Nuevos skeletons, animaciones, efectos y estados de carga.
+• Mejor experiencia en escritorio y dispositivos móviles.
+• Avatar y acceso al perfil integrados en el encabezado.
+• Mejoras en Dashboard, Alertas, Aportes, Pedidos y Proveedores.
+• Mejoras en Usuarios, Grupos, Plugins, Broadcast y Sub-bots.
+• Contextos de Socket.IO, notificaciones y actualizaciones reorganizados.
+• PWA y service worker actualizados.
+• Next.js actualizado a la rama segura 14.2.35.
+
+Durante la instalación ahora se pregunta:
+
+  ¿Habilitar el panel web? [S/n]
+
+Si se responde S, el instalador descarga, compila e inicia el frontend. Si se
+responde n, se omite el panel y se ejecuta únicamente el bot.
+
+
+🔐 SEGURIDAD Y AUTENTICACIÓN
+---------------------------
+
+• Access tokens de corta duración.
+• Refresh tokens opacos con rotación atómica.
+• Revocación de tokens al cerrar sesión.
+• Lista de bloqueo mediante JTI.
+• Cifrado AES-256-GCM para correo y número de WhatsApp.
+• Índices HMAC para búsquedas sin exponer información personal.
+• Derivación de claves mediante HKDF.
+• Migración de PII idempotente.
+• Protección contra correos y teléfonos duplicados.
+• Registro de dispositivos conocidos.
+• Alertas ante accesos desde dispositivos nuevos.
+• Administración y revocación de dispositivos desde el perfil.
+• Nuevas variables JWT_SECRET, DB_ENCRYPTION_KEY e INTERNAL_BOT_SECRET.
+• Generación automática de secretos seguros durante la instalación.
+• Validación de configuración y conexión con PostgreSQL.
+
+
+👤 PERFIL Y CUENTA
+------------------
+
+• Nueva página de perfil con pestañas organizadas.
+• Información y edición de cuenta.
+• Administración de dispositivos conocidos.
+• Preferencias de notificaciones.
+• Opciones y controles de seguridad.
+• API de perfil dedicada.
+• Actualización de metadatos de usuario en PostgreSQL.
+• Mejor identificación del dispositivo, IP y última actividad.
+
+
+📧 CORREOS Y NOTIFICACIONES
+---------------------------
+
+• Sistema de correo dividido en módulos independientes.
+• Nuevo diseño minimalista y compatible con clientes de correo.
+• Iconos SVG integrados en lugar de emojis inconsistentes.
+• Configuración SMTP mejorada con validaciones y advertencias.
+• Envío manual desde el panel para administradores.
+• Broadcast masivo con presets y mensajes personalizados.
+• Comunicaciones globales según el tipo de evento.
+• Notificaciones por email, Socket.IO, webhook y WhatsApp.
+
+Nuevas plantillas y eventos:
+
+• Cambio de rol.
+• Bot desconectado, reconectado o con error.
+• Alertas de sub-bots.
+• Nuevo dispositivo detectado.
+• Cuenta suspendida, reactivada o eliminada.
+• Aporte recibido, aceptado, rechazado o pendiente.
+• Mantenimiento programado y finalizado.
+• Código de doble verificación.
+• Alertas del sistema.
+• Restablecimiento de contraseña y avisos de seguridad.
+
+
+📊 ALERTAS, MONITOREO Y TIEMPO REAL
+-----------------------------------
+
+• Nueva ruta y página de alertas.
+• Alertas por CPU, memoria, almacenamiento y tasa de errores.
+• Mejor estado visual para alertas activas.
+• Actualizaciones optimistas del panel.
+• Eventos centralizados mediante event bus.
+• Socket.IO reorganizado para evitar conexiones duplicadas.
+• Mejor manejo de reconexión y estado global.
+• Nuevos canales de notificación configurables.
+• Informes de mantenimiento basados en datos del sistema.
+
+
+👥 SUB-BOTS Y WHATSAPP
+----------------------
+
+• Mejor creación, reconexión y eliminación de sub-bots.
+• Helpers dedicados para sesiones secundarias.
+• Limpieza de conexiones y recursos más segura.
+• Mejor sincronización del estado con el panel.
+• Mejor autenticación principal mediante QR o código telefónico.
+• Flujo de pairing administrable desde el panel.
+• Normalización de JID y números de WhatsApp.
+• Detección dinámica de la versión compatible de WhatsApp.
+• Mejor manejo de sesiones Principal y SubBot.
+
+
+🧩 PLUGINS Y PROVEEDORES
+------------------------
+
+• Mejoras en comandos de Instagram, Facebook y Pinterest.
+• Mejoras en Spotify, reproducción y descargas multimedia.
+• Ajustes en letras, traducción, grupos y herramientas de IA.
+• Mejor clasificación del contenido entregado por proveedores.
+• Reemplazo de response.buffer() por arrayBuffer().
+• Mejor control de tamaño y progreso de descargas.
+• Correcciones en anime, waifu, Pokédex y contenido multimedia.
+• Mejoras en aportes, pedidos y comandos informativos.
+• Eliminación de la integración antigua de WooCommerce.
+
+
+💾 POSTGRESQL, DATOS Y RESPALDOS
+-------------------------------
+
+• PostgreSQL pasa a formar parte del flujo automático.
+• Creación automática del usuario y la base de datos.
+• Aplicación automática del esquema y tablas de notificaciones.
+• Mejor sincronización de usuarios, chats, ajustes y panel.
+• Migraciones de seguridad para PII y refresh tokens.
+• Scripts seguros de respaldo y restauración.
+• Los respaldos SQL, .env y Sessions quedan excluidos de Git.
+• El actualizador se detiene si encuentra cambios locales.
+• Solo se aceptan actualizaciones fast-forward.
+• Ya no se elimina la carpeta completa para actualizar.
+
+
+🛠️ BACKEND Y ARQUITECTURA
+-------------------------
+
+• Servicios reorganizados dentro de services/.
+• Rutas separadas para auth, bot, configuración, grupos y logs.
+• Rutas dedicadas para multimedia, plugins, recursos y tareas.
+• Rutas ampliadas para aportes, broadcast, soporte y usuarios.
+• Middleware centralizado de autenticación y rate limiting.
+• Sistema modular de alertas y notificaciones.
+• Mejor manejo de errores y datos dañados.
+• Mejoras en logs, métricas y monitoreo.
+• Docker actualizado para mayor compatibilidad con librerías nativas.
+• Configuración mejorada para despliegue con Docker Compose.
+
+
+🧪 CALIDAD Y DEPENDENCIAS
+-------------------------
+
+• 165 pruebas automatizadas aprobadas.
+• Pruebas para JWT, cifrado, PII y PostgreSQL.
+• Pruebas para correo, plantillas y configuración SMTP.
+• Pruebas para perfil, dispositivos y utilidades internas.
+• Lockfiles incluidos para instalaciones reproducibles.
+• Compatibilidad npm configurada para el peer heredado de Baileys/Jimp.
+• Axios, Sharp, ws, systeminformation, tar y otras librerías actualizadas.
+• Vulnerabilidades críticas del frontend eliminadas.
+• Build de producción del panel verificado correctamente.
+
+Limitación conocida: el fork actual de Baileys incluye una versión transitiva
+de protobufjs señalada por npm audit. No existe una actualización compatible
+automática; forzarla puede romper la conexión con WhatsApp.
+
+
+📚 DOCUMENTACIÓN
+----------------
+
+• README completamente renovado y simplificado.
+• Instalación clara para Termux y Linux.
+• Guías para QR, código telefónico, Docker y PM2.
+• Instrucciones de actualización, respaldo y restauración.
+• Diagnóstico y solución de problemas frecuentes.
+• Sección de seguridad y datos privados.
+• Apartado visual de colaboradores y contribuciones.
+• Imagen principal, badges, tecnologías y enlaces de comunidad.
+
+
+⚠️ ANTES DE ACTUALIZAR
+----------------------
+
+1. Crea un respaldo:
+
+   ./oguricap.sh backup
+
+2. Conserva estos archivos y directorios privados:
+
+   • .env
+   • Sessions/
+   • backups/
+   • storage/
+   • .config/
+
+3. Revisa las nuevas variables de .env.example.
+4. Asegúrate de usar Node.js 20 o superior.
+5. No publiques respaldos ni sesiones en GitHub.
+
+
+📥 INSTALACIÓN NUEVA
+--------------------
+
+git clone https://github.com/melodiabl/OguriCap-Bot.git
+cd OguriCap-Bot
+chmod +x oguricap.sh
+./oguricap.sh install
+./oguricap.sh start
+
+
+🔄 ACTUALIZACIÓN
+----------------
+
+cd OguriCap-Bot
+./oguricap.sh update
+
+Si el actualizador detecta cambios locales, se detendrá sin borrar nada.
+Guarda esos cambios con Git o crea una copia antes de continuar.
+
+
+🙏 AGRADECIMIENTOS
+------------------
+
+Gracias a todas las personas que probaron, reportaron errores, propusieron
+mejoras, colaboraron con código o ayudaron a la comunidad.
+
+Desarrollo principal: @melodiabl
+Crédito histórico del instalador original: @gata_dios
+Contribuidores: https://github.com/melodiabl/OguriCap-Bot/graphs/contributors
+
+Comunidad y soporte:
+https://github.com/melodiabl/OguriCap-Bot
+
+
+OguriCap Bot v2.1.0
+Más seguro, más completo y mucho más fácil de instalar. 💚
