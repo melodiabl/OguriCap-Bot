@@ -11,9 +11,6 @@
   "scripts": {
     "start": "node index.js",
     "manager": "bash ./oguricap.sh",
-    "setup": "bash ./oguricap.sh install",
-    "configure": "bash ./oguricap.sh configure",
-    "doctor": "bash ./oguricap.sh doctor",
     "dev": "node --inspect index.js",
     "prod": "NODE_ENV=production node index.js",
     "postinstall": "node --input-type=module -e 'import fs from \"fs\"; import path from \"path\"; const pkg=path.join(process.cwd(),\"node_modules\",\"file_size_url\"); const entry=path.join(pkg,\"index.js\"); const src=path.join(pkg,\"src\",\"index.js\"); try { if (fs.existsSync(pkg) && !fs.existsSync(entry) && fs.existsSync(src)) { fs.writeFileSync(entry, \"export { default } from \\\"./src/index.js\\\"\\nexport * from \\\"./src/index.js\\\"\\n\", \"utf8\"); } } catch {}'",
@@ -51,7 +48,7 @@
     "archiver": "^6.0.1",
     "awesome-phonenumber": "^3.4.0",
     "axios": "^1.19.0",
-    "baileys": "github:GataNina-Li/Baileys",
+    "baileys": "git+https://github.com/GataNina-Li/Baileys.git#36273665da8fa8a0dd9e6e1fc5488ecd158525f3",
     "bcryptjs": "^2.4.3",
     "cfonts": "^3.3.0",
     "chalk": "^5.6.2",
@@ -125,6 +122,9 @@
     "ffmpeg-static": "^5.2.0",
     "moment-timezone": "^0.5.37",
     "wa-sticker-formatter": "^4.3.2"
+  },
+  "allowScripts": {
+    "GataNina-Li/Baileys#36273665": true
   },
   "engines": {
     "node": ">=20.0.0",

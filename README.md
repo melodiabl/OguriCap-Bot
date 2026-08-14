@@ -177,7 +177,13 @@ Cambia la elección cuando quieras:
 
 ## 🧭 Administración
 
-Ejecuta `./oguricap.sh` sin argumentos para abrir el menú, o usa comandos directos:
+Después de la primera instalación, todo se controla desde un único menú:
+
+```bash
+npm run manager
+```
+
+Los comandos directos quedan disponibles únicamente como alternativa avanzada:
 
 | Acción | Comando |
 |---|---|

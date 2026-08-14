@@ -9,9 +9,7 @@ cd "$root"
 
 if grep -Eq '^OGURI_WEB_ENABLED="?1"?$' .env; then
   info "Instalando y compilando el panel web..."
-  if [[ -f frontend-next/package-lock.json ]]; then npm --prefix frontend-next ci
-  else npm --prefix frontend-next install
-  fi
+  npm_install_dependencies "$root/frontend-next" install
   npm --prefix frontend-next run build
   ok "Panel web preparado."
 else

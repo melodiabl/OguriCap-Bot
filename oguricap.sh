@@ -52,7 +52,7 @@ usage() {
   cat <<'EOF'
 Uso: ./oguricap.sh [comando]
 
-  📦 install          Detectar sistema e instalar todo
+  ✨ install          Instalación automática completa (recomendado)
   ⚙️  configure        Configurar bot, panel y base de datos
   🚀 start            Iniciar el bot y el panel habilitado
   🔄 update           Actualizar sin borrar datos
@@ -129,7 +129,7 @@ menu() {
     banner
     printf '%b   ¿Qué deseas hacer?%b\n\n' "$C_BOLD" "$C_RESET"
     cat <<'EOF'
-   [1] 📦 Instalar o reparar       [5] 💾 Crear respaldo
+   [1] ✨ Preparar todo automático [5] 💾 Crear respaldo
    [2] ⚙️  Configurar bot y web    [6] ♻️  Restaurar respaldo
    [3] 🚀 Iniciar servicios        [7] 🩺 Diagnosticar instalación
    [4] 🔄 Actualizar               [0] 👋 Salir
@@ -138,7 +138,11 @@ EOF
     read -r choice
     printf '\n'
     case "$choice" in
-      1) bash "$ROOT_DIR/scripts/install.sh" ;;
+      1)
+        section 'INSTALACIÓN AUTOMÁTICA COMPLETA'
+        printf '   Se prepararán sistema, .env, claves, PostgreSQL y panel web.\n\n'
+        bash "$ROOT_DIR/scripts/install.sh"
+        ;;
       2) bash "$ROOT_DIR/scripts/configure.sh" && bash "$ROOT_DIR/scripts/setup-postgres.sh" && bash "$ROOT_DIR/scripts/setup-panel.sh" ;;
       3) bash "$ROOT_DIR/scripts/start.sh" ;;
       4) bash "$ROOT_DIR/scripts/update.sh" ;;

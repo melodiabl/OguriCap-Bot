@@ -43,11 +43,19 @@ ensure_secret() {
 
 admin_user="$(env_value PANEL_ADMIN_USER)"
 [[ -n "$admin_user" ]] || admin_user=admin
+bot_name="$(env_value BOT_NAME)"
+[[ -n "$bot_name" && "$bot_name" != 'WhatsApp Bot Panel' ]] || bot_name='OguriCap Bot'
+timezone="$(env_value TZ)"
+[[ -n "$timezone" ]] || timezone=UTC
 owner_number="$(env_value BOT_OWNER)"
 web_enabled="$(env_value OGURI_WEB_ENABLED)"
 [[ "$web_enabled" == 0 ]] || web_enabled=1
 
 if [[ -t 0 && "${OGURI_NON_INTERACTIVE:-0}" != 1 ]]; then
+  printf '\nConfiguración fácil — pulsa Enter para aceptar cada valor recomendado.\n\n'
+  printf 'Nombre del bot [%s]: ' "$bot_name"
+  read -r answer
+  [[ -z "$answer" ]] || bot_name="$answer"
   printf 'Usuario administrador del panel [%s]: ' "$admin_user"
   read -r answer
   [[ -z "$answer" ]] || admin_user="$answer"
@@ -76,6 +84,9 @@ fi
 set_env PANEL_ADMIN_USER "$admin_user"
 set_env PANEL_ADMIN_PASS "$admin_password"
 set_env PANEL_ADMIN_ROLE owner
+set_env BOT_NAME "$bot_name"
+set_env BOT_VERSION "$(node -p "require('$root/package.json').version" 2>/dev/null || printf '2.1.0')"
+set_env TZ "${OGURI_TIMEZONE:-$timezone}"
 set_env NODE_ENV production
 set_env PANEL_HOST 0.0.0.0
 set_env PANEL_PORT 3001
@@ -84,8 +95,20 @@ set_env CORS_ORIGIN "${OGURI_CORS_ORIGIN:-http://localhost:3000,http://127.0.0.1
 set_env TURNSTILE_DISABLED "${OGURI_TURNSTILE_DISABLED:-1}"
 set_env OGURI_WEB_ENABLED "$web_enabled"
 set_env POSTGRES_HOST "${OGURI_POSTGRES_HOST:-127.0.0.1}"
+set_env POSTGRES_PORT "${OGURI_POSTGRES_PORT:-5432}"
+set_env POSTGRES_DB "${OGURI_POSTGRES_DB:-oguribot}"
+set_env POSTGRES_USER "${OGURI_POSTGRES_USER:-bot_user}"
+set_env POSTGRES_MAX_CONNECTIONS 20
 set_env POSTGRES_SSL false
 set_env POSTGRES_SSL_REJECT_UNAUTHORIZED false
+set_env DATABASE_PATH ./database.json
+set_env LOG_LEVEL info
+set_env LOG_DIR ./logs
+set_env BACKUP_DIR ./backups
+set_env BACKUP_RETENTION_DAYS 30
+set_env PANEL_SERVE_FRONTEND "$web_enabled"
+set_env DEBUG false
+set_env VERBOSE_LOGGING false
 [[ -z "$owner_number" ]] || set_env BOT_OWNER "$owner_number"
 
 ensure_secret JWT_SECRET 32
@@ -101,8 +124,11 @@ NEXT_PUBLIC_API_URL=${OGURI_PANEL_URL:-http://127.0.0.1:3001}
 EOF
 chmod 600 "$env_file" "$root/frontend-next/.env.local"
 
-ok "Configuración segura preparada en .env."
-printf 'Usuario del panel: %s\n' "$admin_user"
-printf 'Contraseña del panel: %s\n' "$admin_password"
-printf 'Panel web: %s\n' "$([[ "$web_enabled" == 1 ]] && echo habilitado || echo deshabilitado)"
-warn "Guarda esa contraseña. El archivo .env no se publica en Git."
+ok "Configuración segura preparada automáticamente."
+printf '\nResumen de acceso\n'
+printf '  Bot:         %s\n' "$bot_name"
+printf '  Usuario web: %s\n' "$admin_user"
+printf '  Contraseña:  %s\n' "$admin_password"
+printf '  Panel web:   %s\n' "$([[ "$web_enabled" == 1 ]] && echo habilitado || echo deshabilitado)"
+printf '  Config:      %s\n\n' "$env_file"
+warn "Guarda la contraseña. Las claves se generaron solas y .env no se publica en Git."

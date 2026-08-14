@@ -40,3 +40,21 @@ require_repo() {
   [[ -f "$root/package.json" && -f "$root/index.js" ]] || die "No parece un repositorio válido de OguriCap-Bot."
   printf '%s\n' "$root"
 }
+
+npm_install_dependencies() {
+  local target_dir="$1" mode="${2:-auto}"
+  local npm_args=(--legacy-peer-deps)
+
+  if npm install --help 2>&1 | grep -q -- '--allow-git'; then
+    npm_args+=(--allow-git=all)
+  fi
+
+  if [[ "$mode" == install || ! -f "$target_dir/package-lock.json" ]]; then
+    (cd "$target_dir" && npm install "${npm_args[@]}")
+  else
+    if ! (cd "$target_dir" && npm ci "${npm_args[@]}"); then
+      warn "El lockfile no es compatible con esta versión de npm; reparando automáticamente..."
+      (cd "$target_dir" && npm install "${npm_args[@]}")
+    fi
+  fi
+}

@@ -76,10 +76,10 @@ if ! has node || (( $(node_major) < OGURI_MIN_NODE_MAJOR )); then
   die "Se requiere Node.js $OGURI_MIN_NODE_MAJOR o superior. Versión detectada: $(node --version 2>/dev/null || echo ninguna)."
 fi
 
-cd "$root"
 info "Instalando dependencias del bot con npm ci..."
-if [[ -f package-lock.json ]]; then npm ci --legacy-peer-deps; else npm install --legacy-peer-deps; fi
+npm_install_dependencies "$root"
 
+cd "$root"
 mkdir -p Sessions/Principal Sessions/SubBot backups logs storage tmp
 "$SCRIPT_DIR/configure.sh"
 "$SCRIPT_DIR/setup-postgres.sh"
@@ -87,5 +87,5 @@ mkdir -p Sessions/Principal Sessions/SubBot backups logs storage tmp
 "$SCRIPT_DIR/setup-panel.sh"
 npm run verify:config
 
-ok "Instalación terminada en $root"
-printf '\nSiguiente paso:\n  cd %q\n  ./oguricap.sh start\n' "$root"
+ok "OguriCap Bot quedó instalado y configurado en $root"
+printf '\nTodo está preparado. Vuelve al menú con:\n  cd %q\n  npm run manager\n' "$root"
