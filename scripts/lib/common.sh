@@ -58,10 +58,11 @@ npm_install_dependencies() {
   fi
 
   if [[ "$mode" == install || ! -f "$target_dir/package-lock.json" ]]; then
+    explain 'npm descargará las piezas necesarias automáticamente.'
     (cd "$target_dir" && npm install "${npm_args[@]}")
   else
     if ! (cd "$target_dir" && npm ci "${npm_args[@]}"); then
-      warn "El lockfile no es compatible con esta versión de npm; reparando automáticamente..."
+      warn "La lista de dependencias pertenece a otra versión de npm. No necesitas hacer nada: se reparará automáticamente."
       (cd "$target_dir" && npm install "${npm_args[@]}")
     fi
   fi

@@ -99,7 +99,11 @@ doctor() {
   [[ -f "$ROOT_DIR/.env" ]] || warn "Falta .env; el instalador puede crearlo."
   [[ -d "$ROOT_DIR/node_modules" ]] || warn "Faltan node_modules; ejecuta install."
 
-  if (( status == 0 )); then ok "Dependencias principales disponibles."; fi
+  if (( status == 0 )); then
+    ok "Todo lo necesario está instalado. Puedes volver al menú y elegir [3] para iniciar."
+  else
+    warn "Faltan componentes. Vuelve al menú y elige [1] para repararlos automáticamente."
+  fi
   return "$status"
 }
 
@@ -127,13 +131,14 @@ run_action() {
 menu() {
   while true; do
     banner
-    printf '%b   ¿Qué deseas hacer?%b\n\n' "$C_BOLD" "$C_RESET"
+    printf '%b   No necesitas escribir comandos: elige solamente un número.%b\n' "$C_BOLD" "$C_RESET"
+    printf '   Si acabas de descargar el bot, elige [1]. Si ya lo preparaste, elige [3].\n\n'
     cat <<'EOF'
    [1] ✨ PREPARAR TODO AUTOMÁTICAMENTE  ← recomendado la primera vez
        Instala programas, crea la configuración, la base de datos y la web.
 
    [2] ⚙️  CAMBIAR LA CONFIGURACIÓN
-       Cambia el nombre, owner, acceso y activación del panel web.
+       Cambia el nombre, número principal, acceso y activación del panel web.
 
    [3] 🚀 INICIAR EL BOT Y EL PANEL
    [4] 🔄 ACTUALIZAR SIN PERDER DATOS
@@ -142,7 +147,7 @@ menu() {
    [7] 🩺 COMPROBAR SI TODO ESTÁ BIEN
    [0] 👋 SALIR
 EOF
-    printf '\n%b   Selecciona una opción › %b' "$C_PURPLE" "$C_RESET"
+    printf '\n%b   Escribe el número y pulsa Enter › %b' "$C_PURPLE" "$C_RESET"
     read -r choice
     printf '\n'
     case "$choice" in

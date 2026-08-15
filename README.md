@@ -56,12 +56,17 @@
 
 Requisitos mínimos: Android con Termux o Linux de 64 bits, 2 GB de RAM y conexión a Internet.
 
+> [!TIP]
+> **¿Es tu primera vez?** Copia los comandos del bloque siguiente uno por uno. Después solo tendrás que elegir números en un menú. No necesitas crear `.env`, contraseñas, claves ni bases de datos manualmente.
+
 ```bash
 git clone https://github.com/melodiabl/OguriCap-Bot.git
 cd OguriCap-Bot
 chmod +x oguricap.sh
-./oguricap.sh install
+./oguricap.sh
 ```
+
+Cuando aparezca el menú, elige **1 — Preparar todo automáticamente**. Al finalizar, vuelve al menú y elige **3 — Iniciar el bot y el panel**.
 
 El instalador detecta Termux, Debian/Ubuntu, Fedora, Arch o Alpine y prepara:
 
@@ -71,12 +76,6 @@ El instalador detecta Termux, Debian/Ubuntu, Fedora, Arch o Alpine y prepara:
 - dependencias del bot;
 - panel web, únicamente si decides habilitarlo;
 - verificación final de la instalación.
-
-Cuando termine:
-
-```bash
-./oguricap.sh start
-```
 
 > [!NOTE]
 > Guarda la contraseña del panel mostrada durante la instalación. El resto de secretos queda en `.env`, que Git ignora.
@@ -92,11 +91,10 @@ pkg update -y
 pkg install -y git
 git clone https://github.com/melodiabl/OguriCap-Bot.git
 cd OguriCap-Bot
-bash oguricap.sh install
-bash oguricap.sh start
+bash oguricap.sh
 ```
 
-El instalador actualiza Termux y activa `termux-wake-lock` al iniciar. Desactiva también la optimización de batería para Termux.
+Elige `1` para prepararlo y luego `3` para iniciarlo. El instalador actualiza Termux y activa `termux-wake-lock` al iniciar. Desactiva también la optimización de batería para Termux.
 
 </details>
 

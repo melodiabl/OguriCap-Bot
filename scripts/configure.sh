@@ -63,8 +63,9 @@ if [[ -t 0 && "${OGURI_NON_INTERACTIVE:-0}" != 1 ]]; then
   printf 'Nombre recomendado [%s]: ' "$bot_name"
   read -r answer
   [[ -z "$answer" ]] || bot_name="$answer"
-  printf '\nPASO 2 DE 5 — Tu número de WhatsApp\n'
-  printf 'Será el propietario (owner): podrá administrar el bot y usar comandos privados.\n'
+  printf '\nPASO 2 DE 5 — Tu número principal de WhatsApp\n'
+  printf 'El bot reconocerá este número como su propietario y administrador principal.\n'
+  printf 'Solo este número podrá usar las funciones privadas de control.\n'
   printf 'Escríbelo con código de país, sin +, espacios ni guiones.\n'
   printf 'Ejemplo: 5491123456789\n'
   while true; do
@@ -167,3 +168,4 @@ printf '  Contraseña:  %s\n' "$admin_password"
 printf '  Panel web:   %s\n' "$([[ "$web_enabled" == 1 ]] && echo habilitado || echo deshabilitado)"
 printf '  Config:      %s\n\n' "$env_file"
 warn "Guarda la contraseña. Las claves se generaron solas y .env no se publica en Git."
+printf 'No necesitas editar el archivo .env manualmente.\n'
