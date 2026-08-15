@@ -7,6 +7,9 @@ source "$SCRIPT_DIR/lib/common.sh"
 root="$(require_repo)"
 cd "$root"
 
+stage 'CREANDO COPIA DE SEGURIDAD'
+explain 'Guardaremos configuración, sesiones y datos. El código y las dependencias no se duplicarán.'
+
 output_dir="${OGURI_BACKUP_DIR:-$root/backups}"
 mkdir -p "$output_dir"
 stamp="$(date +%Y%m%d_%H%M%S)"
@@ -18,4 +21,6 @@ done
 (( ${#items[@]} > 0 )) || die "No se encontraron datos para respaldar."
 
 tar -czf "$archive" --exclude='Sessions/*/logs' "${items[@]}"
-ok "Respaldo creado: $archive"
+ok 'Copia de seguridad terminada.'
+printf '   Archivo: %s\n' "$archive"
+printf '   Guárdalo en un lugar seguro si vas a cambiar de dispositivo.\n'

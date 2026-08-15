@@ -11,6 +11,14 @@ warn() { printf '\033[1;33m[AVISO]\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 has() { command -v "$1" >/dev/null 2>&1; }
 
+stage() {
+  printf '\n\033[1;35m━━ %s\033[0m\n' "$*"
+}
+
+explain() {
+  printf '   %s\n' "$*"
+}
+
 detect_platform() {
   if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
     printf 'termux\n'

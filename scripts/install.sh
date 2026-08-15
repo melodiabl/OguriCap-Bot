@@ -7,7 +7,8 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 platform="$(detect_platform)"
 [[ "$platform" != unsupported ]] || die "Sistema no compatible. Usa Termux o una distribución Linux."
-info "Sistema detectado: $platform"
+stage 'PASO 1 DE 6 — Preparar el dispositivo'
+explain "Sistema detectado: $platform. Instalaremos solo los programas necesarios."
 
 install_termux() {
   info "Actualizando paquetes de Termux..."
@@ -76,16 +77,26 @@ if ! has node || (( $(node_major) < OGURI_MIN_NODE_MAJOR )); then
   die "Se requiere Node.js $OGURI_MIN_NODE_MAJOR o superior. Versión detectada: $(node --version 2>/dev/null || echo ninguna)."
 fi
 
-info "Instalando dependencias del bot con npm ci..."
+stage 'PASO 2 DE 6 — Instalar las piezas del bot'
+explain 'Este proceso puede tardar varios minutos. No cierres la terminal.'
 npm_install_dependencies "$root"
 
 cd "$root"
+stage 'PASO 3 DE 6 — Crear carpetas de trabajo'
 mkdir -p Sessions/Principal Sessions/SubBot backups logs storage tmp
+ok 'Carpetas de sesiones, copias y registros preparadas.'
+
+stage 'PASO 4 DE 6 — Crear tu configuración'
 "$SCRIPT_DIR/configure.sh"
+
+stage 'PASO 5 DE 6 — Preparar la base de datos'
 "$SCRIPT_DIR/setup-postgres.sh"
 
+stage 'PASO 6 DE 6 — Preparar y comprobar el panel web'
 "$SCRIPT_DIR/setup-panel.sh"
 npm run verify:config
 
 ok "OguriCap Bot quedó instalado y configurado en $root"
-printf '\nTodo está preparado. Vuelve al menú con:\n  cd %q\n  npm run manager\n' "$root"
+printf '\n✅ Todo está preparado.\n'
+printf 'Para abrir nuevamente este administrador:\n  cd %q\n  npm run manager\n' "$root"
+printf 'Después elige [3] INICIAR EL BOT Y EL PANEL.\n'

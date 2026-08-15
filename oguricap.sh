@@ -129,10 +129,18 @@ menu() {
     banner
     printf '%b   ¿Qué deseas hacer?%b\n\n' "$C_BOLD" "$C_RESET"
     cat <<'EOF'
-   [1] ✨ Preparar todo automático [5] 💾 Crear respaldo
-   [2] ⚙️  Configurar bot y web    [6] ♻️  Restaurar respaldo
-   [3] 🚀 Iniciar servicios        [7] 🩺 Diagnosticar instalación
-   [4] 🔄 Actualizar               [0] 👋 Salir
+   [1] ✨ PREPARAR TODO AUTOMÁTICAMENTE  ← recomendado la primera vez
+       Instala programas, crea la configuración, la base de datos y la web.
+
+   [2] ⚙️  CAMBIAR LA CONFIGURACIÓN
+       Cambia el nombre, owner, acceso y activación del panel web.
+
+   [3] 🚀 INICIAR EL BOT Y EL PANEL
+   [4] 🔄 ACTUALIZAR SIN PERDER DATOS
+   [5] 💾 CREAR UNA COPIA DE SEGURIDAD
+   [6] ♻️  RECUPERAR UNA COPIA DE SEGURIDAD
+   [7] 🩺 COMPROBAR SI TODO ESTÁ BIEN
+   [0] 👋 SALIR
 EOF
     printf '\n%b   Selecciona una opción › %b' "$C_PURPLE" "$C_RESET"
     read -r choice
@@ -148,8 +156,33 @@ EOF
       4) bash "$ROOT_DIR/scripts/update.sh" ;;
       5) bash "$ROOT_DIR/scripts/backup.sh" ;;
       6)
-        printf 'Ruta del respaldo: '
+        shopt -s nullglob
+        backup_files=("$ROOT_DIR"/backups/*.tar.gz)
+        shopt -u nullglob
+        if (( ${#backup_files[@]} > 0 )); then
+          section 'COPIAS DISPONIBLES'
+          for backup_file in "${backup_files[@]}"; do
+            printf '   • %s\n' "$(basename "$backup_file")"
+          done
+          archive="${backup_files[${#backup_files[@]}-1]}"
+          printf '\n   Pulsa Enter para recuperar la más reciente:\n   %s\n' "$(basename "$archive")"
+          printf '   O escribe la ruta de otra copia: '
+        else
+          warn 'No hay copias en la carpeta backups. Puedes escribir la ruta de una copia externa.'
+          printf 'Ruta del archivo .tar.gz: '
+          archive=''
+        fi
         read -r archive
+        if [[ -z "$archive" ]]; then
+          if (( ${#backup_files[@]} == 0 )); then
+            warn 'No seleccionaste ningún archivo; recuperación cancelada.'
+            continue
+          fi
+          archive="${backup_files[${#backup_files[@]}-1]}"
+        fi
+        if [[ -n "$archive" && ! -f "$archive" && -f "$ROOT_DIR/backups/$archive" ]]; then
+          archive="$ROOT_DIR/backups/$archive"
+        fi
         bash "$ROOT_DIR/scripts/restore.sh" "$archive"
         ;;
       7) doctor || true ;;

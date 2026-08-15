@@ -16,6 +16,8 @@ db_password="${POSTGRES_PASSWORD:-}"
 
 sql_password="${db_password//\'/\'\'}"
 platform="$(detect_platform)"
+explain "Guardaremos los datos del panel en una base local llamada '$db_name'."
+explain 'La contraseña técnica fue creada automáticamente; no necesitas escribirla.'
 
 if [[ "$platform" == termux ]]; then
   pg_data="${PREFIX}/var/lib/postgresql"
@@ -77,4 +79,4 @@ fi
 
 PGPASSWORD="$db_password" psql -h "${POSTGRES_HOST:-127.0.0.1}" -U "$db_user" -d "$db_name" -v ON_ERROR_STOP=1 -f "$root/database/init/01-schema.sql"
 PGPASSWORD="$db_password" psql -h "${POSTGRES_HOST:-127.0.0.1}" -U "$db_user" -d "$db_name" -v ON_ERROR_STOP=1 -f "$root/database/init/02-notifications.sql"
-ok "PostgreSQL configurado y esquema aplicado."
+ok "Base de datos '$db_name' preparada y comprobada."

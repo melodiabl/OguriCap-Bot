@@ -52,22 +52,57 @@ web_enabled="$(env_value OGURI_WEB_ENABLED)"
 [[ "$web_enabled" == 0 ]] || web_enabled=1
 
 if [[ -t 0 && "${OGURI_NON_INTERACTIVE:-0}" != 1 ]]; then
-  printf '\nConfiguración fácil — pulsa Enter para aceptar cada valor recomendado.\n\n'
-  printf 'Nombre del bot [%s]: ' "$bot_name"
+  printf '\n╭──────────────────────────────────────────────╮\n'
+  printf '│  ASISTENTE FÁCIL DE CONFIGURACIÓN            │\n'
+  printf '╰──────────────────────────────────────────────╯\n'
+  printf 'No necesitas conocimientos técnicos.\n'
+  printf 'Cuando veas un valor entre [corchetes], pulsa Enter para usarlo.\n\n'
+
+  printf 'PASO 1 DE 5 — Nombre del bot\n'
+  printf 'Este nombre aparecerá en el panel y en algunos mensajes.\n'
+  printf 'Nombre recomendado [%s]: ' "$bot_name"
   read -r answer
   [[ -z "$answer" ]] || bot_name="$answer"
-  printf 'Usuario administrador del panel [%s]: ' "$admin_user"
-  read -r answer
-  [[ -z "$answer" ]] || admin_user="$answer"
-  printf 'Número owner con código de país, solo dígitos [%s]: ' "${owner_number:-omitir}"
-  read -r answer
-  [[ -z "$answer" ]] || owner_number="${answer//[^0-9]/}"
-  printf '¿Habilitar el panel web? [S/n]: '
+  printf '\nPASO 2 DE 5 — Tu número de WhatsApp\n'
+  printf 'Será el propietario (owner): podrá administrar el bot y usar comandos privados.\n'
+  printf 'Escríbelo con código de país, sin +, espacios ni guiones.\n'
+  printf 'Ejemplo: 5491123456789\n'
+  while true; do
+    if [[ -n "$owner_number" ]]; then
+      printf 'Número owner [%s]: ' "$owner_number"
+    else
+      printf 'Número owner: '
+    fi
+    read -r answer
+    if [[ -z "$answer" && -n "$owner_number" ]]; then
+      break
+    fi
+    answer="${answer//[^0-9]/}"
+    if [[ "$answer" =~ ^[0-9]{8,15}$ ]]; then
+      owner_number="$answer"
+      break
+    fi
+    warn 'Número no válido. Usa entre 8 y 15 dígitos, incluido el código del país.'
+  done
+
+  printf '\nPASO 3 DE 5 — Panel web\n'
+  printf 'El panel es una página privada para controlar el bot desde el navegador.\n'
+  printf '¿Quieres instalar y habilitar el panel? [S/n]: '
   read -r answer
   case "${answer,,}" in n|no) web_enabled=0 ;; *) web_enabled=1 ;; esac
-  printf 'Contraseña del panel (vacío = generar una segura): '
+
+  printf '\nPASO 4 DE 5 — Usuario para entrar al panel\n'
+  printf 'No es tu número de WhatsApp. Es el nombre que escribirás al iniciar sesión.\n'
+  printf 'Usuario recomendado [%s]: ' "$admin_user"
+  read -r answer
+  [[ -z "$answer" ]] || admin_user="$answer"
+
+  printf '\nPASO 5 DE 5 — Contraseña del panel\n'
+  printf 'Pulsa Enter y el instalador creará una contraseña segura automáticamente.\n'
+  printf 'Si escribes una propia, no se mostrará en pantalla mientras la escribes.\n'
+  printf 'Contraseña [generar automáticamente]: '
   read -rs admin_password
-  printf '\n'
+  printf '\n\nGracias. Preparando el resto de la configuración automáticamente...\n'
 else
   admin_password=""
 fi
