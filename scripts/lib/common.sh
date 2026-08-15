@@ -50,20 +50,13 @@ require_repo() {
 }
 
 npm_install_dependencies() {
-  local target_dir="$1" mode="${2:-auto}"
+  local target_dir="$1"
   local npm_args=(--legacy-peer-deps)
 
   if npm install --help 2>&1 | grep -q -- '--allow-git'; then
     npm_args+=(--allow-git=all)
   fi
 
-  if [[ "$mode" == install || ! -f "$target_dir/package-lock.json" ]]; then
-    explain 'npm descargará las piezas necesarias automáticamente.'
-    (cd "$target_dir" && npm install "${npm_args[@]}")
-  else
-    if ! (cd "$target_dir" && npm ci "${npm_args[@]}"); then
-      warn "La lista de dependencias pertenece a otra versión de npm. No necesitas hacer nada: se reparará automáticamente."
-      (cd "$target_dir" && npm install "${npm_args[@]}")
-    fi
-  fi
+  explain 'npm descargará y ajustará las piezas necesarias automáticamente.'
+  (cd "$target_dir" && npm install "${npm_args[@]}")
 }

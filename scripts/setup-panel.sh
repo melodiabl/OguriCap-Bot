@@ -10,7 +10,7 @@ cd "$root"
 if grep -Eq '^OGURI_WEB_ENABLED="?1"?$' .env; then
   explain 'Prepararemos la página privada desde la que controlarás el bot.'
   info "Instalando el panel web; puede tardar varios minutos..."
-  npm_install_dependencies "$root/frontend-next" install
+  npm_install_dependencies "$root/frontend-next"
   npm --prefix frontend-next run build
   ok "Panel web preparado."
 else
