@@ -14,7 +14,9 @@ interface Group {
   participantes?: number;
   tipo?: 'group' | 'channel' | 'community';
   isCommunity?: boolean;
+  isCommunityAnnounce?: boolean;
   isChannel?: boolean;
+  linkedParent?: string | null;
 }
 
 export const BroadcastTool: React.FC = () => {
@@ -50,6 +52,9 @@ export const BroadcastTool: React.FC = () => {
           nombre: t.nombre || t.name || t.jid,
           tipo: t.tipo || 'group',
           isCommunity: !!t.isCommunity,
+          isCommunityAnnounce: !!t.isCommunityAnnounce,
+          isChannel: !!t.isChannel,
+          linkedParent: t.linkedParent || null,
           participantes: t.participants || t.participantes || 0,
           bot_enabled: t.bot_enabled !== false,
         }));
@@ -84,16 +89,9 @@ export const BroadcastTool: React.FC = () => {
   };
 
   const detectChatType = (group: Group): 'group' | 'channel' | 'community' => {
-    // Usar metadata de la DB si está disponible
-    if (group.tipo) return group.tipo;
-    if (group.isCommunity) return 'community';
-    if (group.isChannel) return 'channel';
-    
-    // Fallback a detección por JID
-    const jid = group.wa_jid;
-    if (jid.includes('@newsletter')) return 'channel';
-    if (jid.includes('@broadcast')) return 'channel';
-    if (jid.includes('@g.us') && group.isCommunity) return 'community';
+    const jid = String(group.wa_jid || '').toLowerCase();
+    if (jid.endsWith('@newsletter') || jid.endsWith('@broadcast') || group.isChannel) return 'channel';
+    if (group.isCommunity || group.isCommunityAnnounce || group.tipo === 'community') return 'community';
     return 'group';
   };
 

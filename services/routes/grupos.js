@@ -3,6 +3,7 @@
  * Extraído de lib/panel-api.js
  */
 import { json, readJson, getJwtAuth, safeString, paginate, clampInt } from '../middleware/core.js'
+import { classifyChatTarget, getTargetJid } from '../../lib/chat-targets.js'
 
 const cache = { grupos: null, at: 0 }
 const CACHE_TTL = 30_000
@@ -55,15 +56,16 @@ export async function handleGrupos({ req, res, url, panelDb }) {
   if (pathname === '/api/grupos/broadcast-targets' && method === 'GET') {
     const grupos = Object.values(panelDb?.groups || {})
     const targets = grupos.map(g => {
-      const jid = g?.wa_jid || g?.jid
-      let tipo = 'group'
-      if (jid?.includes('@newsletter') || jid?.includes('@broadcast')) tipo = 'channel'
-      else if (g?.isCommunity) tipo = 'community'
+      const jid = getTargetJid(g)
+      const tipo = classifyChatTarget(g)
       return {
         jid,
         nombre: g?.nombre || g?.name || jid,
         tipo,
-        isCommunity: !!g?.isCommunity,
+        isCommunity: tipo === 'community',
+        isCommunityAnnounce: g?.isCommunityAnnounce === true || g?.isCommunityAnnounce === 'true',
+        isChannel: tipo === 'channel',
+        linkedParent: g?.linkedParent || null,
         participants: g?.participants || g?.participantes || 0,
         bot_enabled: g?.bot_enabled !== false
       }
@@ -137,14 +139,16 @@ export async function handleGrupos({ req, res, url, panelDb }) {
         if (!jid || !jid.endsWith('@g.us') || jid.includes('newsletter') || jid.includes('broadcast')) {
           filtered++; continue
         }
-        if (meta?.announce === 'true' || meta?.isAnnounce) { filtered++; continue }
-
         const groupData = {
           ...(panelDb.groups[jid] || {}),
           wa_jid: jid,
           nombre: meta?.subject || jid,
           participants: meta?.participants?.length || 0,
           isCommunity: !!meta?.isCommunity,
+          isCommunityAnnounce: !!meta?.isCommunityAnnounce,
+          linkedParent: meta?.linkedParent || null,
+          announce: meta?.announce === true || meta?.announce === 'true',
+          tipo: classifyChatTarget({ wa_jid: jid, ...meta }),
           updated_at: new Date().toISOString()
         }
         panelDb.groups[jid] = groupData

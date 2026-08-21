@@ -3,6 +3,7 @@
  */
 import { json, readJson, getJwtAuth, safeString } from '../middleware/core.js'
 import { heavyLimiter } from '../middleware/rate-limit.js'
+import { countTargetTypes, selectBroadcastTargets } from '../../lib/chat-targets.js'
 
 function isAdmin(user) {
   return ['owner', 'admin', 'administrador'].includes(safeString(user?.rol || '').toLowerCase())
@@ -24,37 +25,10 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     const conn = global.conn
     if (!conn) return json(res, 503, { error: 'Bot no conectado' })
     const allGroups = Object.values(panelDb?.groups || {}).filter(Boolean)
-    let jids = []
-    let stats = { groups: 0, channels: 0, communities: 0 }
-    if (Array.isArray(targets)) {
-      jids = targets
-    } else if (targets && typeof targets === 'object') {
-      const hasSpecific = targets.specific && Array.isArray(targets.specific) && targets.specific.length > 0
-      if (hasSpecific) {
-        jids = targets.specific
-      } else {
-        if (targets.groups) {
-          for (const g of allGroups) {
-            const jid = g?.wa_jid || g?.jid
-            if (!jid) continue
-            if (!jid.includes('@newsletter') && !jid.includes('@broadcast')) {
-              jids.push(jid); stats.groups++
-            }
-          }
-        }
-        if (targets.channels) {
-          for (const g of allGroups) {
-            const jid = g?.wa_jid || g?.jid
-            if (!jid) continue
-            if (jid.includes('@newsletter') || jid.includes('@broadcast')) {
-              jids.push(jid); stats.channels++
-            }
-          }
-        }
-      }
-    } else {
-      jids = allGroups.map(g => g?.wa_jid || g?.jid).filter(Boolean)
-    }
+    const jids = Array.isArray(targets)
+      ? [...new Set(targets.filter(Boolean))]
+      : selectBroadcastTargets(allGroups, targets || { groups: true, channels: true, communities: true })
+    const stats = countTargetTypes(allGroups, jids)
     const results = []
     for (const jid of jids) {
       try {
@@ -78,37 +52,10 @@ export async function handleBroadcast({ req, res, url, panelDb }) {
     const conn = global.conn
     if (!conn) return json(res, 503, { error: 'Bot no conectado' })
     const allGroups = Object.values(panelDb?.groups || {}).filter(Boolean)
-    let jids = []
-    let stats = { groups: 0, channels: 0, communities: 0 }
-    if (Array.isArray(targets)) {
-      jids = targets
-    } else if (targets && typeof targets === 'object') {
-      const hasSpecific = targets.specific && Array.isArray(targets.specific) && targets.specific.length > 0
-      if (hasSpecific) {
-        jids = targets.specific
-      } else {
-        if (targets.groups) {
-          for (const g of allGroups) {
-            const jid = g?.wa_jid || g?.jid
-            if (!jid) continue
-            if (!jid.includes('@newsletter') && !jid.includes('@broadcast')) {
-              jids.push(jid); stats.groups++
-            }
-          }
-        }
-        if (targets.channels) {
-          for (const g of allGroups) {
-            const jid = g?.wa_jid || g?.jid
-            if (!jid) continue
-            if (jid.includes('@newsletter') || jid.includes('@broadcast')) {
-              jids.push(jid); stats.channels++
-            }
-          }
-        }
-      }
-    } else {
-      jids = allGroups.map(g => g?.wa_jid || g?.jid).filter(Boolean)
-    }
+    const jids = Array.isArray(targets)
+      ? [...new Set(targets.filter(Boolean))]
+      : selectBroadcastTargets(allGroups, targets || { groups: true, channels: true, communities: true })
+    const stats = countTargetTypes(allGroups, jids)
     const results = []
     for (const jid of jids) {
       try {
