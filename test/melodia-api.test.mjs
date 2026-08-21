@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import axios from 'axios'
 
-import { melodiaRequest, withFallback, resetMelodiaCircuitForTests } from '../lib/melodia-api.js'
+import { melodiaBinary, melodiaRequest, withFallback, resetMelodiaCircuitForTests } from '../lib/melodia-api.js'
 
 test('melodiaRequest sends configured credentials and returns data', async () => {
   const original = axios.defaults.adapter
@@ -35,4 +35,24 @@ test('withFallback returns fallback result after primary failure', async () => {
     async error => `fallback:${error.message}`
   )
   assert.equal(value, 'fallback:primary down')
+})
+
+test('melodiaBinary requests an arraybuffer and returns a Buffer', async () => {
+  const original = axios.defaults.adapter
+  const oldUrl = process.env.MELODIA_API_URL
+  process.env.MELODIA_API_URL = 'https://melodia.test'
+  resetMelodiaCircuitForTests()
+  axios.defaults.adapter = async config => {
+    assert.equal(config.responseType, 'arraybuffer')
+    return { data: Uint8Array.from([1, 2, 3]), status: 200, statusText: 'OK', headers: { 'content-type': 'image/png' }, config }
+  }
+  try {
+    const value = await melodiaBinary('/tools/ssweb', { url: 'https://example.com' })
+    assert.ok(Buffer.isBuffer(value))
+    assert.deepEqual([...value], [1, 2, 3])
+  } finally {
+    axios.defaults.adapter = original
+    if (oldUrl == null) delete process.env.MELODIA_API_URL
+    else process.env.MELODIA_API_URL = oldUrl
+  }
 })

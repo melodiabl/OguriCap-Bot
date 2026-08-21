@@ -1,3 +1,5 @@
+import { melodiaResult, withFallback } from '../lib/melodia-api.js'
+
 const handler = async (m, { args, conn, usedPrefix, command }) => {
 try {
 if (!args[0]) return conn.reply(m.chat, `❀ Por favor, ingresa un enlace de *Instagram* o *Facebook*.`, m)
@@ -5,41 +7,13 @@ let data = []
 const url = encodeURIComponent(args[0])
 await m.react('🕒')
 
- // MelodyApi first
-  const melApi = global.APIs?.MelodyApi
-  const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
-  const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
-  const melHeaders = melKey ? { 'x-api-key': melKey } : {}
-  if (mel) {
-   try {
-    if (/(instagram\.com)/i.test(args[0])) {
-     const res = await fetch(`${mel}/download/instagram?url=${url}`, { headers: melHeaders })
-     const json = await res.json().catch(() => null)
-     const r = json?.result
-     if (json?.status && r) {
-      if (Array.isArray(r.downloadUrls) && r.downloadUrls.length) data = r.downloadUrls
-      else if (typeof r.url === 'string' && r.url) data = [r.url]
-     }
-    }
-   } catch { }
-
-   if (/(facebook\.com|fb\.watch)/i.test(args[0]) && !data.length) {
-    try {
-     const res = await fetch(`${mel}/download/facebook?url=${url}`, { headers: melHeaders })
-     const json = await res.json().catch(() => null)
-     const r = json?.result
-     if (json?.status && r) {
-      const direct =
-       r?.media?.video_hd ||
-      r?.video_hd ||
-      r?.hd ||
-      r?.url ||
-      (Array.isArray(r) ? (r[0]?.url || r[0]) : null)
-     if (typeof direct === 'string' && direct) data = [direct]
-    }
-   } catch { }
-  }
- }
+try {
+const endpoint = /(instagram\.com)/i.test(args[0]) ? '/download/aio' : '/download/facebook'
+const result = await melodiaResult(endpoint, { url: args[0] }, { timeout: 30_000, retries: 1 })
+const candidates = [result?.video, result?.url, result?.media?.video_hd, result?.video_hd, result?.hd]
+if (Array.isArray(result?.downloadUrls)) candidates.push(...result.downloadUrls)
+data = candidates.filter(value => typeof value === 'string' && value.startsWith('http'))
+} catch {}
 
 // adonix y vreden (muertos) eliminados; Delirius es el respaldo activo.
 if (!data.length && /(instagram\.com)/i.test(args[0])) {
