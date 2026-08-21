@@ -32,10 +32,22 @@ const handler = async (m, { conn, text, usedPrefix }) => {
 if (!text) return m.reply(`❀ Por favor, ingrese el texto para buscar su Gifs.`)
 try {
 await m.react('🕒')
-const res = await fetch(`${global.APIs.delirius.url}/search/tenor?q=${text}`)
+let gifs
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const res = await fetch(`${api.url}/search/tenor?q=${encodeURIComponent(text)}&apikey=${encodeURIComponent(api.key)}`)
 const json = await res.json()
-const gifs = json.data
-if (!gifs || gifs.length < 2) { await m.react('✖️'); return m.reply('ꕥ No se encontraron resultados.') }
+if (!res.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'MelodiaAPI no disponible')
+gifs = json.result
+} catch {
+const res = await fetch(`${global.APIs.delirius.url}/search/tenor?q=${encodeURIComponent(text)}`)
+const json = await res.json()
+if (!res.ok || !json.status) throw new Error(json.error || 'Tenor no disponible')
+gifs = json.data
+}
+gifs = Array.isArray(gifs) ? gifs.filter(gif => gif?.mp4) : []
+if (gifs.length < 2) { await m.react('✖️'); return m.reply('ꕥ No se encontraron resultados.') }
 const maxItems = Math.min(gifs.length, 10)
 const medias = gifs.slice(0, maxItems).map(gif => ({ type: 'video', data: { url: gif.mp4 } }))
 await sendAlbumMessage(m.chat, medias, { caption: `❀ G I F - S E A R C H ❀\n\n✦ Busqueda: ${text}\n✧ Resultados: ${maxItems}`, quoted: m })
