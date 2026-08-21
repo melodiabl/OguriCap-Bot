@@ -649,7 +649,7 @@ function resolveBotType(conn, botSettings = {}) {
   return isSelf ? 'Sub Bot (Self)' : 'Sub Bot'
 }
 
-export async function sendSingleMenu(m, conn, text) {
+async function sendSingleMenu(m, conn, text) {
   if (!text) return
   const mention = m?.sender ? [m.sender] : []
 
@@ -675,8 +675,7 @@ export async function sendSingleMenu(m, conn, text) {
     } else {
       await conn.sendMessage(m.chat, { text, mentions: mention }, { quoted: m })
     }
-  } catch (error) {
-    console.warn('[MENU] Payload enriquecido rechazado; usando texto básico:', error?.message || error)
+  } catch {
     await conn.sendMessage(m.chat, { text }, { quoted: m })
   }
 }
