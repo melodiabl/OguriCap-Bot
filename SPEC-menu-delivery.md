@@ -11,15 +11,15 @@ Reemplazar el menú monolítico de aproximadamente 16 KB por una navegación bre
 - `.menu`, `.help`, `.ayuda` y `.menú` muestran una portada breve con categorías, datos esenciales e instrucciones.
 - `.menu <categoría>` muestra únicamente esa categoría y acepta nombres en español, inglés, con o sin tilde.
 - Una categoría desconocida responde con ayuda breve y no envía todo el menú.
-- `.allmenu` divide todas las categorías en mensajes numerados de tamaño seguro.
+- `.allmenu` abre un único selector interactivo; nunca envía una ráfaga de mensajes.
 - El banner personalizado se limita a la portada; categorías y listado completo usan texto compatible.
 - Si el envío con banner falla, se registra el error y se intenta una sola vez como texto.
 - No se cambia `self`, permisos, sesiones, panel ni comandos ajenos.
 
 ## Testing strategy
 
-- Funciones puras para resolver categorías, crear la portada y dividir el menú completo.
-- Pruebas de alias, tamaño, orden y ausencia del menú monolítico en `.menu`.
+- Funciones puras para resolver categorías, crear la portada y construir el selector.
+- Pruebas de alias, tamaño, orden y ausencia del menú monolítico en `.menu` y `.allmenu`.
 - Pruebas del transporte con banner, texto y fallback observable.
 - Suite completa antes de reiniciar el servicio.
 
@@ -30,6 +30,6 @@ Navegación inspirada en el registro por categorías de Starseed/Yuki, con ident
 ## Success criteria
 
 - La portada queda muy por debajo de 4 KB.
-- Cada mensaje de `.allmenu` queda por debajo del límite configurado.
+- `.allmenu` produce exactamente una respuesta interactiva con fallback de texto.
 - El usuario siempre recibe una respuesta válida ante una categoría desconocida.
 - Pruebas y sintaxis pasan sin modificar la semántica de `self`.

@@ -571,25 +571,21 @@ export function buildMenuIndex({ prefix = '.', botname = 'OguriCap', sender = 'u
   ].join('\n')
 }
 
-export function buildAllMenuPages({ prefix = '.', maxBytes = 4000 } = {}) {
-  const blocks = Object.values(menuObject).map((section) => replaceAll(section, { '$prefix': prefix }))
-  const chunks = []
-  let current = ''
+export function buildMenuInteractiveButtons(prefix = '.') {
+  const rows = Object.entries(menuCategories).map(([key, category]) => ({
+    header: `${category.icon} ${category.label}`,
+    title: category.description,
+    description: `Ver comandos de ${category.label.toLowerCase()}`,
+    id: `${prefix}menu ${key}`,
+  }))
 
-  for (const block of blocks) {
-    const candidate = current ? `${current}\n\n${block}` : block
-    if (Buffer.byteLength(candidate, 'utf8') <= maxBytes - 80) {
-      current = candidate
-      continue
-    }
-    if (current) chunks.push(current)
-    current = block
-  }
-  if (current) chunks.push(current)
-
-  return chunks.map((chunk, index) =>
-    `╭══〔 𐔌 *OGURICAP · MENÚ COMPLETO* 𐦯 〕══⊷\n│ ✦ Parte ${index + 1} de ${chunks.length}\n╰════════════════════⊷\n\n${chunk}\n\n꒷꒦︶꒷꒦︶ ๋࣭ ⭑ ︶꒦꒷︶꒦꒷`
-  )
+  return [{
+    name: 'single_select',
+    buttonParamsJson: JSON.stringify({
+      title: '✦ Explorar categorías',
+      sections: [{ title: '𐔌 Menús de OguriCap 𐦯', rows }],
+    }),
+  }]
 }
 
 function safeString(value) {
@@ -761,6 +757,21 @@ async function sendSingleMenu(m, conn, text, { useBanner = false } = {}) {
   }
 }
 
+async function sendMenuSelector(m, conn, text, prefix) {
+  const mention = m?.sender ? [m.sender] : []
+  try {
+    await conn.sendMessage(m.chat, {
+      text,
+      footer: 'OguriCap · Selecciona solo lo que necesitas',
+      mentions: mention,
+      interactiveButtons: buildMenuInteractiveButtons(prefix),
+    }, { quoted: m })
+  } catch (error) {
+    console.warn('[menu] Falló el selector interactivo; usando texto simple:', error?.message || error)
+    await sendSingleMenu(m, conn, text)
+  }
+}
+
 const handler = async (m, { conn, usedPrefix, args = [], command = 'menu' }) => {
   const prefix = safeString(usedPrefix || '#').trim() || '#'
   const botSettings = getMenuBotSettings(conn)
@@ -797,8 +808,12 @@ const handler = async (m, { conn, usedPrefix, args = [], command = 'menu' }) => 
   }
 
   if (safeString(command).toLowerCase() === 'allmenu') {
-    const pages = buildAllMenuPages({ prefix })
-    for (const page of pages) await sendSingleMenu(m, conn, page)
+    const index = buildMenuIndex({
+      prefix, botname, sender, owner, botType,
+      version: replacements.$version,
+      users,
+    })
+    await sendMenuSelector(m, conn, index, prefix)
     return
   }
 
@@ -826,7 +841,7 @@ const handler = async (m, { conn, usedPrefix, args = [], command = 'menu' }) => 
     version: replacements.$version,
     users,
   })
-  await sendSingleMenu(m, conn, index, { useBanner: true })
+  await sendMenuSelector(m, conn, index, prefix)
 }
 
 handler.help = ['menu', 'help', 'allmenu']

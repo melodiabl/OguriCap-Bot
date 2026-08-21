@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   buildMenuIndex,
-  buildAllMenuPages,
+  buildMenuInteractiveButtons,
   resolveMenuCategory,
   menuObject,
 } from '../plugins/main-menu.js'
@@ -27,16 +27,14 @@ test('la portada es breve y enlaza todas las categorías', () => {
   assert.ok(!text.includes(menuObject.economia))
 })
 
-test('allmenu se pagina sin perder categorías ni superar el límite', () => {
-  const pages = buildAllMenuPages({ prefix: '.', maxBytes: 4000 })
+test('el selector interactivo incluye una opción por categoría', () => {
+  const buttons = buildMenuInteractiveButtons('.')
+  const params = JSON.parse(buttons[0].buttonParamsJson)
+  const rows = params.sections[0].rows
 
-  assert.ok(pages.length > 1)
-  for (const page of pages) assert.ok(Buffer.byteLength(page, 'utf8') <= 4000)
-  const joined = pages.join('\n')
-  for (const category of Object.keys(menuObject)) {
-    assert.ok(joined.includes(menuObject[category].replaceAll('$prefix', '.')))
-  }
-  assert.match(pages[0], /Parte 1 de \d+/)
+  assert.equal(buttons[0].name, 'single_select')
+  assert.equal(rows.length, Object.keys(menuObject).length)
+  assert.equal(rows[0].id, '.menu economia')
 })
 
 function createMenuRuntime() {
@@ -74,11 +72,11 @@ test('el handler responde ante una categoría desconocida', async () => {
   assert.match(sent[0].payload.text, /No encontré la categoría/)
 })
 
-test('allmenu entrega todas las páginas como mensajes separados', async () => {
+test('allmenu entrega un solo selector y nunca hace spam', async () => {
   const { conn, message, sent } = createMenuRuntime()
   await menuHandler(message, { conn, usedPrefix: '.', command: 'allmenu', args: [] })
 
-  assert.ok(sent.length > 1)
-  assert.match(sent[0].payload.text, /Parte 1 de \d+/)
-  assert.match(sent.at(-1).payload.text, new RegExp(`Parte ${sent.length} de ${sent.length}`))
+  assert.equal(sent.length, 1)
+  assert.equal(sent[0].payload.interactiveButtons[0].name, 'single_select')
+  assert.ok(!sent[0].payload.text.includes(menuObject.economia))
 })
