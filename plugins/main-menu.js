@@ -510,6 +510,83 @@ export const menuObject = {
 ╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 }
 
+export const menuCategories = {
+  economia: { icon: '🪙', label: 'Economía', description: 'Trabajo, banco, apuestas y recompensas', aliases: ['economia', 'economía', 'economy'] },
+  gacha: { icon: '🎴', label: 'Gacha', description: 'Personajes, claims, harem e intercambios', aliases: ['gacha', 'waifus', 'personajes'] },
+  downloads: { icon: '📥', label: 'Descargas', description: 'Música, videos, redes y archivos', aliases: ['downloads', 'download', 'descargas', 'descarga'] },
+  profile: { icon: '👤', label: 'Perfil', description: 'Nivel, datos, pareja y favoritos', aliases: ['profile', 'profiles', 'perfil', 'perfiles'] },
+  sockets: { icon: '🔗', label: 'Sockets', description: 'Vincular y personalizar tu subbot', aliases: ['sockets', 'socket', 'subbot', 'jadibot'] },
+  stickers: { icon: '✨', label: 'Stickers', description: 'Crear y administrar stickers y packs', aliases: ['stickers', 'sticker', 'stiker'] },
+  utils: { icon: '🧰', label: 'Utilidades', description: 'Estado, búsqueda y herramientas útiles', aliases: ['utils', 'utilidades', 'utilidad', 'tools'] },
+  grupo: { icon: '👥', label: 'Grupos', description: 'Administración, seguridad y comunidad', aliases: ['grupo', 'grupos', 'group', 'groups'] },
+  nsfw: { icon: '🔞', label: 'NSFW', description: 'Contenido adulto con controles de grupo', aliases: ['nsfw', '+18', 'adultos'] },
+  anime: { icon: '🌸', label: 'Anime', description: 'Reacciones, imágenes y diversión anime', aliases: ['anime', 'reacciones', 'reactions'] },
+}
+
+function normalizeCategory(value) {
+  return safeString(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+export function resolveMenuCategory(value) {
+  const candidate = normalizeCategory(value)
+  if (!candidate) return null
+
+  for (const [key, category] of Object.entries(menuCategories)) {
+    if (category.aliases.some((alias) => normalizeCategory(alias) === candidate)) return key
+  }
+  return null
+}
+
+export function buildMenuIndex({ prefix = '.', botname = 'OguriCap', sender = 'usuario', owner = '', botType = '', version = '', users = 0 } = {}) {
+  const categoryLines = Object.entries(menuCategories).map(([key, category]) =>
+    `${category.icon} *${category.label}* — ${category.description}\n   ↳ ${prefix}menu ${key}`
+  )
+  const details = [
+    botType && `◦ Modo: ${botType}`,
+    version && `◦ Versión: ${version}`,
+    owner && `◦ Owner: ${owner}`,
+    users !== '' && `◦ Usuarios: ${Number(users || 0).toLocaleString('es-ES')}`,
+  ].filter(Boolean)
+
+  return [
+    `╭━━━〔 🐴 *${botname.toUpperCase()}* 〕━━━╮`,
+    `Hola, @${sender}. ¿Qué quieres hacer?`,
+    ...details,
+    '╰━━━━━━━━━━━━━━━━━━━━╯',
+    '',
+    '*Explora por categoría*',
+    ...categoryLines,
+    '',
+    `Usa *${prefix}menu <categoría>* para abrir una sección.`,
+    `Usa *${prefix}allmenu* para recibir la lista completa por partes.`,
+  ].join('\n')
+}
+
+export function buildAllMenuPages({ prefix = '.', maxBytes = 4000 } = {}) {
+  const blocks = Object.values(menuObject).map((section) => replaceAll(section, { '$prefix': prefix }))
+  const chunks = []
+  let current = ''
+
+  for (const block of blocks) {
+    const candidate = current ? `${current}\n\n${block}` : block
+    if (Buffer.byteLength(candidate, 'utf8') <= maxBytes - 80) {
+      current = candidate
+      continue
+    }
+    if (current) chunks.push(current)
+    current = block
+  }
+  if (current) chunks.push(current)
+
+  return chunks.map((chunk, index) =>
+    `🐴 *OGURICAP · MENÚ COMPLETO*\nParte ${index + 1} de ${chunks.length}\n\n${chunk}`
+  )
+}
+
 function safeString(value) {
   return typeof value === 'string' ? value : value == null ? '' : String(value)
 }
@@ -649,7 +726,7 @@ function resolveBotType(conn, botSettings = {}) {
   return isSelf ? 'Sub Bot (Self)' : 'Sub Bot'
 }
 
-async function sendSingleMenu(m, conn, text) {
+async function sendSingleMenu(m, conn, text, { useBanner = false } = {}) {
   if (!text) return
   const mention = m?.sender ? [m.sender] : []
 
@@ -664,23 +741,22 @@ async function sendSingleMenu(m, conn, text) {
       ? { ...baseRcanal, contextInfo: { ...baseRcanal.contextInfo, mentionedJid: mention } }
       : null
 
-    if (bannerPath && fs.existsSync(bannerPath)) {
+    if (useBanner && bannerPath && fs.existsSync(bannerPath)) {
       const bannerBuffer = fs.readFileSync(bannerPath)
       const imagePayload = rcanalPayload
         ? { image: bannerBuffer, caption: text, ...rcanalPayload }
         : { image: bannerBuffer, caption: text, mentions: mention }
       await conn.sendMessage(m.chat, imagePayload, { quoted: m })
-    } else if (rcanalPayload) {
-      await conn.sendMessage(m.chat, { text, ...rcanalPayload }, { quoted: m })
     } else {
       await conn.sendMessage(m.chat, { text, mentions: mention }, { quoted: m })
     }
-  } catch {
+  } catch (error) {
+    console.warn('[menu] Falló el envío con banner; usando texto simple:', error?.message || error)
     await conn.sendMessage(m.chat, { text }, { quoted: m })
   }
 }
 
-const handler = async (m, { conn, usedPrefix }) => {
+const handler = async (m, { conn, usedPrefix, args = [], command = 'menu' }) => {
   const prefix = safeString(usedPrefix || '#').trim() || '#'
   const botSettings = getMenuBotSettings(conn)
   const cfg = conn?.subbotRuntimeConfig || {}
@@ -697,8 +773,7 @@ const handler = async (m, { conn, usedPrefix }) => {
 
   const botType = resolveBotType(conn, botSettings)
 
-  const fullMenu = `${bodyMenu}\n\n${Object.values(menuObject).join('\n\n')}`
-  const mapped = replaceAll(fullMenu, {
+  const replacements = {
     '$owner': owner,
     '$botType': botType,
     '$version': firstFilled(botSettings?.version, botSettings?.vs, global?.vs, '^3.0 - Latest'),
@@ -714,9 +789,39 @@ const handler = async (m, { conn, usedPrefix }) => {
     '$prefixqr': `${prefix}qr`,
     '$prefixcode': `${prefix}code`,
     '$prefix': prefix,
-  })
+  }
 
-  await sendSingleMenu(m, conn, mapped)
+  if (safeString(command).toLowerCase() === 'allmenu') {
+    const pages = buildAllMenuPages({ prefix })
+    for (const page of pages) await sendSingleMenu(m, conn, page)
+    return
+  }
+
+  const requestedCategory = safeString(args[0]).trim()
+  if (requestedCategory) {
+    const categoryKey = resolveMenuCategory(requestedCategory)
+    if (!categoryKey) {
+      const available = Object.values(menuCategories).map(({ icon, label }) => `${icon} ${label}`).join(' · ')
+      await sendSingleMenu(m, conn, `No encontré la categoría *${requestedCategory}*.\n\n${available}\n\nPrueba con *${prefix}menu economia* o vuelve a *${prefix}menu*.`)
+      return
+    }
+
+    const category = menuCategories[categoryKey]
+    const categoryMenu = replaceAll(menuObject[categoryKey], replacements)
+    await sendSingleMenu(m, conn, `${category.icon} *OGURICAP · ${category.label.toUpperCase()}*\n${category.description}\n\n${categoryMenu}\n\n↩ Regresa con *${prefix}menu*.`)
+    return
+  }
+
+  const index = buildMenuIndex({
+    prefix,
+    botname,
+    sender,
+    owner,
+    botType,
+    version: replacements.$version,
+    users,
+  })
+  await sendSingleMenu(m, conn, index, { useBanner: true })
 }
 
 handler.help = ['menu', 'help', 'allmenu']
