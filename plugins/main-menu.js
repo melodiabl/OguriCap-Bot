@@ -727,6 +727,15 @@ function resolveBotType(conn, botSettings = {}) {
   return isSelf ? 'Sub Bot (Self)' : 'Sub Bot'
 }
 
+function resolveMenuBanner(conn) {
+  const settings = getMenuBotSettings(conn)
+  const configured = firstFilled(settings?.banner, conn?.subbotRuntimeConfig?.banner, global?.banner)
+  if (!configured) return null
+  if (/^https?:\/\//i.test(configured)) return { url: configured }
+  if (fs.existsSync(configured)) return fs.readFileSync(configured)
+  return null
+}
+
 async function sendSingleMenu(m, conn, text, { useBanner = false } = {}) {
   if (!text) return
   const mention = m?.sender ? [m.sender] : []
@@ -760,12 +769,20 @@ async function sendSingleMenu(m, conn, text, { useBanner = false } = {}) {
 async function sendMenuSelector(m, conn, text, prefix) {
   const mention = m?.sender ? [m.sender] : []
   try {
-    await conn.sendMessage(m.chat, {
-      text,
+    const banner = resolveMenuBanner(conn)
+    const payload = {
       footer: 'OguriCap · Selecciona solo lo que necesitas',
       mentions: mention,
       interactiveButtons: buildMenuInteractiveButtons(prefix),
-    }, { quoted: m })
+    }
+    if (banner) {
+      payload.image = banner
+      payload.caption = text
+      payload.title = '𐔌 𝑶𝒈𝒖𝒓𝒊𝑪𝒂𝒑 𐦯'
+    } else {
+      payload.text = text
+    }
+    await conn.sendMessage(m.chat, payload, { quoted: m })
   } catch (error) {
     console.warn('[menu] Falló el selector interactivo; usando texto simple:', error?.message || error)
     await sendSingleMenu(m, conn, text)

@@ -48,11 +48,22 @@ function createMenuRuntime() {
   }
   global.conn = conn
   global.botname = 'OguriCap'
+  global.banner = ''
   global.owner = [['100', 'Owner']]
   global.db = { data: { users: {}, settings: { '100@s.whatsapp.net': {} }, panel: { subbots: {} } } }
   const message = { chat: 'chat@s.whatsapp.net', sender: '200@s.whatsapp.net' }
   return { conn, message, sent }
 }
+
+test('la portada interactiva incluye el banner configurado', async () => {
+  const { conn, message, sent } = createMenuRuntime()
+  global.banner = 'https://example.com/oguricap.jpg'
+  await menuHandler(message, { conn, usedPrefix: '.', command: 'menu', args: [] })
+
+  assert.deepEqual(sent[0].payload.image, { url: global.banner })
+  assert.match(sent[0].payload.caption, /LISTA DE MENÚS/)
+  assert.equal(sent[0].payload.interactiveButtons[0].name, 'single_select')
+})
 
 test('el handler envía únicamente la categoría solicitada como texto', async () => {
   const { conn, message, sent } = createMenuRuntime()
