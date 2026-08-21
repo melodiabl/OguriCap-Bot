@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { text, usedPrefix, command, conn }) => {
 if (!text) return m.reply(`❀ Por favor, escribe el nombre de la canción para obtener la letra`)
@@ -12,35 +13,17 @@ if (json.status && (json.lyrics || json.lyrics === '')) {
 return { title: json.title || json.name || 'Desconocido', artists: json.artist || json.artists || 'Desconocido', lyrics: json.lyrics, image: json.image || null, url: json.url || null }}
 return null
 }
- let primaryRes = null
- // MelodyApi first
- try {
-  const melApi = global.APIs?.MelodyApi
-  const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
-  const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
-  const melHeaders = melKey ? { 'x-api-key': melKey } : {}
-  if (mel) {
-  const res0 = await fetch(`${mel}/search/lyrics?q=${encodeURIComponent(text)}`, { headers: melHeaders })
-  if (!res0.ok) throw new Error(`MelodyApi HTTP: ${res0.status}`)
-  const json0 = await res0.json()
-  // MelodyApi devuelve status:true con un mensaje "Letra no encontrada"; no tratarlo como letra.
-  if (json0 && json0.status && typeof json0.result === 'string' && json0.result.length > 80 && !/letra no encontrada/i.test(json0.result)) {
-   primaryRes = { title: text, artists: 'Desconocido', lyrics: json0.result, image: null, url: null }
-  }
-  }
- } catch (e) {
- primaryRes = null
- }
-
- try {
- const res = await fetch(`${global.APIs.delirius.url}/search/lyrics?query=${encodeURIComponent(text)}`)
- if (!res.ok) throw new Error(`Delirius HTTP: ${res.status}`)
- const json = await res.json()
- if (!primaryRes) primaryRes = normalize(json)
- } catch (e) {
- if (!primaryRes) primaryRes = null
- }
-let final = primaryRes
+let final = await withFallback(
+async () => {
+const result = await melodiaResult('/search/lyrics', { q: text })
+if (typeof result !== 'string' || result.length <= 80 || /letra no encontrada/i.test(result)) throw new Error('Letra no encontrada')
+return { title: text, artists: 'Desconocido', lyrics: result, image: null, url: null }
+},
+async () => {
+const res = await fetch(`${global.APIs.delirius.url}/search/lyrics?query=${encodeURIComponent(text)}`)
+if (!res.ok) throw new Error(`Delirius HTTP: ${res.status}`)
+return normalize(await res.json())
+})
 if (!final || !final.lyrics) {
 await m.react('✖️')
 return m.reply('ꕥ No se encontró la letra de la canción')

@@ -1,18 +1,34 @@
 import axios from 'axios'
 import baileys from 'baileys'
 import cheerio from 'cheerio'
+import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { conn, text, args, usedPrefix }) => {
 if (!text) return m.reply(`❀ Por favor, ingresa lo que deseas buscar por Pinterest.`)
 try {
 await m.react('🕒')
 if (text.includes("https://")) {
-let i = await dl(args[0])
+let i = await withFallback(
+async () => {
+const result = await melodiaResult('/download/pinterest', { url: args[0] }, { timeout: 25_000, retries: 1 })
+const media = Array.isArray(result?.media) ? result.media[0] : null
+const download = result?.url || media?.url || result?.download
+if (!download) throw new Error('MelodiaAPI no devolvió un archivo descargable')
+return { title: result?.title, download }
+},
+async () => dl(args[0])
+)
 if (!i || i.msg) return conn.reply(m.chat, `⚠︎ No se pudo descargar ese pin.`, m)
 let isVideo = i.download?.includes(".mp4")
 await conn.sendMessage(m.chat, { [isVideo ? "video" : "image"]: { url: i.download }, caption: i.title || '' }, { quoted: fkontak })
 } else {
-const results = await pins(text)
+const results = await withFallback(
+async () => {
+const result = await melodiaResult('/search/pinterest', { q: text })
+return result.map(item => ({ ...item, image_url: item.image_url || item.images_url }))
+},
+async () => pins(text)
+)
 if (!results.length) {
 return conn.reply(m.chat, `ꕥ No se encontraron resultados para "${text}".`, m)
 }

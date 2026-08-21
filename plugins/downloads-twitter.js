@@ -1,5 +1,6 @@
 import axios from 'axios'
 import cheerio from 'cheerio'
+import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { conn, args, text, usedPrefix }) => {
 if (!text) {
@@ -8,38 +9,37 @@ return conn.reply(m.chat, `❀ Te faltó el link de una imagen/video de twitter.
 try {
 await m.react('🕒')
 
- // MelodyApi first
-   try {
-    const melApi = global.APIs.MelodyApi
-    const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
-    const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
-    const melHeaders = melKey ? { 'x-api-key': melKey } : {}
-   if (mel) {
-    const r = await axios.get(`${mel}/download/twitter?url=${encodeURIComponent(text)}`, { timeout: 20000, headers: melHeaders })
-    const out = r.data?.result
+const result = await withFallback(
+async () => {
+const data = await melodiaResult('/download/twitter', { url: text }, { timeout: 25_000, retries: 1 })
+const direct = Array.isArray(data) ? (data[0]?.url || data[0]) : (data?.url || data)
+if (!direct) throw new Error('MelodiaAPI no devolvió un archivo descargable')
+return { source: 'melodia', data }
+},
+async () => ({ source: 'legacy', data: await twitterScraper(text) })
+)
+if (result.source === 'melodia') {
+    const out = result.data
     const direct = Array.isArray(out) ? (out[0]?.url || out[0]) : (out?.url || out)
-    if (r.data?.status && direct) {
+    if (direct) {
      const caption = `❀ Twitter - Download ❀\n\n> 🜸 URL » ${text}`
      await conn.sendFile(m.chat, direct, "video.mp4", caption, m)
      await m.react('✔️')
      return
     }
-   }
-  } catch {}
-
-const result = await twitterScraper(text);
-if (!result.status) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido de Twitter`, m)
-if (result.data.type === 'video') {
+}
+if (!result.data.status) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido de Twitter`, m)
+if (result.data.data.type === 'video') {
 let caption = `❀ Twitter - Download ❀
 
-> ✦ Titulo » ${result.data.title}
-> ⴵ Duración » ${result.data.duration}
+> ✦ Titulo » ${result.data.data.title}
+> ⴵ Duración » ${result.data.data.duration}
 > 🜸 URL » ${text}`
- conn.sendFile(m.chat, result.data.dl[0].url, "video.mp4", caption, m)
+ await conn.sendFile(m.chat, result.data.data.dl[0].url, "video.mp4", caption, m)
  await m.react('✔️')
 } else {
 await conn.sendMessage(m.chat, {
-image: { url: result.data.imageUrl },
+image: { url: result.data.data.imageUrl },
 caption: `❀ Twitter - Download ❀\n\n> 🜸 URL » ${text}`}, { quoted: m })
  await m.react('✔️')
 }} catch (e) {

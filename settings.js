@@ -56,7 +56,10 @@ global.APIs = {
   // Set this to your domain (no trailing slash).
   // IMPORTANTE: usa la API key COMPLETA (se muestra solo al crear/rotar).
   // Lo que ves como "Prefix" en el panel NO siempre funciona como key.
-  MelodyApi: { url: 'https://api.melodiaauris.qzz.io', key: 'OguriCap-Bot' },
+  MelodyApi: {
+    url: process.env.MELODIA_API_URL || 'https://api.melodiaauris.qzz.io',
+    key: process.env.MELODIA_API_KEY || ''
+  },
   yupra: { url: "https://api.yupra.my.id", key: null },
   delirius: { url: "https://api.delirius.store", key: null },
   siputzx: { url: "https://api.siputzx.my.id", key: null }
