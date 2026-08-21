@@ -5,6 +5,7 @@ import path, { join } from "path"
 import fs, { unwatchFile, watchFile } from "fs"
 import chalk from "chalk"
 import fetch from "node-fetch"
+import { canUseCommandInSelfMode } from "./lib/command-access.js"
 
 
 const baileys = await import("baileys")
@@ -526,7 +527,11 @@ export async function handler(chatUpdate) {
               plugin.command === command : false
         global.comando = command
 
-        if (!isOwners && settings.self) return
+        if (!canUseCommandInSelfMode({
+          isOwner: isOwners,
+          selfMode: settings.self,
+          command,
+        })) return
 
         // MOVIDO: Ahora solo bloquea después de que el antibot haya tenido oportunidad de procesar
         // Si el antibot ya procesó este mensaje (lo detectó y eliminó), no ejecutar comandos
