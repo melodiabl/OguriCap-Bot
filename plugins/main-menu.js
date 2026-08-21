@@ -543,26 +543,31 @@ export function resolveMenuCategory(value) {
 
 export function buildMenuIndex({ prefix = '.', botname = 'OguriCap', sender = 'usuario', owner = '', botType = '', version = '', users = 0 } = {}) {
   const categoryLines = Object.entries(menuCategories).map(([key, category]) =>
-    `${category.icon} *${category.label}* — ${category.description}\n   ↳ ${prefix}menu ${key}`
+    `│ ${category.icon} *${category.label}*\n│   └─ ${prefix}menu ${key}`
   )
   const details = [
-    botType && `◦ Modo: ${botType}`,
-    version && `◦ Versión: ${version}`,
-    owner && `◦ Owner: ${owner}`,
-    users !== '' && `◦ Usuarios: ${Number(users || 0).toLocaleString('es-ES')}`,
+    botType && `│ 𖧧 *Modo* › ${botType}`,
+    version && `│ 𐙚 *Versión* › ${version}`,
+    owner && `│ 𓆩♡𓆪 *Owner* › ${owner}`,
+    users !== '' && `│ 𖹭 *Usuarios* › ${Number(users || 0).toLocaleString('es-ES')}`,
   ].filter(Boolean)
 
   return [
-    `╭━━━〔 🐴 *${botname.toUpperCase()}* 〕━━━╮`,
-    `Hola, @${sender}. ¿Qué quieres hacer?`,
+    `╭═══〔 𐔌 *${botname.toUpperCase()}* 𐦯 〕═══⊷`,
+    `│ ✿ Hola, *@${sender}*`,
+    '│ Tu aventura comienza aquí ᡣ𐭩',
+    '├─────────────────⊷',
     ...details,
-    '╰━━━━━━━━━━━━━━━━━━━━╯',
+    '╰═════════════════⊷',
     '',
-    '*Explora por categoría*',
+    '╭━━〔 ✦ *LISTA DE MENÚS* ✦ 〕━━⊷',
     ...categoryLines,
+    '╰═════════════════⊷',
     '',
-    `Usa *${prefix}menu <categoría>* para abrir una sección.`,
-    `Usa *${prefix}allmenu* para recibir la lista completa por partes.`,
+    `> 𖥔 Abre una sección con *${prefix}menu <categoría>*`,
+    `> 𖥔 Mira todo por partes con *${prefix}allmenu*`,
+    '',
+    '꒷꒦︶꒷꒦︶ ๋࣭ ⭑ ︶꒦꒷︶꒦꒷',
   ].join('\n')
 }
 
@@ -583,7 +588,7 @@ export function buildAllMenuPages({ prefix = '.', maxBytes = 4000 } = {}) {
   if (current) chunks.push(current)
 
   return chunks.map((chunk, index) =>
-    `🐴 *OGURICAP · MENÚ COMPLETO*\nParte ${index + 1} de ${chunks.length}\n\n${chunk}`
+    `╭══〔 𐔌 *OGURICAP · MENÚ COMPLETO* 𐦯 〕══⊷\n│ ✦ Parte ${index + 1} de ${chunks.length}\n╰════════════════════⊷\n\n${chunk}\n\n꒷꒦︶꒷꒦︶ ๋࣭ ⭑ ︶꒦꒷︶꒦꒷`
   )
 }
 
@@ -801,14 +806,14 @@ const handler = async (m, { conn, usedPrefix, args = [], command = 'menu' }) => 
   if (requestedCategory) {
     const categoryKey = resolveMenuCategory(requestedCategory)
     if (!categoryKey) {
-      const available = Object.values(menuCategories).map(({ icon, label }) => `${icon} ${label}`).join(' · ')
-      await sendSingleMenu(m, conn, `No encontré la categoría *${requestedCategory}*.\n\n${available}\n\nPrueba con *${prefix}menu economia* o vuelve a *${prefix}menu*.`)
+      const available = Object.values(menuCategories).map(({ icon, label }) => `│ ${icon} ${label}`).join('\n')
+      await sendSingleMenu(m, conn, `╭══〔 ✦ *CATEGORÍA NO ENCONTRADA* ✦ 〕══⊷\n│ No encontré la categoría *${requestedCategory}*\n├─────────────────⊷\n${available}\n╰═════════════════⊷\n\n> Prueba con *${prefix}menu economia* o vuelve a *${prefix}menu*.`)
       return
     }
 
     const category = menuCategories[categoryKey]
     const categoryMenu = replaceAll(menuObject[categoryKey], replacements)
-    await sendSingleMenu(m, conn, `${category.icon} *OGURICAP · ${category.label.toUpperCase()}*\n${category.description}\n\n${categoryMenu}\n\n↩ Regresa con *${prefix}menu*.`)
+    await sendSingleMenu(m, conn, `╭══〔 ${category.icon} *OGURICAP · ${category.label.toUpperCase()}* 〕══⊷\n│ ✿ ${category.description}\n╰═════════════════⊷\n\n${categoryMenu}\n\n> 𖥔 Regresa con *${prefix}menu*\n꒷꒦︶꒷꒦︶ ๋࣭ ⭑ ︶꒦꒷︶꒦꒷`)
     return
   }
 
