@@ -1,22 +1,18 @@
 import axios from 'axios'
 import fetch from 'node-fetch'
+import { melodiaResult } from '../lib/melodia-api.js'
 
 const handler = async (m, { conn, text, usedPrefix }) => {
 if (!text) return m.reply("❀ Por favor, proporciona el nombre de una canción o artista.")
 try {
 await m.react('🕒')
 
- // MelodyApi first for Spotify URLs
+ // MelodiaAPI first for Spotify URLs
   try {
-    const melApi = global.APIs.MelodyApi
-    const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
-    const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
-    const melHeaders = melKey ? { 'x-api-key': melKey } : {}
     const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
-     if (mel && isSpotifyUrl) {
-      const r = await axios.get(`${mel}/download/spotify?url=${encodeURIComponent(text)}`, { timeout: 20000, headers: melHeaders })
-      if (r.data?.status && r.data?.result) {
-       const dl = r.data.result
+     if (isSpotifyUrl) {
+      const dl = await melodiaResult('/download/spotify', { url: text }, { timeout: 30_000, retries: 1 })
+      if (dl) {
        try {
        await conn.sendMessage(m.chat, { audio: { url: dl }, fileName: `spotify.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
        await m.react('✔️')
@@ -28,18 +24,13 @@ await m.react('🕒')
     }
    } catch {}
 
-  // MelodyApi first for search queries (fallback to YouTube audio)
+ // MelodiaAPI first for search queries (fallback to YouTube audio)
   try {
-    const melApi = global.APIs.MelodyApi
-    const mel = (typeof melApi?.url === 'string' ? melApi.url : '').trim().replace(/\/+$/, '')
-    const melKey = (typeof melApi?.key === 'string' ? melApi.key : '').trim()
-    const melHeaders = melKey ? { 'x-api-key': melKey } : {}
     const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
-     if (mel && !isSpotifyUrl) {
-     const r = await axios.get(`${mel}/download/playspotify?q=${encodeURIComponent(text)}`, { timeout: 25000, headers: melHeaders })
-     const out = r.data?.result
+     if (!isSpotifyUrl) {
+     const out = await melodiaResult('/download/playspotify', { q: text }, { timeout: 35_000, retries: 1 })
      const direct = out?.url
-     if (r.data?.status && typeof direct === 'string' && direct) {
+     if (typeof direct === 'string' && direct) {
      try {
       if (out?.title) {
        const bannerBuffer = out?.thumbnail ? await (await fetch(out.thumbnail)).arrayBuffer().then(b => Buffer.from(b)).catch(() => null) : null
