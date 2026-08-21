@@ -1,19 +1,23 @@
 import fetch from 'node-fetch'
-import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { text, usedPrefix, args }) => {
 if (!text) return m.reply(`❀ Por favor, proporciona el término de búsqueda que deseas realizar a *Google*.\n\nEjemplo: ${usedPrefix}google gatos curiosos`)
 let maxResults = Number(args[1]) || 3
 try {
 await m.react('🕒')
-const results = await withFallback(
-async () => melodiaResult('/search/web', { q: text, limit: maxResults }),
-async () => {
+let results = []
+try {
+const mel = global.APIs.MelodyApi
+const response = await fetch(`${mel.url}/search/web?q=${encodeURIComponent(text)}&limit=${maxResults}`, { headers: mel.key ? { 'x-api-key': mel.key } : {} })
+const payload = await response.json()
+if (response.ok && payload.status && Array.isArray(payload.result)) results = payload.result
+} catch {}
+if (!results.length) {
 const response = await fetch(`${global.APIs.delirius.url}/search/googlesearch?query=${encodeURIComponent(text)}`)
 if (!response.ok) throw new Error('No se pudo conectar con el buscador de respaldo')
 const payload = await response.json()
-return payload.status && Array.isArray(payload.data) ? payload.data : []
-})
+results = payload.status && Array.isArray(payload.data) ? payload.data : []
+}
 if (!Array.isArray(results) || !results.length) {
 await m.react('✖️')
 return m.reply('ꕥ No se encontraron resultados para esa búsqueda.')

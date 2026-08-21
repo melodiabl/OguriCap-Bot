@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { melodiaRequest, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { conn, usedPrefix, text }) => {
 if (!text) {
@@ -7,15 +6,15 @@ return conn.reply(m.chat, `❀ Por favor, ingresa una *IP*.`, m)
 }
 try {
 await m.react('🕒')
-const data = await withFallback(
-async () => {
-const payload = await melodiaRequest('/tools/ip-tracker', { params: { ip: text } })
+let data = null
+try {
+const mel = global.APIs.MelodyApi
+const response = await axios.get(`${mel.url}/tools/ip-tracker`, { params: { ip: text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 15_000 })
+const payload = response.data
 const geo = payload?.data
-if (!payload?.status || !geo) throw new Error(payload?.error || 'IP no encontrada')
-return { status: 'success', query: geo.ip, country: geo.country, countryCode: geo.country_code, regionName: geo.region, region: '', city: geo.city, district: '', zip: geo.zipcode, timezone: geo.timezone, isp: geo.isp, org: geo.organization, as: geo.asn, mobile: false, hosting: false }
-},
-async () => (await axios.get(`http://ip-api.com/json/${encodeURIComponent(text)}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as,mobile,hosting,query`, { timeout: 12_000 })).data
-)
+if (payload?.status && geo) data = { status: 'success', query: geo.ip, country: geo.country, countryCode: geo.country_code, regionName: geo.region, region: '', city: geo.city, district: '', zip: geo.zipcode, timezone: geo.timezone, isp: geo.isp, org: geo.organization, as: geo.asn, mobile: false, hosting: false }
+} catch {}
+if (!data) data = (await axios.get(`http://ip-api.com/json/${encodeURIComponent(text)}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as,mobile,hosting,query`, { timeout: 12_000 })).data
 if (String(data.status) !== "success") {
 throw new Error(data.message || "Falló")
 }

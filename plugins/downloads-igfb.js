@@ -1,4 +1,4 @@
-import { melodiaResult, withFallback } from '../lib/melodia-api.js'
+import axios from 'axios'
 
 const handler = async (m, { args, conn, usedPrefix, command }) => {
 try {
@@ -9,10 +9,12 @@ await m.react('🕒')
 
 try {
 const endpoint = /(instagram\.com)/i.test(args[0]) ? '/download/aio' : '/download/facebook'
-const result = await melodiaResult(endpoint, { url: args[0] }, { timeout: 30_000, retries: 1 })
+const mel = global.APIs.MelodyApi
+const response = await axios.get(`${mel.url}${endpoint}`, { params: { url: args[0] }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 30_000 })
+const result = response.data?.result
 const candidates = [result?.video, result?.url, result?.media?.video_hd, result?.video_hd, result?.hd]
 if (Array.isArray(result?.downloadUrls)) candidates.push(...result.downloadUrls)
-data = candidates.filter(value => typeof value === 'string' && value.startsWith('http'))
+if (response.data?.status) data = candidates.filter(value => typeof value === 'string' && value.startsWith('http'))
 } catch {}
 
 // adonix y vreden (muertos) eliminados; Delirius es el respaldo activo.

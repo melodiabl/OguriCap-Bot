@@ -2,7 +2,6 @@ import FormData from "form-data"
 import { fileTypeFromBuffer } from "file-type"
 import axios from "axios"
 import fetch from "node-fetch"
-import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 const handler = async (m, { conn, command, usedPrefix, text, args }) => {
 try {
@@ -36,13 +35,17 @@ case 'ia': case 'chatgpt': case 'openai': {
 if (!text) return conn.reply(m.chat, `❀ Ingrese una petición.`, m)
 await m.react('🕒')
 const basePrompt = `Tu nombre es ${botname} y parece haber sido creada por ${etiqueta}. Tu versión actual es ${vs}, Tú usas el idioma Español. Llamarás a las personas por su nombre ${username}, te gusta ser divertida, y te encanta aprender. Lo más importante es que debes ser amigable con la persona con la que estás hablando. ${username}`
-const output = await withFallback(
-async () => melodiaResult('/ai/openai', { text: `${basePrompt}\n\nUsuario: ${text}` }, { timeout: 45_000, retries: 1 }),
-async () => {
+let output = null
+try {
+const mel = global.APIs.MelodyApi
+const response = await axios.get(`${mel.url}/ai/openai`, { params: { text: `${basePrompt}\n\nUsuario: ${text}` }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 45_000 })
+if (response.data?.status && typeof response.data?.result === 'string') output = response.data.result
+} catch {}
+if (!output) {
 const res = await axios.get(`${global.APIs.delirius.url}/ia/gptprompt?text=${encodeURIComponent(text)}&prompt=${encodeURIComponent(basePrompt)}`, { timeout: 45_000 })
 if (!res.data?.status || !res.data?.data) throw new Error('Respuesta inválida de Delirius')
-return res.data.data
-})
+output = res.data.data
+}
 await conn.sendMessage(m.chat, { text: output }, { quoted: m })
 await m.react('✔️')
 break
@@ -84,18 +87,18 @@ export default handler
 
 // IA compartida: MelodiaAPI venicechat primero, Delirius como respaldo.
 async function askAI(text) {
-return withFallback(
-async () => {
-const result = await melodiaResult('/ai/venicechat', { text }, { timeout: 45_000, retries: 1 })
-if (typeof result !== 'string' || !result.trim()) throw new Error('MelodiaAPI devolvió una respuesta vacía')
-return result.trim()
-},
-async () => {
+try {
+const mel = global.APIs.MelodyApi
+const response = await axios.get(`${mel.url}/ai/venicechat`, { params: { text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 45_000 })
+const result = response.data?.result
+if (response.data?.status && typeof result === 'string' && result.trim()) return result.trim()
+} catch {}
+try {
 const r = await axios.get(`${global.APIs.delirius.url}/ia/gptweb?text=${encodeURIComponent(text)}`, { timeout: 45_000 })
 const out = r.data?.data || r.data?.result || r.data?.response
-if (typeof out !== 'string' || !out.trim()) throw new Error('La IA de respaldo no respondió')
-return out.trim()
-})
+if (typeof out === 'string' && out.trim()) return out.trim()
+} catch {}
+return null
 }
 
 const fluximg = { defaultRatio: "2:3", create: async (query) => {

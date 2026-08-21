@@ -1,6 +1,5 @@
 import axios from 'axios'
 import fetch from 'node-fetch'
-import { melodiaResult } from '../lib/melodia-api.js'
 
 const handler = async (m, { conn, text, usedPrefix }) => {
 if (!text) return m.reply("❀ Por favor, proporciona el nombre de una canción o artista.")
@@ -11,7 +10,9 @@ await m.react('🕒')
   try {
     const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
      if (isSpotifyUrl) {
-      const dl = await melodiaResult('/download/spotify', { url: text }, { timeout: 30_000, retries: 1 })
+      const mel = global.APIs.MelodyApi
+      const response = await axios.get(`${mel.url}/download/spotify`, { params: { url: text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 30_000 })
+      const dl = response.data?.result
       if (dl) {
        try {
        await conn.sendMessage(m.chat, { audio: { url: dl }, fileName: `spotify.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
@@ -28,7 +29,9 @@ await m.react('🕒')
   try {
     const isSpotifyUrl = /^https?:\/\//i.test(text) && /spotify\.com\//i.test(text)
      if (!isSpotifyUrl) {
-     const out = await melodiaResult('/download/playspotify', { q: text }, { timeout: 35_000, retries: 1 })
+     const mel = global.APIs.MelodyApi
+     const response = await axios.get(`${mel.url}/download/playspotify`, { params: { q: text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 35_000 })
+     const out = response.data?.result
      const direct = out?.url
      if (typeof direct === 'string' && direct) {
      try {

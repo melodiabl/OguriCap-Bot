@@ -1,6 +1,5 @@
 import axios from 'axios'
 import cheerio from 'cheerio'
-import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { conn, args, text, usedPrefix }) => {
 if (!text) {
@@ -9,15 +8,15 @@ return conn.reply(m.chat, `❀ Te faltó el link de una imagen/video de twitter.
 try {
 await m.react('🕒')
 
-const result = await withFallback(
-async () => {
-const data = await melodiaResult('/download/twitter', { url: text }, { timeout: 25_000, retries: 1 })
+let result = null
+try {
+const mel = global.APIs.MelodyApi
+const response = await axios.get(`${mel.url}/download/twitter`, { params: { url: text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 25_000 })
+const data = response.data?.result
 const direct = Array.isArray(data) ? (data[0]?.url || data[0]) : (data?.url || data)
-if (!direct) throw new Error('MelodiaAPI no devolvió un archivo descargable')
-return { source: 'melodia', data }
-},
-async () => ({ source: 'legacy', data: await twitterScraper(text) })
-)
+if (response.data?.status && direct) result = { source: 'melodia', data }
+} catch {}
+if (!result) result = { source: 'legacy', data: await twitterScraper(text) }
 if (result.source === 'melodia') {
     const out = result.data
     const direct = Array.isArray(out) ? (out[0]?.url || out[0]) : (out?.url || out)

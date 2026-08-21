@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { melodiaResult, withFallback } from '../lib/melodia-api.js'
 
 const handler = async (m, { conn, text, usedPrefix }) => {
 if (!text) return conn.reply(m.chat, '❀ Por favor, ingresa un término de búsqueda o el enlace de TikTok.', m)
@@ -7,12 +6,16 @@ const isUrl = /(?:https:?\/{2})?(?:www\.|vm\.|vt\.|t\.)?tiktok\.com\/([^\s&]+)/g
 try {
 await m.react('🕒')
 if (isUrl) {
- const response = await withFallback(
- async () => ({ source: 'melodia', result: await melodiaResult('/download/tiktok', { url: text }, { timeout: 25_000, retries: 1 }) }),
- async () => {
+ let response = null
+ try {
+ const mel = global.APIs.MelodyApi
+ const api = await axios.get(`${mel.url}/download/tiktok`, { params: { url: text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 25_000 })
+ if (api.data?.status && api.data?.result) response = { source: 'melodia', result: api.data.result }
+ } catch {}
+ if (!response) {
  const legacy = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(text)}&hd=1`, { timeout: 20_000 })
- return { source: 'legacy', result: legacy.data?.data }
- })
+ response = { source: 'legacy', result: legacy.data?.data }
+ }
  const out = response.result
  if (response.source === 'melodia' && out && (out.video_nowm || out.video || (Array.isArray(out.slides) && out.slides.length))) {
 const caption = createCaption(out.description || 'No disponible', { nickname: 'TikTok', unique_id: 'tiktok' }, 'No disponible')
@@ -43,12 +46,16 @@ await conn.sendMessage(m.chat, { audio: { url: music }, mimetype: 'audio/mp4', f
 }} else {
 await conn.sendMessage(m.chat, { video: { url: play }, caption }, { quoted: m })
 }} else {
- const response = await withFallback(
- async () => ({ source: 'melodia', result: await melodiaResult('/search/tiktok', { q: text }, { timeout: 25_000, retries: 1 }) }),
- async () => {
+ let response = null
+ try {
+ const mel = global.APIs.MelodyApi
+ const api = await axios.get(`${mel.url}/search/tiktok`, { params: { q: text }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 25_000 })
+ if (api.data?.status && Array.isArray(api.data?.result)) response = { source: 'melodia', result: api.data.result }
+ } catch {}
+ if (!response) {
  const legacy = await axios({ method: 'POST', url: 'https://tikwm.com/api/feed/search', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'Cookie': 'current_language=en', 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36' }, data: { keywords: text, count: 20, cursor: 0, HD: 1 }, timeout: 20_000 })
- return { source: 'legacy', result: legacy.data?.data?.videos || [] }
- })
+ response = { source: 'legacy', result: legacy.data?.data?.videos || [] }
+ }
  const results = Array.isArray(response.result) ? response.result.filter(v => v.play) : []
  if (results.length >= 2) {
 const medias = results.slice(0, 10).map(v => ({ type: 'video', data: { url: v.play }, caption: createSearchCaption(v) }))

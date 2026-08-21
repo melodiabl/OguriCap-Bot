@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { melodiaResult } from '../lib/melodia-api.js'
 
 const handler = async (m, { conn, text, usedPrefix }) => {
 if (!text) return conn.reply(m.chat, `❀ Por favor, ingrese un texto para buscar una Imagen.`, m)
@@ -27,9 +26,11 @@ function getGoogleImageSearch(query) {
 const apis = [`${global.APIs.delirius.url}/search/gimage?query=${encodeURIComponent(query)}`, `${global.APIs.siputzx.url}/api/images?query=${encodeURIComponent(query)}`]
 return { getAll: async () => {
 try {
-const result = await melodiaResult('/search/gimage', { q: query, limit: 20 })
+const mel = global.APIs.MelodyApi
+const response = await axios.get(`${mel.url}/search/gimage`, { params: { q: query, limit: 20 }, headers: mel.key ? { 'x-api-key': mel.key } : {}, timeout: 20_000 })
+const result = response.data?.result
 const urls = Array.isArray(result) ? result.map(item => item?.url || item?.image).filter(url => typeof url === 'string' && url.startsWith('http')) : []
-if (urls.length) return urls
+if (response.data?.status && urls.length) return urls
 } catch {}
 for (const url of apis) {
 try {

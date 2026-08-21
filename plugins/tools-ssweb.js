@@ -1,14 +1,16 @@
 import fetch from 'node-fetch'
-import { melodiaBinary, withFallback } from '../lib/melodia-api.js'
 
 let handler = async (m, { conn, command, args, usedPrefix }) => {
 if (!args[0]) return conn.reply(m.chat, `❀ Por favor, ingrese el Link de una página.`, m)
 try {
 await m.react('🕒')
-let ss = await withFallback(
-async () => melodiaBinary('/tools/ssweb', { url: args[0] }, { timeout: 35_000, retries: 1 }),
-async () => (await fetch(`https://image.thum.io/get/fullpage/${args[0]}`)).arrayBuffer().then(b => Buffer.from(b))
-)
+let ss = null
+try {
+const mel = global.APIs.MelodyApi
+const response = await fetch(`${mel.url}/tools/ssweb?url=${encodeURIComponent(args[0])}`, { headers: mel.key ? { 'x-api-key': mel.key } : {} })
+if (response.ok) ss = Buffer.from(await response.arrayBuffer())
+} catch {}
+if (!ss) ss = await (await fetch(`https://image.thum.io/get/fullpage/${args[0]}`)).arrayBuffer().then(b => Buffer.from(b))
 conn.sendFile(m.chat, ss, 'error.png', args[0], fkontak)
 await m.react('✔️')
 } catch (error) {
