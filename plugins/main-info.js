@@ -145,10 +145,21 @@ break
 }
 case 'script': case 'sc': {
 await m.react('🕒')
+let json
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const res = await fetch(`${api.url}/tools/github?q=${encodeURIComponent('https://github.com/melodiabl/OguriCap-bot')}&apikey=${encodeURIComponent(api.key)}`)
+const data = await res.json()
+if (!res.ok || !data.status || !data.result?.[0]) throw new Error(data.error || 'Sin resultados')
+const repo = data.result[0]
+json = { name: repo.name, watchers_count: repo.watchers, size: 0, updated_at: repo.updatedAt, html_url: repo.url, forks_count: repo.forks, stargazers_count: repo.stars }
+} catch {
 const res = await fetch('https://api.github.com/repos/melodiabl/OguriCap-bot')
 if (!res.ok) throw new Error('No se pudo obtener los datos del repositorio.')
-const json = await res.json()
-const txt = `*乂  S C R I P T  -  M A I N  乂*\n\n✩ *Nombre* : ${json.name}\n✩ *Visitas* : ${json.watchers_count}\n✩ *Peso* : ${(json.size / 1024).toFixed(2)} MB\n✩ *Actualizado* : ${moment(json.updated_at).format('DD/MM/YY - HH:mm:ss')}\n✩ *Url* : ${json.html_url}\n✩ *Forks* : ${json.forks_count}\n✩ *Stars* : ${json.stargazers_count}\n\n> *${dev}*`
+json = await res.json()
+}
+const txt = `*乂  S C R I P T  -  M A I N  乂*\n\n✩ *Nombre* : ${json.name}\n✩ *Visitas* : ${json.watchers_count}\n✩ *Actualizado* : ${moment(json.updated_at).format('DD/MM/YY - HH:mm:ss')}\n✩ *Url* : ${json.html_url}\n✩ *Forks* : ${json.forks_count}\n✩ *Stars* : ${json.stargazers_count}\n\n> *${dev}*`
 await conn.sendMessage(m.chat, { image: catalogo, caption: txt, ...rcanal }, { quoted: m })
 await m.react('✔️')
 break

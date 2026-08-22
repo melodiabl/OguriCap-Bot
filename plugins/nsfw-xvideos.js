@@ -92,6 +92,14 @@ handler.group = true
 export default handler
 
 async function search(query) {
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const response = await fetch(`${api.url}/search/xvideos?q=${encodeURIComponent(query)}&apikey=${encodeURIComponent(api.key)}`)
+const json = await response.json()
+if (!response.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'Sin resultados')
+return json.result
+} catch {}
 return new Promise(async (resolve, reject) => {
 try {
 const url = `https://www.xvideos.com/?k=${encodeURIComponent(query)}`
@@ -111,6 +119,14 @@ reject(error)
 }})
 }
 async function xvideosdl(url) {
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const response = await fetch(`${api.url}/download/xvideos?url=${encodeURIComponent(url)}&apikey=${encodeURIComponent(api.key)}`)
+const json = await response.json()
+if (!response.ok || !json.status || !json.result?.url) throw new Error(json.error || 'Sin resultados')
+return { status: 200, result: { ...json.result, duration: json.result.duration ? `${json.result.duration}s` : null } }
+} catch {}
 return new Promise((resolve, reject) => {
 fetch(`${url}`, { method: 'get' })
 .then(res => res.text())

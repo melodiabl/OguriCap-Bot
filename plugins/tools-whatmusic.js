@@ -1,6 +1,7 @@
 import acrcloud from "acrcloud"
+import fetch from 'node-fetch'
+import { FormData, Blob } from 'formdata-node'
 
-const acr = new acrcloud({ host: "identify-ap-southeast-1.acrcloud.com", access_key: "ee1b81b47cf98cd73a0072a761558ab1", access_secret: "ya9OPe8onFAnNkyf9xMTK8qRyMGmsghfuHrIMmUI" })
 let handler = async (m, { conn, text, usedPrefix, command }) => {
 let q = m.quoted ? m.quoted : m
 if (!q.mimetype || (!q.mimetype.includes("audio") && !q.mimetype.includes("video"))) {
@@ -50,6 +51,21 @@ handler.group = true
 export default handler
 
 async function whatmusic(buffer) {
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const form = new FormData()
+form.append('file', new Blob([buffer]), 'audio.bin')
+const response = await fetch(`${api.url}/tools/whatmusic?apikey=${encodeURIComponent(api.key)}`, { method: 'POST', body: form })
+const json = await response.json()
+if (!response.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'No se pudo reconocer')
+return json.result.map(item => ({ title: item.title, artist: item.artist, duration: toTime(item.durationMs), url: item.links || [] }))
+} catch {}
+const host = process.env.ACRCLOUD_HOST
+const access_key = process.env.ACRCLOUD_ACCESS_KEY
+const access_secret = process.env.ACRCLOUD_ACCESS_SECRET
+if (!host || !access_key || !access_secret) return []
+const acr = new acrcloud({ host, access_key, access_secret })
 let res = await acr.identify(buffer)
 let data = res?.metadata
 if (!data || !Array.isArray(data.music)) return []

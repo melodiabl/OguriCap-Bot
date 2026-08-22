@@ -1,11 +1,24 @@
 import { exec } from 'child_process'
 import fs from 'fs'
+import fetch from 'node-fetch'
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
 if (!text) return m.reply(`❀ Por favor, ingresa el nombre de un paquete de NPMJs y versión (opcional).`)
 async function npmdownloader(pkg, pkgver) {
 try {
 await m.react('🕒')
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const response = await fetch(`${api.url}/tools/npm-package?q=${encodeURIComponent(pkg)}&version=${encodeURIComponent(pkgver)}&apikey=${encodeURIComponent(api.key)}`)
+const json = await response.json()
+if (!response.ok || !json.status || !json.result?.tarball) throw new Error(json.error || 'Paquete no encontrado')
+const archive = await fetch(json.result.tarball)
+if (!archive.ok) throw new Error('No se pudo descargar el paquete')
+const data = await archive.arrayBuffer().then(buffer => Buffer.from(buffer))
+await conn.sendMessage(m.chat, { document: data, mimetype: 'application/gzip', fileName: `${json.result.name.replace('/', '-')}-${json.result.version}.tgz`, caption: `» Nombre: ${json.result.name}\n» Versión: ${json.result.version}\n» Descripción: ${json.result.description || 'Sin descripción'}\n» Link: ${json.result.homepage}` }, { quoted: m })
+return
+} catch {}
 const filePath = await new Promise((resolve, reject) => {
 exec(`npm pack ${pkg}@${pkgver}`, (error, stdout) => {
 if (error) {

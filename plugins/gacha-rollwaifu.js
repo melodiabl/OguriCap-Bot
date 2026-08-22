@@ -32,6 +32,15 @@ function formatTag(tag) {
 
 async function buscarImagenDelirius(characterName) {
   const tag = formatTag(characterName)
+  try {
+    const api = global.APIs.MelodyApi
+    if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+    const response = await fetch(`${api.url}/search/booru?q=${encodeURIComponent(tag)}&apikey=${encodeURIComponent(api.key)}`)
+    const json = await response.json()
+    if (!response.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'Sin resultados')
+    const images = json.result.filter(item => item.type === 'image').map(item => item.url)
+    if (images.length) return images
+  } catch {}
   const urls = [
     `https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&tags=${tag}`,
     `https://danbooru.donmai.us/posts.json?tags=${tag}`,

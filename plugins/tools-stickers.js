@@ -5,6 +5,13 @@ import fetch from 'node-fetch'
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 const fetchSticker = async (text, attempt = 1) => {
 try {
+const api = global.APIs.MelodyApi
+if (api?.url && api?.key) {
+try {
+const response = await axios.get(`${api.url}/imagecreator/brat`, { params: { text, apikey: api.key }, responseType: 'arraybuffer', timeout: 20000 })
+if (response.data) return response.data
+} catch {}
+}
 const response = await axios.get(`https://skyzxu-brat.hf.space/brat`, { params: { text }, responseType: 'arraybuffer' })
 return response.data
 } catch (error) {
@@ -16,6 +23,13 @@ return fetchSticker(text, attempt + 1)
 throw error
 }}
 const fetchStickerVideo = async (text) => {
+const api = global.APIs.MelodyApi
+if (api?.url && api?.key) {
+try {
+const response = await axios.get(`${api.url}/imagecreator/brat-animated`, { params: { text, apikey: api.key }, responseType: 'arraybuffer', timeout: 25000 })
+if (response.data) return response.data
+} catch {}
+}
 const response = await axios.get(`https://skyzxu-brat.hf.space/brat-animated`, { params: { text }, responseType: 'arraybuffer' })
 if (!response.data) throw new Error('Error al obtener el video de la API.')
 return response.data
@@ -54,12 +68,11 @@ case 'emojimix': {
 if (!args[0]) return m.reply(`❀ Ingresa 2 emojis para combinar.\n> Ejemplo: *${usedPrefix + command}* 👻+👀`)
 let [emoji1, emoji2] = text.split`+`
 await m.react('🕒')
-const res = await fetchJson(`https://tenor.googleapis.com/v2/featured?key=AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ&contentfilter=high&media_filter=png_transparent&component=proactive&collection=emoji_kitchen_v5&q=${encodeURIComponent(emoji1)}_${encodeURIComponent(emoji2)}`)
-if (!res.results || res.results.length === 0) throw new Error('ꕥ No se encontraron stickers para esos emojis.')
-for (let result of res.results) {
-let stiker = await sticker(false, result.url, texto1, texto2)
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const response = await axios.get(`${api.url}/tools/emojimix`, { params: { emoji1, emoji2, apikey: api.key }, responseType: 'arraybuffer', timeout: 20000 })
+let stiker = await sticker(response.data, false, texto1, texto2)
 await conn.sendFile(m.chat, stiker, null, { asSticker: true }, m)
-}
 await m.react('✔️')
 break
 }
@@ -74,7 +87,15 @@ let frase = textFinal.replace(mentionRegex, '')
 if (frase.length > 30) return await m.react('✖️'), conn.reply(m.chat, `ꕥ El texto no puede tener más de 30 caracteres.`, m)
 await m.react('🕒')
 const quoteObj = { type: 'quote', format: 'png', backgroundColor: '#000000', width: 512, height: 768, scale: 2, messages: [{ entities: [], avatar: true, from: { id: 1, name: nombre, photo: { url: pp } }, text: frase, replyMessage: {} }]}
-const json = await axios.post('https://bot.lyo.su/quote/generate', quoteObj, { headers: { 'Content-Type': 'application/json' }})
+let json
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+json = await axios.post(`${api.url}/imagecreator/quote?apikey=${encodeURIComponent(api.key)}`, quoteObj, { timeout: 25000, headers: { 'Content-Type': 'application/json' } })
+json = { data: { result: json.data.result } }
+} catch {
+json = await axios.post('https://bot.lyo.su/quote/generate', quoteObj, { timeout: 25000, headers: { 'Content-Type': 'application/json' }})
+}
 const buffer = Buffer.from(json.data.result.image, 'base64')
 const stiker = await sticker(buffer, false, texto1, texto2)
 if (stiker) {

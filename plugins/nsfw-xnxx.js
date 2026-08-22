@@ -105,6 +105,15 @@ qual = parts[0]}}
 return { dur, qual, views }
 }
 async function xnxxdl(URL) {
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const response = await fetch(`${api.url}/download/xnxx?url=${encodeURIComponent(URL)}&apikey=${encodeURIComponent(api.key)}`)
+const json = await response.json()
+if (!response.ok || !json.status || !json.result) throw new Error(json.error || 'Sin resultados')
+const item = json.result
+return { status: 200, result: { title: item.title, duration: item.duration, info: parseInfo(item.info || ''), files: item.files || { high: item.url }, image: item.image || item.thumbnail } }
+} catch {}
 return new Promise((resolve, reject) => {
 fetch(`${URL}`, { method: 'get' }).then((res) => res.text()).then((res) => {
 const $ = cheerio.load(res, { xmlMode: false })
@@ -130,6 +139,14 @@ resolve({ status: 200, result: { title, URL, duration, image, videoType, videoWi
 })
 }
 async function search(query) {
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const response = await fetch(`${api.url}/search/xnxx?q=${encodeURIComponent(decodeURIComponent(query))}&apikey=${encodeURIComponent(api.key)}`)
+const json = await response.json()
+if (!response.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'Sin resultados')
+return { code: 200, status: true, result: json.result }
+} catch {}
 return new Promise((resolve, reject) => {
 const baseurl = 'https://www.xnxx.com'
 fetch(`${baseurl}/search/${query}/${Math.floor(Math.random() * 3) + 1}`, { method: 'get' })

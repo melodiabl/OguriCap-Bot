@@ -16,7 +16,8 @@ if (!mime) return conn.reply(m.chat, `❀ Por favor, responde a una *Imagen* o *
 await m.react('🕒')
 const media = await q.download()
 const isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime)
-const link = await uploadImage(media)
+let link
+try { link = await uploadThroughMelodia(media, mime) } catch { link = await uploadImage(media) }
 const txt = `乂  *L I N K - E N L A C E*  乂\n\n*» Enlace* : ${link}\n*» Tamaño* : ${formatBytes(media.length)}\n*» Expiración* : ${isTele ? 'No expira' : 'Desconocido'}\n\n> *${dev}*`
 await conn.sendFile(m.chat, media, 'thumbnail.jpg', txt, fkontak)
 await m.react('✔️')
@@ -27,7 +28,8 @@ if (!mime) return conn.reply(m.chat, `❀ Por favor, responde a una *Imagen* o *
 await m.react('🕒')
 const media = await q.download()
 const isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime)
-const link = await catbox(media)
+let link
+try { link = await uploadThroughMelodia(media, mime) } catch { link = await catbox(media) }
 const txt = `*乂 C A T B O X - U P L O A D E R 乂*\n\n*» Enlace* : ${link}\n*» Tamaño* : ${formatBytes(media.length)}\n*» Expiración* : ${isTele ? 'No expira' : 'Desconocido'}\n\n> *${dev}*`
 await conn.sendFile(m.chat, media, 'thumbnail.jpg', txt, fkontak)
 await m.react('✔️')
@@ -42,6 +44,17 @@ handler.tags = ['tools']
 handler.command = ['tourl', 'catbox']
 
 export default handler
+
+async function uploadThroughMelodia(content, mime = 'application/octet-stream') {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const form = new FormData()
+form.append('file', new Blob([content.toArrayBuffer()], { type: mime }), 'upload.bin')
+const response = await fetch(`${api.url}/tools/upload?apikey=${encodeURIComponent(api.key)}`, { method: 'POST', body: form })
+const json = await response.json()
+if (!response.ok || !json.status || !json.result?.url) throw new Error(json.error || 'No se pudo subir')
+return json.result.url
+}
 
 function formatBytes(bytes) {
 if (bytes === 0) return '0 B'

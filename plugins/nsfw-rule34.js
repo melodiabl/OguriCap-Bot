@@ -8,6 +8,15 @@ if (!args[0]) return conn.reply(m.chat, `❀ Ingresa un tag para buscar.`, m)
 await m.react('🕒')
 const tag = args[0].replace(/\s+/g, '_')
 let mediaList = []
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const res = await fetch(`${api.url}/search/booru?q=${encodeURIComponent(tag)}&adult=1&apikey=${encodeURIComponent(api.key)}`)
+const json = await res.json()
+if (!res.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'Sin resultados')
+mediaList = json.result.map(item => item.url).filter(Boolean)
+} catch {}
+if (!mediaList.length) {
 switch (command) {
 case 'rule34': case 'rule': case 'r34': {
 const sources = [`https://rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&tags=${tag}`, `https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&tags=${tag}`, `https://hypnohub.net/index.php?page=dapi&s=post&q=index&json=1&tags=${tag}`]
@@ -41,6 +50,7 @@ const valid = data.map(i => i?.image).filter(u => typeof u === 'string' && /\.(j
 if (valid.length) mediaList = [...new Set(valid)].sort(() => Math.random() - 0.5)
 break
 }}
+}
 if (!mediaList.length) return conn.reply(m.chat, `ꕥ No se encontraron resultados para *${tag}*`, m)
 const media = mediaList[Math.floor(Math.random() * mediaList.length)]
 const caption = `❀ Resultados para » *${tag}*`
