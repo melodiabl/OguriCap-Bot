@@ -46,10 +46,10 @@ const json = await res.json()
 if (!res.ok || !json.status) throw new Error(json.error || 'Tenor no disponible')
 gifs = json.data
 }
-gifs = Array.isArray(gifs) ? gifs.filter(gif => gif?.mp4) : []
+gifs = Array.isArray(gifs) ? gifs.filter(gif => gif?.mp4 || gif?.gif) : []
 if (gifs.length < 2) { await m.react('✖️'); return m.reply('ꕥ No se encontraron resultados.') }
 const maxItems = Math.min(gifs.length, 10)
-const medias = gifs.slice(0, maxItems).map(gif => ({ type: 'video', data: { url: gif.mp4 } }))
+const medias = gifs.slice(0, maxItems).map(gif => ({ type: gif.mp4 ? 'video' : 'image', data: { url: gif.mp4 || gif.gif } }))
 await sendAlbumMessage(m.chat, medias, { caption: `❀ G I F - S E A R C H ❀\n\n✦ Busqueda: ${text}\n✧ Resultados: ${maxItems}`, quoted: m })
 await m.react('✔️')
 } catch (e) {

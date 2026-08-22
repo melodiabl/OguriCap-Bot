@@ -51,8 +51,17 @@ async function sendNative(conn, jid, body, footer, buttons, quoted) {
 // ── PASO 1: Buscar ─────────────────────────────────────────────────────────
 async function stepBuscar(m, conn, query, p) {
   await m.react('🕒')
-  const json = await get(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10&sfw=true`)
-  const results = json.data
+  let results
+  try {
+    const api = global.APIs.MelodyApi
+    if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+    const json = await get(`${api.url}/anime/animedao/search?query=${encodeURIComponent(query)}&apikey=${encodeURIComponent(api.key)}`)
+    if (!json.status || !Array.isArray(json.result)) throw new Error(json.error || 'Respuesta inválida')
+    results = json.result.map(item => ({ ...item, images: { jpg: { large_image_url: item.image } }, url: item.link }))
+  } catch {
+    const json = await get(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10&sfw=true`)
+    results = json.data
+  }
   if (!results?.length) {
     await m.react('❌')
     return conn.reply(m.chat, `❌ Sin resultados para *${query}*`, m)

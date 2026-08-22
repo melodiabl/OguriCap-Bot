@@ -206,27 +206,28 @@ let handler = async (m, { conn, command, usedPrefix }) => {
   }
   if (m.isGroup) {
     try {
-      const res = await fetch(`${global.APIs.delirius.url}/search/tenor?q=${query}`)
-      if (!res.ok) {
-        throw new Error(`API respondió con estado ${res.status}`)
+      let gifs
+      try {
+        const api = global.APIs.MelodyApi
+        if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+        const type = query.replace(/^anime\s+/i, '')
+        const res = await fetch(`${api.url}/anime/reaction?type=${encodeURIComponent(type)}&apikey=${encodeURIComponent(api.key)}`)
+        const json = await res.json()
+        if (!res.ok || !json.status || !Array.isArray(json.result)) throw new Error(json.error || 'MelodiaAPI no disponible')
+        gifs = json.result
+      } catch {
+        const res = await fetch(`${global.APIs.delirius.url}/search/tenor?q=${encodeURIComponent(query)}`)
+        const json = await res.json()
+        if (!res.ok || !json.status || !Array.isArray(json.data)) throw new Error(json.error || 'No se encontraron reacciones')
+        gifs = json.data
       }
-
-      // Verificar si la respuesta es JSON válido
-      const contentType = res.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('La API no devolvió JSON válido')
-      }
-
-      const json = await res.json()
-      const gifs = json.data
       if (!gifs || gifs.length === 0) return m.reply('ꕥ No se encontraron resultados.')
-      const randomGif = gifs[Math.floor(Math.random() * gifs.length)].mp4
-      conn.sendMessage(m.chat, { video: { url: randomGif }, gifPlayback: true, caption: str, mentions: [who] }, { quoted: m })
+      const randomGif = gifs[Math.floor(Math.random() * gifs.length)]
+      const media = randomGif.mp4
+        ? { video: { url: randomGif.mp4 }, gifPlayback: true, caption: str, mentions: [who] }
+        : { image: { url: randomGif.gif }, caption: str, mentions: [who] }
+      await conn.sendMessage(m.chat, media, { quoted: m })
     } catch (e) {
-      // Si es un error de JSON parsing, dar un mensaje más específico
-      if (e.message.includes('Unexpected token') || e.message.includes('JSON')) {
-        return m.reply(`⚠︎ Error: La API devolvió una respuesta inválida (posiblemente HTML en lugar de JSON).\n> La API ${global.APIs.delirius.url} puede estar temporalmente fuera de servicio.`)
-      }
       return m.reply(`⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${e.message}`)
     }
   }

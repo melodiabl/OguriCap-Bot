@@ -4,14 +4,23 @@ var handler = async (m, { conn, usedPrefix, command, text }) => {
 if (!text) return conn.reply(m.chat, `❀ Por favor, ingrese el nombre de algún anime.`, m)
 try {
 await m.react('🕒')
-let res = await fetch('https://api.jikan.moe/v4/manga?q=' + text)
-if (!res.ok) {
-await m.react('✖️')
-return conn.reply(m.chat, `⚠︎ Ocurrió un fallo.`, m)
+let item
+try {
+const api = global.APIs.MelodyApi
+if (!api?.url || !api?.key) throw new Error('MelodiaAPI no configurada')
+const res = await fetch(`${api.url}/anime/manga?q=${encodeURIComponent(text)}&apikey=${encodeURIComponent(api.key)}`)
+const json = await res.json()
+if (!res.ok || !json.status || !json.result?.[0]) throw new Error(json.error || 'Sin resultados')
+item = json.result[0]
+} catch {
+const res = await fetch(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(text)}`)
+if (!res.ok) throw new Error('No se pudo buscar el manga')
+const raw = (await res.json()).data?.[0]
+item = { chapters: raw.chapters, titleJapanese: raw.title_japanese, url: raw.url, type: raw.type, score: raw.score, members: raw.members, background: raw.background, status: raw.status, volumes: raw.volumes, synopsis: raw.synopsis, favorites: raw.favorites, authors: raw.authors?.map(a => a.name), image: raw.images?.jpg?.image_url }
 }
-let json = await res.json()
-let { chapters, title_japanese, url, type, score, members, background, status, volumes, synopsis, favorites } = json.data[0]
-let author = json.data[0].authors[0].name
+let { chapters, url, type, score, members, background, status, volumes, synopsis, favorites } = item
+let title_japanese = item.titleJapanese || item.title
+let author = item.authors?.join(', ') || 'Desconocido'
 let animeingfo = `❀ Título: ${title_japanese}
 » Capítulo: ${chapters}
 » Transmisión: ${type}
@@ -24,7 +33,7 @@ let animeingfo = `❀ Título: ${title_japanese}
 » Fondo: ${background}
 » Sinopsis: ${synopsis}
 » Url: ${url}` 
-await conn.sendFile(m.chat, json.data[0].images.jpg.image_url, 'anjime.jpg', '✧ *I N F O - A N I M E* ✧\n\n' + animeingfo, fkontak)
+await conn.sendFile(m.chat, item.image, 'anime.jpg', '✧ *I N F O - A N I M E* ✧\n\n' + animeingfo, fkontak)
 await m.react('✔️')
 } catch (error) {
 await m.react('✖️')
