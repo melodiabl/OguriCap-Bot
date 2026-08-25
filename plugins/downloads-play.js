@@ -55,6 +55,95 @@ function formatEta(seconds) {
  return `${m}:${String(r).padStart(2, '0')}`
 }
 
+export function estimateAudioBytes(durationSeconds, bitrateKbps = 128) {
+ const duration = Number(durationSeconds)
+ const bitrate = Number(bitrateKbps)
+ if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(bitrate) || bitrate <= 0) return null
+ return Math.ceil(duration * bitrate * 1000 / 8)
+}
+
+export function selectProgressTotal(contentLength, apiEstimatedBytes, localEstimatedBytes) {
+ const exact = Number(contentLength)
+ if (Number.isFinite(exact) && exact > 0) return exact
+ const apiEstimate = Number(apiEstimatedBytes)
+ if (Number.isFinite(apiEstimate) && apiEstimate > 0) return apiEstimate
+ const localEstimate = Number(localEstimatedBytes)
+ return Number.isFinite(localEstimate) && localEstimate > 0 ? localEstimate : null
+}
+
+export function isYoutubeShortUrl(value) {
+ try {
+  const parsed = new URL(String(value || '').trim())
+  return /(^|\.)youtube\.com$/i.test(parsed.hostname) && /^\/shorts\//i.test(parsed.pathname)
+ } catch {
+  return false
+ }
+}
+
+function musicResultScore(result) {
+ const title = String(result?.title || '').toLowerCase()
+ const author = String(result?.author?.name || '').toLowerCase()
+ const signals = [
+  'official video', 'official audio', 'music video', 'video oficial', 'audio oficial',
+  'lyrics', 'lyric video', 'letra', 'audio', 'song', 'music', 'remix', 'cover',
+  'karaoke', 'visualizer', 'video musical'
+ ]
+ let score = signals.reduce((total, signal) => total + (title.includes(signal) ? 1 : 0), 0)
+ if (author.endsWith(' - topic') || author.includes('vevo')) score += 2
+ return score
+}
+
+export function selectMusicVideo(results, requestedVideoId = null) {
+ const videos = (Array.isArray(results) ? results : []).filter((result) => {
+  if (!result || (result.type && result.type !== 'video')) return false
+  if (!/^[A-Za-z0-9_-]{11}$/.test(String(result.videoId || ''))) return false
+  if (isYoutubeShortUrl(result.url)) return false
+  if (requestedVideoId && result.videoId !== requestedVideoId) return false
+  return musicResultScore(result) > 0
+ })
+ return videos.sort((a, b) => musicResultScore(b) - musicResultScore(a))[0] || null
+}
+
+export function normalizeMelodiaYouTubeResults(results) {
+ return (Array.isArray(results) ? results : []).map((video) => {
+  const url = String(video?.link || video?.url || '')
+  const match = url.match(/[?&]v=([A-Za-z0-9_-]{11})/) || url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)
+  const videoId = String(video?.videoId || match?.[1] || '')
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null
+  return {
+   type: 'video', videoId, url: `https://www.youtube.com/watch?v=${videoId}`,
+   title: String(video?.title || ''), thumbnail: String(video?.imageUrl || video?.thumbnail || ''),
+   timestamp: String(video?.duration || video?.timestamp || ''), seconds: Number(video?.seconds || 0) || 0,
+   views: Number(video?.views || 0) || 0, ago: String(video?.ago || ''),
+   author: { name: String(video?.channel || video?.author?.name || '') }
+  }
+ }).filter(Boolean)
+}
+
+async function searchVideos(query) {
+ try {
+  const search = await yts(query)
+  const videos = Array.isArray(search?.videos) ? search.videos : []
+  if (videos.length) return videos
+ } catch {}
+
+ const mel = getMelodyApi()
+ if (mel) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 16000)
+  try {
+   const endpoint = `${mel.url}/search/youtube?q=${encodeURIComponent(query)}`
+   const response = await fetch(endpoint, { headers: mel.headers, signal: controller.signal })
+   const body = await response.json().catch(() => ({}))
+   const videos = normalizeMelodiaYouTubeResults(body?.result)
+   if (response.ok && videos.length) return videos
+  } catch {} finally {
+   clearTimeout(timeout)
+  }
+ }
+ return []
+}
+
 function renderProgressBar(pct, style = 'classic', width = 16) {
  const p = Math.max(0, Math.min(100, Number(pct) || 0))
  const w = Math.max(8, Math.min(40, Number(width) || 16))
@@ -118,8 +207,8 @@ async function downloadStreamToFile(url, filePath, opts = {}) {
 
  const ct = (res.headers.get('content-type') || '').toString()
  const clRaw = res.headers.get('content-length')
- const cl = clRaw ? Number(clRaw) : NaN
- const totalBytes = Number.isFinite(cl) && cl > 0 ? cl : null
+ const apiEstimatedBytes = res.headers.get('x-estimated-content-length')
+ const totalBytes = selectProgressTotal(clRaw, apiEstimatedBytes, opts.expectedTotalBytes)
 
  if (maxBytes && totalBytes && totalBytes > maxBytes) {
   clearTimeout(timeout)
@@ -271,15 +360,17 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
  }
 
  try {
-  if (!text.trim()) return conn.reply(m.chat, `❀ Por favor, ingresa el nombre de la música a descargar.`, m)
+  if (!text.trim()) return conn.reply(m.chat, `[PLAY_QUERY_REQUIRED] ❀ Ingresa el nombre de una canción o un vídeo musical.`, m)
+  if (isYoutubeShortUrl(text)) return conn.reply(m.chat, `[PLAY_SHORTS_NOT_ALLOWED] ⚠ Los Shorts no están permitidos; usa una canción o vídeo musical normal.`, m)
   await safeReact('🕒')
- const videoMatch = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([a-zA-Z0-9_-]{11})/)
+ const videoMatch = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|live\/|v\/))([a-zA-Z0-9_-]{11})/)
 const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
-const search = await yts(query)
-const result = videoMatch ? search.videos.find(v => v.videoId === videoMatch[1]) || search.all[0] : search.all[0]
-if (!result) throw 'ꕥ No se encontraron resultados.'
+const videos = await searchVideos(query)
+if (!videos.length) throw '[PLAY_NO_RESULTS] ꕥ No se encontraron vídeos para esa búsqueda.'
+const result = selectMusicVideo(videos, videoMatch ? videoMatch[1] : null)
+if (!result) throw '[PLAY_NO_RELATED_MUSIC] ꕥ No se encontró una canción o vídeo musical relacionado. Shorts, canales y playlists están excluidos.'
 const { title, thumbnail, timestamp, views, ago, url, author, seconds } = result
-if (seconds > 1800) throw '⚠ El contenido supera el límite de duración (10 minutos).'
+if (seconds > 1800) throw '[PLAY_DURATION_LIMIT] ⚠ El contenido supera el límite de 30 minutos.'
 const vistas = formatViews(views)
 const info = `「✦」Descargando *<${title}>*\n\n> ❑ Canal » *${author.name}*\n> ♡ Vistas » *${vistas}*\n> ✧︎ Duración » *${timestamp}*\n> ☁︎ Publicado » *${ago}*\n> ➪ Link » ${url}`
 const thumb = (await conn.getFile(thumbnail)).data
@@ -290,12 +381,14 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 
    // MelodyApi raw streaming (real-time progress via Content-Length)
    if (mel && pCfg.enabled) {
-    const rawUrl = `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}&type=mp3&raw=1`
+   const rawUrl = `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}&type=mp3&raw=1`
+    const expectedTotalBytes = estimateAudioBytes(seconds, 128)
     const tmpDir = path.join(os.tmpdir(), 'oguricap')
     const outPath = path.join(tmpDir, `melody_${Date.now()}_${Math.random().toString(16).slice(2)}.mp3`)
 			let progressKey = null
 			try {
-				const { key } = await conn.sendMessage(m.chat, { text: `❀ Descargando audio (MelodyApi)\n0%` }, { quoted: m })
+				const initialBar = renderProgressBar(0, pCfg.style, pCfg.width)
+				const { key } = await conn.sendMessage(m.chat, { text: `❀ Descargando audio (MelodyApi)\n${initialBar} 0.0%` }, { quoted: m })
 				progressKey = key
 				let editChain = Promise.resolve()
 				const edit = (t) => {
@@ -310,6 +403,7 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
       headers: mel.headers,
       timeoutMs: 8 * 60 * 1000,
       maxBytes: pCfg.maxRawBytes,
+      expectedTotalBytes,
       updateMs: pCfg.updateMs,
       minBytes: pCfg.minBytes,
       onProgress: async ({ receivedBytes, totalBytes, speedBps, etaSec, done }) => {

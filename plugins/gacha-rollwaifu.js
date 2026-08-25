@@ -110,7 +110,8 @@ const handler = async (m, { conn, usedPrefix, command }) => {
     const randomCharacter = allCharacters[Math.floor(Math.random() * allCharacters.length)]
     const characterId = String(randomCharacter.id)
     const seriesName = getSeriesNameByCharacter(characters, randomCharacter.id)
-    const characterTag = formatTag(randomCharacter.variants?.[0] || '')
+    const characterTag = formatTag(randomCharacter.variants?.[0] || randomCharacter.name || '')
+    if (!characterTag) throw new Error('El personaje no tiene un nombre válido para buscar su imagen.')
     const images = await buscarImagenDelirius(characterTag)
     const randomImage = images[Math.floor(Math.random() * images.length)]
     

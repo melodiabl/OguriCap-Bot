@@ -30,6 +30,8 @@ const chat = global.db.data.chats[m.chat]
 const userId = m.messageStubParameters[0]
 if (chat.welcome && m.messageStubType == WAMessageStubType.GROUP_PARTICIPANT_ADD) {
 const { pp, caption, mentions } = await generarBienvenida({ conn, userId, groupMetadata, chat })
+const rcanal = global.rcanal || { contextInfo: {} }
+rcanal.contextInfo = rcanal.contextInfo || {}
 rcanal.contextInfo.mentionedJid = mentions
 await conn.sendMessage(m.chat, { image: { url: pp }, caption, ...rcanal }, { quoted: null })
 try { fs.unlinkSync(img) } catch {}

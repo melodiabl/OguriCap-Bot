@@ -544,11 +544,12 @@ export async function handler(chatUpdate) {
           }
         }
 
-        if (global.db.data.chats[m.chat].primaryBot && global.db.data.chats[m.chat].primaryBot !== this.user.jid) {
-          const primaryBotConn = (global.conns || []).find(conn => conn.user.jid === global.db.data.chats[m.chat].primaryBot && conn.isConnected)
+        if (global.db.data.chats[m.chat].primaryBot && !areJidsSameUser(global.db.data.chats[m.chat].primaryBot, this.user.jid)) {
+          const primaryBotConn = (global.conns || []).find(conn => conn.user?.jid && areJidsSameUser(conn.user.jid, global.db.data.chats[m.chat].primaryBot) && conn.isConnected)
           // Reuse already fetched participants instead of calling groupMetadata again
-          const primaryBotInGroup = (participants || []).some(p => p.jid === global.db.data.chats[m.chat].primaryBot)
-          if (primaryBotConn && primaryBotInGroup || global.db.data.chats[m.chat].primaryBot === global.conn.user.jid) {
+          const primaryBotInGroup = (participants || []).some(p => p.jid && areJidsSameUser(p.jid, global.db.data.chats[m.chat].primaryBot))
+          const isMainPrimary = global.conn?.user?.jid && areJidsSameUser(global.db.data.chats[m.chat].primaryBot, global.conn.user.jid)
+          if ((primaryBotConn && primaryBotInGroup) || isMainPrimary) {
             throw !1
           } else {
             global.db.data.chats[m.chat].primaryBot = null
@@ -571,14 +572,14 @@ export async function handler(chatUpdate) {
           const primaryBotId = chat.primaryBot
           const globalState = global.db?.data?.botGlobalState ?? global.db?.data?.panel?.botGlobalState
           if (m.isGroup && globalState?.isOn === false && !isROwner) {
-            if (!primaryBotId || primaryBotId === botId) {
+            if (!primaryBotId || areJidsSameUser(primaryBotId, botId)) {
               const offMsg = global.db?.data?.botGlobalOffMessage ?? global.db?.data?.panel?.botGlobalOffMessage ?? 'El bot está desactivado globalmente por el administrador.'
               await m.reply(offMsg)
               return
             }
           }
           if (name !== "group-banchat.js" && chat?.isBanned && !isROwner) {
-            if (!primaryBotId || primaryBotId === botId) {
+            if (!primaryBotId || areJidsSameUser(primaryBotId, botId)) {
               const aviso = `ꕥ El bot *${botname}* está desactivado en este grupo\n\n> ✦ Un *administrador* puede activarlo con el comando:\n> » *${usedPrefix}bot on*`.trim()
               await m.reply(aviso)
               return
@@ -586,7 +587,7 @@ export async function handler(chatUpdate) {
           }
           if (m.text && user.banned && !isROwner) {
             const mensaje = `ꕥ Estas baneado/a, no puedes usar comandos en este bot!\n\n> ● *Razón ›* ${user.bannedReason}\n\n> ● Si este Bot es cuenta oficial y tienes evidencia que respalde que este mensaje es un error, puedes exponer tu caso con un moderador.`.trim()
-            if (!primaryBotId || primaryBotId === botId) {
+            if (!primaryBotId || areJidsSameUser(primaryBotId, botId)) {
               m.reply(mensaje)
               return
             }

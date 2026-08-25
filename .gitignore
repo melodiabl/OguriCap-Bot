@@ -44,7 +44,7 @@ storage/
 
 .monitoring
 database/backups
-backups/*.sql.gz
+backups/
 
 # Herramientas locales de agentes/diseño
 .claude/

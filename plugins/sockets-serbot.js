@@ -463,6 +463,7 @@ export async function yukiJadiBot(options) {
       let version = await getWAVersion()
       const msgRetry = (MessageRetryMap) => { }
       const msgRetryCache = new NodeCache()
+      try { fs.mkdirSync(pathYukiJadiBot, { recursive: true }) } catch { }
       const { state, saveState, saveCreds } = await useMultiFileAuthState(pathYukiJadiBot)
       const connectionOptions = {
         logger: pino({ level: "fatal" }),
@@ -537,10 +538,10 @@ export async function yukiJadiBot(options) {
         })()
         if (!sock.user && !sock.isInit && getConnReadyState(sock) !== ws.OPEN && !hasCreds) {
           const subbotCodeCleanup = path.basename(pathYukiJadiBot)
-          try { fs.rmSync(resolvedSessionPath, { recursive: true, force: true }) } catch { }
           try { sock.ws?.close() } catch { }
           sock.ev.removeAllListeners()
           removeSubbotConn(sock)
+          try { fs.rmSync(resolvedSessionPath, { recursive: true, force: true }) } catch { }
           console.log(`[AUTO-LIMPIEZA] Sesión ${subbotCodeCleanup} eliminada credenciales invalidos.`)
           // Emitir evento de subbot eliminado al panel
           try {
@@ -1034,7 +1035,10 @@ export async function yukiJadiBot(options) {
         }
         sock.handler = handler.handler.bind(sock)
         sock.connectionUpdate = connectionUpdate.bind(sock)
-        sock.credsUpdate = saveCreds.bind(sock, true)
+        sock.credsUpdate = async (...args) => {
+          try { fs.mkdirSync(resolvedSessionPath, { recursive: true }) } catch { }
+          try { return await saveCreds.call(sock, true, ...args) } catch { }
+        }
         sock.ev.on("messages.upsert", sock.handler)
         sock.ev.on("connection.update", sock.connectionUpdate)
         sock.ev.on("creds.update", sock.credsUpdate)
