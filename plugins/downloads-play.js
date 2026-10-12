@@ -323,9 +323,9 @@ export async function downloadToFile(url, filePath, timeoutMs = 60000) {
  }
 }
 
-async function ffmpegToOggOpus(inputPath, outputPath, timeoutMs = 120000) {
+export async function ffmpegToOggOpus(inputPath, outputPath, timeoutMs = 120000) {
  return await new Promise((resolve, reject) => {
-   const args = ['-y', '-i', inputPath, '-vn', '-c:a', 'libopus', '-b:a', '128k', '-application', 'voip', outputPath]
+   const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', inputPath, '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'libopus', '-b:a', '64k', '-vbr', 'on', '-application', 'voip', outputPath]
    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
    let stderr = ''
    const t = setTimeout(() => {
@@ -520,10 +520,10 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
        try { await fs.promises.unlink(outPath) } catch { }
       }
      } else {
-      await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/ogg; codecs=opus' }, { quoted: m })
+      throw new Error('El audio original supera el límite de 60 MB para preparar una nota de voz compatible.')
      }
     } else {
-     await conn.sendMessage(m.chat, { audio: { url: candidate.url }, ptt: true, mimetype: 'audio/opus' }, { quoted: m })
+     throw new Error('No se pudo preparar el formato de audio para WhatsApp.')
     }
 		await safeReact('✔️')
      break
