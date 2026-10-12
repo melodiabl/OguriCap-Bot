@@ -367,6 +367,23 @@ async function ffmpegToMp3(inputPath, outputPath, timeoutMs = 120000) {
  })
 }
 
+export async function sendDownloadedAudio(conn, m, inputPath, title, { ptt = false } = {}) {
+ const directory = path.join(os.tmpdir(), 'oguricap')
+ await fs.promises.mkdir(directory, { recursive: true })
+ const output = path.join(directory, `audio_${Date.now()}_${Math.random().toString(16).slice(2)}.${ptt ? 'ogg' : 'mp3'}`)
+ try {
+  await (ptt ? ffmpegToOggOpus : ffmpegToMp3)(inputPath, output, 180000)
+  const audio = await fs.promises.readFile(output)
+  if (!audio.length || audio.length > 16 * 1024 * 1024) throw new Error('El audio no se puede enviar: archivo vacío o mayor a 16 MB.')
+  return await conn.sendMessage(m.chat, {
+   audio, mimetype: ptt ? 'audio/ogg; codecs=opus' : 'audio/mpeg', ptt,
+   ...(!ptt ? { fileName: `${String(title || 'Audio').replace(/[\\/\r\n]/g, ' ').slice(0, 100)}.mp3` } : {})
+  }, { quoted: m })
+ } finally {
+  await fs.promises.unlink(output).catch(() => {})
+ }
+}
+
 const handler = async (m, { conn, text, usedPrefix, command }) => {
  const safeReact = async (emoji) => {
   try { await m.react(emoji) } catch {}
@@ -392,6 +409,7 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
    let melodyRawFailed = false
+   const asVoiceNote = command === 'playaudio'
 
    // MelodyApi raw streaming (real-time progress via Content-Length)
    if (mel && pCfg.enabled) {
@@ -452,17 +470,7 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 			} catch {
 				await edit(`❀ Enviando audio...`)
 			}
-      // Convert to ogg/opus for voice note
-      const tmpDir = path.join(os.tmpdir(), 'oguricap')
-      await fs.promises.mkdir(tmpDir, { recursive: true })
-      const oggPath = path.join(tmpDir, `voice_${Date.now()}_${Math.random().toString(16).slice(2)}.ogg`)
-      try {
-        await ffmpegToOggOpus(outPath, oggPath, 180000)
-        const voiceNote = await fs.promises.readFile(oggPath)
-        await conn.sendMessage(m.chat, { audio: voiceNote, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m })
-      } finally {
-        try { await fs.promises.unlink(oggPath) } catch { }
-      }
+      await sendDownloadedAudio(conn, m, outPath, title, { ptt: asVoiceNote })
 			await safeReact('✔️')
       try { await fs.promises.unlink(outPath) } catch { }
       return
@@ -509,15 +517,11 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
       const tmpDir = path.join(os.tmpdir(), 'oguricap')
       await fs.promises.mkdir(tmpDir, { recursive: true })
       const inPath = path.join(tmpDir, `in_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`)
-      const outPath = path.join(tmpDir, `out_${Date.now()}_${Math.random().toString(16).slice(2)}.ogg`)
       try {
        await downloadToFile(candidate.url, inPath, 90000)
-       await ffmpegToOggOpus(inPath, outPath, 180000)
-       const oggOpus = await fs.promises.readFile(outPath)
-       await conn.sendMessage(m.chat, { audio: oggOpus, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: m })
+       await sendDownloadedAudio(conn, m, inPath, title, { ptt: asVoiceNote })
       } finally {
        try { await fs.promises.unlink(inPath) } catch { }
-       try { await fs.promises.unlink(outPath) } catch { }
       }
      } else {
       throw new Error('El audio original supera el límite de 60 MB para preparar una nota de voz compatible.')
