@@ -6,12 +6,13 @@ import path from 'path'
 import { isIP } from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
-import { spawn } from 'child_process'
+import { spawn, execFile } from 'child_process'
 import { pipeline } from 'stream'
 import { promisify } from 'util'
 import { createAudioCache } from '../lib/play-audio-cache.js'
 
 const streamPipeline = promisify(pipeline)
+const runMediaTool = promisify(execFile)
 const mediaHttpAgent = new http.Agent({ family: 4 })
 const mediaHttpsAgent = new https.Agent({ family: 4 })
 const mediaAgent = url => url.protocol === 'https:' ? mediaHttpsAgent : mediaHttpAgent
@@ -289,12 +290,16 @@ async function sniffContentType(url) {
  }
 }
 
-export async function downloadToFile(url, filePath, timeoutMs = 60000) {
+export async function downloadToFile(url, filePath, timeoutMs = 60000, request = {}) {
  const controller = new AbortController()
  const timeout = setTimeout(() => controller.abort(), timeoutMs)
  let res
  try {
-  res = await fetch(url, { signal: controller.signal, agent: mediaAgent, headers: { Range: 'bytes=0-', 'User-Agent': 'Mozilla/5.0' }, size: 60 * 1024 * 1024 })
+  res = await fetch(url, {
+   signal: controller.signal, agent: mediaAgent, method: request.method || 'GET', body: request.body,
+   headers: { Range: 'bytes=0-', 'User-Agent': 'Mozilla/5.0', ...(request.body ? { 'Content-Type': 'application/json' } : {}) },
+   size: 60 * 1024 * 1024
+  })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const contentType = res.headers.get('content-type') || ''
   if (/^text\/|(?:application\/(?:json|xml)|\+json)/i.test(contentType)) throw new Error('El proveedor devolvió una página o respuesta inválida en lugar de audio multimedia.')
@@ -386,6 +391,40 @@ function logAudioProviderFailure(provider, error) {
  console.warn('[PLAY_PROVIDER]', JSON.stringify({ provider, status }))
 }
 
+
+async function probeVideo(file) {
+ const { stdout } = await runMediaTool('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name,codec_type,width,height,pix_fmt:format=duration', '-of', 'json', file], { timeout: 15000, maxBuffer: 1024 * 1024 })
+ return JSON.parse(stdout)
+}
+
+export async function prepareDownloadedVideo(input, title, expectedSeconds = 0) {
+ const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oguri-video-output-'))
+ const output = path.join(directory, 'video.mp4')
+ try {
+  const source = await probeVideo(input)
+  const video = source.streams?.find(stream => stream.codec_type === 'video')
+  const audio = source.streams?.find(stream => stream.codec_type === 'audio')
+  const duration = Number(source.format?.duration)
+  if (!video || !Number.isFinite(duration) || duration <= 0 || duration > 1800) throw new Error('Archivo de video inválido.')
+  if (expectedSeconds > 0 && Math.abs(duration - expectedSeconds) > Math.max(2, expectedSeconds * 0.05)) throw new Error('El proveedor no entregó el video completo.')
+  const copy = video.codec_name === 'h264' && video.pix_fmt === 'yuv420p' && video.width <= 640 && video.height <= 360 && (!audio || audio.codec_name === 'aac')
+  const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-map', '0:v:0', '-map', '0:a:0?']
+  if (copy) args.push('-c', 'copy')
+  else args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28', '-pix_fmt', 'yuv420p', '-vf', 'scale=640:360:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1,fps=24', '-c:a', 'aac', '-b:a', '96k', '-ar', '44100', '-threads', '2')
+  args.push('-movflags', '+faststart', output)
+  await runMediaTool('ffmpeg', args, { timeout: 180000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 })
+  const size = (await fs.promises.stat(output)).size
+  if (!size || size > 16 * 1024 * 1024) throw new Error('El video supera el límite de envío de 16 MB.')
+  const profile = await probeVideo(output)
+  if (profile.streams?.find(stream => stream.codec_type === 'video')?.codec_name !== 'h264' || (audio && profile.streams?.find(stream => stream.codec_type === 'audio')?.codec_name !== 'aac')) throw new Error('El video no es compatible con WhatsApp.')
+  const outputDuration = Number(profile.format?.duration)
+  if (!Number.isFinite(outputDuration) || Math.abs(outputDuration - duration) > Math.max(1, duration * 0.02)) throw new Error('El archivo de video está incompleto.')
+  return { video: await fs.promises.readFile(output), mimetype: 'video/mp4', fileName: `${String(title || 'Video').replace(/[\\/\r\n]/g, ' ').slice(0, 100)}.mp4`, caption: `> ❀ ${title}` }
+ } finally {
+  await fs.promises.rm(directory, { recursive: true, force: true })
+ }
+}
+
 const handler = async (m, { conn, text, usedPrefix, command }) => {
  const safeReact = async (emoji) => {
   try { await m.react(emoji) } catch {}
@@ -399,8 +438,11 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
 const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
 const videos = await searchVideos(query)
 if (!videos.length) throw '[PLAY_NO_RESULTS] ꕥ No se encontraron vídeos para esa búsqueda.'
-let result = selectMusicVideo(videos, videoMatch ? videoMatch[1] : null)
-if (!result) throw '[PLAY_NO_RELATED_MUSIC] ꕥ No se encontró una canción o vídeo musical relacionado. Shorts, canales y playlists están excluidos.'
+const wantsVideo = ['play2', 'ytv', 'ytmp4', 'mp4'].includes(command)
+let result = wantsVideo
+ ? videos.find(video => video && (!video.type || video.type === 'video') && /^[A-Za-z0-9_-]{11}$/.test(String(video.videoId || '')) && !isYoutubeShortUrl(video.url) && (!videoMatch || video.videoId === videoMatch[1]))
+ : selectMusicVideo(videos, videoMatch ? videoMatch[1] : null)
+if (!result) throw wantsVideo ? '❀ No se encontró un video para esa búsqueda.' : '[PLAY_NO_RELATED_MUSIC] ꕥ No se encontró una canción o vídeo musical relacionado. Shorts, canales y playlists están excluidos.'
 const wantsMusic = ['play', 'yta', 'ytmp3', 'playaudio'].includes(command)
 const asVoiceNote = ['play', 'playaudio'].includes(command)
 let cachedAudio = wantsMusic ? await audioCache.get(result.videoId).catch(() => null) : null
@@ -553,95 +595,88 @@ if (cachedAudio) {
     candidate = await getAud(url, candidate.index + 1, providerOptions)
    }
    throw audioUnavailable
-  } else if (['play2', 'ytv', 'ytmp4', 'mp4'].includes(command)) {
+  } else if (wantsVideo) {
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
-
-   // MelodyApi raw streaming (real-time progress via Content-Length)
-   if (mel && pCfg.enabled) {
-    const rawUrl = `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}&type=mp4&raw=1`
-    const tmpDir = path.join(os.tmpdir(), 'oguricap')
-    const outPath = path.join(tmpDir, `melody_${Date.now()}_${Math.random().toString(16).slice(2)}.mp4`)
+   let melodyRawFailed = false
+   if (mel) {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oguri-video-primary-'))
+    const input = path.join(directory, 'source.bin')
     let progressKey = null
-			try {
-				const { key } = await conn.sendMessage(m.chat, { text: `❀ Descargando video (MelodyApi)\n0%` }, { quoted: m })
-				progressKey = key
-				let editChain = Promise.resolve()
-				const edit = (t) => {
-					if (!progressKey) return Promise.resolve()
-					editChain = editChain
-						.then(() => conn.sendMessage(m.chat, { text: t, edit: progressKey }, { quoted: m }))
-						.catch(() => {})
-					return editChain
-				}
-     const label = `❀ Descargando video (MelodyApi)`
-     const dl = await downloadStreamToFile(rawUrl, outPath, {
-      headers: mel.headers,
-      timeoutMs: 12 * 60 * 1000,
-      maxBytes: pCfg.maxRawBytes,
-      updateMs: pCfg.updateMs,
-      minBytes: pCfg.minBytes,
-      onProgress: async ({ receivedBytes, totalBytes, speedBps, etaSec, done }) => {
-       if (!totalBytes) {
-        const t = `${label}\n${formatBytes(receivedBytes)} descargados...`
-        if (done) return edit(`${label}\n${formatBytes(receivedBytes)} listo.`)
-        return edit(t)
-       }
-       const pct = Math.min(100, (receivedBytes / totalBytes) * 100)
-       const bar = renderProgressBar(pct, pCfg.style, pCfg.width)
-       const parts = [`${pct.toFixed(1)}%`, `${formatBytes(receivedBytes)}/${formatBytes(totalBytes)}`]
-       if (pCfg.showSpeed) parts.push(`${formatBytes(speedBps)}/s`)
-       if (pCfg.showEta && etaSec != null) parts.push(`ETA ${formatEta(etaSec)}`)
-       const t = `${label}\n${bar} ${parts.join(' | ')}`
-       return edit(t)
+    let progressStopped = false
+    let editChain = Promise.resolve()
+    let content
+    const edit = text => {
+     if (!progressKey || progressStopped) return Promise.resolve()
+     editChain = editChain.then(() => !progressStopped && conn.sendMessage(m.chat, { text, edit: progressKey }, { quoted: m })).catch(() => {})
+     return editChain
+    }
+    try {
+     if (pCfg.enabled) {
+      const response = await conn.sendMessage(m.chat, { text: `❀ Descargando video\n${renderProgressBar(0, pCfg.style, pCfg.width)} 0.0%` }, { quoted: m })
+      progressKey = response?.key
+     }
+     const rawUrl = `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}&type=mp4&raw=1`
+     await downloadStreamToFile(rawUrl, input, {
+      headers: mel.headers, timeoutMs: 180000, headerTimeoutMs: 15000,
+      maxBytes: Math.min(pCfg.maxRawBytes, 60 * 1024 * 1024), updateMs: pCfg.updateMs, minBytes: pCfg.minBytes,
+      onProgress: ({ receivedBytes, totalBytes, speedBps, etaSec }) => {
+       if (!totalBytes) return edit(`❀ Descargando video\n${formatBytes(receivedBytes)} descargados…`)
+       const pct = Math.min(100, receivedBytes / totalBytes * 100)
+       const details = [`${pct.toFixed(1)}%`, `${formatBytes(receivedBytes)}/${formatBytes(totalBytes)}`]
+       if (pCfg.showSpeed) details.push(`${formatBytes(speedBps)}/s`)
+       if (pCfg.showEta && etaSec != null) details.push(`ETA ${formatEta(etaSec)}`)
+       return edit(`❀ Descargando video\n${renderProgressBar(pct, pCfg.style, pCfg.width)} ${details.join(' | ')}`)
       }
      })
-
-			if (dl?.contentType && (/application\/json/i.test(dl.contentType) || /^text\//i.test(dl.contentType))) {
-				throw new Error(`Unexpected content-type: ${dl.contentType}`)
-			}
-			try {
-				if (dl && dl.totalBytes) {
-					const bar = renderProgressBar(100, pCfg.style, pCfg.width)
-					const t = `❀ Video listo (MelodyApi)\n${bar} 100.0% | ${formatBytes(dl.totalBytes)}/${formatBytes(dl.totalBytes)}\n❀ Enviando video...`
-					await edit(t)
-				} else {
-					const rb = dl && Number.isFinite(Number(dl.receivedBytes)) ? Number(dl.receivedBytes) : 0
-					await edit(`❀ Video listo (MelodyApi)\n${formatBytes(rb)} listo.\n❀ Enviando video...`)
-				}
-			} catch {
-				await edit(`❀ Enviando video...`)
-			}
-			await conn.sendFile(m.chat, outPath, `${title}.mp4`, `> ❀ ${title}`, m)
-			await safeReact('✔️')
-			try { await fs.promises.unlink(outPath) } catch { }
-     return
-		} catch (e) {
-			const reason = (e && e.message) ? String(e.message).trim().slice(0, 140) : ''
-			try { if (progressKey) await conn.sendMessage(m.chat, { text: `⚠️ MelodyApi raw falló${reason ? ` (${reason})` : ''}, usando respaldo...`, edit: progressKey }, { quoted: m }) } catch { }
-			try { await fs.promises.unlink(outPath) } catch { }
-		}
-	}
-
-   let candidate = await getVid(url, 0)
-   if (!candidate?.url) throw '⚠ No se pudo obtener el video.'
-	 while (candidate) {
-		try { await conn.reply(m.chat, `> ❀ *Vídeo procesado. Servidor:* \`${candidate.api}\``, m) } catch {}
-   try {
-    await conn.sendFile(m.chat, candidate.url, `${title}.mp4`, `> ❀ ${title}`, m)
-		await safeReact('✔️')
-    break
-   } catch (err) {
-    const msg = (err && err.message) ? err.message : String(err)
-    if (/\b403\b|\b401\b/i.test(msg)) {
-     candidate = await getVid(url, (candidate.index || 0) + 1)
-     if (!candidate) throw err
-     continue
+     content = await prepareDownloadedVideo(input, title, seconds)
+     await edit('❀ Video listo. Enviando…')
+    } catch (error) {
+     melodyRawFailed = true
+     progressStopped = true
+     await editChain
+     if (progressKey) {
+      try { await conn.sendMessage(m.chat, { delete: progressKey }) }
+      catch { try { await conn.sendMessage(m.chat, { text: '❀ Preparando video…', edit: progressKey }, { quoted: m }) } catch {} }
+     }
+     logAudioProviderFailure('MelodyApi (video)', error)
+    } finally {
+     progressStopped = true
+     await editChain
+     await fs.promises.rm(directory, { recursive: true, force: true })
     }
-    throw err
+    if (content) {
+     // A WhatsApp delivery error must not start a second download or duplicate the message.
+     await conn.sendMessage(m.chat, content, { quoted: m })
+     try { await conn.reply(m.chat, '> ❀ *Servidor:* `MelodyApi`', m) } catch {}
+     await safeReact('✔️')
+     return
+    }
    }
+   let candidate = await getVid(url, 0, { skipMelodia: melodyRawFailed })
+   while (candidate) {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oguri-video-provider-'))
+    let content
+    try {
+     const input = path.join(directory, 'source.bin')
+     await downloadToFile(candidate.url, input, 90000, candidate.request)
+     content = await prepareDownloadedVideo(input, title, seconds)
+    } catch (error) {
+     logAudioProviderFailure(`${candidate.api} (video)`, error)
+    } finally {
+     await fs.promises.rm(directory, { recursive: true, force: true })
+    }
+    if (content) {
+     await conn.sendMessage(m.chat, content, { quoted: m })
+     try { await conn.reply(m.chat, `> ❀ *Servidor:* \`${candidate.api}\``, m) } catch {}
+     await safeReact('✔️')
+     return
+    }
+    candidate = await getVid(url, candidate.index + 1, { skipMelodia: melodyRawFailed })
+   }
+   throw '❀ No pude preparar este video. Inténtalo de nuevo en unos momentos.'
   }
- }} catch (e) {
+ } catch (e) {
  await safeReact('✖️')
  try {
   return await conn.reply(
@@ -710,22 +745,36 @@ function matchesSpotifySong(song, result) {
  const firstBackup = apis.findIndex(provider => provider.api !== 'MelodyApi')
  return await fetchFromApis(apis, skipMelodia ? Math.max(startIndex, firstBackup) : startIndex)
  }
- async function getVid(url, startIndex = 0) {
+ export async function getVid(url, startIndex = 0, { skipMelodia = false } = {}) {
   const apis = []
   const mel = getMelodyApi()
   if (mel?.url) {
    apis.push(
     { api: 'MelodyApi', endpoint: `${mel.url}/download/ytmp4?url=${encodeURIComponent(url)}&quality=360`, headers: mel.headers, extractor: res => res.result?.url || res.result },
     { api: 'MelodyApi', endpoint: `${mel.url}/download/ytdl-v2?url=${encodeURIComponent(url)}`, headers: mel.headers, extractor: res => res.result?.download?.mp4 || res.result?.mp4 },
-    { api: 'MelodyApi', endpoint: `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}`, headers: mel.headers, extractor: res => res.result?.mp4 },
+    { api: 'MelodyApi', endpoint: `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}`, headers: mel.headers, extractor: res => res.result?.mp4 }
    )
   }
- // Respaldos vivos únicamente (adonix/zenzxz/vreden/xyro cerraron; 2026-06).
- apis.push(
-  { api: 'Delirius', endpoint: `${global.APIs.delirius.url}/download/ytmp4?url=${encodeURIComponent(url)}`, extractor: res => res.data?.download?.url || res.data?.url },
-  { api: 'Yupra', endpoint: `${global.APIs.yupra.url}/api/downloader/ytmp4?url=${encodeURIComponent(url)}`, extractor: res => res.result?.formats?.[0]?.url }
- )
- return await fetchFromApis(apis, startIndex)
+  const source = new URL(url)
+  const id = source.hostname === 'youtu.be' ? source.pathname.slice(1).split('/')[0] : source.searchParams.get('v')
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id || '')) return null
+  const canonical = `https://www.youtube.com/watch?v=${id}`
+  const base = String(process.env.OGURI_VIDEO_API_URL || 'https://ahm7xmakki.com').replace(/\/+$/, '')
+  const endpoint = `${base}/api/alldl?url=${encodeURIComponent(canonical)}`
+  const extractor = res => res.success === true ? res.mediaInfo?.videoUrl : null
+  const firstBackup = apis.length
+  apis.push({ api: 'AllDL', endpoint, timeoutMs: 30000, extractor },
+   { api: 'AllDL', endpoint: `${endpoint}&_=${Date.now()}`, headers: { 'Cache-Control': 'no-cache' }, timeoutMs: 30000, extractor })
+  const start = skipMelodia ? Math.max(startIndex, firstBackup) : startIndex
+  const candidate = start < apis.length ? await fetchFromApis(apis, start) : null
+  if (candidate) return candidate
+  if (start > apis.length) return null
+  // This service prepares the file on its own server rather than handing out IP-bound URLs.
+  const streamBase = String(process.env.OGURI_VIDEO_STREAM_API_URL || 'https://save.brianrianrehan.com').replace(/\/+$/, '')
+  return {
+   api: 'WebDownloader', url: `${streamBase}/api/v1/download?wait=true&download=true`, index: apis.length,
+   request: { method: 'POST', body: JSON.stringify({ url: canonical, format: 'video', quality: '360p', outputFormat: 'mp4' }) }
+  }
  }
  export async function fetchFromApis(apis, startIndex = 0) {
  for (let i = startIndex; i < apis.length; i++) {
