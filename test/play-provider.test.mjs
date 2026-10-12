@@ -130,3 +130,22 @@ test('a Cloudflare HTML failure produces a useful error instead of displaying pa
   return true
  })
 })
+
+
+test('a stalled raw provider is cancelled within its header deadline', async t => {
+ const base = await server(t, () => {})
+ const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'oguri-header-timeout-'))
+ t.after(() => fs.rm(directory, { recursive: true, force: true }))
+ const started = Date.now()
+ await assert.rejects(downloadStreamToFile(base, path.join(directory, 'audio.mp3'), { headerTimeoutMs: 30, timeoutMs: 1000 }), { name: 'AbortError' })
+ assert.ok(Date.now() - started < 500, 'the provider must not consume the full download deadline before fallback')
+})
+
+test('a raw503 does not wait for an unfinished error page before trying a backup', async t => {
+ const base = await server(t, (req, res) => { res.writeHead(503, { 'content-type': 'text/html' }); res.write('<html>Unavailable') })
+ const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'oguri-error-timeout-'))
+ t.after(() => fs.rm(directory, { recursive: true, force: true }))
+ const started = Date.now()
+ await assert.rejects(downloadStreamToFile(base, path.join(directory, 'audio.mp3'), { timeoutMs: 1000 }), /HTTP 503/)
+ assert.ok(Date.now() - started < 500, 'an error response must fail immediately, even when its body never finishes')
+})

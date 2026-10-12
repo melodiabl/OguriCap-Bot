@@ -177,39 +177,22 @@ export async function downloadStreamToFile(url, filePath, opts = {}) {
  const controller = new AbortController()
  const timeout = setTimeout(() => controller.abort(), timeoutMs)
  let res
+ const headerTimeoutMs = Number(opts.headerTimeoutMs) > 0 ? Number(opts.headerTimeoutMs) : timeoutMs
+ const headerTimeout = setTimeout(() => controller.abort(), headerTimeoutMs)
  try {
   res = await fetch(url, { headers, signal: controller.signal })
  } catch (e) {
   clearTimeout(timeout)
   throw e
+ } finally {
+  clearTimeout(headerTimeout)
  }
 
-	if (!res?.ok) {
-		clearTimeout(timeout)
-		let detail = ''
-		try {
-			const ct0 = (res.headers.get('content-type') || '').toString().toLowerCase()
-			const text = await res.text().catch(() => '')
-			const clean = String(text || '').trim()
-			if (clean) {
-				if (ct0.includes('application/json') || ct0.includes('+json')) {
-					try {
-						const j = JSON.parse(clean)
-						const msg = (j && typeof j === 'object') ? (j.error || j.message || j.msg) : ''
-						detail = String(msg || '').trim() || clean.slice(0, 160)
-					} catch {
-						detail = clean.slice(0, 160)
-					}
-				} else if (ct0.includes('text/html')) {
-					detail = 'El servidor de descarga no está disponible temporalmente.'
-				} else {
-					detail = clean.slice(0, 160)
-				}
-			}
-		} catch {}
-		const base = `HTTP ${res?.status || 'ERR'}`
-		throw new Error(detail ? `${base} - ${detail}` : base)
-	}
+ if (!res?.ok) {
+  clearTimeout(timeout)
+  res?.body?.destroy()
+  throw new Error(`HTTP ${res?.status || 'ERR'}`)
+ }
  if (!res.body) {
   clearTimeout(timeout)
   throw new Error('No response body')
@@ -369,22 +352,38 @@ async function ffmpegToMp3(inputPath, outputPath, timeoutMs = 120000) {
  })
 }
 
-export async function sendDownloadedAudio(conn, m, inputPath, title, { ptt = false, videoId } = {}) {
+async function prepareDownloadedAudio(inputPath, title, { ptt = false, videoId } = {}) {
  const directory = path.join(os.tmpdir(), 'oguricap')
  await fs.promises.mkdir(directory, { recursive: true })
  const output = path.join(directory, `audio_${Date.now()}_${Math.random().toString(16).slice(2)}.${ptt ? 'ogg' : 'mp3'}`)
+ const cacheSource = ptt && videoId ? output.replace(/\.ogg$/, '.mp3') : null
  try {
-  await (ptt ? ffmpegToOggOpus : ffmpegToMp3)(inputPath, output, 180000)
+  if (cacheSource) await ffmpegToMp3(inputPath, cacheSource, 180000)
+  await (ptt ? ffmpegToOggOpus : ffmpegToMp3)(cacheSource || inputPath, output, 180000)
   const audio = await fs.promises.readFile(output)
   if (!audio.length || audio.length > 16 * 1024 * 1024) throw new Error('El audio no se puede enviar: archivo vacío o mayor a 16 MB.')
-  if (!ptt && videoId) await audioCache.put(videoId, audio).catch(() => {})
-  return await conn.sendMessage(m.chat, {
+  if (videoId) {
+   const cached = cacheSource ? await fs.promises.readFile(cacheSource) : audio
+   if (cached.length <= 16 * 1024 * 1024) await audioCache.put(videoId, cached).catch(() => {})
+  }
+  return {
    audio, mimetype: ptt ? 'audio/ogg; codecs=opus' : 'audio/mpeg', ptt,
    ...(!ptt ? { fileName: `${String(title || 'Audio').replace(/[\\/\r\n]/g, ' ').slice(0, 100)}.mp3` } : {})
-  }, { quoted: m })
+  }
  } finally {
   await fs.promises.unlink(output).catch(() => {})
+  if (cacheSource) await fs.promises.unlink(cacheSource).catch(() => {})
  }
+}
+
+export async function sendDownloadedAudio(conn, m, inputPath, title, options = {}) {
+ const content = await prepareDownloadedAudio(inputPath, title, options)
+ return await conn.sendMessage(m.chat, content, { quoted: m })
+}
+
+function logAudioProviderFailure(provider, error) {
+ const status = Number(String(error?.message || '').match(/HTTP (\d{3})/)?.[1]) || null
+ console.warn('[PLAY_PROVIDER]', JSON.stringify({ provider, status }))
 }
 
 const handler = async (m, { conn, text, usedPrefix, command }) => {
@@ -434,6 +433,7 @@ if (cachedAudio) {
  } else {
   await conn.sendMessage(m.chat, { audio: cachedAudio, mimetype: 'audio/mpeg', ptt: false, fileName: `${title}.mp3` }, { quoted: m })
  }
+ try { await conn.reply(m.chat, '> ❀ *Servidor:* `Oguri (caché)`', m) } catch {}
  await safeReact('✔️')
  return
 }
@@ -441,6 +441,7 @@ if (cachedAudio) {
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
    let melodyRawFailed = false
+   const audioUnavailable = '❀ No pude preparar esta canción. Inténtalo de nuevo en unos momentos.'
 
    // MelodyApi raw streaming (real-time progress via Content-Length)
    if (mel && pCfg.enabled) {
@@ -449,22 +450,25 @@ if (cachedAudio) {
     const tmpDir = path.join(os.tmpdir(), 'oguricap')
     const outPath = path.join(tmpDir, `melody_${Date.now()}_${Math.random().toString(16).slice(2)}.mp3`)
 			let progressKey = null
+            let progressStopped = false
+            let editChain = Promise.resolve()
+            let audioPrepared = false
 			try {
 				const initialBar = renderProgressBar(0, pCfg.style, pCfg.width)
-				const { key } = await conn.sendMessage(m.chat, { text: `❀ Descargando audio (MelodyApi)\n${initialBar} 0.0%` }, { quoted: m })
+				const { key } = await conn.sendMessage(m.chat, { text: `❀ Descargando audio\n${initialBar} 0.0%` }, { quoted: m })
 				progressKey = key
-				let editChain = Promise.resolve()
 				const edit = (t) => {
-					if (!progressKey) return Promise.resolve()
+					if (!progressKey || progressStopped) return Promise.resolve()
 					editChain = editChain
-						.then(() => conn.sendMessage(m.chat, { text: t, edit: progressKey }, { quoted: m }))
+						.then(() => !progressStopped && conn.sendMessage(m.chat, { text: t, edit: progressKey }, { quoted: m }))
 						.catch(() => {})
 					return editChain
 				}
-     const label = `❀ Descargando audio (MelodyApi)`
+     const label = `❀ Descargando audio`
      const dl = await downloadStreamToFile(rawUrl, outPath, {
       headers: mel.headers,
-      timeoutMs: 8 * 60 * 1000,
+      timeoutMs: 180000,
+      headerTimeoutMs: 15000,
       maxBytes: pCfg.maxRawBytes,
       expectedTotalBytes,
       updateMs: pCfg.updateMs,
@@ -492,87 +496,63 @@ if (cachedAudio) {
  		try {
 				if (dl && dl.totalBytes) {
 					const bar = renderProgressBar(100, pCfg.style, pCfg.width)
-					const t = `❀ Audio listo (MelodyApi)\n${bar} 100.0% | ${formatBytes(dl.totalBytes)}\n❀ Enviando audio...`
+					const t = `❀ Audio listo\n${bar} 100.0% | ${formatBytes(dl.totalBytes)}\n❀ Enviando audio...`
 					await edit(t)
 				} else {
 					const rb = dl && Number.isFinite(Number(dl.receivedBytes)) ? Number(dl.receivedBytes) : 0
-					await edit(`❀ Audio listo (MelodyApi)\n${formatBytes(rb)} listo.\n❀ Enviando audio...`)
+					await edit(`❀ Audio listo\n${formatBytes(rb)} listo.\n❀ Enviando audio...`)
 				}
 			} catch {
 				await edit(`❀ Enviando audio...`)
 			}
-      await sendDownloadedAudio(conn, m, outPath, title, { ptt: asVoiceNote, videoId: result.videoId })
+      const content = await prepareDownloadedAudio(outPath, title, { ptt: asVoiceNote, videoId: result.videoId })
+      audioPrepared = true
+      // Delivery errors must not trigger another provider or duplicate the audio.
+      progressStopped = true
+      await editChain
+      await conn.sendMessage(m.chat, content, { quoted: m })
+      try { await conn.reply(m.chat, '> ❀ *Servidor:* `MelodyApi`', m) } catch {}
 			await safeReact('✔️')
       try { await fs.promises.unlink(outPath) } catch { }
       return
-     try { await fs.promises.unlink(outPath) } catch { }
-     return
 		} catch (e) {
 			melodyRawFailed = true
-			const reason = (e && e.message) ? String(e.message).trim().slice(0, 140) : ''
-			try { if (progressKey) await conn.sendMessage(m.chat, { text: `⚠️ MelodyApi raw falló${reason ? ` (${reason})` : ''}, usando respaldo...`, edit: progressKey }, { quoted: m }) } catch { }
-			try { await fs.promises.unlink(outPath) } catch { }
+            progressStopped = true
+            await editChain
+            if (progressKey) {
+             try { await conn.sendMessage(m.chat, { delete: progressKey }) }
+             catch { try { await conn.sendMessage(m.chat, { text: '❀ Preparando audio…', edit: progressKey }, { quoted: m }) } catch {} }
+            }
+            await fs.promises.unlink(outPath).catch(() => {})
+            if (audioPrepared) throw e
+            logAudioProviderFailure('MelodyApi', e)
 		}
 	}
 
-   let candidate = await getAud(url, 0, { skipMelodia: melodyRawFailed })
-   if (!candidate?.url) throw '⚠ No se pudo obtener el audio.'
+   const providerOptions = { skipMelodia: melodyRawFailed, song: videoMatch ? undefined : result }
+   let candidate = await getAud(url, 0, providerOptions)
    while (candidate) {
-   let mimetype = 'audio/mpeg'
-   let ext = 'mp3'
-
-   // Prefer real Content-Type over URL heuristics.
-   const sniff = typeof candidate.url === 'string' ? await sniffContentType(candidate.url) : { contentType: null, totalBytes: null }
-   const ct = sniff && sniff.contentType ? sniff.contentType : null
-   if (ct && ct.includes('audio/mp4')) {
-    mimetype = 'audio/mp4'
-    ext = 'm4a'
-   } else if (ct && ct.includes('audio/mpeg')) {
-    mimetype = 'audio/mpeg'
-    ext = 'mp3'
-   } else {
-    // Fallback heuristic
-    const isM4a = typeof candidate.url === 'string' && (/mime=audio%2Fmp4/i.test(candidate.url) || /mime=audio\/mp4/i.test(candidate.url) || /\.m4a(\?|$)/i.test(candidate.url))
-    mimetype = isM4a ? 'audio/mp4' : 'audio/mpeg'
-    ext = isM4a ? 'm4a' : 'mp3'
-   }
-
-		const fileName = `${title}.${ext}`
-		try { await conn.reply(m.chat, `> ❀ *Audio procesado. Servidor:* \`${candidate.api}\``, m) } catch {}
-   try {
-     // If audio/mp4 or other formats, convert to opus before sending for ptt.
-    if ((mimetype === 'audio/mp4' || mimetype === 'audio/mpeg') && typeof candidate.url === 'string') {
-     const maxBytesForConvert = 60 * 1024 * 1024
-     const total = sniff && sniff.totalBytes ? sniff.totalBytes : null
-     if (!total || total <= maxBytesForConvert) {
-      const tmpDir = path.join(os.tmpdir(), 'oguricap')
-      await fs.promises.mkdir(tmpDir, { recursive: true })
-      const inPath = path.join(tmpDir, `in_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`)
-      try {
-       await downloadToFile(candidate.url, inPath, 90000)
-       await sendDownloadedAudio(conn, m, inPath, title, { ptt: asVoiceNote, videoId: result.videoId })
-      } finally {
-       try { await fs.promises.unlink(inPath) } catch { }
-      }
-     } else {
-      throw new Error('El audio original supera el límite de 60 MB para preparar una nota de voz compatible.')
-     }
-    } else {
-     throw new Error('No se pudo preparar el formato de audio para WhatsApp.')
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oguri-provider-audio-'))
+    let content
+    try {
+     const input = path.join(directory, 'source.bin')
+     // Download once; FFmpeg recognizes the actual format, independent of the URL.
+     await downloadToFile(candidate.url, input, 90000)
+     content = await prepareDownloadedAudio(input, title, { ptt: asVoiceNote, videoId: candidate.api === 'Nexray (Spotify)' ? undefined : result.videoId })
+    } catch (error) {
+     logAudioProviderFailure(candidate.api, error)
+    } finally {
+     await fs.promises.rm(directory, { recursive: true, force: true })
     }
-		await safeReact('✔️')
-     break
-    } catch (err) {
-    const msg = (err && err.message) ? err.message : String(err)
-    // If the media host rejects our server (403/401), try next API.
-    if (/\b403\b|\b401\b/i.test(msg)) {
-     candidate = await getAud(url, (candidate.index || 0) + 1)
-     if (!candidate) throw err
-     continue
+    if (content) {
+     await conn.sendMessage(m.chat, content, { quoted: m })
+     try { await conn.reply(m.chat, `> ❀ *Servidor:* \`${candidate.api}\``, m) } catch {}
+     await safeReact('✔️')
+     return
     }
-    throw err
+    candidate = await getAud(url, candidate.index + 1, providerOptions)
    }
-  }
+   throw audioUnavailable
   } else if (['play2', 'ytv', 'ytmp4', 'mp4'].includes(command)) {
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
@@ -668,7 +648,7 @@ if (cachedAudio) {
    m.chat,
    typeof e === 'string'
     ? e
-    : ('⚠︎ Se ha producido un problema.\n> Usa *' + usedPrefix + 'report* para informarlo.\n\n' + (e && e.message ? e.message : 'Error')),
+    : '❀ No pude completar el envío. Inténtalo de nuevo en unos momentos.',
    m
   )
  } catch {
@@ -682,7 +662,24 @@ handler.group = true
 
 export default handler
 
- export async function getAud(url, startIndex = 0, { skipMelodia = false } = {}) {
+function musicWords(value) {
+ const labels = new Set(['official', 'oficial', 'audio', 'video', 'visualizer', 'lyrics', 'lyric', 'with', 'letra', 'hd', '4k', 'mv'])
+ return (String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[\p{L}\p{N}]+/gu) || []).filter(word => !labels.has(word))
+}
+
+function matchesSpotifySong(song, result) {
+ if (typeof result?.title !== 'string' || typeof result?.artist !== 'string') return false
+ const source = new Set(musicWords(`${song.title} ${song.author?.name || ''}`))
+ const candidate = musicWords(`${result.title} ${result.artist}`)
+ if (candidate.length < 2 || !candidate.every(word => source.has(word))) return false
+ if (!musicWords(result.artist).length) return false
+ if (!/^\d{1,2}:\d{2}(?::\d{2})?$/.test(String(result.duration || ''))) return false
+ const duration = String(result.duration).split(':').reduce((total, part) => total * 60 + Number(part), 0)
+ const seconds = Number(song.seconds)
+ return seconds > 0 && duration > 0 && Math.abs(seconds - duration) <= Math.max(1, Math.min(20, seconds * 0.05))
+}
+
+ export async function getAud(url, startIndex = 0, { skipMelodia = false, song } = {}) {
   const apis = []
   const mel = getMelodyApi()
   if (mel?.url) {
@@ -702,6 +699,14 @@ export default handler
  const extractor = res => res.status === true ? res.result?.url : null
  apis.push({ api: 'Nexray', endpoint, timeoutMs: 45000, extractor },
   { api: 'Nexray', endpoint: `${endpoint}&_=${Date.now()}`, headers: { 'Cache-Control': 'no-cache' }, timeoutMs: 45000, extractor })
+ // Name searches may recover the same studio recording from Spotify.
+ // Explicit video URLs and distinct versions must keep their original source.
+ const words = song ? musicWords(`${song.title} ${song.author?.name || ''}`) : []
+ if (words.length && !words.some(word => ['live', 'cover', 'remix', 'acoustic', 'nightcore', 'slowed', 'sped'].includes(word))) {
+  const query = [...new Set(words)].join(' ')
+  apis.push({ api: 'Nexray (Spotify)', endpoint: `${backupBase}/downloader/spotifyplay?q=${encodeURIComponent(query)}`, timeoutMs: 30000,
+   extractor: res => res.status === true && matchesSpotifySong(song, res.result) ? res.result.download_url : null })
+ }
  const firstBackup = apis.findIndex(provider => provider.api !== 'MelodyApi')
  return await fetchFromApis(apis, skipMelodia ? Math.max(startIndex, firstBackup) : startIndex)
  }

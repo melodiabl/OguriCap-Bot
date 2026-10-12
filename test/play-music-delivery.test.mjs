@@ -45,7 +45,7 @@ for (const command of ['ytmp3', 'play']) test(`${command} downloads and sends th
   reply: async (chat, text) => { errors.push(text) }
  }
  await handler({ chat: 'offline-fixture', react: async () => {} }, { conn, text: 'fixture music', usedPrefix: '.', command })
- assert.deepEqual(errors, [])
+ assert.deepEqual(errors, ['> ❀ *Servidor:* `MelodyApi`'])
  assert.match(preview, /Fixture song official audio/)
  assert.ok(Buffer.isBuffer(audioMessage?.audio))
  const ptt = command === 'play'
@@ -63,6 +63,12 @@ for (const command of ['ytmp3', 'play']) test(`${command} downloads and sends th
   assert.equal(audioMessage.audio.subarray(0, 4).toString(), 'OggS')
  }
  assert.ok(Number(profile.format.duration) >= 2 && Number(profile.format.duration) < 2.1)
+ const cached = await createAudioCache({ root: cacheRoot }).get('PbD5tyvPycw')
+ assert.ok(Buffer.isBuffer(cached), 'new downloads also populate the cache when delivered as PTT')
+ const cachedFile = path.join(directory, 'cached.mp3')
+ await fs.writeFile(cachedFile, cached)
+ const cachedProfile = JSON.parse((await execute('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name', '-of', 'json', cachedFile])).stdout)
+ assert.equal(cachedProfile.streams[0].codec_name, 'mp3')
 })
 
 for (const command of ['play', 'playaudio', 'ytmp3']) test(`${command} reuses a validated cached song even when every download provider returns403`, async t => {
@@ -87,7 +93,7 @@ for (const command of ['play', 'playaudio', 'ytmp3']) test(`${command} reuses a 
   conn: { getFile: async () => ({ data: Buffer.from('thumbnail') }), sendMessage: async (chat, content) => { if (content.audio) received = content; return { key: { id: 'fixture' } } }, reply: async (chat, value) => { errors.push(value) } },
   text: 'https://www.youtube.com/watch?v=PbD5tyvPycw', usedPrefix: '.', command
  })
- assert.deepEqual(errors, [])
+ assert.deepEqual(errors, ['> ❀ *Servidor:* `Oguri (caché)`'])
  const ptt = command !== 'ytmp3'
  assert.ok(Buffer.isBuffer(received?.audio))
  assert.equal(received.mimetype, ptt ? 'audio/ogg; codecs=opus' : 'audio/mpeg')
