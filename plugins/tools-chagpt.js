@@ -7,7 +7,7 @@ const handler = async (m, { conn, command, usedPrefix, text, args }) => {
 try {
 const q = m.quoted ? m.quoted : m
 const mime = (q.msg || q).mimetype || ''
-const username = global.db?.data?.users?.[m.sender]?.name || await conn.getName(m.sender).catch(() => 'amigo') || 'amigo'
+const username = global.db?.data?.users?.[m.sender]?.name || await Promise.resolve().then(() => conn.getName?.(m.sender)).catch(() => 'amigo') || 'amigo'
 switch (command) {
 case 'dalle': {
 if (!args[0]) return conn.reply(m.chat, `❀ Por favor, proporciona una descripción para generar la imagen.`, m)
