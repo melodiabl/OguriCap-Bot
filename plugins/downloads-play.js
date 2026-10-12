@@ -4,11 +4,16 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { isIP } from 'node:net'
+import http from 'node:http'
+import https from 'node:https'
 import { spawn } from 'child_process'
 import { pipeline } from 'stream'
 import { promisify } from 'util'
 
 const streamPipeline = promisify(pipeline)
+const mediaHttpAgent = new http.Agent({ family: 4 })
+const mediaHttpsAgent = new https.Agent({ family: 4 })
+const mediaAgent = url => url.protocol === 'https:' ? mediaHttpsAgent : mediaHttpAgent
 
 function getMelodyApi() {
  const mel = global.APIs?.MelodyApi
@@ -273,7 +278,7 @@ async function sniffContentType(url) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8000)
   // Use a range request to avoid downloading full media.
-  const res = await fetch(url, { signal: controller.signal, headers: { Range: 'bytes=0-0' } })
+  const res = await fetch(url, { signal: controller.signal, agent: mediaAgent, headers: { Range: 'bytes=0-0', 'User-Agent': 'Mozilla/5.0' } })
   clearTimeout(timeout)
   if (!res || !res.ok) return null
   // Drain 1 byte to complete request in some servers.
@@ -304,7 +309,7 @@ export async function downloadToFile(url, filePath, timeoutMs = 60000) {
  const timeout = setTimeout(() => controller.abort(), timeoutMs)
  let res
  try {
-  res = await fetch(url, { signal: controller.signal, headers: { Range: 'bytes=0-', 'User-Agent': 'Mozilla/5.0' }, size: 60 * 1024 * 1024 })
+  res = await fetch(url, { signal: controller.signal, agent: mediaAgent, headers: { Range: 'bytes=0-', 'User-Agent': 'Mozilla/5.0' }, size: 60 * 1024 * 1024 })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const contentType = res.headers.get('content-type') || ''
   if (/^text\/|(?:application\/(?:json|xml)|\+json)/i.test(contentType)) throw new Error('El proveedor devolvió una página o respuesta inválida en lugar de audio multimedia.')

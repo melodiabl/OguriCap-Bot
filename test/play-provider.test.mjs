@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import dns from 'node:dns'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -89,6 +90,24 @@ test('an HTTP200 HTML page is rejected before FFmpeg receives it', async t => {
  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'oguri-html-test-'))
  t.after(() => fs.rm(directory, { recursive: true, force: true }))
  await assert.rejects(downloadToFile(base, path.join(directory, 'audio.mp3')), /content-type|audio|multimedia/i)
+})
+
+test('audio uses IPv4 when a media host also advertises an unusable IPv6 address', async t => {
+ const base = await server(t, (req, res) => { res.writeHead(200, { 'content-type': 'audio/mp4' }); res.end('fixture audio') })
+ const original = dns.lookup
+ dns.lookup = (hostname, options, callback) => {
+  if (hostname !== 'dualstack.media.test') return original(hostname, options, callback)
+  const ipv4 = options?.family === 4
+  const address = ipv4 ? '127.0.0.1' : '::1', family = ipv4 ? 4 : 6
+  if (options?.all) callback(null, [{ address, family }])
+  else callback(null, address, family)
+ }
+ t.after(() => { dns.lookup = original })
+ const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'oguri-ipv4-test-'))
+ t.after(() => fs.rm(directory, { recursive: true, force: true }))
+ const url = new URL(base)
+ url.hostname = 'dualstack.media.test'
+ assert.equal(await downloadToFile(url.toString(), path.join(directory, 'audio.m4a')), 13)
 })
 
 test('provider errors and malformed download links are not accepted as playable audio', async t => {
