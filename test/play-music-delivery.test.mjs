@@ -21,7 +21,8 @@ register('data:text/javascript,' + encodeURIComponent(`export function resolve(n
 }`))
 const { default: handler } = await import('../plugins/downloads-play.js')
 
-test('play downloads and sends a real MP3 music attachment instead of a voice note', async t => {
+for (const command of ['ytmp3', 'play']) test(`${command} downloads and sends the requested audio format`, async t => {
+ await fs.rm(path.join(cacheRoot, 'PbD5tyvPycw.cache'), { force: true })
  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'oguri-play-music-'))
  t.after(() => fs.rm(directory, { recursive: true, force: true }))
  const sourcePath = path.join(directory, 'source.wav')
@@ -43,22 +44,28 @@ test('play downloads and sends a real MP3 music attachment instead of a voice no
   sendMessage: async (chat, content) => { if (content.audio) audioMessage = content; if (content.image) preview = content.caption; return { key: { id: 'fixture' } } },
   reply: async (chat, text) => { errors.push(text) }
  }
- await handler({ chat: 'offline-fixture', react: async () => {} }, { conn, text: 'fixture music', usedPrefix: '.', command: 'play' })
+ await handler({ chat: 'offline-fixture', react: async () => {} }, { conn, text: 'fixture music', usedPrefix: '.', command })
  assert.deepEqual(errors, [])
  assert.match(preview, /Fixture song official audio/)
  assert.ok(Buffer.isBuffer(audioMessage?.audio))
- assert.equal(audioMessage.mimetype, 'audio/mpeg')
- assert.equal(audioMessage.ptt, false)
- assert.equal(audioMessage.fileName, 'Fixture song official audio.mp3')
+ const ptt = command === 'play'
+ assert.equal(audioMessage.mimetype, ptt ? 'audio/ogg; codecs=opus' : 'audio/mpeg')
+ assert.equal(audioMessage.ptt, ptt)
+ assert.equal(audioMessage.fileName, ptt ? undefined : 'Fixture song official audio.mp3')
  const file = path.join(directory, 'sent.mp3')
  await fs.writeFile(file, audioMessage.audio)
- const { stdout } = await execute('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name:format=duration', '-of', 'json', file])
+ const { stdout } = await execute('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name,channels,sample_rate:format=duration', '-of', 'json', file])
  const profile = JSON.parse(stdout)
- assert.equal(profile.streams[0].codec_name, 'mp3')
+ assert.equal(profile.streams[0].codec_name, ptt ? 'opus' : 'mp3')
+ if (ptt) {
+  assert.equal(profile.streams[0].channels, 1)
+  assert.equal(profile.streams[0].sample_rate, '48000')
+  assert.equal(audioMessage.audio.subarray(0, 4).toString(), 'OggS')
+ }
  assert.ok(Number(profile.format.duration) >= 2 && Number(profile.format.duration) < 2.1)
 })
 
-test('play reuses a validated cached song even when every download provider returns403', async t => {
+for (const command of ['play', 'playaudio', 'ytmp3']) test(`${command} reuses a validated cached song even when every download provider returns403`, async t => {
  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'oguri-cached-music-'))
  t.after(() => fs.rm(directory, { recursive: true, force: true }))
  const file = path.join(directory, 'cached.mp3')
@@ -78,11 +85,23 @@ test('play reuses a validated cached song even when every download provider retu
  const errors = []
  await handler({ chat: 'offline-fixture', react: async () => {} }, {
   conn: { getFile: async () => ({ data: Buffer.from('thumbnail') }), sendMessage: async (chat, content) => { if (content.audio) received = content; return { key: { id: 'fixture' } } }, reply: async (chat, value) => { errors.push(value) } },
-  text: 'https://www.youtube.com/watch?v=PbD5tyvPycw', usedPrefix: '.', command: 'play'
+  text: 'https://www.youtube.com/watch?v=PbD5tyvPycw', usedPrefix: '.', command
  })
  assert.deepEqual(errors, [])
- assert.deepEqual(received?.audio, audio)
- assert.equal(received.mimetype, 'audio/mpeg')
- assert.equal(received.ptt, false)
+ const ptt = command !== 'ytmp3'
+ assert.ok(Buffer.isBuffer(received?.audio))
+ assert.equal(received.mimetype, ptt ? 'audio/ogg; codecs=opus' : 'audio/mpeg')
+ assert.equal(received.ptt, ptt)
+ if (ptt) {
+  assert.equal(received.audio.subarray(0, 4).toString(), 'OggS')
+  const sent = path.join(directory, 'sent.ogg')
+  await fs.writeFile(sent, received.audio)
+  const { stdout } = await promisify(execFile)('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name,channels,sample_rate:format=duration', '-of', 'json', sent])
+  const profile = JSON.parse(stdout)
+  assert.equal(profile.streams[0].codec_name, 'opus')
+  assert.equal(profile.streams[0].channels, 1)
+  assert.equal(profile.streams[0].sample_rate, '48000')
+  assert.ok(Number(profile.format.duration) >= 2 && Number(profile.format.duration) < 2.1)
+ } else assert.deepEqual(received.audio, audio)
  assert.equal(requests, 0)
 })

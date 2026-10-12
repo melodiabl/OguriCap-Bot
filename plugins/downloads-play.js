@@ -402,7 +402,8 @@ const videos = await searchVideos(query)
 if (!videos.length) throw '[PLAY_NO_RESULTS] ꕥ No se encontraron vídeos para esa búsqueda.'
 let result = selectMusicVideo(videos, videoMatch ? videoMatch[1] : null)
 if (!result) throw '[PLAY_NO_RELATED_MUSIC] ꕥ No se encontró una canción o vídeo musical relacionado. Shorts, canales y playlists están excluidos.'
-const wantsMusic = ['play', 'yta', 'ytmp3'].includes(command)
+const wantsMusic = ['play', 'yta', 'ytmp3', 'playaudio'].includes(command)
+const asVoiceNote = ['play', 'playaudio'].includes(command)
 let cachedAudio = wantsMusic ? await audioCache.get(result.videoId).catch(() => null) : null
 if (wantsMusic && !cachedAudio && !videoMatch) {
  const words = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || []
@@ -421,7 +422,18 @@ const info = `「✦」Descargando *<${title}>*\n\n> ❑ Canal » *${author.name
 const thumb = (await conn.getFile(thumbnail)).data
 await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 if (cachedAudio) {
- await conn.sendMessage(m.chat, { audio: cachedAudio, mimetype: 'audio/mpeg', ptt: false, fileName: `${title}.mp3` }, { quoted: m })
+ if (asVoiceNote) {
+  const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oguri-cached-audio-'))
+  try {
+   const input = path.join(directory, 'source.mp3')
+   await fs.promises.writeFile(input, cachedAudio, { mode: 0o600 })
+   await sendDownloadedAudio(conn, m, input, title, { ptt: true })
+  } finally {
+   await fs.promises.rm(directory, { recursive: true, force: true })
+  }
+ } else {
+  await conn.sendMessage(m.chat, { audio: cachedAudio, mimetype: 'audio/mpeg', ptt: false, fileName: `${title}.mp3` }, { quoted: m })
+ }
  await safeReact('✔️')
  return
 }
@@ -429,7 +441,6 @@ if (cachedAudio) {
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
    let melodyRawFailed = false
-   const asVoiceNote = command === 'playaudio'
 
    // MelodyApi raw streaming (real-time progress via Content-Length)
    if (mel && pCfg.enabled) {
