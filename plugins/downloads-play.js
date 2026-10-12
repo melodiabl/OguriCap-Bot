@@ -9,11 +9,13 @@ import https from 'node:https'
 import { spawn } from 'child_process'
 import { pipeline } from 'stream'
 import { promisify } from 'util'
+import { createAudioCache } from '../lib/play-audio-cache.js'
 
 const streamPipeline = promisify(pipeline)
 const mediaHttpAgent = new http.Agent({ family: 4 })
 const mediaHttpsAgent = new https.Agent({ family: 4 })
 const mediaAgent = url => url.protocol === 'https:' ? mediaHttpsAgent : mediaHttpAgent
+const audioCache = createAudioCache({ root: process.env.OGURI_AUDIO_CACHE_PATH || path.join(process.cwd(), 'storage/audio-cache'), ttlMs: 24 * 60 * 60 * 1000 })
 
 function getMelodyApi() {
  const mel = global.APIs?.MelodyApi
@@ -367,7 +369,7 @@ async function ffmpegToMp3(inputPath, outputPath, timeoutMs = 120000) {
  })
 }
 
-export async function sendDownloadedAudio(conn, m, inputPath, title, { ptt = false } = {}) {
+export async function sendDownloadedAudio(conn, m, inputPath, title, { ptt = false, videoId } = {}) {
  const directory = path.join(os.tmpdir(), 'oguricap')
  await fs.promises.mkdir(directory, { recursive: true })
  const output = path.join(directory, `audio_${Date.now()}_${Math.random().toString(16).slice(2)}.${ptt ? 'ogg' : 'mp3'}`)
@@ -375,6 +377,7 @@ export async function sendDownloadedAudio(conn, m, inputPath, title, { ptt = fal
   await (ptt ? ffmpegToOggOpus : ffmpegToMp3)(inputPath, output, 180000)
   const audio = await fs.promises.readFile(output)
   if (!audio.length || audio.length > 16 * 1024 * 1024) throw new Error('El audio no se puede enviar: archivo vacío o mayor a 16 MB.')
+  if (!ptt && videoId) await audioCache.put(videoId, audio).catch(() => {})
   return await conn.sendMessage(m.chat, {
    audio, mimetype: ptt ? 'audio/ogg; codecs=opus' : 'audio/mpeg', ptt,
    ...(!ptt ? { fileName: `${String(title || 'Audio').replace(/[\\/\r\n]/g, ' ').slice(0, 100)}.mp3` } : {})
@@ -397,14 +400,31 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
 const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
 const videos = await searchVideos(query)
 if (!videos.length) throw '[PLAY_NO_RESULTS] ꕥ No se encontraron vídeos para esa búsqueda.'
-const result = selectMusicVideo(videos, videoMatch ? videoMatch[1] : null)
+let result = selectMusicVideo(videos, videoMatch ? videoMatch[1] : null)
 if (!result) throw '[PLAY_NO_RELATED_MUSIC] ꕥ No se encontró una canción o vídeo musical relacionado. Shorts, canales y playlists están excluidos.'
+const wantsMusic = ['play', 'yta', 'ytmp3'].includes(command)
+let cachedAudio = wantsMusic ? await audioCache.get(result.videoId).catch(() => null) : null
+if (wantsMusic && !cachedAudio && !videoMatch) {
+ const words = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || []
+ if (words.length >= 2) for (const video of videos.slice(0, 5)) {
+  if (!selectMusicVideo([video])) continue
+  const label = `${video.title} ${video.author?.name || ''}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (!words.every(word => label.includes(word))) continue
+  const audio = await audioCache.get(video.videoId).catch(() => null)
+  if (audio) { result = video; cachedAudio = audio; break }
+ }
+}
 const { title, thumbnail, timestamp, views, ago, url, author, seconds } = result
 if (seconds > 1800) throw '[PLAY_DURATION_LIMIT] ⚠ El contenido supera el límite de 30 minutos.'
 const vistas = formatViews(views)
 const info = `「✦」Descargando *<${title}>*\n\n> ❑ Canal » *${author.name}*\n> ♡ Vistas » *${vistas}*\n> ✧︎ Duración » *${timestamp}*\n> ☁︎ Publicado » *${ago}*\n> ➪ Link » ${url}`
 const thumb = (await conn.getFile(thumbnail)).data
 await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
+if (cachedAudio) {
+ await conn.sendMessage(m.chat, { audio: cachedAudio, mimetype: 'audio/mpeg', ptt: false, fileName: `${title}.mp3` }, { quoted: m })
+ await safeReact('✔️')
+ return
+}
   if (['play', 'yta', 'ytmp3', 'playaudio'].includes(command)) {
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
@@ -470,7 +490,7 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 			} catch {
 				await edit(`❀ Enviando audio...`)
 			}
-      await sendDownloadedAudio(conn, m, outPath, title, { ptt: asVoiceNote })
+      await sendDownloadedAudio(conn, m, outPath, title, { ptt: asVoiceNote, videoId: result.videoId })
 			await safeReact('✔️')
       try { await fs.promises.unlink(outPath) } catch { }
       return
@@ -519,7 +539,7 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
       const inPath = path.join(tmpDir, `in_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`)
       try {
        await downloadToFile(candidate.url, inPath, 90000)
-       await sendDownloadedAudio(conn, m, inPath, title, { ptt: asVoiceNote })
+       await sendDownloadedAudio(conn, m, inPath, title, { ptt: asVoiceNote, videoId: result.videoId })
       } finally {
        try { await fs.promises.unlink(inPath) } catch { }
       }
