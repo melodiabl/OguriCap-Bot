@@ -26,8 +26,8 @@
     "clean:logs": "rm -rf logs/* Sessions/*/logs/*",
     "backup": "tar -czf backup-$(date +%Y%m%d-%H%M%S).tar.gz --exclude=node_modules --exclude=.git .",
     "health": "node --version && npm --version",
-    "test": "node --test test/**/*.test.mjs",
-    "test:watch": "node --test --watch test/**/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:watch": "node --test --watch test/*.test.mjs"
   },
   "repository": {
     "type": "git",

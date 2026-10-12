@@ -3,6 +3,7 @@ import yts from 'yt-search'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { isIP } from 'node:net'
 import { spawn } from 'child_process'
 import { pipeline } from 'stream'
 import { promisify } from 'util'
@@ -160,7 +161,7 @@ function renderProgressBar(pct, style = 'classic', width = 16) {
  return `[${'='.repeat(filled)}${'.'.repeat(empty)}]`
 }
 
-async function downloadStreamToFile(url, filePath, opts = {}) {
+export async function downloadStreamToFile(url, filePath, opts = {}) {
  const headers = opts.headers || {}
  const timeoutMs = Number.isFinite(Number(opts.timeoutMs)) ? Number(opts.timeoutMs) : 300000
  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
@@ -192,6 +193,8 @@ async function downloadStreamToFile(url, filePath, opts = {}) {
 					} catch {
 						detail = clean.slice(0, 160)
 					}
+				} else if (ct0.includes('text/html')) {
+					detail = 'El servidor de descarga no está disponible temporalmente.'
 				} else {
 					detail = clean.slice(0, 160)
 				}
@@ -296,18 +299,23 @@ async function sniffContentType(url) {
  }
 }
 
-async function downloadToFile(url, filePath, timeoutMs = 60000) {
+export async function downloadToFile(url, filePath, timeoutMs = 60000) {
  const controller = new AbortController()
  const timeout = setTimeout(() => controller.abort(), timeoutMs)
- const res = await fetch(url, { signal: controller.signal })
- if (!res.ok) {
+ let res
+ try {
+  res = await fetch(url, { signal: controller.signal, headers: { Range: 'bytes=0-', 'User-Agent': 'Mozilla/5.0' }, size: 60 * 1024 * 1024 })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const contentType = res.headers.get('content-type') || ''
+  if (/^text\/|(?:application\/(?:json|xml)|\+json)/i.test(contentType)) throw new Error('El proveedor devolvió una página o respuesta inválida en lugar de audio multimedia.')
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (!buf.length) throw new Error('El proveedor devolvió un archivo de audio vacío.')
+  await fs.promises.writeFile(filePath, buf)
+  return buf.length
+ } finally {
   clearTimeout(timeout)
-  throw new Error(`HTTP ${res.status}`)
+  res?.body?.destroy()
  }
- const buf = Buffer.from(await res.arrayBuffer())
- clearTimeout(timeout)
- await fs.promises.writeFile(filePath, buf)
- return buf.length
 }
 
 async function ffmpegToOggOpus(inputPath, outputPath, timeoutMs = 120000) {
@@ -378,6 +386,7 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
   if (['play', 'yta', 'ytmp3', 'playaudio'].includes(command)) {
    const mel = getMelodyApi()
    const pCfg = getProgressConfig()
+   let melodyRawFailed = false
 
    // MelodyApi raw streaming (real-time progress via Content-Length)
    if (mel && pCfg.enabled) {
@@ -455,13 +464,14 @@ await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
      try { await fs.promises.unlink(outPath) } catch { }
      return
 		} catch (e) {
+			melodyRawFailed = true
 			const reason = (e && e.message) ? String(e.message).trim().slice(0, 140) : ''
 			try { if (progressKey) await conn.sendMessage(m.chat, { text: `⚠️ MelodyApi raw falló${reason ? ` (${reason})` : ''}, usando respaldo...`, edit: progressKey }, { quoted: m }) } catch { }
 			try { await fs.promises.unlink(outPath) } catch { }
 		}
 	}
 
-   let candidate = await getAud(url, 0)
+   let candidate = await getAud(url, 0, { skipMelodia: melodyRawFailed })
    if (!candidate?.url) throw '⚠ No se pudo obtener el audio.'
    while (candidate) {
    let mimetype = 'audio/mpeg'
@@ -632,7 +642,7 @@ handler.group = true
 
 export default handler
 
- async function getAud(url, startIndex = 0) {
+ export async function getAud(url, startIndex = 0, { skipMelodia = false } = {}) {
   const apis = []
   const mel = getMelodyApi()
   if (mel?.url) {
@@ -642,12 +652,18 @@ export default handler
     { api: 'MelodyApi', endpoint: `${mel.url}/download/ytdl?url=${encodeURIComponent(url)}`, headers: mel.headers, extractor: res => res.result?.mp3 },
    )
   }
- // Respaldos vivos únicamente (adonix/zenzxz/vreden/xyro cerraron; 2026-06).
- apis.push(
-  { api: 'Delirius', endpoint: `${global.APIs.delirius.url}/download/ytmp3?url=${encodeURIComponent(url)}`, extractor: res => res.data?.download?.url || res.data?.url },
-  { api: 'Yupra', endpoint: `${global.APIs.yupra.url}/api/downloader/ytmp3?url=${encodeURIComponent(url)}`, extractor: res => res.result?.link }
- )
- return await fetchFromApis(apis, startIndex)
+ // Delirius/Yupra no resuelven DNS. Respaldo comprobado el 2026-10-12.
+ const backupBase = String(process.env.NEXRAY_API_URL || 'https://api.nexray.eu.cc').replace(/\/+$/, '')
+ const source = new URL(url)
+ const videoId = source.hostname === 'youtu.be' ? source.pathname.slice(1).split('/')[0] : source.searchParams.get('v')
+ if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || '')) return null
+ const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`
+ const endpoint = `${backupBase}/downloader/v1/ytmp3?url=${encodeURIComponent(canonicalUrl)}`
+ const extractor = res => res.status === true ? res.result?.url : null
+ apis.push({ api: 'Nexray', endpoint, timeoutMs: 45000, extractor },
+  { api: 'Nexray', endpoint: `${endpoint}&_=${Date.now()}`, headers: { 'Cache-Control': 'no-cache' }, timeoutMs: 45000, extractor })
+ const firstBackup = apis.findIndex(provider => provider.api !== 'MelodyApi')
+ return await fetchFromApis(apis, skipMelodia ? Math.max(startIndex, firstBackup) : startIndex)
  }
  async function getVid(url, startIndex = 0) {
   const apis = []
@@ -666,17 +682,23 @@ export default handler
  )
  return await fetchFromApis(apis, startIndex)
  }
- async function fetchFromApis(apis, startIndex = 0) {
+ export async function fetchFromApis(apis, startIndex = 0) {
  for (let i = startIndex; i < apis.length; i++) {
-  const { api, endpoint, extractor, headers } = apis[i]
+  const { api, endpoint, extractor, headers, timeoutMs = 10000 } = apis[i]
+  let timeout
   try {
    const controller = new AbortController()
-   const timeout = setTimeout(() => controller.abort(), 10000)
-   const res = await fetch(endpoint, { signal: controller.signal, headers: headers || {} }).then(r => r.json())
-   clearTimeout(timeout)
+   timeout = setTimeout(() => controller.abort(), timeoutMs)
+   const response = await fetch(endpoint, { signal: controller.signal, headers: headers || {}, size: 1024 * 1024 })
+   if (!response.ok) { response.body?.destroy(); continue }
+   const res = await response.json()
    const link = extractor(res)
-   if (link) return { url: link, api, index: i }
-  } catch (e) {}
+   if (typeof link !== 'string') continue
+   const parsed = new URL(link)
+   const host = parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase()
+   if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password || isIP(host) || host === 'localhost' || host.endsWith('.localhost')) continue
+   return { url: parsed.toString(), api, index: i }
+  } catch (e) {} finally { clearTimeout(timeout) }
   await new Promise(resolve => setTimeout(resolve, 500))
  }
  return null
